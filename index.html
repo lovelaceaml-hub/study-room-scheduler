@@ -227,6 +227,84 @@
   .small { font-size: 13px; }
   .stack > * + * { margin-top: 10px; }
   footer { text-align: center; font-size: 12px; color: var(--faint); padding: 18px 0 30px; }
+
+  /* ---- Saturday picker (Schedule tab) ---- */
+  .sat-chips {
+    display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px; margin-top: 4px; scrollbar-width: none;
+  }
+  .sat-chips::-webkit-scrollbar { display: none; }
+  .sat-chip {
+    flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 1px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--bg);
+    padding: 6px 13px; cursor: pointer; font: 600 12px var(--sans); color: var(--muted);
+  }
+  .sat-chip .sc-dow { font-size: 10px; font-weight: 700; text-transform: uppercase; color: inherit; }
+  .sat-chip .sc-num { font-size: 16px; font-weight: 800; color: var(--ink); line-height: 1.2; }
+  .sat-chip .sc-mon { font-size: 10px; color: var(--faint); }
+  .sat-chip.active { background: var(--primary); border-color: var(--primary); }
+  .sat-chip.active .sc-num, .sat-chip.active .sc-dow, .sat-chip.active .sc-mon { color: #fff; }
+
+  /* ---- day-view grid (Schedule tab) ---- */
+  .sched-cat h2 { margin-bottom: 8px; }
+  .sched-window { margin-top: 12px; }
+  .sched-window:first-of-type { margin-top: 0; }
+  .sched-window-label { font-size: 12.5px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+  .service-div {
+    text-align: center; font-size: 11px; font-weight: 700; color: var(--faint);
+    background: var(--bg); border-radius: 8px; padding: 5px; margin: 12px 0;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .sched-scroll {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--line); border-radius: var(--r-md);
+  }
+  .sched-grid { display: grid; }
+  .sc-cell {
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-size: 11px; padding: 4px; min-height: 36px;
+    border-bottom: 1px solid var(--line); border-right: 1px solid var(--line);
+  }
+  .sc-corner { position: sticky; left: 0; z-index: 2; background: var(--card); border-right: 2px solid var(--line); }
+  .sc-time { font-size: 10px; font-weight: 700; color: var(--muted); background: var(--bg); }
+  .sc-label {
+    position: sticky; left: 0; z-index: 2; background: var(--card);
+    flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px;
+    text-align: left; font-size: 12px; font-weight: 700; padding: 6px 8px;
+    border-right: 2px solid var(--line);
+  }
+  .sc-cap { font-size: 10px; font-weight: 600; color: var(--faint); }
+  .sc-slot.free { background: transparent; }
+  .sc-slot.pending {
+    background: var(--warn-soft); color: var(--warn); font-weight: 700;
+    box-shadow: inset 0 0 0 1px var(--warn);
+  }
+  .sc-slot.approved { background: var(--primary); color: #fff; font-weight: 700; }
+
+  .sched-legend { display: flex; gap: 18px; padding: 12px 18px; flex-wrap: wrap; }
+  .legend-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .legend-swatch.pending { background: var(--warn-soft); box-shadow: inset 0 0 0 1px var(--warn); }
+  .legend-swatch.approved { background: var(--primary); }
+
+  /* ---- Sign Up form ---- */
+  .seg { display: flex; gap: 6px; }
+  .seg-btn {
+    flex: 1; border: 1px solid var(--line); border-radius: var(--r-md);
+    background: var(--card); color: var(--muted); font: 600 13px var(--sans);
+    padding: 9px 6px; cursor: pointer;
+  }
+  .seg-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .radio-row { display: flex; align-items: center; gap: 8px; font-size: 14.5px; padding: 6px 0; cursor: pointer; }
+  .radio-row input { width: auto; }
+  .conflict-warn {
+    background: var(--warn-soft); color: var(--warn); border-radius: var(--r-md);
+    padding: 10px 12px; font-size: 13px; font-weight: 600; margin-top: 10px;
+  }
+  .conflict-note {
+    background: var(--primary-soft); color: var(--primary-dark); border-radius: var(--r-md);
+    padding: 10px 12px; font-size: 13px; font-weight: 600; margin-top: 10px;
+  }
 </style>
 </head>
 <body>
