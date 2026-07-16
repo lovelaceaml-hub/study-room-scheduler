@@ -1,0 +1,1603 @@
+<meta charset="utf-8">
+<!-- Design mockup gallery: three visual directions for the Study Rooms redesign -->
+<title>Study Rooms — Design Directions</title>
+<style>
+  :root {
+    --bg: #FAFAF8;
+    --ink: #21242A;
+    --ink-soft: #5C616C;
+    --ink-faint: #9AA0AB;
+    --rule: #E3E4E0;
+    --mat: #FFFFFF;
+    --accent: #35507A;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17181B; --ink:#ECEDEF; --ink-soft:#A7ABB4; --ink-faint:#6E737D; --rule:#33353A; --mat:#212327; --accent:#8FA9D4; }
+  }
+  :root[data-theme="dark"] { --bg:#17181B; --ink:#ECEDEF; --ink-soft:#A7ABB4; --ink-faint:#6E737D; --rule:#33353A; --mat:#212327; --accent:#8FA9D4; }
+  :root[data-theme="light"] { --bg:#FAFAF8; --ink:#21242A; --ink-soft:#5C616C; --ink-faint:#9AA0AB; --rule:#E3E4E0; --mat:#FFFFFF; --accent:#35507A; }
+
+  body { background: var(--bg); color: var(--ink); font-family: system-ui, 'Segoe UI', sans-serif; margin: 0; }
+  .page { max-width: 1000px; margin: 0 auto; padding: 48px 20px 80px; }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
+  h1 { font-size: clamp(26px, 4.5vw, 38px); line-height: 1.15; margin: 0 0 14px; text-wrap: balance; }
+  .lede { font-size: 16px; line-height: 1.6; color: var(--ink-soft); max-width: 62ch; margin: 0 0 8px; }
+
+  .whatsnew { border: 1px solid var(--rule); border-radius: 10px; background: var(--mat); padding: 20px 24px; margin: 32px 0 56px; }
+  .whatsnew h2 { font-size: 15px; margin: 0 0 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); }
+  .whatsnew ul { margin: 0; padding-left: 20px; line-height: 1.65; font-size: 14.5px; color: var(--ink); }
+  .whatsnew li { margin-bottom: 6px; }
+  .whatsnew li:last-child { margin-bottom: 0; }
+
+  .direction { margin-bottom: 72px; }
+  .dir-head { margin-bottom: 18px; }
+  .dir-num { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+  .dir-head h2 { font-size: 26px; margin: 6px 0 8px; }
+  .dir-head p { font-size: 15px; line-height: 1.6; color: var(--ink-soft); max-width: 66ch; margin: 0; }
+
+  .plate { border: 1px solid var(--rule); border-radius: 14px; overflow-x: auto; background: var(--mat); }
+  .plate > section { min-width: 0; }
+
+  footer.howto { border-top: 1px solid var(--rule); padding-top: 28px; font-size: 15px; line-height: 1.65; color: var(--ink-soft); max-width: 66ch; }
+  footer.howto strong { color: var(--ink); }
+
+  /* Let the side-by-side phones wrap on small screens */
+  .dir-a .phone-row, .dir-b .frames-row, .dir-c .frames-row { flex-wrap: wrap; justify-content: center; }
+  /* Hide the agent-authored heading inside direction B (the page provides its own) */
+  .dir-b .kicker, .dir-b .kicker-sub { display: none; }
+</style>
+
+<div class="page">
+  <p class="eyebrow">LV Zion Study Rooms</p>
+  <h1>Three looks for the new scheduler</h1>
+  <p class="lede">Each direction shows the same three screens with the new features in place: the desktop schedule for this Sabbath, the phone sign-up screen, and the phone schedule with "My requests." Scroll through all three, then tell Claude which one to build — or mix them ("the layout of one, the colors of another").</p>
+
+  <div class="whatsnew">
+    <h2>What's new in all three</h2>
+    <ul>
+      <li><strong>One Sabbath at a time</strong> — members only see the upcoming Saturday, with a quiet "View last Sabbath" reference link.</li>
+      <li><strong>The approver assigns rooms</strong> — members just ask for "a study room" (with an optional preferred room), and the approver places them.</li>
+      <li><strong>A visible waiting line</strong> — when every room at a time is taken, up to three backups queue in order (1st, 2nd, 3rd), shown to everyone. Backups get promoted if someone cancels.</li>
+      <li><strong>Confirmed or Tentative</strong> — every request says how sure the visit is, it shows on the schedule, and it guides the approver's picks.</li>
+      <li><strong>Easy cancel</strong> — "Plans changed? Cancel" on your own requests, even after approval.</li>
+      <li><strong>Tap-to-pick times</strong> — tap the start slot, tap the end slot, the range fills in. No more dropdowns.</li>
+      <li><strong>Real equipment inventory</strong> — Whiteboards 1–3 (large) and 4–5 (vertical), each with its matching numbered podium, plus TVs 1–3. Rooms already have their own equipment built in.</li>
+    </ul>
+  </div>
+
+  <article class="direction">
+    <div class="dir-head">
+      <span class="dir-num">Direction 1</span>
+      <h2>Morning Chapel</h2>
+      <p>Calm and reverent, like a beautifully printed church bulletin turned into an app. Warm linen background, deep pine-green ink, serif headings, and a single touch of brass-gold reserved for the "Confirmed" mark.</p>
+    </div>
+    <div class="plate">
+<!-- DIRECTION A -->
+<section class="dir-a">
+<style>
+.dir-a { font-family: 'Avenir Next', 'Segoe UI', system-ui, sans-serif; color: #1E3B2F; background: transparent; }
+.dir-a * { box-sizing: border-box; }
+.dir-a h1, .dir-a h2, .dir-a h3, .dir-a h4 { font-family: 'Iowan Old Style', 'Palatino', Georgia, serif; font-weight: 600; margin: 0; color: #1E3B2F; }
+.dir-a p { margin: 0; }
+.dir-a .frame-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 28px; padding: 20px; background: #EFEAE0; }
+.dir-a .phone-row { display: flex; flex-direction: row; gap: 28px; align-items: flex-start; }
+.dir-a .frame-block { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.dir-a .mock-caption { font-size: 13px; letter-spacing: 0.03em; color: #4B6358; text-align: center; font-style: italic; }
+
+/* ---------- shared chrome ---------- */
+.dir-a .mock-desktop {
+  background: #F7F4EE;
+  border: 1px solid #D9D2C1;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(30,59,47,0.08);
+  overflow: hidden;
+}
+.dir-a .mock-phone {
+  background: #F7F4EE;
+  border: 10px solid #1E3B2F;
+  border-radius: 34px;
+  box-shadow: 0 8px 20px rgba(30,59,47,0.16);
+  overflow: hidden;
+  height: 760px;
+  display: flex;
+  flex-direction: column;
+}
+.dir-a .phone-notch { height: 22px; display: flex; align-items: center; justify-content: center; background: #F7F4EE; }
+.dir-a .phone-notch span { width: 70px; height: 5px; border-radius: 3px; background: #C8BFA9; display: block; }
+.dir-a .phone-body { flex: 1; overflow: hidden; padding: 14px 16px 18px 16px; }
+
+/* ---------- desktop header ---------- */
+.dir-a .app-header { padding: 18px 28px 14px 28px; border-bottom: 1px solid #E0DACB; display: flex; align-items: center; justify-content: space-between; }
+.dir-a .app-title { font-size: 21px; letter-spacing: 0.01em; font-family: 'Iowan Old Style', 'Palatino', Georgia, serif; font-weight: 600; }
+.dir-a .app-sub { font-size: 13px; color: #4B6358; margin-top: 3px; font-family: 'Avenir Next','Segoe UI',system-ui,sans-serif; }
+.dir-a .tabs { display: flex; gap: 6px; align-items: center; }
+.dir-a .tab { font-size: 13px; padding: 7px 14px; border-radius: 6px; color: #4B6358; border: 1px solid transparent; }
+.dir-a .tab.active { background: #1E3B2F; color: #F7F4EE; }
+.dir-a .live-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #4B6358; border: 1px solid #C9D6C9; background: #EEF2EA; padding: 4px 10px; border-radius: 20px; margin-left: 10px; }
+.dir-a .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #6E8F6E; display: inline-block; }
+.dir-a .ref-link { font-size: 12px; color: #7C8F82; text-decoration: underline; padding: 10px 28px 0 28px; display: block; }
+
+/* ---------- schedule grid ---------- */
+.dir-a .schedule-wrap { padding: 18px 28px 26px 28px; }
+.dir-a .cat-title { font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: #6E8F6E; margin: 20px 0 8px 0; font-family: 'Avenir Next','Segoe UI',system-ui,sans-serif; font-weight: 700; }
+.dir-a .cat-title:first-child { margin-top: 0; }
+.dir-a .ruler-row, .dir-a .room-row { display: flex; align-items: center; }
+.dir-a .row-label { width: 128px; flex: 0 0 128px; font-size: 13px; font-weight: 600; padding-right: 8px; }
+.dir-a .track { position: relative; height: 40px; background-image: repeating-linear-gradient(to right, rgba(30,59,47,0.09) 0, rgba(30,59,47,0.09) 1px, transparent 1px, transparent 50px); }
+.dir-a .track.am { width: 450px; }
+.dir-a .track.pm { width: 350px; }
+.dir-a .track-gap { width: 24px; flex: 0 0 24px; position: relative; }
+.dir-a .track-gap::after { content: ""; position: absolute; left: 11px; top: 2px; bottom: 2px; width: 1px; background: #C9BE9F; }
+.dir-a .ruler-row { margin-bottom: 6px; }
+.dir-a .tick { position: absolute; top: 0; font-size: 10px; color: #8A9A8F; transform: translateX(-1px); }
+.dir-a .room-row { margin-bottom: 8px; }
+.dir-a .chip {
+  position: absolute; top: 4px; bottom: 4px;
+  border-radius: 6px; border: 1px solid #1E3B2F;
+  background: #FFFFFF; padding: 4px 8px; font-size: 11.5px;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  overflow: hidden;
+}
+.dir-a .chip-name { font-weight: 700; display: flex; align-items: center; gap: 4px; }
+.dir-a .chip-purpose { color: #5B6F62; font-size: 10.5px; }
+.dir-a .badge { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; font-size: 9px; flex: 0 0 auto; }
+.dir-a .badge-confirmed { background: #B08D3E; color: #F7F4EE; }
+.dir-a .badge-tentative { background: transparent; border: 1.5px solid #1E3B2F; color: #1E3B2F; transform: rotate(45deg); width: 10px; height: 10px; }
+.dir-a .podium-tag { font-size: 9px; background: #E7EEE3; border: 1px solid #B7C7B4; border-radius: 4px; padding: 0 4px; margin-left: 2px; }
+.dir-a .chip.busy { background: #EDE7D8; border: 1px dashed #A99A6E; }
+.dir-a .waitline { position: absolute; top: 44px; left: 0; font-size: 10px; color: #6E5E33; background: #F3ECDA; border: 1px solid #DCCB9E; border-radius: 5px; padding: 3px 7px; white-space: nowrap; z-index: 2; }
+
+/* ---------- phone: sign up ---------- */
+.dir-a .su-h { font-size: 18px; margin-bottom: 2px; font-family: 'Iowan Old Style', 'Palatino', Georgia, serif; font-weight: 600; }
+.dir-a .su-sub { font-size: 12px; color: #6E8F6E; margin-bottom: 14px; }
+.dir-a .su-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: #6E8F6E; font-weight: 700; margin: 14px 0 6px 0; }
+.dir-a .check-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.dir-a .check-pill { font-size: 12.5px; border: 1px solid #1E3B2F; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; }
+.dir-a .check-pill.on { background: #1E3B2F; color: #F7F4EE; }
+.dir-a .check-box { width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid currentColor; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; }
+.dir-a .pref-row { display: flex; gap: 7px; flex-wrap: wrap; }
+.dir-a .pref-pill { font-size: 11.5px; border: 1px solid #C9BE9F; border-radius: 16px; padding: 5px 10px; color: #4B6358; background: #EFEAE0; }
+.dir-a .pref-pill.sel { border-color: #1E3B2F; color: #1E3B2F; background: #E7EEE3; font-weight: 700; }
+.dir-a .strip-wrap { background: #EFEAE0; border: 1px solid #DCD5C3; border-radius: 7px; padding: 10px; }
+.dir-a .strip-window-label { font-size: 10.5px; color: #7C8F82; margin-bottom: 4px; }
+.dir-a .strip { display: flex; gap: 2px; margin-bottom: 10px; }
+.dir-a .slot { flex: 1; height: 26px; background: #FFFFFF; border: 1px solid #DCD5C3; position: relative; }
+.dir-a .slot:first-child { border-radius: 4px 0 0 4px; }
+.dir-a .slot:last-child { border-radius: 0 4px 4px 0; }
+.dir-a .slot.range { background: #CFE0CE; border-color: #6E8F6E; }
+.dir-a .slot.start::before, .dir-a .slot.end::before {
+  content: ""; position: absolute; top: -4px; width: 8px; height: 8px; border-radius: 50%; background: #1E3B2F;
+}
+.dir-a .slot.start { background: #CFE0CE; border-color: #6E8F6E; }
+.dir-a .slot.end { background: #CFE0CE; border-color: #6E8F6E; }
+.dir-a .slot.start::before { left: -4px; }
+.dir-a .slot.end::before { right: -4px; }
+.dir-a .strip-time { font-size: 9px; color: #8A9A8F; display: flex; justify-content: space-between; }
+.dir-a .purpose-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.dir-a .purpose-chip { font-size: 12px; border: 1px solid #C9BE9F; border-radius: 16px; padding: 6px 11px; color: #4B6358; }
+.dir-a .purpose-chip.sel { border-color: #B08D3E; color: #7A5F1E; background: #F7EFDC; font-weight: 700; }
+.dir-a .certainty-row { display: flex; gap: 8px; }
+.dir-a .cert-btn { flex: 1; border-radius: 7px; padding: 12px 8px; font-size: 12.5px; font-weight: 700; text-align: center; line-height: 1.35; }
+.dir-a .cert-confirmed { background: #B08D3E; color: #FCF8EE; border: 1px solid #94742F; }
+.dir-a .cert-tentative { background: #F7F4EE; color: #1E3B2F; border: 1.5px solid #1E3B2F; }
+.dir-a .submit-btn { margin-top: 16px; background: #1E3B2F; color: #F7F4EE; text-align: center; padding: 13px; border-radius: 7px; font-size: 14px; font-weight: 700; }
+
+/* ---------- phone: schedule + my requests ---------- */
+.dir-a .mini-cat { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: #6E8F6E; font-weight: 700; margin: 12px 0 6px 0; }
+.dir-a .mini-row { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #E5DFCF; padding: 7px 0; font-size: 12.5px; }
+.dir-a .mini-room { font-weight: 700; width: 90px; flex: 0 0 90px; }
+.dir-a .mini-detail { flex: 1; color: #4B6358; display: flex; align-items: center; gap: 5px; }
+.dir-a .mini-time { font-size: 11px; color: #8A9A8F; flex: 0 0 auto; }
+.dir-a .req-card { margin-top: 14px; border: 1px solid #DCD5C3; border-radius: 8px; padding: 12px 14px; background: #FCFAF4; }
+.dir-a .req-title { font-size: 13px; margin-bottom: 8px; font-family: 'Iowan Old Style', 'Palatino', Georgia, serif; font-weight: 600; }
+.dir-a .req-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid #EDE7D8; font-size: 12px; }
+.dir-a .req-item:first-of-type { border-top: none; }
+.dir-a .req-status { font-weight: 700; }
+.dir-a .req-status.line { color: #7A5F1E; }
+.dir-a .req-status.approved { color: #1E3B2F; }
+.dir-a .req-status.pending { color: #6E8F6E; }
+.dir-a .cancel-link { font-size: 10.5px; color: #A65D4A; text-decoration: underline; }
+</style>
+
+<div class="frame-stack">
+
+  <div class="frame-block">
+    <div class="mock-desktop" style="width:1200px;">
+      <div class="app-header">
+        <div>
+          <div class="app-title">LV Zion Study Rooms</div>
+          <div class="app-sub">Sabbath &middot; July 18</div>
+        </div>
+        <div class="tabs">
+          <span class="tab active">This Sabbath</span>
+          <span class="tab">Sign up</span>
+          <span class="tab">Admin</span>
+          <span class="live-pill"><span class="live-dot"></span>Live</span>
+        </div>
+      </div>
+      <a class="ref-link" href="#">View last Sabbath (reference)</a>
+
+      <div class="schedule-wrap">
+
+        <div class="cat-title">Study Rooms</div>
+        <div class="ruler-row">
+          <div class="row-label"></div>
+          <div class="track am" style="background:none;">
+            <span class="tick" style="left:0px;">10:00</span>
+            <span class="tick" style="left:100px;">11:00</span>
+            <span class="tick" style="left:200px;">12:00</span>
+            <span class="tick" style="left:300px;">1:00</span>
+            <span class="tick" style="left:400px;">2:00</span>
+          </div>
+          <div class="track-gap" style="background:none;"></div>
+          <div class="track pm" style="background:none;">
+            <span class="tick" style="left:0px;">4:00</span>
+            <span class="tick" style="left:100px;">5:00</span>
+            <span class="tick" style="left:200px;">6:00</span>
+            <span class="tick" style="left:300px;">7:00</span>
+          </div>
+        </div>
+
+        <div class="room-row">
+          <div class="row-label">Room 1</div>
+          <div class="track am">
+            <div class="chip" style="left:0px; width:98px;">
+              <span class="chip-name"><span class="badge badge-confirmed">&#10003;</span>Elena</span>
+              <span class="chip-purpose">Contact study</span>
+            </div>
+          </div>
+          <div class="track-gap"></div>
+          <div class="track pm">
+            <div class="chip" style="left:200px; width:98px;">
+              <span class="chip-name"><span class="badge badge-confirmed">&#10003;</span>Marcus</span>
+              <span class="chip-purpose">Meeting</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="room-row">
+          <div class="row-label">Room 2</div>
+          <div class="track am">
+            <div class="chip" style="left:150px; width:98px;">
+              <span class="chip-name"><span class="badge badge-tentative">&#9670;</span>Josiah</span>
+              <span class="chip-purpose">New member</span>
+            </div>
+          </div>
+          <div class="track-gap"></div>
+          <div class="track pm"></div>
+        </div>
+
+        <div class="room-row" style="margin-bottom:26px;">
+          <div class="row-label">Room 3</div>
+          <div class="track am">
+            <div class="chip busy" style="left:300px; width:148px;">
+              <span class="chip-name">All rooms full</span>
+              <span class="chip-purpose">Waiting list open</span>
+            </div>
+            <div class="waitline" style="left:300px;">Waiting in line: 1. Daniel &middot; 2. Ruth &middot; 3. Marcus</div>
+          </div>
+          <div class="track-gap"></div>
+          <div class="track pm"></div>
+        </div>
+
+        <div class="room-row">
+          <div class="row-label">Room 4</div>
+          <div class="track am"></div>
+          <div class="track-gap"></div>
+          <div class="track pm">
+            <div class="chip" style="left:0px; width:98px;">
+              <span class="chip-name"><span class="badge badge-confirmed">&#10003;</span>Naomi</span>
+              <span class="chip-purpose">Contact study</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="room-row" style="margin-bottom:0;">
+          <div class="row-label">Baptism Room</div>
+          <div class="track am"></div>
+          <div class="track-gap"></div>
+          <div class="track pm">
+            <div class="chip" style="left:150px; width:98px;">
+              <span class="chip-name"><span class="badge badge-tentative">&#9670;</span>Ruth</span>
+              <span class="chip-purpose">Meeting</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cat-title">Whiteboards</div>
+        <div class="room-row">
+          <div class="row-label">Whiteboard 1 &middot; Large</div>
+          <div class="track am">
+            <div class="chip" style="left:0px; width:148px;">
+              <span class="chip-name"><span class="badge badge-confirmed">&#10003;</span>Daniel<span class="podium-tag">Podium 1</span></span>
+              <span class="chip-purpose">Meeting</span>
+            </div>
+          </div>
+          <div class="track-gap"></div>
+          <div class="track pm"></div>
+        </div>
+        <div class="room-row">
+          <div class="row-label">Whiteboard 2 &middot; Large</div>
+          <div class="track am">
+            <div class="chip" style="left:200px; width:98px;">
+              <span class="chip-name"><span class="badge badge-confirmed">&#10003;</span>Ruth</span>
+              <span class="chip-purpose">Contact study</span>
+            </div>
+          </div>
+          <div class="track-gap"></div>
+          <div class="track pm"></div>
+        </div>
+        <div class="room-row">
+          <div class="row-label">Whiteboard 4 &middot; Vertical</div>
+          <div class="track am"></div>
+          <div class="track-gap"></div>
+          <div class="track pm">
+            <div class="chip" style="left:50px; width:98px;">
+              <span class="chip-name"><span class="badge badge-tentative">&#9670;</span>Naomi</span>
+              <span class="chip-purpose">New member</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cat-title">TVs</div>
+        <div class="room-row">
+          <div class="row-label">TV 1</div>
+          <div class="track am">
+            <div class="chip" style="left:100px; width:98px;">
+              <span class="chip-name"><span class="badge badge-confirmed">&#10003;</span>Marcus</span>
+              <span class="chip-purpose">Meeting</span>
+            </div>
+          </div>
+          <div class="track-gap"></div>
+          <div class="track pm"></div>
+        </div>
+        <div class="room-row" style="margin-bottom:0;">
+          <div class="row-label">TV 3</div>
+          <div class="track am"></div>
+          <div class="track-gap"></div>
+          <div class="track pm">
+            <div class="chip" style="left:100px; width:98px;">
+              <span class="chip-name"><span class="badge badge-tentative">&#9670;</span>Elena</span>
+              <span class="chip-purpose">Contact study</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <p class="mock-caption">Desktop &mdash; This Sabbath</p>
+  </div>
+
+  <div class="phone-row">
+
+    <div class="frame-block">
+      <div class="mock-phone" style="width:375px;">
+        <div class="phone-notch"><span></span></div>
+        <div class="phone-body">
+          <div class="su-h">Request a spot</div>
+          <div class="su-sub">Sabbath &middot; July 18</div>
+
+          <div class="su-label">What do you need</div>
+          <div class="check-row">
+            <span class="check-pill on"><span class="check-box">&#10003;</span>Study room</span>
+            <span class="check-pill on"><span class="check-box">&#10003;</span>Whiteboard</span>
+            <span class="check-pill"><span class="check-box"></span>TV</span>
+            <span class="check-pill on"><span class="check-box">&#10003;</span>Podium</span>
+          </div>
+
+          <div class="su-label">Preferred room (optional)</div>
+          <div class="pref-row">
+            <span class="pref-pill">No preference</span>
+            <span class="pref-pill sel">Room 2</span>
+            <span class="pref-pill">Room 3</span>
+            <span class="pref-pill">Room 4</span>
+          </div>
+
+          <div class="su-label">Tap start, then end</div>
+          <div class="strip-wrap">
+            <div class="strip-window-label">Morning &middot; 10:00 AM &ndash; 2:30 PM</div>
+            <div class="strip">
+              <div class="slot"></div>
+              <div class="slot start"></div>
+              <div class="slot range"></div>
+              <div class="slot end"></div>
+              <div class="slot"></div>
+              <div class="slot"></div>
+              <div class="slot"></div>
+              <div class="slot"></div>
+              <div class="slot"></div>
+            </div>
+            <div class="strip-time"><span>10:00</span><span>12:00</span><span>2:30</span></div>
+          </div>
+
+          <div class="su-label">Purpose</div>
+          <div class="purpose-row">
+            <span class="purpose-chip sel">Contact study</span>
+            <span class="purpose-chip">New member</span>
+            <span class="purpose-chip">Meeting</span>
+            <span class="purpose-chip">Other</span>
+          </div>
+
+          <div class="su-label">How sure are you</div>
+          <div class="certainty-row">
+            <div class="cert-btn cert-confirmed">Confirmed<br/>&mdash; they'll be there</div>
+            <div class="cert-btn cert-tentative">Tentative<br/>&mdash; still confirming</div>
+          </div>
+
+          <div class="submit-btn">Request this time</div>
+        </div>
+      </div>
+      <p class="mock-caption">Phone &mdash; Sign up</p>
+    </div>
+
+    <div class="frame-block">
+      <div class="mock-phone" style="width:375px;">
+        <div class="phone-notch"><span></span></div>
+        <div class="phone-body">
+          <div class="su-h">This Sabbath</div>
+          <div class="su-sub">July 18 &middot; <a href="#" style="color:#7C8F82;">last Sabbath</a></div>
+
+          <div class="mini-cat">Study Rooms</div>
+          <div class="mini-row">
+            <span class="mini-room">Room 1</span>
+            <span class="mini-detail"><span class="badge badge-confirmed">&#10003;</span>Elena</span>
+            <span class="mini-time">10&ndash;11</span>
+          </div>
+          <div class="mini-row">
+            <span class="mini-room">Room 2</span>
+            <span class="mini-detail"><span class="badge badge-tentative">&#9670;</span>Josiah</span>
+            <span class="mini-time">11:30&ndash;12:30</span>
+          </div>
+          <div class="mini-row">
+            <span class="mini-room">Room 3</span>
+            <span class="mini-detail">Full &middot; waiting list</span>
+            <span class="mini-time">1&ndash;2</span>
+          </div>
+
+          <div class="mini-cat">Whiteboards &amp; TVs</div>
+          <div class="mini-row">
+            <span class="mini-room">Whiteboard 1</span>
+            <span class="mini-detail"><span class="badge badge-confirmed">&#10003;</span>Daniel <span class="podium-tag">Podium 1</span></span>
+            <span class="mini-time">10&ndash;11</span>
+          </div>
+          <div class="mini-row" style="border-bottom:none;">
+            <span class="mini-room">TV 1</span>
+            <span class="mini-detail"><span class="badge badge-confirmed">&#10003;</span>Marcus</span>
+            <span class="mini-time">11&ndash;12</span>
+          </div>
+
+          <div class="req-card">
+            <div class="req-title">My requests</div>
+            <div class="req-item">
+              <span>Whiteboard 4 &middot; 4:30&ndash;5:30</span>
+              <span class="req-status line">In line &mdash; 2nd backup</span>
+            </div>
+            <div class="req-item">
+              <span>Study room &middot; 10&ndash;11 <br/><span class="cancel-link">Plans changed? Cancel</span></span>
+              <span class="req-status approved">Approved &mdash; Room 3</span>
+            </div>
+            <div class="req-item">
+              <span>TV &middot; 5&ndash;5:30</span>
+              <span class="req-status pending">Pending review</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="mock-caption">Phone &mdash; My requests</p>
+    </div>
+
+  </div>
+
+</div>
+</section>
+    </div>
+  </article>
+
+  <article class="direction">
+    <div class="dir-head">
+      <span class="dir-num">Direction 2</span>
+      <h2>Clear Sky</h2>
+      <p>The friendliest of the three — a grown-up evolution of the familiar church blue used in the worship duty and prayer apps. Rounded cards, pill buttons, soft shadows, and a clear color code: green means confirmed, sky blue means tentative, amber means waiting in line.</p>
+    </div>
+    <div class="plate">
+<!-- DIRECTION B -->
+<section class="dir-b">
+<style>
+.dir-b {
+  --paper:#FBFCFE;
+  --line:#DCE4F0;
+  --primary:#2B4BC0;
+  --primary-dark:#1E3A9E;
+  --sky:#7FA7F0;
+  --sky-tint:#EAF1FE;
+  --amber:#E8A13C;
+  --amber-tint:#FCF1DE;
+  --green:#188A5E;
+  --green-tint:#E3F3EC;
+  --ink:#1B2333;
+  --ink-soft:#5B6478;
+  --ink-faint:#93A0B8;
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  padding: 32px;
+  box-sizing: border-box;
+  display: block;
+}
+.dir-b * { box-sizing: border-box; }
+.dir-b .font-display { font-family: 'Avenir Next','Futura','Trebuchet MS',sans-serif; }
+.dir-b .kicker { font-family: 'Avenir Next','Futura','Trebuchet MS',sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--primary); margin: 0 0 6px 2px; }
+.dir-b .kicker-sub { font-size: 14px; color: var(--ink-soft); margin: 0 0 28px 2px; }
+
+/* ---------- shared frame chrome ---------- */
+.dir-b .mock-desktop, .dir-b .mock-phone {
+  background: var(--paper);
+  box-shadow: 0 20px 45px -18px rgba(43,75,192,0.28), 0 2px 8px rgba(27,35,51,0.06);
+  border: 1px solid var(--line);
+}
+.dir-b .mock-desktop { border-radius: 20px; overflow: hidden; }
+.dir-b .frames-row { display: flex; align-items: flex-start; gap: 28px; margin-top: 28px; }
+.dir-b .frame-col { display: flex; flex-direction: column; align-items: center; }
+.dir-b .mock-caption { font-size: 13px; color: var(--ink-soft); text-align: center; margin: 12px 0 0; font-weight: 600; }
+
+/* ================= DESKTOP ================= */
+.dir-b .app-header {
+  display: flex; align-items: center; gap: 24px;
+  padding: 14px 28px; background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.dir-b .brand { display: flex; align-items: center; gap: 10px; }
+.dir-b .brand-name { font-weight: 800; font-size: 17px; color: var(--ink); }
+.dir-b .tabs { display: flex; gap: 6px; background: #F1F4FB; padding: 4px; border-radius: 999px; margin-left: 8px; }
+.dir-b .tab { font-size: 13.5px; font-weight: 600; color: var(--ink-soft); padding: 8px 16px; border-radius: 999px; }
+.dir-b .tab.active { background: var(--primary); color: #fff; box-shadow: 0 4px 10px -3px rgba(43,75,192,0.5); }
+.dir-b .header-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.dir-b .live-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--green); background: var(--green-tint); padding: 5px 11px; border-radius: 999px; }
+.dir-b .live-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; box-shadow: 0 0 0 3px rgba(24,138,94,0.18); }
+.dir-b .sabbath-date { font-weight: 800; font-size: 15px; color: var(--primary); }
+.dir-b .ref-link { font-size: 12.5px; color: var(--ink-faint); text-decoration: underline; text-underline-offset: 2px; }
+
+.dir-b .schedule-body { padding: 22px 28px 30px; }
+.dir-b .legend { display: flex; gap: 20px; margin-bottom: 18px; }
+.dir-b .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
+.dir-b .legend-swatch { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+.dir-b .legend-swatch.confirmed { background: var(--green); }
+.dir-b .legend-swatch.tentative { background: #fff; border: 2px solid var(--sky); }
+.dir-b .legend-swatch.waiting { background: var(--amber); }
+
+.dir-b .ruler-row { display: flex; margin-bottom: 6px; }
+.dir-b .ruler-label { width: 172px; flex-shrink: 0; }
+.dir-b .ruler-track-wrap { display: flex; flex: 1; gap: 18px; }
+.dir-b .ruler { position: relative; height: 18px; }
+.dir-b .ruler.morning { flex: 270 1 0; }
+.dir-b .ruler.afternoon { flex: 210 1 0; }
+.dir-b .ruler span { position: absolute; top: 0; transform: translateX(-2px); font-size: 11px; font-weight: 700; color: var(--ink-faint); }
+
+.dir-b .section-title { font-weight: 800; font-size: 13.5px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink-soft); margin: 18px 2px 8px; }
+.dir-b .section-title:first-of-type { margin-top: 4px; }
+
+.dir-b .timeline-row { display: flex; align-items: stretch; margin-bottom: 8px; }
+.dir-b .timeline-label { width: 172px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; font-size: 13px; font-weight: 700; color: var(--ink); padding-right: 10px; }
+.dir-b .timeline-label small { font-weight: 600; color: var(--ink-faint); font-size: 11px; }
+.dir-b .timeline-track-wrap { display: flex; flex: 1; gap: 18px; }
+.dir-b .timeline-track {
+  position: relative; height: 54px; border-radius: 12px;
+  background-color: #F7F9FD;
+  background-image: repeating-linear-gradient(to right, var(--line) 0, var(--line) 1px, transparent 1px, transparent calc(100%/4.5));
+}
+.dir-b .timeline-track.afternoon { background-image: repeating-linear-gradient(to right, var(--line) 0, var(--line) 1px, transparent 1px, transparent calc(100%/3.5)); }
+.dir-b .timeline-track.morning { flex: 270 1 0; }
+.dir-b .timeline-track.afternoon { flex: 210 1 0; }
+
+.dir-b .chip {
+  position: absolute; top: 5px; bottom: 5px; border-radius: 9px;
+  padding: 6px 9px; display: flex; flex-direction: column; justify-content: center;
+  font-size: 12px; overflow: hidden; min-width: 0;
+}
+.dir-b .chip-name { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dir-b .chip-time { font-size: 10.5px; font-weight: 600; opacity: 0.85; white-space: nowrap; }
+.dir-b .chip-badge { position: absolute; top: 5px; right: 6px; font-size: 11px; font-weight: 800; }
+.dir-b .chip-confirmed { background: var(--green-tint); border: 1.5px solid var(--green); color: #0F5E40; }
+.dir-b .chip-confirmed .chip-badge { color: var(--green); }
+.dir-b .chip-tentative { background: var(--sky-tint); border: 1.5px dashed var(--sky); color: var(--primary-dark); }
+.dir-b .chip-tentative .chip-badge { color: var(--sky); }
+.dir-b .chip-podium { position: absolute; bottom: 4px; right: 6px; display: inline-flex; align-items: center; gap: 2px; font-size: 9.5px; font-weight: 700; color: var(--primary); background: #fff; border-radius: 5px; padding: 1px 4px; }
+
+.dir-b .chip-waiting {
+  background: var(--amber-tint); border: 1.5px solid var(--amber); border-radius: 9px;
+  padding: 6px 10px; font-size: 11.5px; color: #8A5A12; font-weight: 700;
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.dir-b .chip-waiting .waiting-icon { font-size: 13px; }
+.dir-b .queue-num { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--amber); color: #fff; font-size: 9.5px; font-weight: 800; margin-right: 2px; }
+
+/* ================= PHONES ================= */
+.dir-b .mock-phone { border-radius: 42px; border: 9px solid var(--ink); position: relative; overflow: hidden; }
+.dir-b .phone-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 130px; height: 22px; background: var(--ink); border-radius: 0 0 16px 16px; z-index: 5; }
+.dir-b .phone-screen { padding: 34px 18px 22px; min-height: 700px; background: var(--paper); }
+
+.dir-b .phone-header { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.dir-b .back-arrow { font-size: 20px; color: var(--ink-soft); font-weight: 700; }
+.dir-b .phone-title { font-weight: 800; font-size: 20px; color: var(--ink); }
+.dir-b .phone-subdate { font-size: 12.5px; color: var(--ink-faint); font-weight: 600; margin: 4px 0 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dir-b .live-pill.small { padding: 3px 9px; font-size: 10.5px; margin-left: auto; }
+.dir-b .ref-link.small { font-size: 11px; }
+
+.dir-b .ph-section { margin-bottom: 20px; }
+.dir-b .ph-label { font-size: 12.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: var(--ink-soft); margin-bottom: 9px; }
+.dir-b .need-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.dir-b .need-chip, .dir-b .pref-chip, .dir-b .purpose-chip {
+  font-size: 12.5px; font-weight: 700; padding: 9px 14px; border-radius: 999px;
+  border: 1.5px solid var(--line); color: var(--ink-soft); background: #fff;
+}
+.dir-b .need-chip.active, .dir-b .pref-chip.active, .dir-b .purpose-chip.active {
+  background: var(--primary); border-color: var(--primary); color: #fff;
+  box-shadow: 0 4px 10px -3px rgba(43,75,192,0.5);
+}
+
+.dir-b .time-strip { display: flex; gap: 5px; overflow: hidden; }
+.dir-b .slot {
+  flex: 1; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--ink-faint);
+  background: #F1F4FB; border-radius: 8px; padding: 10px 2px 8px; position: relative;
+}
+.dir-b .slot.sel { background: var(--sky); color: #fff; }
+.dir-b .slot.sel.start, .dir-b .slot.sel.end { background: var(--primary); color: #fff; }
+.dir-b .tap-tag {
+  position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+  font-size: 9px; font-weight: 800; color: var(--primary); background: #fff;
+  border: 1px solid var(--primary); border-radius: 999px; padding: 1px 6px; white-space: nowrap;
+}
+.dir-b .time-strip { margin-top: 20px; }
+.dir-b .ph-hint { font-size: 11.5px; color: var(--ink-soft); margin-top: 10px; line-height: 1.4; }
+
+.dir-b .certainty-btn {
+  width: 100%; display: block; text-align: left; font-family: inherit; font-size: 14.5px; font-weight: 800;
+  padding: 15px 16px; border-radius: 16px; margin-bottom: 10px; border: 2px solid transparent; cursor: pointer;
+}
+.dir-b .certainty-btn.confirmed { background: var(--green-tint); border-color: var(--green); color: #0F5E40; }
+.dir-b .certainty-btn.tentative { background: #fff; border-color: var(--sky); color: var(--primary-dark); }
+.dir-b .submit-btn {
+  width: 100%; font-family: inherit; font-weight: 800; font-size: 16px; color: #fff; background: var(--primary);
+  border: none; border-radius: 999px; padding: 17px; margin-top: 6px; box-shadow: 0 10px 22px -8px rgba(43,75,192,0.6);
+}
+
+.dir-b .mini-row { display: flex; align-items: center; gap: 9px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.dir-b .mini-row:last-child { border-bottom: none; }
+.dir-b .mini-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.dir-b .mini-dot.confirmed { background: var(--green); }
+.dir-b .mini-dot.tentative { background: #fff; border: 2px solid var(--sky); }
+.dir-b .mini-dot.waiting { background: var(--amber); }
+.dir-b .mini-text { font-size: 12.5px; color: var(--ink); flex: 1; line-height: 1.35; }
+.dir-b .mini-badge { font-size: 12px; font-weight: 800; margin-left: auto; }
+.dir-b .mini-badge.confirmed { color: var(--green); }
+.dir-b .mini-badge.tentative { color: var(--sky); }
+.dir-b .mini-row.waiting .mini-text { color: #8A5A12; font-weight: 700; }
+.dir-b .podium-tag { display: inline-flex; align-items: center; gap: 2px; color: var(--primary); font-weight: 700; font-size: 11px; }
+
+.dir-b .requests-card { background: #F1F4FB; border-radius: 16px; padding: 14px 16px; margin-bottom: 4px; }
+.dir-b .request-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--line); gap: 10px; }
+.dir-b .request-row:last-child { border-bottom: none; }
+.dir-b .req-title { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.dir-b .req-status { display: inline-block; font-size: 11.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px; }
+.dir-b .req-status.waiting { background: var(--amber-tint); color: #8A5A12; }
+.dir-b .req-status.approved { background: var(--green-tint); color: #0F5E40; }
+.dir-b .req-status.pending { background: #E7EAF4; color: var(--ink-soft); }
+.dir-b .cancel-link { font-size: 11px; font-weight: 700; color: var(--primary); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+</style>
+
+<div class="mock-desktop" style="width:1200px;">
+  <header class="app-header">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#2B4BC0"/><path d="M10 20 L10 13 L15 9 L20 13 L20 20 Z" fill="#fff"/><rect x="13.5" y="16" width="3" height="4" fill="#2B4BC0"/></svg>
+      <span class="brand-name font-display">LV Zion Study Rooms</span>
+      <nav class="tabs">
+        <span class="tab active">This Sabbath</span>
+        <span class="tab">Sign up</span>
+        <span class="tab">Admin</span>
+      </nav>
+    </div>
+    <div class="header-right">
+      <span class="live-pill"><i class="dot"></i>Live</span>
+      <span class="sabbath-date font-display">Sabbath · July 18</span>
+      <a class="ref-link" href="#">View last Sabbath (reference)</a>
+    </div>
+  </header>
+
+  <div class="schedule-body">
+    <div class="legend">
+      <span class="legend-item"><span class="legend-swatch confirmed"></span>Confirmed</span>
+      <span class="legend-item"><span class="legend-swatch tentative"></span>Tentative</span>
+      <span class="legend-item"><span class="legend-swatch waiting"></span>Waiting in line</span>
+    </div>
+
+    <div class="ruler-row">
+      <div class="ruler-label"></div>
+      <div class="ruler-track-wrap">
+        <div class="ruler morning">
+          <span style="left:0%">10:00 AM</span>
+          <span style="left:22.22%">11:00</span>
+          <span style="left:44.44%">12:00</span>
+          <span style="left:66.67%">1:00</span>
+          <span style="left:88.89%">2:00</span>
+        </div>
+        <div class="ruler afternoon">
+          <span style="left:0%">4:00 PM</span>
+          <span style="left:28.57%">5:00</span>
+          <span style="left:57.14%">6:00</span>
+          <span style="left:85.71%">7:00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title font-display">Study Rooms</div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Room 1<small>Study room</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning">
+          <div class="chip chip-confirmed" style="left:0%;width:22.22%"><span class="chip-name">Daniel</span><span class="chip-time">10:00–11:00</span><span class="chip-badge">✓</span></div>
+        </div>
+        <div class="timeline-track afternoon">
+          <div class="chip chip-tentative" style="left:14.29%;width:28.57%"><span class="chip-name">Naomi</span><span class="chip-time">4:30–5:30</span><span class="chip-badge">◇</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Room 2<small>Study room</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning">
+          <div class="chip chip-tentative" style="left:33.33%;width:22.22%"><span class="chip-name">Elena</span><span class="chip-time">11:30–12:30</span><span class="chip-badge">◇</span></div>
+        </div>
+        <div class="timeline-track afternoon"></div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Room 3<small>Study room</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning">
+          <div class="chip chip-confirmed" style="left:55.56%;width:22.22%"><span class="chip-name">Josiah</span><span class="chip-time">12:30–1:30</span><span class="chip-badge">✓</span></div>
+        </div>
+        <div class="timeline-track afternoon"></div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Room 4<small>Study room</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning"></div>
+        <div class="timeline-track afternoon">
+          <div class="chip chip-confirmed" style="left:28.57%;width:28.57%"><span class="chip-name">Caleb</span><span class="chip-time">5:00–6:00</span><span class="chip-badge">✓</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Baptism Room<small>Study room</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning">
+          <div class="chip chip-tentative" style="left:11.11%;width:22.22%"><span class="chip-name">Miriam</span><span class="chip-time">10:30–11:30</span><span class="chip-badge">◇</span></div>
+        </div>
+        <div class="timeline-track afternoon"></div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Backup line<small>All rooms full</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning">
+          <div class="chip-waiting" style="position:absolute;top:5px;bottom:5px;left:66.67%;width:33.33%;">
+            <span class="waiting-icon">⏳</span>
+            <span><span class="queue-num">1</span>Daniel · <span class="queue-num">2</span>Ruth · <span class="queue-num">3</span>Marcus</span>
+          </div>
+        </div>
+        <div class="timeline-track afternoon"></div>
+      </div>
+    </div>
+
+    <div class="section-title font-display">Equipment — Whiteboards</div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Whiteboard 1<small>Large + Podium 1</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning">
+          <div class="chip chip-confirmed" style="left:0%;width:11.11%"><span class="chip-name">Priscilla</span><span class="chip-time">10:00–10:30</span><span class="chip-badge">✓</span></div>
+        </div>
+        <div class="timeline-track afternoon"></div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Whiteboard 2<small>Large + Podium 2</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning"></div>
+        <div class="timeline-track afternoon">
+          <div class="chip chip-tentative" style="left:42.86%;width:28.57%"><span class="chip-name">Ruth</span><span class="chip-time">5:30–6:30</span><span class="chip-badge">◇</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Whiteboard 3<small>Large + Podium 3</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning"></div>
+        <div class="timeline-track afternoon"></div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Whiteboard 4<small>Vertical + Podium 4</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning"></div>
+        <div class="timeline-track afternoon">
+          <div class="chip chip-confirmed" style="left:0%;width:28.57%">
+            <span class="chip-name">Josiah</span><span class="chip-time">4:00–5:00</span><span class="chip-badge">✓</span>
+            <span class="chip-podium"><svg width="9" height="9" viewBox="0 0 10 10"><path d="M2 9 L8 9 L7 3 L3 3 Z" fill="currentColor"/></svg>Podium</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">Whiteboard 5<small>Vertical + Podium 5</small></div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning"></div>
+        <div class="timeline-track afternoon"></div>
+      </div>
+    </div>
+
+    <div class="section-title font-display">Equipment — TVs</div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">TV 1</div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning">
+          <div class="chip chip-confirmed" style="left:22.22%;width:22.22%"><span class="chip-name">Priscilla</span><span class="chip-time">11:00–12:00</span><span class="chip-badge">✓</span></div>
+        </div>
+        <div class="timeline-track afternoon"></div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">TV 2</div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning"></div>
+        <div class="timeline-track afternoon">
+          <div class="chip chip-confirmed" style="left:42.86%;width:28.57%"><span class="chip-name">Marcus</span><span class="chip-time">5:30–6:30</span><span class="chip-badge">✓</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-row">
+      <div class="timeline-label">TV 3</div>
+      <div class="timeline-track-wrap">
+        <div class="timeline-track morning"></div>
+        <div class="timeline-track afternoon"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<p class="mock-caption">Desktop — This Sabbath</p>
+
+<div class="frames-row">
+  <div class="frame-col">
+    <div class="mock-phone" style="width:375px;">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="phone-header">
+          <span class="back-arrow">‹</span>
+          <span class="phone-title font-display">Request a Time</span>
+        </div>
+        <div class="phone-subdate">Sabbath · July 18</div>
+
+        <div class="ph-section">
+          <div class="ph-label">What do you need?</div>
+          <div class="need-row">
+            <span class="need-chip active">✓ Study room</span>
+            <span class="need-chip">Whiteboard</span>
+            <span class="need-chip">TV</span>
+            <span class="need-chip">Podium</span>
+          </div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-label">Preferred room (optional)</div>
+          <div class="need-row">
+            <span class="pref-chip active">No preference</span>
+            <span class="pref-chip">Room 1</span>
+            <span class="pref-chip">Room 2</span>
+            <span class="pref-chip">Room 3</span>
+            <span class="pref-chip">Room 4</span>
+          </div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-label">Tap start, then end</div>
+          <div class="time-strip">
+            <div class="slot">10</div>
+            <div class="slot">10:30</div>
+            <div class="slot sel start">11<span class="tap-tag">Start</span></div>
+            <div class="slot sel">11:30</div>
+            <div class="slot sel end">12<span class="tap-tag">End</span></div>
+            <div class="slot">12:30</div>
+            <div class="slot">1</div>
+            <div class="slot">1:30</div>
+            <div class="slot">2</div>
+            <div class="slot">2:30</div>
+          </div>
+          <div class="ph-hint">Selected: 11:00 AM – 12:00 PM &nbsp;·&nbsp; Afternoon window 4:00–7:30 PM also available — scroll to view →</div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-label">Purpose</div>
+          <div class="need-row">
+            <span class="purpose-chip active">Contact study</span>
+            <span class="purpose-chip">New member</span>
+            <span class="purpose-chip">Meeting</span>
+            <span class="purpose-chip">Other</span>
+          </div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-label">How sure are you?</div>
+          <button class="certainty-btn confirmed">✓ Confirmed — they'll be there</button>
+          <button class="certainty-btn tentative">◇ Tentative — still confirming</button>
+        </div>
+
+        <button class="submit-btn font-display">Request this time</button>
+      </div>
+    </div>
+    <p class="mock-caption">Phone — Sign up</p>
+  </div>
+
+  <div class="frame-col">
+    <div class="mock-phone" style="width:375px;">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="phone-header">
+          <span class="phone-title font-display">This Sabbath</span>
+          <span class="live-pill small"><i class="dot"></i>Live</span>
+        </div>
+        <div class="phone-subdate">Sabbath · July 18 &nbsp;·&nbsp; <a class="ref-link small" href="#">View last Sabbath (reference)</a></div>
+
+        <div class="ph-section">
+          <div class="ph-label">Study Rooms</div>
+          <div class="mini-row">
+            <span class="mini-dot confirmed"></span>
+            <span class="mini-text"><b>Room 1</b> · Daniel · 10:00–11:00 AM</span>
+            <span class="mini-badge confirmed">✓</span>
+          </div>
+          <div class="mini-row">
+            <span class="mini-dot tentative"></span>
+            <span class="mini-text"><b>Room 2</b> · Elena · 11:30 AM–12:30 PM</span>
+            <span class="mini-badge tentative">◇</span>
+          </div>
+          <div class="mini-row">
+            <span class="mini-dot confirmed"></span>
+            <span class="mini-text"><b>Room 3</b> · Josiah · 12:30–1:30 PM</span>
+            <span class="mini-badge confirmed">✓</span>
+          </div>
+          <div class="mini-row waiting">
+            <span class="mini-dot waiting"></span>
+            <span class="mini-text">All rooms full 1:00–2:30 PM · Waiting in line: 1. Daniel · 2. Ruth · 3. Marcus</span>
+          </div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-label">Equipment</div>
+          <div class="mini-row">
+            <span class="mini-dot confirmed"></span>
+            <span class="mini-text"><b>Whiteboard 4</b> (Vertical) · Josiah · 4:00–5:00 PM <span class="podium-tag"><svg width="9" height="9" viewBox="0 0 10 10"><path d="M2 9 L8 9 L7 3 L3 3 Z" fill="currentColor"/></svg>Podium</span></span>
+            <span class="mini-badge confirmed">✓</span>
+          </div>
+          <div class="mini-row">
+            <span class="mini-dot confirmed"></span>
+            <span class="mini-text"><b>TV 1</b> · Priscilla · 11:00 AM–12:00 PM</span>
+            <span class="mini-badge confirmed">✓</span>
+          </div>
+        </div>
+
+        <div class="requests-card">
+          <div class="ph-label">My Requests</div>
+          <div class="request-row">
+            <div>
+              <div class="req-title">Contact study</div>
+              <div class="req-status waiting">In line — 2nd backup</div>
+            </div>
+          </div>
+          <div class="request-row">
+            <div>
+              <div class="req-title">New member visit</div>
+              <div class="req-status approved">Approved — Room 3</div>
+            </div>
+            <a class="cancel-link" href="#">Plans changed? Cancel</a>
+          </div>
+          <div class="request-row">
+            <div>
+              <div class="req-title">Committee meeting</div>
+              <div class="req-status pending">Pending review</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mock-caption">Phone — My requests</p>
+  </div>
+</div>
+</section>
+    </div>
+  </article>
+
+  <article class="direction">
+    <div class="dir-head">
+      <span class="dir-num">Direction 3</span>
+      <h2>Timetable</h2>
+      <p>The boldest of the three — inspired by beautifully printed transit timetables and wall schedules. Charcoal ink, strong grid lines, one vivid saffron accent, and the most scannable at-a-glance view of who has what and when.</p>
+    </div>
+    <div class="plate">
+<!-- DIRECTION C -->
+<section class="dir-c">
+<style>
+.dir-c{
+  background:#FCFCFA;
+  color:#232323;
+  font-family:'Helvetica Neue','Arial Narrow',system-ui,sans-serif;
+  padding:32px;
+  box-sizing:border-box;
+  display:block;
+}
+.dir-c *{box-sizing:border-box;}
+.dir-c .wrap{display:flex;flex-direction:column;align-items:center;gap:36px;}
+.dir-c .frames-row{display:flex;flex-direction:row;gap:28px;align-items:flex-start;justify-content:center;}
+.dir-c .frame-col{display:flex;flex-direction:column;align-items:center;}
+.dir-c .mock-caption{
+  margin:12px 0 0 0;
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:#5B6B7F;
+  text-align:center;
+}
+
+/* ===================== SHARED ===================== */
+.dir-c .badge{
+  display:inline-flex;align-items:center;gap:3px;
+  font-size:9px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+  padding:1px 4px;border-radius:2px;
+  white-space:nowrap;
+}
+.dir-c .badge.confirmed{background:#D97706;color:#FCFCFA;}
+.dir-c .badge.tentative{background:transparent;color:#5B6B7F;border:1.5px solid #5B6B7F;}
+.dir-c .podium-tag{
+  display:inline-flex;align-items:center;gap:2px;
+  font-size:9px;font-weight:800;color:#232323;
+  border:1.5px solid #232323;border-radius:2px;padding:0 3px;
+  margin-left:4px;
+}
+.dir-c .podium-tag svg{display:block;}
+.dir-c .booking.confirmed .podium-tag{color:#FCFCFA;border-color:#FCFCFA;}
+.dir-c .booking.confirmed .podium-tag svg path,.dir-c .booking.confirmed .podium-tag svg rect{fill:#FCFCFA;}
+.dir-c .live-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+  color:#166534;border:1.5px solid #166534;border-radius:20px;padding:3px 9px 3px 7px;
+}
+.dir-c .live-dot{width:6px;height:6px;border-radius:50%;background:#22C55E;display:inline-block;}
+
+/* ===================== DESKTOP FRAME ===================== */
+.dir-c .mock-desktop{
+  width:1200px;
+  background:#FCFCFA;
+  border:2px solid #232323;
+  padding:0;
+}
+.dir-c .app-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 28px;border-bottom:3px solid #232323;
+}
+.dir-c .app-id{display:flex;align-items:baseline;gap:18px;}
+.dir-c .app-name{
+  font-size:22px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+}
+.dir-c .sabbath-date{
+  font-size:22px;font-weight:800;color:#D97706;letter-spacing:.3px;
+  font-variant-numeric:tabular-nums;
+}
+.dir-c .ref-link{
+  font-size:12px;font-weight:600;color:#5B6B7F;text-decoration:underline;
+  text-underline-offset:2px;margin-left:6px;
+}
+.dir-c .app-tabs{display:flex;align-items:center;gap:26px;}
+.dir-c .tab{
+  font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  color:#8a8a8a;padding-bottom:4px;border-bottom:3px solid transparent;
+}
+.dir-c .tab.active{color:#232323;border-bottom-color:#D97706;}
+
+.dir-c .legend{
+  display:flex;gap:20px;align-items:center;padding:10px 28px;border-bottom:2px solid #232323;
+  font-size:11px;font-weight:700;color:#5B6B7F;letter-spacing:.3px;
+}
+.dir-c .legend-item{display:flex;align-items:center;gap:6px;}
+.dir-c .legend-swatch{width:14px;height:10px;display:inline-block;border-radius:2px;}
+.dir-c .legend-swatch.c{background:#D97706;}
+.dir-c .legend-swatch.t{background:#FCFCFA;border:1.5px solid #5B6B7F;}
+
+.dir-c .timetable{
+  display:grid;
+  grid-template-columns:150px repeat(9,1fr) 16px repeat(7,1fr);
+  grid-template-rows:34px 26px 30px 46px 46px 46px 46px 46px 42px 30px 42px 42px 42px 42px 42px 30px 42px 42px 42px;
+  padding:0 28px 28px 28px;
+}
+.dir-c .tt-corner{grid-column:1/2;border-right:2px solid #232323;}
+.dir-c .tt-corner.r1{grid-row:1/2;}
+.dir-c .tt-corner.r2{grid-row:2/3;border-bottom:2px solid #232323;}
+.dir-c .tt-winlabel{
+  grid-row:1/2;display:flex;align-items:center;
+  font-size:13px;font-weight:800;letter-spacing:.5px;padding-left:4px;
+}
+.dir-c .tt-tick{
+  grid-row:2/3;display:flex;align-items:flex-end;justify-content:flex-start;
+  font-size:11px;color:#5B6B7F;border-bottom:2px solid #232323;padding-bottom:4px;
+  font-variant-numeric:tabular-nums;
+}
+.dir-c .tt-tick.hour{font-weight:800;color:#232323;border-left:2px solid #232323;padding-left:3px;}
+.dir-c .tt-tick.half{font-weight:400;border-left:1px solid #d8d5cf;padding-left:3px;}
+.dir-c .tt-gap{grid-column:11/12;grid-row:1/20;background:repeating-linear-gradient(180deg,#d8d5cf 0 4px,transparent 4px 9px);}
+
+.dir-c .tt-section{
+  grid-column:1/19;background:#232323;color:#FCFCFA;display:flex;align-items:center;
+  padding:0 10px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+}
+.dir-c .tt-rule{grid-column:1/19;border-bottom:2px solid #d8d5cf;}
+.dir-c .tt-label{
+  grid-column:1/2;display:flex;flex-direction:column;justify-content:center;
+  border-right:2px solid #232323;border-bottom:2px solid #d8d5cf;padding:0 10px;
+  font-size:13px;font-weight:700;background:#FCFCFA;
+}
+.dir-c .tt-label small{font-size:10px;font-weight:500;color:#5B6B7F;letter-spacing:.3px;}
+
+.dir-c .booking{
+  margin:4px 3px;border-radius:2px;padding:4px 6px;display:flex;flex-direction:column;
+  justify-content:center;overflow:hidden;
+}
+.dir-c .booking.confirmed{background:#D97706;color:#FCFCFA;border:2px solid #D97706;}
+.dir-c .booking.tentative{background:#FCFCFA;color:#5B6B7F;border:2px dashed #5B6B7F;}
+.dir-c .booking .b-name{font-size:12px;font-weight:800;display:flex;align-items:center;gap:4px;}
+.dir-c .booking .b-purpose{font-size:10px;font-weight:600;opacity:.9;}
+.dir-c .booking.confirmed .badge.confirmed{background:#FCFCFA;color:#D97706;}
+
+.dir-c .waitline{
+  grid-column:1/19;background:rgba(217,119,6,.09);border-top:2px solid #D97706;border-bottom:2px solid #D97706;
+  display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex-wrap:wrap;gap:6px;
+}
+.dir-c .waitline .wl-time{font-size:12px;font-weight:800;letter-spacing:.3px;}
+.dir-c .waitline .wl-list{font-size:12px;font-weight:700;color:#232323;}
+.dir-c .waitline .wl-list b{color:#D97706;}
+
+/* ===================== PHONE FRAME ===================== */
+.dir-c .mock-phone{
+  width:375px;background:#FCFCFA;border:2px solid #232323;border-radius:28px;
+  overflow:hidden;padding:0;
+}
+.dir-c .ph-status{
+  display:flex;justify-content:space-between;padding:8px 20px 2px 20px;
+  font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;
+}
+.dir-c .ph-header{padding:6px 18px 14px 18px;border-bottom:3px solid #232323;}
+.dir-c .ph-title{font-size:18px;font-weight:800;letter-spacing:.3px;}
+.dir-c .ph-sub{font-size:12px;font-weight:700;color:#D97706;margin-top:2px;font-variant-numeric:tabular-nums;}
+.dir-c .ph-sub .ph-live{float:right;}
+
+.dir-c .ph-section{padding:14px 18px 4px 18px;}
+.dir-c .ph-section-title{
+  font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#5B6B7F;
+  margin-bottom:8px;
+}
+
+.dir-c .check-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px;font-weight:600;}
+.dir-c .checkbox{
+  width:18px;height:18px;border:2px solid #232323;border-radius:2px;flex:none;
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#FCFCFA;
+}
+.dir-c .checkbox.on{background:#232323;}
+
+.dir-c .pref-row{
+  display:flex;align-items:center;justify-content:space-between;border:2px solid #232323;
+  border-radius:2px;padding:9px 12px;font-size:13px;font-weight:700;margin-top:2px;
+}
+.dir-c .pref-row span.muted{color:#5B6B7F;font-weight:600;}
+
+.dir-c .strip{border:2px solid #232323;border-radius:2px;padding:8px 10px 10px 10px;margin-top:2px;}
+.dir-c .strip-win{font-size:10px;font-weight:800;letter-spacing:.5px;color:#5B6B7F;margin:6px 0 3px 0;}
+.dir-c .strip-row{display:flex;gap:2px;}
+.dir-c .strip-cell{
+  flex:1;height:26px;border:1px solid #d8d5cf;display:flex;align-items:center;justify-content:center;
+  font-size:8px;font-weight:700;color:#8a8a8a;
+}
+.dir-c .strip-cell.sel{background:#D97706;color:#FCFCFA;border-color:#D97706;font-weight:800;}
+.dir-c .strip-cell.start{border-left:3px solid #232323;}
+.dir-c .strip-cell.end{border-right:3px solid #232323;}
+.dir-c .strip-selected-label{font-size:12px;font-weight:800;margin-top:8px;}
+.dir-c .strip-selected-label b{color:#D97706;}
+
+.dir-c .chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;}
+.dir-c .chip{
+  font-size:12px;font-weight:700;padding:7px 12px;border:2px solid #232323;border-radius:20px;color:#232323;
+}
+.dir-c .chip.sel{background:#232323;color:#FCFCFA;}
+
+.dir-c .cert-btn{
+  display:flex;align-items:center;gap:10px;width:100%;border:2px solid #232323;border-radius:2px;
+  padding:12px 14px;font-size:13px;font-weight:800;margin-top:8px;text-align:left;
+}
+.dir-c .cert-btn.on{background:#D97706;border-color:#D97706;color:#FCFCFA;}
+.dir-c .cert-btn.off{background:#FCFCFA;color:#5B6B7F;border-color:#5B6B7F;border-style:dashed;}
+.dir-c .cert-icon{font-size:16px;flex:none;}
+
+.dir-c .submit-btn{
+  display:block;width:calc(100% - 36px);margin:18px 18px 22px 18px;background:#D97706;color:#FCFCFA;
+  text-align:center;padding:15px;font-size:14px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+  border-radius:2px;
+}
+
+/* condensed schedule (phone 2) */
+.dir-c .cs-group{margin-bottom:10px;}
+.dir-c .cs-head{
+  font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
+  background:#232323;color:#FCFCFA;padding:3px 8px;margin-bottom:4px;
+}
+.dir-c .cs-row{
+  display:flex;align-items:center;justify-content:space-between;padding:6px 2px;
+  border-bottom:1px solid #eee6d8;font-size:12px;
+}
+.dir-c .cs-left{display:flex;flex-direction:column;}
+.dir-c .cs-time{font-weight:800;font-variant-numeric:tabular-nums;}
+.dir-c .cs-who{font-weight:600;color:#5B6B7F;}
+.dir-c .cs-wait{
+  background:rgba(217,119,6,.09);border-top:1.5px solid #D97706;border-bottom:1.5px solid #D97706;
+  padding:6px 8px;font-size:11px;font-weight:700;margin:4px 0;
+}
+.dir-c .cs-wait b{color:#D97706;}
+
+.dir-c .req-card{border:2px solid #232323;border-radius:2px;margin-top:4px;}
+.dir-c .req-item{padding:11px 12px;border-bottom:2px solid #eee6d8;}
+.dir-c .req-item:last-child{border-bottom:none;}
+.dir-c .req-top{display:flex;align-items:center;justify-content:space-between;}
+.dir-c .req-name{font-size:12px;font-weight:700;}
+.dir-c .req-status{
+  font-size:10px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;
+  padding:2px 6px;border-radius:2px;white-space:nowrap;
+}
+.dir-c .req-status.line{background:#5B6B7F;color:#FCFCFA;}
+.dir-c .req-status.approved{background:#D97706;color:#FCFCFA;}
+.dir-c .req-status.pending{border:1.5px solid #5B6B7F;color:#5B6B7F;}
+.dir-c .req-cancel{font-size:11px;font-weight:700;color:#B45309;text-decoration:underline;margin-top:5px;display:inline-block;}
+</style>
+
+<div class="wrap">
+
+  <div class="frame-col">
+    <div class="mock-desktop" style="width:1200px;">
+
+      <div class="app-header">
+        <div class="app-id">
+          <span class="app-name">LV Zion Study Rooms</span>
+          <span class="sabbath-date">Sabbath &middot; July 18</span>
+          <span class="ref-link">View last Sabbath (reference)</span>
+        </div>
+        <div class="app-tabs">
+          <span class="tab active">This Sabbath</span>
+          <span class="tab">Sign up</span>
+          <span class="tab">Admin</span>
+          <span class="live-pill"><span class="live-dot"></span>Live</span>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span class="legend-item"><span class="legend-swatch c"></span>Confirmed</span>
+        <span class="legend-item"><span class="legend-swatch t"></span>Tentative</span>
+        <span class="legend-item">Podium tag &mdash; <b style="color:#232323">P#</b> matches whiteboard number</span>
+      </div>
+
+      <div class="timetable">
+        <div class="tt-corner r1"></div>
+        <div class="tt-corner r2"></div>
+
+        <div class="tt-winlabel" style="grid-column:2/11;">10:00 AM &ndash; 2:30 PM</div>
+        <div class="tt-winlabel" style="grid-column:12/19;">4:00 PM &ndash; 7:30 PM</div>
+
+        <div class="tt-tick hour" style="grid-column:2/3;">10</div>
+        <div class="tt-tick half" style="grid-column:3/4;">:30</div>
+        <div class="tt-tick hour" style="grid-column:4/5;">11</div>
+        <div class="tt-tick half" style="grid-column:5/6;">:30</div>
+        <div class="tt-tick hour" style="grid-column:6/7;">12</div>
+        <div class="tt-tick half" style="grid-column:7/8;">:30</div>
+        <div class="tt-tick hour" style="grid-column:8/9;">1</div>
+        <div class="tt-tick half" style="grid-column:9/10;">:30</div>
+        <div class="tt-tick hour" style="grid-column:10/11;">2</div>
+
+        <div class="tt-tick hour" style="grid-column:12/13;">4</div>
+        <div class="tt-tick half" style="grid-column:13/14;">:30</div>
+        <div class="tt-tick hour" style="grid-column:14/15;">5</div>
+        <div class="tt-tick half" style="grid-column:15/16;">:30</div>
+        <div class="tt-tick hour" style="grid-column:16/17;">6</div>
+        <div class="tt-tick half" style="grid-column:17/18;">:30</div>
+        <div class="tt-tick hour" style="grid-column:18/19;">7</div>
+
+        <div class="tt-gap"></div>
+
+        <div class="tt-section" style="grid-row:3/4;">Study Rooms</div>
+
+        <div class="tt-rule" style="grid-row:4/5;"></div>
+        <div class="tt-label" style="grid-row:4/5;">Study Room 1</div>
+        <div class="booking confirmed" style="grid-row:4/5;grid-column:2/4;">
+          <span class="b-name">Daniel <span class="badge confirmed">&#10003; Conf.</span></span>
+          <span class="b-purpose">Contact study</span>
+        </div>
+        <div class="booking tentative" style="grid-row:4/5;grid-column:14/16;">
+          <span class="b-name">Priya <span class="badge tentative">&#9671; Tent.</span></span>
+          <span class="b-purpose">Meeting</span>
+        </div>
+
+        <div class="tt-rule" style="grid-row:5/6;"></div>
+        <div class="tt-label" style="grid-row:5/6;">Study Room 2</div>
+        <div class="booking confirmed" style="grid-row:5/6;grid-column:4/7;">
+          <span class="b-name">Ruth <span class="badge confirmed">&#10003; Conf.</span></span>
+          <span class="b-purpose">New member</span>
+        </div>
+        <div class="booking tentative" style="grid-row:5/6;grid-column:12/14;">
+          <span class="b-name">Josiah <span class="badge tentative">&#9671; Tent.</span></span>
+          <span class="b-purpose">Contact study</span>
+        </div>
+
+        <div class="tt-rule" style="grid-row:6/7;"></div>
+        <div class="tt-label" style="grid-row:6/7;">Study Room 3</div>
+        <div class="booking tentative" style="grid-row:6/7;grid-column:3/5;">
+          <span class="b-name">Elena <span class="badge tentative">&#9671; Tent.</span></span>
+          <span class="b-purpose">Contact study</span>
+        </div>
+
+        <div class="tt-rule" style="grid-row:7/8;"></div>
+        <div class="tt-label" style="grid-row:7/8;">Study Room 4</div>
+        <div class="booking confirmed" style="grid-row:7/8;grid-column:6/8;">
+          <span class="b-name">Caleb <span class="badge confirmed">&#10003; Conf.</span></span>
+          <span class="b-purpose">Meeting</span>
+        </div>
+
+        <div class="tt-rule" style="grid-row:8/9;"></div>
+        <div class="tt-label" style="grid-row:8/9;">Baptism Room</div>
+        <div class="booking confirmed" style="grid-row:8/9;grid-column:2/5;">
+          <span class="b-name">Naomi <span class="badge confirmed">&#10003; Conf.</span></span>
+          <span class="b-purpose">New member</span>
+        </div>
+
+        <div class="waitline" style="grid-row:9/10;">
+          <span class="wl-time">12:00 &ndash; 12:30 PM &middot; All rooms full</span>
+          <span class="wl-list">Waiting in line: <b>1.</b> Daniel &middot; <b>2.</b> Ruth &middot; <b>3.</b> Marcus</span>
+        </div>
+
+        <div class="tt-section" style="grid-row:10/11;">Whiteboards</div>
+
+        <div class="tt-rule" style="grid-row:11/12;"></div>
+        <div class="tt-label" style="grid-row:11/12;">Whiteboard 1<small>Large</small></div>
+        <div class="booking confirmed" style="grid-row:11/12;grid-column:2/4;">
+          <span class="b-name">Thaddeus <span class="badge confirmed">&#10003;</span>
+            <span class="podium-tag">
+              <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 8h6l-1-5H3z" fill="#232323"/><rect x="4" y="1" width="2" height="2" fill="#232323"/></svg>P1
+            </span>
+          </span>
+          <span class="b-purpose">Meeting</span>
+        </div>
+
+        <div class="tt-rule" style="grid-row:12/13;"></div>
+        <div class="tt-label" style="grid-row:12/13;">Whiteboard 2<small>Large</small></div>
+        <div class="booking tentative" style="grid-row:12/13;grid-column:5/7;">
+          <span class="b-name">Simone <span class="badge tentative">&#9671;</span></span>
+          <span class="b-purpose">Contact study</span>
+        </div>
+
+        <div class="tt-rule" style="grid-row:13/14;"></div>
+        <div class="tt-label" style="grid-row:13/14;">Whiteboard 3<small>Large</small></div>
+
+        <div class="tt-rule" style="grid-row:14/15;"></div>
+        <div class="tt-label" style="grid-row:14/15;">Whiteboard 4<small>Vertical</small></div>
+        <div class="booking confirmed" style="grid-row:14/15;grid-column:12/14;">
+          <span class="b-name">Ezra <span class="badge confirmed">&#10003;</span>
+            <span class="podium-tag">
+              <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 8h6l-1-5H3z" fill="#232323"/><rect x="4" y="1" width="2" height="2" fill="#232323"/></svg>P4
+            </span>
+          </span>
+          <span class="b-purpose">New member</span>
+        </div>
+
+        <div class="tt-rule" style="grid-row:15/16;"></div>
+        <div class="tt-label" style="grid-row:15/16;">Whiteboard 5<small>Vertical</small></div>
+
+        <div class="tt-section" style="grid-row:16/17;">TVs</div>
+
+        <div class="tt-rule" style="grid-row:17/18;"></div>
+        <div class="tt-label" style="grid-row:17/18;">TV 1</div>
+        <div class="booking confirmed" style="grid-row:17/18;grid-column:8/10;">
+          <span class="b-name">Caleb <span class="badge confirmed">&#10003; Conf.</span></span>
+          <span class="b-purpose">Meeting</span>
+        </div>
+
+        <div class="tt-rule" style="grid-row:18/19;"></div>
+        <div class="tt-label" style="grid-row:18/19;">TV 2</div>
+        <div class="booking confirmed" style="grid-row:18/19;grid-column:16/18;">
+          <span class="b-name">Marcus <span class="badge confirmed">&#10003; Conf.</span></span>
+          <span class="b-purpose">Other</span>
+        </div>
+
+        <div class="tt-rule" style="grid-row:19/20;"></div>
+        <div class="tt-label" style="grid-row:19/20;">TV 3</div>
+
+      </div>
+    </div>
+    <p class="mock-caption">Desktop &mdash; This Sabbath</p>
+  </div>
+
+  <div class="frames-row">
+
+    <div class="frame-col">
+      <div class="mock-phone" style="width:375px;">
+        <div class="ph-status"><span>9:41</span><span>100%</span></div>
+        <div class="ph-header">
+          <div class="ph-title">Request a Time</div>
+          <div class="ph-sub">Sabbath &middot; July 18</div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-section-title">What do you need?</div>
+          <div class="check-row"><span class="checkbox on">&#10003;</span>Study room</div>
+          <div class="check-row"><span class="checkbox on">&#10003;</span>Whiteboard</div>
+          <div class="check-row"><span class="checkbox">&nbsp;</span>TV</div>
+          <div class="check-row"><span class="checkbox on">&#10003;</span>Podium</div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-section-title">Preferred room (optional)</div>
+          <div class="pref-row"><span>Room 2</span><span class="muted">&#9662;</span></div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-section-title">Tap start, then tap end</div>
+          <div class="strip">
+            <div class="strip-win">10:00 AM &ndash; 2:30 PM</div>
+            <div class="strip-row">
+              <div class="strip-cell">10</div>
+              <div class="strip-cell">&nbsp;</div>
+              <div class="strip-cell sel start">11</div>
+              <div class="strip-cell sel end">&nbsp;</div>
+              <div class="strip-cell">12</div>
+              <div class="strip-cell">&nbsp;</div>
+              <div class="strip-cell">1</div>
+              <div class="strip-cell">&nbsp;</div>
+              <div class="strip-cell">2</div>
+            </div>
+            <div class="strip-win">4:00 PM &ndash; 7:30 PM</div>
+            <div class="strip-row">
+              <div class="strip-cell">4</div>
+              <div class="strip-cell">&nbsp;</div>
+              <div class="strip-cell">5</div>
+              <div class="strip-cell">&nbsp;</div>
+              <div class="strip-cell">6</div>
+              <div class="strip-cell">&nbsp;</div>
+              <div class="strip-cell">7</div>
+            </div>
+            <div class="strip-selected-label">Selected: <b>11:00 AM &ndash; 12:00 PM</b></div>
+          </div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-section-title">Purpose</div>
+          <div class="chip-row">
+            <span class="chip sel">Contact study</span>
+            <span class="chip">New member</span>
+            <span class="chip">Meeting</span>
+            <span class="chip">Other</span>
+          </div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-section-title">How sure are you?</div>
+          <div class="cert-btn on"><span class="cert-icon">&#10003;</span>Confirmed &mdash; they&rsquo;ll be there</div>
+          <div class="cert-btn off"><span class="cert-icon">&#9671;</span>Tentative &mdash; still confirming</div>
+        </div>
+
+        <a class="submit-btn">Request this time</a>
+      </div>
+      <p class="mock-caption">Phone &mdash; Sign up</p>
+    </div>
+
+    <div class="frame-col">
+      <div class="mock-phone" style="width:375px;">
+        <div class="ph-status"><span>9:41</span><span>100%</span></div>
+        <div class="ph-header">
+          <div class="ph-title">This Sabbath</div>
+          <div class="ph-sub">July 18 <span class="ph-live"><span class="live-pill"><span class="live-dot"></span>Live</span></span></div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-section-title">Schedule</div>
+
+          <div class="cs-group">
+            <div class="cs-head">Study Rooms</div>
+            <div class="cs-row"><div class="cs-left"><span class="cs-time">10:00&ndash;11:00 AM</span><span class="cs-who">Room 1 &middot; Daniel</span></div><span class="badge confirmed">&#10003; Conf.</span></div>
+            <div class="cs-row"><div class="cs-left"><span class="cs-time">11:00 AM&ndash;12:30 PM</span><span class="cs-who">Room 2 &middot; Ruth</span></div><span class="badge confirmed">&#10003; Conf.</span></div>
+            <div class="cs-row"><div class="cs-left"><span class="cs-time">10:30&ndash;11:30 AM</span><span class="cs-who">Room 3 &middot; Elena</span></div><span class="badge tentative">&#9671; Tent.</span></div>
+            <div class="cs-wait">12:00&ndash;12:30 <b>All rooms full</b> &mdash; waiting: 1. Daniel &middot; 2. Ruth &middot; 3. Marcus</div>
+          </div>
+
+          <div class="cs-group">
+            <div class="cs-head">Whiteboards</div>
+            <div class="cs-row"><div class="cs-left"><span class="cs-time">10:00&ndash;11:00 AM</span><span class="cs-who">WB 1 &middot; Thaddeus &middot; Podium P1</span></div><span class="badge confirmed">&#10003; Conf.</span></div>
+          </div>
+
+          <div class="cs-group">
+            <div class="cs-head">TVs</div>
+            <div class="cs-row"><div class="cs-left"><span class="cs-time">1:00&ndash;2:00 PM</span><span class="cs-who">TV 1 &middot; Caleb</span></div><span class="badge confirmed">&#10003; Conf.</span></div>
+          </div>
+        </div>
+
+        <div class="ph-section">
+          <div class="ph-section-title">My Requests</div>
+          <div class="req-card">
+            <div class="req-item">
+              <div class="req-top"><span class="req-name">Study room &middot; 12:00&ndash;12:30 PM</span><span class="req-status line">In line &mdash; 2nd backup</span></div>
+            </div>
+            <div class="req-item">
+              <div class="req-top"><span class="req-name">Study room &middot; 10:30&ndash;11:30 AM</span><span class="req-status approved">Approved &mdash; Room 3</span></div>
+              <a class="req-cancel">Plans changed? Cancel</a>
+            </div>
+            <div class="req-item">
+              <div class="req-top"><span class="req-name">Whiteboard &middot; 6:00&ndash;6:30 PM</span><span class="req-status pending">Pending review</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="mock-caption">Phone &mdash; My requests</p>
+    </div>
+
+  </div>
+</div>
+</section>
+    </div>
+  </article>
+
+  <footer class="howto">
+    <strong>How to choose:</strong> tell Claude the direction by name or number — or mix and match, for example "the timetable layout from Direction 3 with the colors from Direction 1." These are pictures, not the working app; once you pick, the real app gets rebuilt in that style with every new feature above, for both phone and computer.
+  </footer>
+</div>
+
+<script>
+(function () {
+  var desktops = document.querySelectorAll('.mock-desktop');
+  desktops.forEach(function (el) {
+    var box = document.createElement('div');
+    box.className = 'fitbox';
+    el.parentNode.insertBefore(box, el);
+    box.appendChild(el);
+  });
+  function fit() {
+    desktops.forEach(function (el) {
+      var box = el.parentElement;
+      var plate = el.closest('.plate') || document.body;
+      var avail = plate.clientWidth - 24;
+      var scale = Math.min(1, avail / 1240);
+      el.style.transform = 'scale(' + scale + ')';
+      el.style.transformOrigin = 'top left';
+      box.style.width = (1200 * scale) + 'px';
+      box.style.height = (el.offsetHeight * scale) + 'px';
+      box.style.overflow = 'visible';
+    });
+  }
+  window.addEventListener('resize', fit);
+  fit();
+  setTimeout(fit, 100);
+})();
+</script>
