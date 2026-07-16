@@ -6,7 +6,8 @@
       "firestore.rules",
       "firestore.indexes.json",
       "**/.*",
-      "README.md"
+      "README.md",
+      "docs/**"
     ],
     "headers": [
       {

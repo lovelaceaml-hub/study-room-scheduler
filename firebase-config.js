@@ -1,15 +1,12 @@
 // LV Zion Study Rooms — Firebase web config (public app identifiers, not
-// secrets; access control lives in firestore.rules).
-//
-// PLACEHOLDER — the real config for the Firebase project `lvz-rooms` gets
-// pasted here once that project is created. Until then these values won't
-// resolve to a real project; app.js catches the init failure and falls back
-// to localStorage-only mode automatically, so the app still works offline.
+// secrets; access control lives in firestore.rules). If these ever stop
+// resolving, app.js catches the init failure and falls back to
+// localStorage-only mode automatically, so the app still works offline.
 window.FIREBASE_CONFIG = {
-  apiKey: "REPLACE_ME",
+  apiKey: "AIzaSyBYFl69YJSm1YBIr1Pg8vuVcCJPA4N0BEU",
   authDomain: "lvz-rooms.firebaseapp.com",
   projectId: "lvz-rooms",
   storageBucket: "lvz-rooms.firebasestorage.app",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:0000000000000000000000"
+  messagingSenderId: "681798360480",
+  appId: "1:681798360480:web:8356fe0c56650fbca398c5"
 };
