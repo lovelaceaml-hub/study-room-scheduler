@@ -29,6 +29,10 @@ const PURPOSES = [
   { id: 'meeting', label: 'Member meeting' },
   { id: 'other', label: 'Other' }
 ];
+/* Admin-only addition to PURPOSES, used solely on the "Add a booking" form
+   (e.g. to block the Baptism Room during an actual baptism). Never offered
+   to members on the Sign Up tab. */
+const ADMIN_PURPOSES = PURPOSES.concat([{ id: 'blocked', label: 'Room unavailable / reserved' }]);
 
 const RESOURCES = [
   { id: 'room-1', label: 'Study Room 1', category: 'room', capacity: 1 },
@@ -78,7 +82,9 @@ let ui = {
   submitting: false,
   schedDate: null,     // selected Saturday on the Schedule tab (ISO); lazily defaulted to the next Saturday
   signup: null,        // Sign Up form draft, created lazily by ensureSignupDraft()
-  signupConfirm: null  // { id } of the just-submitted booking, while the confirmation panel is showing
+  signupConfirm: null, // { id } of the just-submitted booking, while the confirmation panel is showing
+  adminDate: null,     // selected Saturday on the Admin "Day overview" (ISO); lazily defaulted
+  adminForm: null      // Admin "Add a booking" form draft, created lazily by ensureAdminFormDraft()
 };
 
 let fb = null; // { db, doc, setDoc, deleteDoc, collection } when online
@@ -205,12 +211,25 @@ function overlappingBookings(resourceId, date, start, end, statuses) {
   return bookingsForResourceDate(resourceId, date)
     .filter(b => statuses.indexOf(b.status) !== -1 && rangesOverlap(b.start, b.end, start, end));
 }
-function purposeLabel(p) { const found = PURPOSES.find(x => x.id === p); return found ? found.label : (p || ''); }
+function purposeLabel(p) {
+  if (p === 'blocked') return 'Room unavailable / reserved'; // admin-only purpose, not in PURPOSES
+  const found = PURPOSES.find(x => x.id === p);
+  return found ? found.label : (p || '');
+}
 function bookingPurposeText(b) {
   if (b.purpose === 'other' && b.purposeOther) return 'Other — ' + b.purposeOther;
   return purposeLabel(b.purpose);
 }
 const STATUS_LABEL = { pending: 'Pending review', approved: 'Approved', declined: 'Declined', cancelled: 'Cancelled' };
+
+/* ---- admin PIN gate (exhibition-tours pattern: the *hash*, not a boolean,
+   is what's stored in localStorage — so changing the PIN on one device
+   automatically re-locks every other device whose stored hash no longer
+   matches state.settings.pinHash) ---- */
+function adminUnlocked() {
+  const h = state.settings.pinHash || '';
+  return !!h && localStorage.getItem(ADMIN_KEY) === h;
+}
 
 /* ---- this device's own requests (localStorage) ---- */
 function myBookingIds() {
@@ -630,9 +649,302 @@ function submitSignup(form) {
 }
 
 function renderAdmin() {
-  return '<div class="card"><h2>Admin</h2>' +
-    '<p class="section-note">Approve or decline sign-up requests.</p>' +
-    '<p class="hint">Coming in the next step.</p></div>';
+  if (!adminUnlocked()) return renderAdminLock();
+  return renderAdminHeader() + renderAdminQueue() + renderAdminDayOverview() +
+    renderAdminAddForm() + renderAdminHousekeeping();
+}
+
+/* ---- PIN gate ---- */
+
+function renderAdminLock() {
+  return '<div class="card">' +
+    '<div class="lock-title">Admin is locked</div>' +
+    '<p class="hint">Enter the admin PIN to approve or decline requests, review the day, and manage bookings.</p>' +
+    '<form class="pin-row" style="margin-top:12px" data-act="admin-unlock">' +
+    '<input type="password" id="admin-pin-input" placeholder="PIN" autocomplete="off" inputmode="numeric" required>' +
+    '<button class="btn primary" type="submit">Unlock</button></form>' +
+    (ui.pinError ? '<p class="pin-error">' + esc(ui.pinError) + '</p>' : '') +
+    '</div>';
+}
+
+function renderAdminHeader() {
+  return '<div class="card">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+    '<h2 style="margin:0">Admin</h2>' +
+    '<button class="btn small danger" data-act="admin-lock">Lock admin</button>' +
+    '</div>' +
+    '<p class="section-note" style="margin-top:10px">Approve or decline requests, review the day, add bookings directly, and tidy up old records.</p>' +
+    '</div>';
+}
+
+/* ---- 1. Pending requests queue ---- */
+
+function pendingQueue() {
+  return bookingsList()
+    .filter(b => b.status === 'pending')
+    .sort((a, b) => a.date !== b.date ? (a.date < b.date ? -1 : 1) : (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+function fmtDateTime(ms) {
+  if (!ms) return '';
+  const d = new Date(ms);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' at ' +
+    d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function renderAdminQueue() {
+  const items = pendingQueue();
+  let html = '<div class="card"><h2>Pending requests</h2>';
+  if (!items.length) return html + '<p class="hint">No pending requests right now.</p></div>';
+  items.forEach(b => { html += pendingCardHtml(b); });
+  return html + '</div>';
+}
+
+function pendingCardHtml(b) {
+  const r = resourceById(b.resourceId);
+  const cap = r ? r.capacity : 1;
+  const approvedHits = overlappingBookings(b.resourceId, b.date, b.start, b.end, ['approved']);
+  const pendingHits = overlappingBookings(b.resourceId, b.date, b.start, b.end, ['pending']).filter(x => x.id !== b.id);
+  const overCapacity = approvedHits.length >= cap;
+
+  let flag = '';
+  if (overCapacity) {
+    const other = approvedHits[0];
+    flag = '<p class="conflict-warn">Conflicts with ' + esc(other.name) + ' ' + esc(fmtTime(other.start)) + '–' + esc(fmtTime(other.end)) + ' (approved).</p>';
+  } else if (pendingHits.length) {
+    flag = '<p class="conflict-note">' + esc(pendingHits[0].name) + ' also requested this time.</p>';
+  }
+
+  return '<div class="req-row">' +
+    '<div class="req-head">' + esc(b.name) + ' <span class="badge pending">Pending review</span></div>' +
+    '<div class="req-sub">' + esc(r ? r.label : b.resourceId) + ' · ' + esc(fmtDate(b.date)) + ' · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</div>' +
+    '<div class="req-sub">' + esc(bookingPurposeText(b)) + '</div>' +
+    (b.note ? '<div class="req-sub">Note: ' + esc(b.note) + '</div>' : '') +
+    '<div class="req-sub muted">Requested ' + esc(fmtDateTime(b.createdAt)) + '</div>' +
+    flag +
+    '<div class="req-actions">' +
+    '<button class="btn small ok" data-act="admin-approve" data-id="' + esc(b.id) + '">Approve</button>' +
+    '<button class="btn small danger" data-act="admin-decline" data-id="' + esc(b.id) + '">Decline</button>' +
+    '</div></div>';
+}
+
+function approveBooking(id) {
+  const b = state.bookings[id];
+  if (!b) return;
+  const r = resourceById(b.resourceId);
+  const cap = r ? r.capacity : 1;
+  const approvedHits = overlappingBookings(b.resourceId, b.date, b.start, b.end, ['approved']).filter(x => x.id !== id);
+  if (approvedHits.length >= cap && !confirm('This overlaps an approved booking. Approve anyway?')) return;
+  fsSet('bookings', id, Object.assign({}, b, { status: 'approved', decidedAt: Date.now() }));
+}
+function declineBooking(id) {
+  const b = state.bookings[id];
+  if (!b) return;
+  fsSet('bookings', id, Object.assign({}, b, { status: 'declined', decidedAt: Date.now() }));
+}
+
+/* ---- 2. Day overview ---- */
+
+function renderAdminDayOverview() {
+  const dates = nextSaturdays(8);
+  if (!ui.adminDate || dates.indexOf(ui.adminDate) === -1) ui.adminDate = dates[0];
+
+  let html = '<div class="card"><h2>Day overview</h2>' +
+    '<p class="section-note">See the whole day at a glance, then manage individual bookings below.</p>' +
+    adminChipsHtml(dates) +
+    '</div>';
+  CATEGORIES.forEach(cat => { html += renderCategoryGrid(cat, ui.adminDate); });
+  html += legendHtml();
+  html += renderAdminDayList(ui.adminDate);
+  return html;
+}
+
+function adminChipsHtml(dates) {
+  return '<div class="sat-chips">' + dates.map(iso => {
+    const d = dateObj(iso);
+    return '<button class="sat-chip' + (iso === ui.adminDate ? ' active' : '') + '" data-act="admin-date" data-id="' + iso + '">' +
+      '<span class="sc-dow">' + esc(d.toLocaleDateString(undefined, { weekday: 'short' })) + '</span>' +
+      '<span class="sc-num">' + d.getDate() + '</span>' +
+      '<span class="sc-mon">' + esc(d.toLocaleDateString(undefined, { month: 'short' })) + '</span>' +
+      '</button>';
+  }).join('') + '</div>';
+}
+
+function renderAdminDayList(date) {
+  const items = bookingsList()
+    .filter(b => b.date === date && b.status !== 'cancelled')
+    .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start));
+  let html = '<div class="card"><h2>Bookings for ' + esc(fmtDate(date)) + '</h2>';
+  if (!items.length) return html + '<p class="hint">No bookings for this date.</p></div>';
+  items.forEach(b => { html += adminDayRowHtml(b); });
+  return html + '</div>';
+}
+
+function adminDayRowHtml(b) {
+  const r = resourceById(b.resourceId);
+  let actions = '';
+  if (b.status === 'pending') {
+    actions = '<button class="btn small ok" data-act="admin-approve" data-id="' + esc(b.id) + '">Approve</button>' +
+      '<button class="btn small danger" data-act="admin-decline" data-id="' + esc(b.id) + '">Decline</button>';
+  } else if (b.status === 'approved') {
+    actions = '<button class="btn small danger" data-act="admin-cancel" data-id="' + esc(b.id) + '">Cancel</button>';
+  } else if (b.status === 'declined') {
+    actions = '<button class="btn small ok" data-act="admin-reapprove" data-id="' + esc(b.id) + '">Re-approve</button>';
+  }
+  return '<div class="req-row">' +
+    '<div class="req-head">' + esc(r ? r.label : b.resourceId) + ' <span class="badge ' + esc(b.status) + '">' + esc(STATUS_LABEL[b.status] || b.status) + '</span></div>' +
+    '<div class="req-sub">' + esc(b.name) + ' · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + ' · ' + esc(bookingPurposeText(b)) + '</div>' +
+    (actions ? '<div class="req-actions">' + actions + '</div>' : '') +
+    '</div>';
+}
+
+function cancelBooking(id) {
+  const b = state.bookings[id];
+  if (!b) return;
+  if (!confirm('Cancel the approved booking for ' + b.name + '?')) return;
+  fsSet('bookings', id, Object.assign({}, b, { status: 'cancelled' }));
+}
+function reapproveBooking(id) {
+  const b = state.bookings[id];
+  if (!b) return;
+  const r = resourceById(b.resourceId);
+  const cap = r ? r.capacity : 1;
+  const approvedHits = overlappingBookings(b.resourceId, b.date, b.start, b.end, ['approved']).filter(x => x.id !== id);
+  if (approvedHits.length >= cap && !confirm('This overlaps an approved booking. Approve anyway?')) return;
+  fsSet('bookings', id, Object.assign({}, b, { status: 'approved', decidedAt: Date.now() }));
+}
+
+/* ---- 3. Add a booking directly ---- */
+
+function ensureAdminFormDraft() {
+  if (ui.adminForm) return;
+  const dates = nextSaturdays(8);
+  const date = ui.adminDate && dates.indexOf(ui.adminDate) !== -1 ? ui.adminDate : dates[0];
+  const category = 'room';
+  const resources = resourcesInCategory(category);
+  const start = slotStarts(WINDOWS[0])[0];
+  ui.adminForm = {
+    date: date,
+    category: category,
+    resourceId: resources[0] ? resources[0].id : '',
+    start: start,
+    end: validEndsFor(start)[0] || '',
+    name: '',
+    purpose: 'contact',
+    purposeOther: '',
+    note: ''
+  };
+}
+
+/* Same reasoning as syncSignupDraft(): text inputs skip re-render on every
+   keystroke, so pull their live values back before any render()-triggering change. */
+function syncAdminFormDraft() {
+  const d = ui.adminForm;
+  if (!d) return;
+  const name = document.getElementById('af-name');
+  const note = document.getElementById('af-note');
+  const other = document.getElementById('af-other');
+  if (name) d.name = name.value;
+  if (note) d.note = note.value;
+  if (other) d.purposeOther = other.value;
+}
+
+function renderAdminAddForm() {
+  ensureAdminFormDraft();
+  const d = ui.adminForm;
+  const dates = nextSaturdays(8);
+  const resources = resourcesInCategory(d.category);
+  if (!resources.some(r => r.id === d.resourceId)) d.resourceId = resources[0] ? resources[0].id : '';
+  const endOptions = validEndsFor(d.start);
+  if (endOptions.indexOf(d.end) === -1) d.end = endOptions[0] || '';
+
+  return '<div class="card"><h2>Add a booking</h2>' +
+    '<p class="section-note">Adds a booking that is approved immediately — for reserving a room directly, or blocking it off (e.g. the Baptism Room during an actual baptism).</p>' +
+    '<form data-act="admin-add-submit">' +
+
+    '<label class="fld">Saturday</label>' +
+    '<select data-chg="af-date">' +
+    dates.map(iso => '<option value="' + iso + '"' + (iso === d.date ? ' selected' : '') + '>' + esc(fmtDate(iso)) + '</option>').join('') +
+    '</select>' +
+
+    '<label class="fld">Room / equipment</label>' +
+    '<div class="seg">' + CATEGORIES.map(c =>
+      '<button type="button" class="seg-btn' + (c.id === d.category ? ' active' : '') + '" data-act="af-cat" data-id="' + c.id + '">' + esc(c.label) + '</button>'
+    ).join('') + '</div>' +
+    '<select data-chg="af-resource" style="margin-top:8px">' +
+    resources.map(r => '<option value="' + r.id + '"' + (r.id === d.resourceId ? ' selected' : '') + '>' + esc(r.label) + '</option>').join('') +
+    '</select>' +
+
+    '<label class="fld">Time</label>' +
+    '<div class="form-row">' +
+    '<div><label class="fld" style="margin-top:0">Start</label><select data-chg="af-start">' + startGroupOptionsHtml(d.start) + '</select></div>' +
+    '<div><label class="fld" style="margin-top:0">End</label><select data-chg="af-end">' +
+    endOptions.map(e => '<option value="' + e + '"' + (e === d.end ? ' selected' : '') + '>' + esc(fmtTime(e)) + '</option>').join('') +
+    '</select></div>' +
+    '</div>' +
+
+    '<label class="fld">Name</label>' +
+    '<input type="text" id="af-name" value="' + esc(d.name) + '" placeholder="Full name" required>' +
+
+    '<label class="fld">Purpose</label>' +
+    '<div class="stack">' + ADMIN_PURPOSES.map(p =>
+      '<label class="radio-row"><input type="radio" name="af-purpose" value="' + p.id + '"' +
+      (p.id === d.purpose ? ' checked' : '') + ' data-chg="af-purpose"> ' + esc(p.label) + '</label>'
+    ).join('') + '</div>' +
+    (d.purpose === 'other'
+      ? '<input type="text" id="af-other" value="' + esc(d.purposeOther) + '" placeholder="Please describe" style="margin-top:8px" required>'
+      : '') +
+
+    '<label class="fld">Note (optional)</label>' +
+    '<input type="text" id="af-note" value="' + esc(d.note) + '" placeholder="Anything worth noting">' +
+
+    '<div style="margin-top:16px"><button class="btn primary big" type="submit">Add booking (approved)</button></div>' +
+    '</form></div>';
+}
+
+function submitAdminAdd() {
+  syncAdminFormDraft();
+  const d = ui.adminForm;
+  const name = (d.name || '').trim();
+  const note = (d.note || '').trim();
+  const purposeOther = (d.purposeOther || '').trim();
+
+  if (!d.date || !d.resourceId || !d.start || validEndsFor(d.start).indexOf(d.end) === -1) {
+    addBanner('Please complete the Saturday, resource, and time fields.', true); return;
+  }
+  if (!name) { addBanner('Please enter a name.', true); return; }
+  if (d.purpose === 'other' && !purposeOther) { addBanner('Please describe the purpose.', true); return; }
+
+  const r = resourceById(d.resourceId);
+  const cap = r ? r.capacity : 1;
+  const approvedHits = overlappingBookings(d.resourceId, d.date, d.start, d.end, ['approved']);
+  if (approvedHits.length >= cap && !confirm('This overlaps an approved booking. Add anyway?')) return;
+
+  fsSet('bookings', uid(), {
+    date: d.date,
+    resourceId: d.resourceId,
+    start: d.start,
+    end: d.end,
+    name: name,
+    purpose: d.purpose,
+    purposeOther: d.purpose === 'other' ? purposeOther : '',
+    note: note,
+    status: 'approved',
+    createdAt: Date.now(),
+    decidedAt: Date.now()
+  });
+  addBanner('Booking added and approved for ' + esc(name) + '.');
+  ui.adminForm = null; // reset the draft for next time
+  render();
+}
+
+/* ---- 4. Housekeeping ---- */
+
+function renderAdminHousekeeping() {
+  return '<div class="card"><h2>Housekeeping</h2>' +
+    '<p class="section-note">Removes bookings dated more than 8 weeks in the past, to keep the shared list tidy.</p>' +
+    '<button class="btn danger" data-act="admin-cleanup">Remove old records</button>' +
+    '</div>';
 }
 
 /* ================= actions ================= */
@@ -661,6 +973,58 @@ function handleAction(act, el) {
   }
   if (act === 'su-again') { ui.signupConfirm = null; render(); return; }
   if (act === 'su-submit') { submitSignup(el); return; }
+
+  /* ---- Admin tab: PIN gate ---- */
+  if (act === 'admin-unlock') {
+    const val = document.getElementById('admin-pin-input').value;
+    sha256(val).then(h => {
+      const existing = state.settings.pinHash || '';
+      if (existing) {
+        if (h === existing) { localStorage.setItem(ADMIN_KEY, h); ui.pinError = ''; }
+        else { ui.pinError = 'That PIN is not right.'; }
+      } else if (val === '0000') {
+        // bootstrap: first successful entry of the default PIN sets it for good
+        localStorage.setItem(ADMIN_KEY, h);
+        ui.pinError = '';
+        saveSettings({ pinHash: h });
+      } else {
+        ui.pinError = 'That PIN is not right.';
+      }
+      render();
+    });
+    return;
+  }
+  if (act === 'admin-lock') { localStorage.removeItem(ADMIN_KEY); render(); return; }
+
+  /* ---- Admin tab: pending queue + day overview ---- */
+  if (act === 'admin-approve') { approveBooking(el.dataset.id); return; }
+  if (act === 'admin-decline') { declineBooking(el.dataset.id); return; }
+  if (act === 'admin-date') { ui.adminDate = el.dataset.id; render(); return; }
+  if (act === 'admin-cancel') { cancelBooking(el.dataset.id); return; }
+  if (act === 'admin-reapprove') { reapproveBooking(el.dataset.id); return; }
+
+  /* ---- Admin tab: add a booking directly ---- */
+  if (act === 'af-cat') {
+    syncAdminFormDraft();
+    ensureAdminFormDraft();
+    ui.adminForm.category = el.dataset.id;
+    const resources = resourcesInCategory(el.dataset.id);
+    ui.adminForm.resourceId = resources[0] ? resources[0].id : '';
+    render();
+    return;
+  }
+  if (act === 'admin-add-submit') { submitAdminAdd(); return; }
+
+  /* ---- Admin tab: housekeeping ---- */
+  if (act === 'admin-cleanup') {
+    const cutoff = addDaysISO(todayISO(), -56); // 8 weeks
+    const old = bookingsList().filter(b => b.date < cutoff);
+    if (!old.length) { addBanner('No records older than 8 weeks.'); return; }
+    if (!confirm('Delete ' + old.length + ' booking' + (old.length === 1 ? '' : 's') + ' older than 8 weeks? This cannot be undone.')) return;
+    old.forEach(b => fsDelete('bookings', b.id));
+    addBanner('Removed ' + old.length + ' old booking' + (old.length === 1 ? '' : 's') + '.');
+    return;
+  }
 }
 
 document.addEventListener('click', e => {
@@ -697,6 +1061,24 @@ document.addEventListener('change', e => {
     syncSignupDraft();
     ensureSignupDraft();
     ui.signup.end = el.value;
+    render();
+  } else if (chg === 'af-date' || chg === 'af-resource' || chg === 'af-purpose') {
+    syncAdminFormDraft();
+    ensureAdminFormDraft();
+    if (chg === 'af-date') ui.adminForm.date = el.value;
+    if (chg === 'af-resource') ui.adminForm.resourceId = el.value;
+    if (chg === 'af-purpose') ui.adminForm.purpose = el.value;
+    render();
+  } else if (chg === 'af-start') {
+    syncAdminFormDraft();
+    ensureAdminFormDraft();
+    ui.adminForm.start = el.value;
+    ui.adminForm.end = validEndsFor(el.value)[0] || '';
+    render();
+  } else if (chg === 'af-end') {
+    syncAdminFormDraft();
+    ensureAdminFormDraft();
+    ui.adminForm.end = el.value;
     render();
   }
 });
