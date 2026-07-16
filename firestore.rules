@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Study Rooms app — standalone project (same model as the sibling apps:
+    // worship-duty, morning-prayer, exhibition-tours).
+    //
+    // Open read/write is convenience-grade on purpose: members must be able
+    // to submit a sign-up request without an account, and the admin PIN is
+    // an honest-person UX gate, not security. Anyone who bypasses the UI
+    // could edit or approve bookings directly — acceptable for a small
+    // congregation tool; revisit if that ever stops being true.
+    match /bookings/{doc} { allow read, write: if true; }
+    match /app/{doc} { allow read, write: if true; }
+  }
+}

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#eef2f7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>LV Zion · Study Rooms</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  /* ============ WM (wm.watv.org) design theme — same family as the sibling apps ============ */
+  :root {
+    --bg: #eef2f7;
+    --card: #ffffff;
+    --ink: #26282c;
+    --muted: #6b7684;
+    --faint: #8b95a5;
+    --line: #e5eaf2;
+    --primary: #3d6ce0;
+    --primary-dark: #2f56b8;
+    --sky: #6fb0f5;
+    --grad: linear-gradient(135deg, #6fb0f5, #3d6ce0);
+    --primary-soft: #e8f0fe;
+    --ok: #12855f;
+    --ok-soft: #e3f4ee;
+    --warn: #b45309;
+    --warn-soft: #fdf1e2;
+    --danger: #d13a2b;
+    --danger-soft: #fdeae8;
+    --today-bg: linear-gradient(135deg, #ff9147, #ff4f74);
+    --today-ink: #ffffff;
+    --today-glow: 0 5px 14px -3px rgba(255, 79, 116, 0.55);
+    --r-lg: 18px;
+    --r-md: 12px;
+    --shadow: 0 2px 4px rgba(30, 50, 90, 0.04), 0 10px 24px -12px rgba(30, 50, 90, 0.12);
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Noto Sans", Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 14px 90px; }
+
+  /* ---- header ---- */
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 30;
+    cursor: pointer;
+  }
+  .head-in {
+    max-width: 640px; margin: 0 auto;
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+  }
+  .wordmark {
+    font-size: 26px; font-weight: 800; letter-spacing: -0.5px;
+    background: var(--grad);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1;
+  }
+  .head-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+  .head-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .sync-pill {
+    margin-left: auto; font-size: 11px; font-weight: 700;
+    padding: 4px 11px; border-radius: 999px; white-space: nowrap;
+    background: var(--ok-soft); color: var(--ok);
+  }
+  .sync-pill.off { background: var(--warn-soft); color: var(--warn); }
+
+  /* ---- pill tab bar ---- */
+  nav {
+    position: sticky; top: 57px; z-index: 29;
+    background: linear-gradient(var(--bg) 75%, rgba(238,242,247,0));
+    padding: 10px 0 12px;
+  }
+  .tabs {
+    max-width: 640px; margin: 0 auto; padding: 0 14px;
+    display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: var(--card); color: var(--muted);
+    font: 600 14px var(--sans);
+    padding: 8px 18px; cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+  /* ---- cards ---- */
+  .card {
+    background: var(--card);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    margin: 0 0 14px;
+  }
+  .card h2 {
+    margin: 0 0 12px; font-size: 19px; font-weight: 800; letter-spacing: -0.3px;
+  }
+  .card h2 .accent {
+    background: var(--grad);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .section-note { font-size: 13px; color: var(--muted); margin: -6px 0 12px; }
+
+  /* ---- buttons ---- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border: 1px solid var(--line); border-radius: var(--r-md);
+    background: var(--card); color: var(--ink);
+    font: 600 15px var(--sans);
+    padding: 10px 16px; cursor: pointer;
+    transition: filter .15s;
+    text-decoration: none;
+  }
+  .btn:active { filter: brightness(0.96); }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn.big { width: 100%; padding: 15px 16px; font-size: 17px; border-radius: 14px; }
+  .btn.grad { background: var(--grad); border: none; color: #fff; }
+  .btn.subtle { background: var(--primary-soft); border-color: var(--primary-soft); color: var(--primary); }
+  .btn.danger { background: var(--danger-soft); border-color: var(--danger-soft); color: var(--danger); }
+  .btn.ok { background: var(--ok-soft); border-color: var(--ok-soft); color: var(--ok); }
+  .btn.small { font-size: 13px; padding: 6px 12px; border-radius: 10px; }
+  .btn[disabled] { opacity: 0.55; cursor: default; }
+
+  /* ---- day/date rows (schedule rows) ---- */
+  .day-row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 0; border-top: 1px solid var(--line);
+  }
+  .day-row:first-of-type { border-top: none; }
+  .day-row.past { opacity: 0.5; }
+  .day-date {
+    flex: 0 0 52px; text-align: center;
+    background: var(--bg); border-radius: 12px; padding: 6px 2px;
+  }
+  .day-date .dow { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+  .day-date .num { font-size: 20px; font-weight: 800; line-height: 1.15; }
+  .day-date .mon { font-size: 11px; color: var(--faint); }
+  .day-row.today .day-date { background: var(--today-bg); box-shadow: var(--today-glow); }
+  .day-row.today .day-date .num, .day-row.today .day-date .dow, .day-row.today .day-date .mon { color: var(--today-ink); }
+  .day-main { flex: 1; min-width: 0; }
+  .day-side { flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .tour-time { font-size: 15.5px; font-weight: 700; }
+  .tour-sub { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+  .tour-sub.left-few { color: var(--warn); font-weight: 700; }
+  .tour-sub.left-none { color: var(--faint); }
+
+  /* ---- badges ---- */
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 700;
+    border-radius: 999px; padding: 2px 9px; vertical-align: 2px;
+  }
+  .badge.event { background: var(--primary-soft); color: var(--primary); }
+  .badge.you { background: var(--ok-soft); color: var(--ok); }
+  .badge.open { background: var(--warn-soft); color: var(--warn); }
+  .badge.full, .badge.closed { background: #f1f3f6; color: var(--faint); }
+  .badge.approved { background: var(--ok-soft); color: var(--ok); }
+  .badge.declined { background: var(--danger-soft); color: var(--danger); }
+  .badge.cancelled { background: #f1f3f6; color: var(--faint); }
+  .badge.pending { background: var(--warn-soft); color: var(--warn); }
+  .badge.booked { background: var(--primary-soft); color: var(--primary); }
+
+  /* ---- banner ---- */
+  .banner {
+    border-radius: var(--r-md); padding: 12px 14px; margin-bottom: 12px;
+    font-size: 14px; background: var(--primary-soft); color: var(--primary-dark);
+  }
+  .banner.error { background: var(--danger-soft); color: var(--danger); }
+  .banner a { color: inherit; font-weight: 700; }
+
+  /* ---- forms ---- */
+  input[type="text"], input[type="url"], input[type="password"], input[type="tel"],
+  input[type="date"], input[type="time"], input[type="number"], select, textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: var(--r-md);
+    background: #fafbfd; color: var(--ink);
+    font: 500 15px var(--sans); padding: 11px 12px;
+    outline: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--primary); background: #fff; }
+  label.fld { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+  .pin-row { display: flex; gap: 10px; }
+  .pin-row input { text-align: center; font-size: 22px; letter-spacing: 8px; font-weight: 700; }
+  .form-row { display: flex; gap: 10px; }
+  .form-row > * { flex: 1; min-width: 0; }
+  .book-form { background: var(--bg); border-radius: var(--r-md); padding: 4px 14px 14px; margin-top: 10px; }
+
+  /* ---- admin rows ---- */
+  .req-row { padding: 12px 0; border-top: 1px solid var(--line); }
+  .req-row:first-of-type { border-top: none; }
+  .req-head { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 700; flex-wrap: wrap; }
+  .req-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .req-actions { display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+  .slot-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .slot-row select, .slot-row input { padding: 8px 10px; font-size: 14px; }
+  .slot-row .cap { flex: 0 0 74px; }
+  .slot-row .del {
+    flex: 0 0 auto; border: none; background: var(--danger-soft); color: var(--danger);
+    border-radius: 9px; font-size: 15px; font-weight: 800; padding: 6px 11px; cursor: pointer;
+  }
+  .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 7px 0; border-top: 1px solid var(--line); }
+  .kv:first-of-type { border-top: none; }
+  .kv .k { color: var(--muted); }
+  .lock-title { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+  .hint { font-size: 13px; color: var(--muted); }
+  .pin-error { color: var(--danger); font-size: 13.5px; font-weight: 600; margin: 8px 0 0; }
+  .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; word-break: break-all; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .stack > * + * { margin-top: 10px; }
+  footer { text-align: center; font-size: 12px; color: var(--faint); padding: 18px 0 30px; }
+</style>
+</head>
+<body>
+<header id="masthead">
+  <div class="head-in">
+    <div class="wordmark">LV</div>
+    <div>
+      <div class="head-title">LV Zion Study Rooms</div>
+      <div class="head-sub">Sabbath Room &amp; Equipment Sign-ups</div>
+    </div>
+    <span class="sync-pill off" id="sync-pill">local</span>
+  </div>
+</header>
+<nav>
+  <div class="tabs" id="tabs"></div>
+</nav>
+<div class="wrap">
+  <div id="banners"></div>
+  <main id="app"></main>
+  <footer>LV Zion · World Mission Society Church of God</footer>
+</div>
+<script src="firebase-config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
