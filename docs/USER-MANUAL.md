@@ -3,8 +3,8 @@
 This app lets LV Zion members reserve a study room, whiteboard, or TV for the
 upcoming Tuesday or Saturday from one phone-friendly calendar.
 
-The revised version is still being prepared for deployment. Its primary address
-will be **https://lvrooms.web.app**.
+The app is live at **https://lvrooms.web.app**. (The older address,
+https://lvz-rooms.web.app, forwards there automatically.)
 
 ## For members
 

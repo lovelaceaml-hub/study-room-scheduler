@@ -6,115 +6,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function validDate() {
-      let bookingDate = request.resource.data.bookingDate;
-      let today = timestamp.date(request.time.year(), request.time.month(), request.time.day());
-      return bookingDate is timestamp
-        && bookingDate.hours() == 12
-        && bookingDate.minutes() == 0
-        && bookingDate.seconds() == 0
-        && bookingDate >= today
-        && bookingDate <= today + duration.value(6, 'd')
-        // Firestore Timestamp.dayOfWeek() follows ISO ordering: Mon=1, Sun=7.
-        && (bookingDate.dayOfWeek() == 2 || bookingDate.dayOfWeek() == 6)
-        && request.resource.data.date is string
-        && request.resource.data.date
-          == string(bookingDate.year()) + '-'
-            + (bookingDate.month() < 10 ? '0' : '') + string(bookingDate.month()) + '-'
-            + (bookingDate.day() < 10 ? '0' : '') + string(bookingDate.day());
-    }
-
-    function validStart(value) {
-      return value in [
-        '10:00', '10:30', '11:00', '11:30', '12:00', '12:30',
-        '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-        '16:00', '16:30', '17:00', '17:30', '18:00', '18:30',
-        '19:00', '19:30', '20:00', '20:30', '21:00', '21:30'
-      ];
-    }
-
-    function validEnd(value) {
-      return value in [
-        '10:30', '11:00', '11:30', '12:00', '12:30', '13:00',
-        '13:30', '14:00', '14:30', '15:00', '15:30', '16:00',
-        '16:30', '17:00', '17:30', '18:00', '18:30', '19:00',
-        '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'
-      ];
-    }
-
-    function avoidsServiceBlocks() {
-      let start = request.resource.data.start;
-      let end = request.resource.data.end;
-      let day = request.resource.data.bookingDate.dayOfWeek();
-      return (day != 2 || end <= '20:00' || start >= '21:00')
-        && (day != 6 || end <= '15:00' || start >= '16:00')
-        && (day != 6 || end <= '20:00' || start >= '21:00');
-    }
-
-    function validNeeds() {
-      let needs = request.resource.data.needs;
-      return needs is map
-        && needs.keys().hasOnly(['room', 'whiteboard', 'tv'])
-        && needs.room is bool
-        && needs.whiteboard is bool
-        && needs.tv is bool
-        && (needs.room || needs.whiteboard || needs.tv);
-    }
-
-    function validEmptyAssignments() {
-      let assignments = request.resource.data.assignments;
-      return assignments is map
-        && assignments.keys().hasOnly(['room', 'whiteboard', 'tv'])
-        && assignments.room == null
-        && assignments.whiteboard == null
-        && assignments.tv == null;
-    }
-
-    function validMemberText() {
-      return request.resource.data.name is string
-        && request.resource.data.name.size() >= 1
-        && request.resource.data.name.size() <= 120
-        && request.resource.data.purpose is string
-        && request.resource.data.purpose in ['contact', 'new-member', 'group', 'study-member', 'meeting', 'other']
-        && request.resource.data.purposeOther is string
-        && request.resource.data.purposeOther.size() <= 240
-        && request.resource.data.certainty is string
-        && request.resource.data.certainty in ['confirmed', 'tentative'];
-    }
-
-    function validPreference() {
-      return request.resource.data.preferredRoom == null
-        || request.resource.data.preferredRoom in ['room-1', 'room-2', 'room-3', 'room-4'];
-    }
-
-    function validMemberCreate() {
-      return signedIn()
-        && request.resource.data.keys().hasOnly([
-          'schemaVersion', 'date', 'bookingDate', 'start', 'end', 'name',
-          'needs', 'preferredRoom', 'purpose', 'purposeOther', 'certainty',
-          'status', 'assignments', 'ownerUid', 'createdAt', 'updatedAt'
-        ])
-        && request.resource.data.keys().hasAll([
-          'schemaVersion', 'date', 'bookingDate', 'start', 'end', 'name',
-          'needs', 'preferredRoom', 'purpose', 'purposeOther', 'certainty',
-          'status', 'assignments', 'ownerUid', 'createdAt', 'updatedAt'
-        ])
-        && request.resource.data.schemaVersion == 3
-        && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.status == 'pending'
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.updatedAt == request.time
-        && validDate()
-        && validStart(request.resource.data.start)
-        && validEnd(request.resource.data.end)
-        && request.resource.data.start < request.resource.data.end
-        && avoidsServiceBlocks()
-        && validNeeds()
-        && validEmptyAssignments()
-        && validMemberText()
-        && validPreference();
-    }
-
     function validOwnerCancellation() {
       return signedIn()
         && resource.data.ownerUid == request.auth.uid
@@ -129,7 +20,11 @@ service cloud.firestore {
     // Sensitive notes are kept in privateBookingNotes instead of these docs.
     match /bookings/{bookingId} {
       allow read: if true;
-      allow create: if validMemberCreate();
+      // Creation happens only through the memberSubmitBooking Cloud Function
+      // (Admin SDK), which validates dates/slots/service blocks server-side
+      // and enforces per-day and per-address limits. The old direct-create
+      // path for schemaVersion 3 clients is retired.
+      allow create: if false;
       allow update: if validOwnerCancellation();
       allow delete: if false;
     }

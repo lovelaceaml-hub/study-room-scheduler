@@ -45,7 +45,10 @@ function clientAddress(request) {
   const forwarded = request.rawRequest && request.rawRequest.headers
     ? request.rawRequest.headers['x-forwarded-for']
     : '';
-  return String(forwarded || request.rawRequest?.ip || 'unknown').split(',')[0].trim();
+  // Google's front end APPENDS the real client IP to any client-supplied
+  // X-Forwarded-For value, so the trustworthy entry is the last one.
+  const parts = String(forwarded || '').split(',').map(part => part.trim()).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : String(request.rawRequest?.ip || 'unknown');
 }
 
 function errorFromValidation(error) {
@@ -57,9 +60,14 @@ function pinFingerprint() {
   return sha256(`study-room-pin:${ADMIN_PIN.value()}`).slice(0, 24);
 }
 
-async function registerFailedAttempt(uid, address) {
-  const key = sha256(`${uid}:${address}`).slice(0, 40);
-  const ref = db.collection('adminRateLimits').doc(key);
+// PIN attempts are limited per client ADDRESS (never per signed-in user):
+// anonymous auth lets anyone mint a fresh uid before every guess, so a
+// uid-based key would reset the counter each time. A second, global counter
+// backstops attackers who can rotate addresses too.
+const GLOBAL_RATE_KEY = 'global-pin-failures';
+const MAX_GLOBAL_FAILED_ATTEMPTS = 20;
+
+async function recordFailureOn(ref, maximumFailures) {
   const now = Timestamp.now();
   const windowMs = RATE_WINDOW_MINUTES * 60 * 1000;
   let blocked = false;
@@ -69,7 +77,7 @@ async function registerFailedAttempt(uid, address) {
     const windowStartMs = previous.windowStart?.toMillis?.() || 0;
     const inWindow = now.toMillis() - windowStartMs < windowMs;
     const failures = inWindow ? Number(previous.failures || 0) + 1 : 1;
-    blocked = failures >= MAX_FAILED_ATTEMPTS;
+    blocked = failures >= maximumFailures;
     transaction.set(ref, {
       failures,
       windowStart: inWindow ? previous.windowStart : now,
@@ -80,19 +88,39 @@ async function registerFailedAttempt(uid, address) {
   return blocked;
 }
 
-async function ensureNotRateLimited(uid, address) {
-  const key = sha256(`${uid}:${address}`).slice(0, 40);
-  const snapshot = await db.collection('adminRateLimits').doc(key).get();
-  if (!snapshot.exists) return;
+function addressRateRef(address) {
+  return db.collection('adminRateLimits').doc(sha256(`address:${address}`).slice(0, 40));
+}
+
+async function registerFailedAttempt(address) {
+  const blockedForAddress = await recordFailureOn(addressRateRef(address), MAX_FAILED_ATTEMPTS);
+  const blockedGlobally = await recordFailureOn(
+    db.collection('adminRateLimits').doc(GLOBAL_RATE_KEY),
+    MAX_GLOBAL_FAILED_ATTEMPTS
+  );
+  return blockedForAddress || blockedGlobally;
+}
+
+function isCurrentlyBlocked(snapshot) {
+  if (!snapshot.exists) return false;
   const blockedUntil = snapshot.data().blockedUntil;
-  if (blockedUntil && blockedUntil.toMillis() > Date.now()) {
+  return Boolean(blockedUntil && blockedUntil.toMillis() > Date.now());
+}
+
+async function ensureNotRateLimited(address) {
+  const [forAddress, global] = await Promise.all([
+    addressRateRef(address).get(),
+    db.collection('adminRateLimits').doc(GLOBAL_RATE_KEY).get()
+  ]);
+  if (isCurrentlyBlocked(forAddress) || isCurrentlyBlocked(global)) {
     throw new HttpsError('resource-exhausted', 'Too many PIN attempts. Please wait 15 minutes and try again.');
   }
 }
 
-async function clearRateLimit(uid, address) {
-  const key = sha256(`${uid}:${address}`).slice(0, 40);
-  await db.collection('adminRateLimits').doc(key).delete().catch(() => {});
+async function clearRateLimit(address) {
+  // Only the per-address counter resets on success; the global counter keeps
+  // counting so interleaved correct logins cannot launder a brute force.
+  await addressRateRef(address).delete().catch(() => {});
 }
 
 async function requireAdminSession(request) {
@@ -186,6 +214,15 @@ async function memberSubmitBooking(input, uid) {
   catch (error) { throw errorFromValidation(error); }
   const bookingRef = db.collection('bookings').doc();
   return db.runTransaction(async transaction => {
+    const mine = await transaction.get(
+      db.collection('bookings')
+        .where('ownerUid', '==', uid)
+        .where('date', '==', request.date)
+        .where('status', 'in', ['pending', 'approved'])
+    );
+    if (mine.size >= 4) {
+      throw new HttpsError('resource-exhausted', 'You already have several reservations for this day. Please talk to the approver if you need more.');
+    }
     const approved = await approvedBookingsForDate(transaction, request.date);
     const candidate = { ...request, date: request.date, assignments: { room: null, whiteboard: null, tv: null } };
     const automatic = isTuesday(request.date);
@@ -395,14 +432,14 @@ async function retireBaptismRoom(uid, cursor = {}) {
 exports.adminStartSession = onCall({ region: REGION, secrets: [ADMIN_PIN] }, async request => {
   const uid = requireAuth(request);
   const address = clientAddress(request);
-  await ensureNotRateLimited(uid, address);
+  await ensureNotRateLimited(address);
   const pin = request.data && typeof request.data.pin === 'string' ? request.data.pin : '';
   if (!timingSafeTextEqual(pin, ADMIN_PIN.value())) {
-    const blocked = await registerFailedAttempt(uid, address);
+    const blocked = await registerFailedAttempt(address);
     if (blocked) throw new HttpsError('resource-exhausted', 'Too many PIN attempts. Please wait 15 minutes and try again.');
     throw new HttpsError('permission-denied', 'Incorrect Admin PIN.');
   }
-  await clearRateLimit(uid, address);
+  await clearRateLimit(address);
   const token = crypto.randomBytes(32).toString('base64url');
   const expiresAt = Timestamp.fromMillis(Date.now() + SESSION_MINUTES * 60 * 1000);
   await db.collection('adminSessions').doc(sha256(token)).set({
@@ -441,8 +478,25 @@ exports.adminBookingAction = onCall({ region: REGION, secrets: [ADMIN_PIN] }, as
   }
 });
 
+// One address gets a handful of booking submissions per window; the 8th and
+// later within 15 minutes are refused so a script cannot flood the schedule.
+const MAX_MEMBER_SUBMISSIONS = 8;
+
+function memberSubmitRef(address) {
+  return db.collection('adminRateLimits').doc(sha256(`member-submit:${address}`).slice(0, 40));
+}
+
 exports.memberSubmitBooking = onCall({ region: REGION }, async request => {
   const uid = requireAuth(request);
+  const address = clientAddress(request);
+  const submitRef = memberSubmitRef(address);
+  if (isCurrentlyBlocked(await submitRef.get())) {
+    throw new HttpsError('resource-exhausted', 'Too many reservation requests from this device. Please wait a few minutes and try again.');
+  }
+  const blocked = await recordFailureOn(submitRef, MAX_MEMBER_SUBMISSIONS);
+  if (blocked) {
+    throw new HttpsError('resource-exhausted', 'Too many reservation requests from this device. Please wait a few minutes and try again.');
+  }
   return memberSubmitBooking(request.data, uid);
 });
 

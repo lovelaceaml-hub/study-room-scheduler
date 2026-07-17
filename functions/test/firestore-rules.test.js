@@ -62,33 +62,16 @@ test('the public can read schedules but cannot read private notes', async () => 
   await assertFails(getDoc(doc(publicDb, 'privateBookingNotes', 'any')));
 });
 
-test('anonymous member can create only an owned pending request', async () => {
+test('clients can no longer create bookings directly — only the backend can', async () => {
   const memberDb = environment.authenticatedContext('member-a').firestore();
   const valid = booking(nextEligibleDate(), 'member-a');
-  await assertSucceeds(setDoc(doc(memberDb, 'bookings', 'valid'), valid));
+  // Even a perfectly-formed request is refused: creation goes through the
+  // memberSubmitBooking Cloud Function, which rate-limits and validates.
+  await assertFails(setDoc(doc(memberDb, 'bookings', 'valid'), valid));
   await assertFails(setDoc(doc(memberDb, 'bookings', 'wrong-owner'), { ...valid, ownerUid: 'member-b' }));
   await assertFails(setDoc(doc(memberDb, 'bookings', 'approved'), {
     ...valid, status: 'approved', assignments: { room: 'room-1', whiteboard: null, tv: null }
   }));
-});
-
-test('member cannot submit a Baptism Room preference or public note', async () => {
-  const memberDb = environment.authenticatedContext('member-a').firestore();
-  const valid = booking(nextEligibleDate(), 'member-a');
-  await assertFails(setDoc(doc(memberDb, 'bookings', 'baptism'), { ...valid, preferredRoom: 'room-baptism' }));
-  await assertFails(setDoc(doc(memberDb, 'bookings', 'public-note'), { ...valid, note: 'private' }));
-});
-
-test('member cannot cross a service block or mismatch the date timestamp', async () => {
-  const memberDb = environment.authenticatedContext('member-a').firestore();
-  const date = nextEligibleDate();
-  const valid = booking(date, 'member-a');
-  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
-  const crossing = weekday === 2
-    ? { start: '19:30', end: '20:30' }
-    : { start: '14:30', end: '15:30' };
-  await assertFails(setDoc(doc(memberDb, 'bookings', 'service'), { ...valid, ...crossing }));
-  await assertFails(setDoc(doc(memberDb, 'bookings', 'mismatch'), { ...valid, date: '2099-01-01' }));
 });
 
 test('owner may cancel without changing details; other member may not', async () => {
