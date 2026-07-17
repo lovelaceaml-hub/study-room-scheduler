@@ -10,4 +10,6 @@ still works offline or before the Firebase project is connected. No framework, n
 bundler, no npm dependencies — same architecture as its sibling apps (worship-duty-app,
 morning-prayer-app, exhibition-tours).
 
-See `docs/` for the User Manual, Setup Guide, and Creation Guide.
+See `docs/` for the User Manual, Setup Guide, Creation Guide, and Handoff notes
+(`docs/HANDOFF.md` — the plain-English record of the latest changes and how to pick the
+project back up).
