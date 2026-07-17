@@ -71,6 +71,9 @@ All five were verified working in a local browser before commit (renamed tab,
 "Who's requesting" list, the Sign Up panel showing an overlapping request, no podium
 chip, and single-tap start–end times including extend/restart behavior).
 
+**These are now live** — deployed to https://lvz-rooms.web.app on 2026-07-16 and
+re-verified on the live site after the deploy.
+
 ## Deploying
 
 The app's Firebase project (`lvz-rooms`) is dedicated to this app, so a normal deploy
@@ -80,10 +83,10 @@ is safe. From the project folder:
 npm_config_cache=/tmp/npm-cache npx -y firebase-tools@latest deploy --only hosting
 ```
 
-(Add `,firestore` if the Firestore rules changed — they did not in this session.)
+(Add `,firestore` if the Firestore rules changed — they have not changed since the
+app's first commit, so hosting-only has been the right scope every time so far.)
 
 ## Nothing pending
 
-As of this handoff there are no open tasks — the five changes are complete, documented,
-and pushed to GitHub. The only outstanding decision is whether/when to deploy them to
-the live site.
+The five changes are complete, documented, pushed to GitHub, and live on the site.
+There are no open tasks.
