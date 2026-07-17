@@ -460,6 +460,16 @@ async function initFirebase(config) {
   const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
   const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   const app = appMod.initializeApp(config);
+
+  // Anonymous auth — an invisible sign-in so the Firestore write rules can
+  // require an authenticated context without adding any login UI for members.
+  // Reads stay open, so if this fails (e.g. Anonymous auth not yet enabled in
+  // the console) the app still shows data; only writes would be rejected.
+  try {
+    const authMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+    await authMod.signInAnonymously(authMod.getAuth(app));
+  } catch (e) { console.warn('Anonymous sign-in failed:', e); }
+
   const db = fsMod.getFirestore(app);
   fb = {
     db,
