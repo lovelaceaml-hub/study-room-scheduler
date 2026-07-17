@@ -34,7 +34,8 @@ read-only.
 
 Only two dates are offered: the upcoming Tuesday and upcoming Saturday. Today counts
 when today is one of those weekdays. The dates are displayed chronologically and the
-selected date is shared across Reservations, Sign up, and Admin.
+selected date is shared across Reservations and Admin. Reservations is the only
+member booking screen; there is no separate Sign up tab.
 
 ### Time range and services
 
@@ -48,6 +49,20 @@ Unavailable service periods are:
 
 Saturday’s visual schedule starts at 9:00 AM to show the morning service. Validation
 must reject ranges that overlap a service or begin before reservable time.
+
+### Member booking flow
+
+The Reservations calendar is the starting point for every member request. It presents
+compact resource rows with visible dividers for each 30-minute period. An available
+period is a direct tap target; selecting one opens a pop-up with the date and initial
+30-minute time prefilled. The pop-up collects the member name, requested resource
+types, optional room preference, an allowed end time, purpose, certainty, and optional
+note, then submits the normal pending request.
+
+Service periods remain visible as blocked calendar areas rather than separate notices
+that say reservations are unavailable. They cannot be selected or crossed when a
+member adjusts a booking length. The same interaction must work on phone layouts,
+not only the desktop calendar.
 
 ### Resources
 
@@ -112,10 +127,9 @@ for 1920×1080 and 1280×720 lobby screens.
 
 ## Phone and accessibility design
 
-The phone layout uses a compact two-column date selector and time buttons that wrap
-within each valid booking period. It avoids a hidden sideways time strip and keeps a
-visible summary of the selected range. Main controls use at least 44×44-pixel touch
-targets.
+The phone layout uses a compact two-column date selector and a compact, tappable
+30-minute calendar. It keeps time dividers visible and opens the same booking pop-up
+as the desktop view. Main controls use at least 44×44-pixel touch targets.
 
 Tabs and selected controls expose their state to assistive technology. Inputs have
 real labels, status and error messages are announced, the masthead home behavior is
@@ -133,6 +147,11 @@ Production verification covers:
 - Pending-to-approved, decline, cancel, reconnect, and failed-save transitions.
 - Member ownership and rejection of unauthorized Admin or cross-member changes.
 - Two simultaneous devices receiving live changes without refresh.
+- Selecting an open calendar slot on desktop and phone opens a pop-up with the
+  correct date and initial 30-minute range.
+- A member can extend a request only within the same non-service period; blocked
+  service areas cannot be selected.
+- The calendar has no separate Sign up tab or "reservations unavailable" notice.
 - Phones at 320, 375, and 390 pixels.
 - TV mode at 1280×720 and 1920×1080.
 - Old-address redirect, new primary address, installation, and offline reopening.

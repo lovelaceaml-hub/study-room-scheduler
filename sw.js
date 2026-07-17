@@ -1,6 +1,6 @@
 /* LV Zion Study Rooms — service worker.
    Network-first with cache fallback so the app still opens offline. */
-const CACHE = 'srs-v3';
+const CACHE = 'srs-v4-calendar-first';
 const ASSETS = [
   './', './index.html', './app.js', './firebase-config.js', './manifest.json', './icon.svg',
   './tv.html', './tv.css', './tv.js'

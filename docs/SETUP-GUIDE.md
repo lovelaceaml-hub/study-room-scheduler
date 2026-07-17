@@ -14,6 +14,11 @@ visitors to the shorter address automatically.
 2. Go to **https://lvrooms.web.app**.
 3. The app opens without an account screen. It quietly identifies the device so each
    member can manage only their own new requests.
+4. To make a request, open **Reservations**, choose Tuesday or Saturday, and tap an
+   open 30-minute calendar period. Complete the short pop-up form that appears.
+
+The member app has no separate **Sign up** screen. Service times appear as blocked
+areas in the calendar and cannot be selected.
 
 ## Install it on an iPhone
 

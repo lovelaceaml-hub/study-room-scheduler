@@ -20,14 +20,20 @@ and verified on July 17, 2026.
   8:00–9:00 PM for services.
 - Show Saturday from 9:00 AM so the morning service is visible; booking still begins
   at 10:00 AM.
+- Make Reservations the only member booking screen: members tap an open 30-minute
+  calendar period, then complete the remaining details in a pop-up. Remove the
+  separate Sign up tab.
+- Use compact calendar rows with visible 30-minute dividers. Show service periods as
+  blocked calendar areas, without separate "Reservations unavailable" notices.
 - Show every pending request live in amber resource-type lanes before approval.
 - Move approved requests into Study Room 1–4, Whiteboard 1–5, or TV 1–3 rows.
 - Remove the Baptism Room from future scheduling and return active future assignments
   there to pending for reassignment.
 - Add the read-only current-day lobby TV presentation with first name plus last
   initial, current time, live status, and cached reconnect behavior.
-- Improve the phone layout with wrapping time buttons, larger touch targets, clearer
-  selected states, labels, announcements, keyboard access, and enlarged-text support.
+- Improve the phone layout with a compact tappable calendar, larger touch targets,
+  clearer selected states, pop-up labels and announcements, keyboard access, and
+  enlarged-text support.
 - Use silent member identity for ownership and protected backend Admin actions while
   keeping the familiar `0000` PIN experience.
 - Keep optional notes Admin-only and never expose them on public or TV schedules.
@@ -50,6 +56,8 @@ details, and preserves its last public schedule during a connection interruption
 - Confirm future Baptism Room bookings were safely returned to pending.
 - Verify anonymous request creation and owner-only cancellation.
 - Verify Admin unlock, approve, decline, cancel, reassignment, direct-add, and lock.
+- Verify open 30-minute calendar periods launch the booking pop-up on desktop and
+  phone; verify service areas and unavailable periods cannot be selected.
 - Verify simultaneous member, Admin, phone, and TV live updates.
 - Verify 320/375/390-pixel phone views and 720p/1080p TV views.
 - Verify the primary URL, previous-address redirect, and preservation of `?tv=1`.

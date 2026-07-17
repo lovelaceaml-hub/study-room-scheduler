@@ -13,15 +13,15 @@
   - [Handoff](docs/HANDOFF.md) — current implementation and rollout notes
   - [All documents →](docs/)
 
-An installable study-room scheduling app for LV Zion. Members can see and request
-the upcoming Tuesday and Saturday, while approvers assign Study Rooms 1–4,
-whiteboards, and TVs. Pending requests appear live before approval, clearly marked
-as requested rather than assigned.
+An installable study-room scheduling app for LV Zion. Members choose a time directly
+from the compact upcoming Tuesday or Saturday calendar, then complete their request
+in a pop-up. Approvers assign Study Rooms 1–4, whiteboards, and TVs. Pending requests
+appear live before approval, clearly marked as requested rather than assigned.
 
 The app uses buildless vanilla JavaScript, Firebase Hosting, and Firestore live
 updates. It includes a phone-friendly booking experience and a dedicated lobby TV
-screen. Reservations use 30-minute slots, show service periods as unavailable, and
-run through 10:30 PM.
+screen. Reservations use clickable 30-minute slots, show service periods as blocked
+calendar areas, and run through 10:30 PM.
 
 The primary address, lobby TV, secure Admin backend, and permanent redirect from
 the former address are live.

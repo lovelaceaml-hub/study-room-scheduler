@@ -19,7 +19,7 @@
 const DATA_KEY = 'srs-data-v2';
 const ADMIN_KEY = 'srs-admin-session';
 const MY_BOOKINGS_KEY = 'srs-my-bookings';   // localStorage array of this device's own booking ids
-const NAME_KEY = 'srs-name';                 // localStorage: last name typed on the Sign Up form
+const NAME_KEY = 'srs-name';                 // localStorage: last name typed in the reservation popup
 
 const PURPOSES = [
   { id: 'contact', label: 'Contact study' },
@@ -29,7 +29,7 @@ const PURPOSES = [
 ];
 /* Admin-only addition, used solely on the "Add a booking" form (e.g. to
    hold a room for another use). Never offered to
-   members on the Sign Up tab. Renders as a neutral "Reserved" chip. */
+   members in the reservation popup. Renders as a neutral "Reserved" chip. */
 const ADMIN_PURPOSES = PURPOSES.concat([{ id: 'blocked', label: 'Room unavailable / reserved' }]);
 
 /* The things a member can ask for, in the order they appear everywhere
@@ -60,12 +60,11 @@ const TVS = [1, 2, 3].map(n => ({ id: 'tv-' + n, label: 'TV ' + n, num: n }));
 const UNITS_BY_TYPE = { room: ROOMS, whiteboard: WHITEBOARDS, tv: TVS };
 const CAPACITY = { room: ROOMS.length, whiteboard: WHITEBOARDS.length, tv: TVS.length };
 
-/* Preferred-room pill choices on the Sign Up form: null = "No preference". */
+/* Preferred-room pill choices in the member popup: null = "No preference". */
 const PREFERRED_ROOM_CHOICES = [null, 'room-1', 'room-2', 'room-3', 'room-4'];
 
 const TABS = [
   { id: 'schedule', label: 'Reservations' },
-  { id: 'signup', label: 'Sign up' },
   { id: 'admin', label: 'Admin' }
 ];
 
@@ -76,11 +75,12 @@ let state = {
 };
 let ui = {
   tab: 'schedule',
-  selectedDate: null,   // shared by Reservations, Sign Up, and Admin
+  selectedDate: null,   // shared by Reservations and Admin
   pinError: '',
   submitting: false,
-  signup: null,         // Sign Up form draft, created lazily by ensureSignupDraft()
-  signupConfirm: null,  // { id } of the just-submitted booking, while the confirmation panel is showing
+  signup: null,         // reservation-popup draft, created from a calendar cell
+  signupBaseline: null, // serialized initial popup state, used for discard warnings
+  returnFocusKey: null, // calendar-cell key to restore focus after the popup closes
   adminAssign: {},       // bookingId -> { room, whiteboard, tv } draft unit picks (pending or re-approve)
   adminReapproveId: null, // id of a declined/cancelled booking currently showing the assignment UI
   adminForm: null,       // Admin "Add a booking" form draft, created lazily by ensureAdminFormDraft()
@@ -551,6 +551,16 @@ function render() {
   const app = document.getElementById('app');
   if (!app) return;
 
+  // Firestore can update while someone is typing in the popup. Pull the
+  // current inputs into the draft before rebuilding the calendar so those
+  // live updates never erase unsaved member details.
+  const activeBeforeRender = document.activeElement;
+  const popupFocus = ui.signup && activeBeforeRender && activeBeforeRender.closest('.booking-dialog')
+    ? { id: activeBeforeRender.id || '', act: activeBeforeRender.dataset.act || '', item: activeBeforeRender.dataset.id || '' }
+    : null;
+  syncSignupDraft();
+  document.body.classList.toggle('modal-open', !!ui.signup);
+
   const dateEl = document.getElementById('head-date');
   const date = selectedDate();
   if (dateEl) dateEl.textContent = fmtDate(date) + ' selected';
@@ -562,9 +572,24 @@ function render() {
     ).join('');
   }
 
-  if (ui.tab === 'signup') app.innerHTML = renderSignup();
-  else if (ui.tab === 'admin') app.innerHTML = renderAdmin();
+  if (ui.tab === 'admin') app.innerHTML = renderAdmin();
   else app.innerHTML = renderSchedule();
+
+  if (ui.signup) {
+    requestAnimationFrame(() => {
+      const modal = document.querySelector('.booking-dialog');
+      const active = document.activeElement;
+      if (modal && (!active || !modal.contains(active))) {
+        let target = popupFocus && popupFocus.id ? document.getElementById(popupFocus.id) : null;
+        if (!target && popupFocus && popupFocus.act) {
+          target = Array.from(modal.querySelectorAll('[data-act]')).find(node =>
+            node.dataset.act === popupFocus.act && (node.dataset.id || '') === popupFocus.item);
+        }
+        if (!target) target = document.getElementById('su-name') || modal.querySelector('button, select, input');
+        if (target) target.focus();
+      }
+    });
+  }
 }
 
 function dateSelectorHtml() {
@@ -576,12 +601,6 @@ function dateSelectorHtml() {
         '<span class="date-choice-day">' + (isTuesday(date) ? 'Tuesday' : 'Saturday') + '</span>' +
         '<span class="date-choice-date">' + esc(fmtHeaderDate(date)) + '</span></button>';
     }).join('') + '</div>';
-}
-
-function serviceNoticeHtml(date) {
-  return '<div class="service-notices" aria-label="Service times">' + serviceWindows(date).map(w =>
-    '<div class="service-notice"><strong>' + esc(w.label) + '</strong><span>' + esc(fmtTime(w.start)) + '–' + esc(fmtTime(w.end)) + ' · reservations unavailable</span></div>'
-  ).join('') + '</div>';
 }
 
 /* ================= shared schedule grid (This Sabbath / reference / admin day overview) ================= */
@@ -601,20 +620,41 @@ function chipClass(b) {
 }
 
 /* ---- desktop timeline ---- */
-function timelineRowHtml(unitLabelHtml, sublabel, type, unitId, date) {
+function calendarCellKey(date, start, type, unitId) {
+  return [date, start, type, unitId || 'type'].join('|');
+}
+
+function calendarCellHtml(type, unitId, date, start, interactive) {
+  const end = hhmmOfMins(minsOfDay(start) + 30);
+  const occupant = unitOccupant(type, unitId, date, start, end, null);
+  const key = calendarCellKey(date, start, type, unitId);
+  if (!interactive || occupant) {
+    const label = occupant
+      ? unitLabel(type, unitId) + ' is reserved by ' + occupant.name + ', ' + fmtTime(start) + ' to ' + fmtTime(end)
+      : unitLabel(type, unitId) + ', ' + fmtTime(start);
+    return '<span class="calendar-cell' + (occupant ? ' occupied' : '') + '" aria-label="' + esc(label) + '"></span>';
+  }
+  return '<button type="button" class="calendar-cell available" data-act="open-booking"' +
+    ' data-date="' + esc(date) + '" data-start="' + esc(start) + '" data-type="' + esc(type) + '" data-unit="' + esc(unitId) + '"' +
+    ' data-focus-key="' + esc(key) + '" aria-label="Request ' + esc(unitLabel(type, unitId)) + ', ' + esc(fmtTime(start)) + ' to ' + esc(fmtTime(end)) + '"></button>';
+}
+
+function timelineRowHtml(unitLabelHtml, sublabel, type, unitId, date, interactive) {
   const bookings = activeBookingsForDate(date).filter(b =>
     b.status === 'approved' && needsOf(b)[type] && assignmentsOf(b)[type] === unitId);
   const tracksHtml = scheduleSegments(date).map(w => {
     const total = minsOfDay(w.end) - minsOfDay(w.start);
     const flex = ' style="flex:' + total + ' 1 0"';
     if (w.service) return '<div class="timeline-track service-track"' + flex + ' aria-label="' + esc(w.label + ', ' + fmtTime(w.start) + ' to ' + fmtTime(w.end)) + '"><span>Service</span></div>';
+    const slots = slotStarts(w);
+    const cells = slots.map(s => calendarCellHtml(type, unitId, date, s, interactive)).join('');
     const chips = bookings.filter(b => rangesOverlap(b.start, b.end, w.start, w.end)).map(b => {
       const left = Math.max(0, minsOfDay(b.start) - minsOfDay(w.start));
       const width = Math.min(minsOfDay(b.end), minsOfDay(w.end)) - minsOfDay(w.start) - left;
       return '<div class="chip ' + chipClass(b) + '" style="left:' + (left / total * 100) + '%;width:' + (width / total * 100) + '%" title="' +
         esc(b.name + ' — ' + bookingPurposeText(b)) + '">' + chipInner(b) + '</div>';
     }).join('');
-    return '<div class="timeline-track"' + flex + '>' + chips + '</div>';
+    return '<div class="timeline-track slot-grid" style="flex:' + total + ' 1 0;grid-template-columns:repeat(' + slots.length + ',minmax(0,1fr))">' + cells + chips + '</div>';
   }).join('');
   return '<div class="timeline-row"><div class="timeline-label">' + unitLabelHtml +
     (sublabel ? '<small>' + esc(sublabel) + '</small>' : '') + '</div>' +
@@ -626,9 +666,9 @@ function rulerHtml(date) {
     const total = minsOfDay(w.end) - minsOfDay(w.start);
     if (w.service) return '<div class="ruler service-ruler" style="flex:' + total + ' 1 0"><span>' + esc(w.label) + '</span></div>';
     const ticks = [];
-    for (let m = minsOfDay(w.start); m < minsOfDay(w.end); m += 60) ticks.push(m);
+    for (let m = minsOfDay(w.start); m < minsOfDay(w.end); m += 30) ticks.push(m);
     const ticksHtml = ticks.map(m =>
-      '<span style="left:' + ((m - minsOfDay(w.start)) / total * 100) + '%">' + esc(fmtTime(hhmmOfMins(m))) + '</span>'
+      '<span style="left:' + ((m - minsOfDay(w.start)) / total * 100) + '%" aria-label="' + esc(fmtTime(hhmmOfMins(m))) + '">' + esc(fmtTimeTight(hhmmOfMins(m))) + '</span>'
     ).join('');
     return '<div class="ruler" style="flex:' + total + ' 1 0">' + ticksHtml + '</div>';
   }).join('');
@@ -649,33 +689,35 @@ function unitSublabel(type, u) {
 }
 
 /* ---- one category group (rooms / whiteboards / tvs), desktop + mobile ---- */
-function categoryGroupHtml(type, units, date, showWaiting) {
+function categoryGroupHtml(type, units, date, showWaiting, interactive) {
   const nt = NEED_TYPES.find(n => n.id === type);
-  let html = '<div class="cat-title">' + esc(nt.plural) + '</div>';
+  let html = '<div class="cat-title' + (interactive ? ' sched-desktop' : '') + '">' + esc(nt.plural) + '</div>';
 
   // Desktop timeline
   html += '<div class="sched-desktop">';
-  units.forEach(u => { html += timelineRowHtml(esc(u.label), unitSublabel(type, u), type, u.id, date); });
+  units.forEach(u => { html += timelineRowHtml(esc(u.label), unitSublabel(type, u), type, u.id, date, interactive); });
   html += '</div>';
 
-  // Mobile list — only units with at least one approved booking today
-  html += '<div class="sched-mobile">';
-  let anyMobile = false;
-  units.forEach(u => {
-    const bookings = activeBookingsForDate(date).filter(b =>
-      b.status === 'approved' && needsOf(b)[type] && assignmentsOf(b)[type] === u.id)
-      .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start));
-    bookings.forEach(b => {
-      anyMobile = true;
-      const badge = b.purpose === 'blocked' ? '<span class="mini-reserved">Reserved</span>' :
-        (b.certainty === 'confirmed' ? '<span class="badge-cert confirmed">&#10003;</span>' : '<span class="badge-cert tentative">&#9670;</span>') + ' ' + esc(b.name);
-      html += '<div class="mini-row"><span class="mini-unit">' + esc(u.label) + '</span>' +
-        '<span class="mini-detail">' + badge + '</span>' +
-        '<span class="mini-time">' + esc(fmtTimeTight(b.start)) + '–' + esc(fmtTimeTight(b.end)) + '</span></div>';
+  // Admin mobile list — member Reservations uses the chronological agenda.
+  if (!interactive) {
+    html += '<div class="sched-mobile">';
+    let anyMobile = false;
+    units.forEach(u => {
+      const bookings = activeBookingsForDate(date).filter(b =>
+        b.status === 'approved' && needsOf(b)[type] && assignmentsOf(b)[type] === u.id)
+        .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start));
+      bookings.forEach(b => {
+        anyMobile = true;
+        const badge = b.purpose === 'blocked' ? '<span class="mini-reserved">Reserved</span>' :
+          (b.certainty === 'confirmed' ? '<span class="badge-cert confirmed">&#10003;</span>' : '<span class="badge-cert tentative">&#9670;</span>') + ' ' + esc(b.name);
+        html += '<div class="mini-row"><span class="mini-unit">' + esc(u.label) + '</span>' +
+          '<span class="mini-detail">' + badge + '</span>' +
+          '<span class="mini-time">' + esc(fmtTimeTight(b.start)) + '–' + esc(fmtTimeTight(b.end)) + '</span></div>';
+      });
     });
-  });
-  if (!anyMobile) html += '<p class="hint">Nothing booked yet.</p>';
-  html += '</div>';
+    if (!anyMobile) html += '<p class="hint">Nothing booked yet.</p>';
+    html += '</div>';
+  }
 
   const pending = bookingsForDate(date).filter(b => b.status === 'pending' && needsOf(b)[type])
     .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start) || timestampMillis(a.createdAt) - timestampMillis(b.createdAt));
@@ -692,6 +734,46 @@ function categoryGroupHtml(type, units, date, showWaiting) {
   return html;
 }
 
+function mobileSlotTypeHtml(type, date, start) {
+  const end = hhmmOfMins(minsOfDay(start) + 30);
+  const units = unitsForType(type);
+  const free = freeUnitsForType(type, date, start, end, null);
+  const occupied = units.map(u => {
+    const booking = unitOccupant(type, u.id, date, start, end, null);
+    return booking ? { unit: u, booking: booking } : null;
+  }).filter(Boolean);
+  const nt = NEED_TYPES.find(n => n.id === type);
+  const detail = free.length
+    ? free.length + ' free' + (occupied.length ? ' · ' + occupied.length + ' in use' : '')
+    : 'Full';
+  const people = occupied.map(item => item.unit.label + ': ' + item.booking.name).join('; ');
+  if (!free.length) {
+    return '<button type="button" class="mobile-resource-btn full" disabled aria-label="' + esc(nt.label + ' is full from ' + fmtTime(start) + ' to ' + fmtTime(end) + (people ? '. ' + people : '')) + '">' +
+      '<span>' + esc(nt.label) + '</span><small>' + esc(detail) + '</small></button>';
+  }
+  const key = calendarCellKey(date, start, type, null);
+  return '<button type="button" class="mobile-resource-btn" data-act="open-booking" data-date="' + esc(date) + '" data-start="' + esc(start) + '" data-type="' + esc(type) + '" data-unit="" data-focus-key="' + esc(key) + '"' +
+    ' aria-label="Request ' + esc(nt.label) + ', ' + esc(fmtTime(start)) + ' to ' + esc(fmtTime(end) + '. ' + detail + (people ? '. ' + people : '')) + '">' +
+    '<span>' + esc(nt.label) + '</span><small>' + esc(detail) + '</small></button>';
+}
+
+function mobileBookingCalendarHtml(date) {
+  let html = '<div class="mobile-agenda sched-mobile" aria-label="Select a reservation time">' +
+    '<p class="calendar-help">Choose a time, then choose what you need.</p>';
+  scheduleSegments(date).forEach(w => {
+    if (w.service) {
+      html += '<div class="mobile-service-block"><strong>' + esc(w.label) + '</strong><span>' + esc(fmtTime(w.start)) + '–' + esc(fmtTime(w.end)) + '</span></div>';
+      return;
+    }
+    slotStarts(w).forEach(start => {
+      html += '<section class="mobile-slot-row" aria-labelledby="mobile-time-' + esc(start.replace(':', '')) + '">' +
+        '<div class="mobile-slot-time" id="mobile-time-' + esc(start.replace(':', '')) + '">' + esc(fmtTime(start)) + '</div>' +
+        '<div class="mobile-slot-resources">' + NEED_TYPES.map(nt => mobileSlotTypeHtml(nt.id, date, start)).join('') + '</div></section>';
+    });
+  });
+  return html + '</div>';
+}
+
 function legendHtml() {
   return '<div class="legend">' +
     '<span class="legend-item"><span class="legend-swatch confirmed"></span>Confirmed</span>' +
@@ -705,14 +787,16 @@ function legendHtml() {
    waiting-line strip placed right under the rooms group, then any
    contested whiteboard/tv stretches folded in below their own groups. */
 function scheduleGridHtml(date) {
+  const interactive = ui.tab === 'schedule';
   let html = '<div class="sched-scroll"><div class="sched-inner">';
   html += legendHtml();
-  html += serviceNoticeHtml(date);
   html += '<div class="sched-desktop">' + rulerHtml(date) + '</div>';
-  html += categoryGroupHtml('room', ROOMS, date, true);
-  html += categoryGroupHtml('whiteboard', WHITEBOARDS, date, true);
-  html += categoryGroupHtml('tv', TVS, date, true);
+  if (interactive) html += '<p class="calendar-help sched-desktop">Select any open 30-minute cell to request that time.</p>';
+  html += categoryGroupHtml('room', ROOMS, date, true, interactive);
+  html += categoryGroupHtml('whiteboard', WHITEBOARDS, date, true, interactive);
+  html += categoryGroupHtml('tv', TVS, date, true, interactive);
   html += '</div></div>';
+  if (interactive) html += mobileBookingCalendarHtml(date);
   return html;
 }
 
@@ -743,11 +827,12 @@ function reservationRequestsHtml(date) {
 function renderSchedule() {
   const date = selectedDate();
   let html = '<div class="card sched-head"><h2>Reservations</h2>' +
-    '<p class="section-note">Choose the upcoming Tuesday or Saturday. Approved reservations and requests awaiting approval update live.</p>' +
+    '<p class="section-note">Choose a date, then select any open 30-minute time to make a request. Approved reservations and requests awaiting approval update live.</p>' +
     dateSelectorHtml() + '</div>';
 
   html += '<div class="card">' + scheduleGridHtml(date) + '</div>';
   html += renderMyRequests(date);
+  if (ui.signup) html += bookingModalHtml();
   return html;
 }
 
@@ -787,7 +872,7 @@ function myRequestRowHtml(b, date) {
     '</div>';
 }
 
-/* ================= Sign Up tab ================= */
+/* ================= calendar-first reservation popup ================= */
 
 function ensureSignupDraft() {
   if (ui.signup) return;
@@ -819,6 +904,60 @@ function syncSignupDraft() {
   if (other) d.purposeOther = other.value;
 }
 
+function signupComparable(d) {
+  if (!d) return '';
+  return JSON.stringify({
+    name: d.name || '', needs: d.needs, preferredRoom: d.preferredRoom || null,
+    start: d.start, end: d.end, windowIdx: d.windowIdx,
+    purpose: d.purpose, purposeOther: d.purposeOther || '', certainty: d.certainty,
+    note: d.note || ''
+  });
+}
+
+function openBookingFromCell(el) {
+  const date = el.dataset.date;
+  const start = el.dataset.start;
+  const type = el.dataset.type;
+  const unitId = el.dataset.unit || null;
+  if (upcomingBookingDates().indexOf(date) === -1 || !NEED_TYPES.some(nt => nt.id === type)) return;
+  const wi = windowIndexFor(date, start);
+  if (wi < 0) return;
+  const end = hhmmOfMins(minsOfDay(start) + 30);
+  if (!isValidBookingRange(date, start, end)) return;
+  ui.selectedDate = date;
+  ui.returnFocusKey = el.dataset.focusKey || calendarCellKey(date, start, type, unitId);
+  ui.signup = {
+    name: localStorage.getItem(NAME_KEY) || '',
+    needs: { room: type === 'room', whiteboard: type === 'whiteboard', tv: type === 'tv' },
+    preferredRoom: type === 'room' ? unitId : null,
+    start: start,
+    end: end,
+    windowIdx: wi,
+    purpose: 'contact',
+    purposeOther: '',
+    certainty: null,
+    note: ''
+  };
+  ui.signupBaseline = signupComparable(ui.signup);
+  render();
+}
+
+function closeBookingModal(force) {
+  if (!ui.signup) return;
+  syncSignupDraft();
+  const dirty = signupComparable(ui.signup) !== ui.signupBaseline;
+  if (!force && dirty && !confirm('Discard the information entered for this request?')) return;
+  const key = ui.returnFocusKey;
+  ui.signup = null;
+  ui.signupBaseline = null;
+  ui.returnFocusKey = null;
+  render();
+  requestAnimationFrame(() => {
+    const target = key ? Array.from(document.querySelectorAll('[data-focus-key]')).find(node => node.dataset.focusKey === key) : null;
+    if (target) target.focus();
+  });
+}
+
 function currentNeedTypes(d) { return NEED_TYPES.map(nt => nt.id).filter(t => d.needs[t]); }
 
 function needsCheckboxesHtml(d) {
@@ -841,7 +980,7 @@ function preferredRoomHtml(d) {
 /* ---- time picker ---- */
 function timePickerHtml(d, date) {
   const needTypes = currentNeedTypes(d);
-  let html = '<div class="fld" id="su-time-label">Time — tap a start time for 30 minutes; tap a later time in the same section to make it longer</div>' + serviceNoticeHtml(date);
+  let html = '<div class="fld" id="su-time-label">Time — tap a start time for 30 minutes; tap a later time in the same section to make it longer</div>';
   bookingWindows(date).forEach((w, wi) => {
     const slots = slotStarts(w);
     html += '<div class="strip-wrap">' +
@@ -920,16 +1059,29 @@ function certaintyButtonsHtml(d) {
     '</div>';
 }
 
-function renderSignup() {
-  if (ui.signupConfirm) return renderSignupConfirm();
-  ensureSignupDraft();
+function endTimeOptionsHtml(d, date) {
+  const w = bookingWindows(date)[d.windowIdx];
+  if (!w || !d.start) return '';
+  const options = [];
+  for (let m = minsOfDay(d.start) + 30; m <= minsOfDay(w.end); m += 30) {
+    const value = hhmmOfMins(m);
+    options.push('<option value="' + value + '"' + (d.end === value ? ' selected' : '') + '>' + esc(fmtTime(value)) + '</option>');
+  }
+  return options.join('');
+}
+
+function bookingModalHtml() {
   const d = ui.signup;
   const date = selectedDate();
 
-  let html = '<div class="card"><h2>Sign up</h2>' +
-    '<p class="section-note">Choose Tuesday or Saturday, then request a study room or piece of equipment. The approver will assign it and let you know.</p>' +
-    dateSelectorHtml() +
+  return '<div class="modal-backdrop" role="presentation"><section class="booking-dialog" role="dialog" aria-modal="true" aria-labelledby="booking-dialog-title" aria-describedby="booking-dialog-summary">' +
+    '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(date)) + '</div><h2 id="booking-dialog-title">Request this time</h2></div>' +
+    '<button type="button" class="modal-close" data-act="su-close" aria-label="Close reservation popup">&times;</button></div>' +
+    '<p class="booking-time-summary" id="booking-dialog-summary"><strong>' + esc(fmtTime(d.start)) + '</strong> start · 30-minute minimum</p>' +
     '<form data-act="su-submit">' +
+
+    '<label class="fld" for="su-end">End time</label>' +
+    '<select id="su-end" data-chg="su-end" aria-label="Reservation end time">' + endTimeOptionsHtml(d, date) + '</select>' +
 
     '<label class="fld" for="su-name">Your name</label>' +
     '<input type="text" id="su-name" value="' + esc(d.name) + '" placeholder="Full name" autocomplete="name" required>' +
@@ -938,8 +1090,6 @@ function renderSignup() {
     needsCheckboxesHtml(d) +
 
     preferredRoomHtml(d) +
-
-    timePickerHtml(d, date) +
 
     signupExistingHtml(d, date) +
 
@@ -952,21 +1102,10 @@ function renderSignup() {
     '<label class="fld" for="su-note">Note (optional)</label>' +
     '<input type="text" id="su-note" value="' + esc(d.note) + '" placeholder="Anything the reviewer should know">' +
 
-    '<div style="margin-top:16px"><button class="btn primary big" type="submit"' + (ui.submitting ? ' disabled' : '') + '>' +
+    '<div class="modal-actions"><button type="button" class="btn" data-act="su-close">Cancel</button>' +
+    '<button class="btn primary" type="submit"' + (ui.submitting ? ' disabled' : '') + '>' +
     (ui.submitting ? 'Submitting…' : 'Request this time') + '</button></div>' +
-    '</form></div>';
-  return html;
-}
-
-function renderSignupConfirm() {
-  const needsRoom = ui.signupConfirm && ui.signupConfirm.needsRoom;
-  const msg = needsRoom
-    ? 'Your request is in — it’s waiting for approval. The approver will assign a room and you’ll see it under My requests.'
-    : 'Your request is in — it’s waiting for approval. The approver will assign it and you’ll see it under My requests.';
-  return '<div class="card"><h2>Request sent</h2>' +
-    '<p class="section-note">' + esc(msg) + '</p>' +
-    '<button class="btn primary big" data-act="su-again">Make another request</button>' +
-    '</div>';
+    '</form></section></div>';
 }
 
 async function submitSignup(form) {
@@ -1028,8 +1167,10 @@ async function submitSignup(form) {
     }
     addMyBookingId(id);
     try { localStorage.setItem(NAME_KEY, name); } catch (e) { /* storage full/blocked */ }
-    ui.signupConfirm = { id: id, needsRoom: !!d.needs.room };
     ui.signup = null;
+    ui.signupBaseline = null;
+    ui.returnFocusKey = null;
+    addBanner('Request sent. It is waiting for approval and now appears under My requests.');
     setSyncPill(true, 'Saved');
   } catch (error) {
     addBanner(friendlyFirebaseError(error), true);
@@ -1332,7 +1473,7 @@ function afPreferredRoomHtml(d) {
     }).join('') + '</div>';
 }
 function afTimePickerHtml(d) {
-  let html = '<div class="fld">Time</div>' + serviceNoticeHtml(d.date);
+  let html = '<div class="fld">Time</div>';
   bookingWindows(d.date).forEach((w, wi) => {
     const slots = slotStarts(w);
     html += '<div class="strip-wrap">' +
@@ -1569,6 +1710,8 @@ function handleAction(act, el) {
   }
 
   /* ---- Reservations tab ---- */
+  if (act === 'open-booking') { openBookingFromCell(el); return; }
+  if (act === 'su-close') { closeBookingModal(false); return; }
   if (act === 'my-cancel') {
     cancelMyBooking(el.dataset.id);
     return;
@@ -1579,7 +1722,6 @@ function handleAction(act, el) {
     syncSignupDraft(); ensureSignupDraft();
     const d = ui.signup;
     d.needs[el.dataset.id] = !d.needs[el.dataset.id];
-    d.start = null; d.end = null; d.windowIdx = null; // selection resets when needs change
     if (!d.needs.room) d.preferredRoom = null;
     render();
     return;
@@ -1593,7 +1735,6 @@ function handleAction(act, el) {
   }
   if (act === 'su-purpose') { syncSignupDraft(); ensureSignupDraft(); ui.signup.purpose = el.dataset.id; render(); return; }
   if (act === 'su-certainty') { syncSignupDraft(); ensureSignupDraft(); ui.signup.certainty = el.dataset.id; render(); return; }
-  if (act === 'su-again') { ui.signupConfirm = null; ui.signup = null; render(); return; }
   if (act === 'su-submit') { submitSignup(el); return; }
 
   /* ---- Admin tab: PIN gate ---- */
@@ -1708,6 +1849,31 @@ document.addEventListener('submit', e => {
   e.preventDefault();
   handleAction(el.dataset.act, el);
 });
+document.addEventListener('change', e => {
+  const el = e.target.closest('[data-chg]');
+  if (!el || !ui.signup) return;
+  if (el.dataset.chg === 'su-end') {
+    syncSignupDraft();
+    ui.signup.end = el.value;
+    render();
+  }
+});
+document.addEventListener('keydown', e => {
+  if (!ui.signup) return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeBookingModal(false);
+    return;
+  }
+  if (e.key !== 'Tab') return;
+  const modal = document.querySelector('.booking-dialog');
+  if (!modal) return;
+  const focusable = Array.from(modal.querySelectorAll('button:not([disabled]), select:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'));
+  if (!focusable.length) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 
 /* ================= swipe-to-switch-tabs (house convention) ================= */
 
@@ -1720,6 +1886,7 @@ function attachSwipeTabs(el) {
     touch = { x: t.clientX, y: t.clientY, time: Date.now() };
   }, { passive: true });
   el.addEventListener('touchend', e => {
+    if (ui.signup) { touch = null; return; }
     if (!touch) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - touch.x;

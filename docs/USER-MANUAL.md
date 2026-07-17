@@ -21,8 +21,8 @@ are shown in calendar order and have distinct Tuesday and Saturday styling.
 
 ### Read the schedule
 
-Open **Reservations**, then choose Tuesday or Saturday. The selected date stays the
-same when you move between Reservations, Sign up, and Admin.
+Open **Reservations**, then choose Tuesday or Saturday. Reservations is the member
+booking screen. The selected date also stays the same when you move to Admin.
 
 The schedule has separate sections for:
 
@@ -37,30 +37,38 @@ item. Amber entries marked **Requested — awaiting approval** are live requests
 have not been assigned yet. They appear in a request lane for the type of item the
 member needs; an amber request does not mean a particular room is being held.
 
+Each resource section is compact so more of the day is visible at once. The calendar
+has clear dividers for every 30-minute period. Tap an open time period to begin a
+request.
+
 ### Service periods and available times
 
 Slots are 30 minutes long. The final reservable period is **10:00–10:30 PM**.
 
-The schedule shows these unavailable service periods:
+The schedule marks these service periods as blocked areas:
 
 - **Tuesday:** 8:00–9:00 PM.
 - **Saturday:** 9:00–10:00 AM, 3:00–4:00 PM, and 8:00–9:00 PM.
 
 Saturday’s schedule begins at 9:00 AM so the morning service is visible, but
-reservable time begins at 10:00 AM. A reservation cannot overlap or cross through a
-service period.
+reservable time begins at 10:00 AM. Blocked service areas cannot be selected, and a
+reservation cannot overlap or cross through one.
 
 ### Request a room or equipment
 
-1. Open **Sign up**.
-2. Choose the upcoming Tuesday or Saturday.
+1. Open **Reservations** and choose the upcoming Tuesday or Saturday.
+2. Tap an open 30-minute time period in the calendar. A pop-up opens with that date
+   and time already selected.
 3. Enter your full name.
 4. Choose **Study room**, **Whiteboard**, **TV**, or a combination of those needs.
 5. If you requested a room, optionally choose Study Room 1–4 as a preference. The
    approver may assign a different available room.
-6. Choose your start and end time from the 30-minute buttons. On a phone, the time
-   buttons wrap into easy-to-tap rows instead of requiring sideways scrolling.
+6. If needed, adjust the end time in the pop-up. You can extend only through open
+   30-minute periods in the same available section.
 7. Complete the remaining request details and tap **Request this time**.
+
+There is no separate **Sign up** screen. Starting with the calendar makes the time
+you are requesting clear before you fill in the rest of the information.
 
 The app shows a real saving message. When the online database confirms the request,
 the app says it was saved. If saving fails, it explains that the request was not
