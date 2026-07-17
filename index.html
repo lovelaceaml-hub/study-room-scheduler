@@ -440,7 +440,7 @@
   nav { position: absolute; top: 10px; right: 68px; z-index: 31; padding: 0; background: transparent; }
   .tabs { width: auto; padding: 0; gap: 0; background: transparent; }
   .tab { display: none; min-height: 36px; padding: 6px 8px; font-size: 12px; color: var(--ink-faint); }
-  .tab:last-child { display: block; }
+  .tab:nth-last-child(-n + 2) { display: block; }
   .tab.active { background: transparent; box-shadow: none; color: var(--primary); }
   .member-booking { padding-top: 26px; }
   .member-intro h1 { font-family: var(--sans); font-size: 28px; font-weight: 700; letter-spacing: -.035em; }
