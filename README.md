@@ -4,6 +4,18 @@ Sabbath-day study-room and equipment sign-up app for LV Zion, with admin approva
 requests. Members pick a room (or a whiteboard/TV) and a time inside one of the two
 after-service booking windows; admins approve or decline.
 
+## Quick links
+
+- **Website:** https://lvz-rooms.web.app — share this link with members
+- **Status:** Live
+- **Docs:**
+  - [User Manual](docs/USER-MANUAL.md) — how members request a study room
+  - [Setup Guide](docs/SETUP-GUIDE.md) — how to open and install the app
+  - [Creation Guide](docs/CREATION-GUIDE.md) — how the app was built, for maintainers
+  - [Handoff](docs/HANDOFF.md) — record of latest changes and status
+  - [Redesign Mockups](docs/redesign-mockups.html) — three visual design directions for the redesign
+  - [All documents →](docs/)
+
 **Stack:** buildless vanilla JavaScript, one `index.html` with embedded CSS, Firebase
 Hosting + Firestore for real-time sync, with a full localStorage fallback so the app
 still works offline or before the Firebase project is connected. No framework, no
