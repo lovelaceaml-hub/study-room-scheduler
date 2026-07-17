@@ -61,7 +61,7 @@ reservation cannot overlap or cross through one.
 2. Tap an open time on the left for the start time. Tap a later time in the same section to
    extend the reservation.
 3. Tap **Continue**.
-4. Enter your full name and choose Contact, New Member, Group, or Other.
+4. Enter your full name and choose Contact, New Member, Meeting, or Other.
    For Other, briefly explain the purpose.
 5. Tap **Reserve now** on Tuesday or **Send request** on Saturday.
 
@@ -80,7 +80,7 @@ requests but cannot change another member’s request or perform approval action
 
 Tuesday reservations from 10:00 AM through 10:00 PM are approved automatically when
 a resource is free. Saturday reservations remain pending for manual approval. Saturday
-requests are reviewed in this order: Contact, New Member, Group, Other;
+requests are reviewed in this order: Contact, New Member, Meeting, Other;
 the earlier request wins when two have the same purpose.
 
 ### Check or cancel your request
@@ -111,7 +111,7 @@ a short-lived Admin session, and repeated incorrect attempts are limited.
 
 ### Review and assign requests
 
-Saturday pending requests are listed by priority: Contact, New Member, Group, then
+Saturday pending requests are listed by priority: Contact, New Member, Meeting, then
 Other. The Admin screen includes the same unit grid and activity feed used by members,
 then preselects the recommended available resource; you can change it before approving
 or declining.

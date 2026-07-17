@@ -163,7 +163,7 @@ function memberRequestInput(input) {
   if (timeError) throw new HttpsError('invalid-argument', timeError);
   const resourceType = requestText(data.resourceType, 20, 'Resource type', true);
   if (!UNITS_BY_TYPE[resourceType]) throw new HttpsError('invalid-argument', 'Choose a study room, whiteboard, or TV.');
-  const purpose = ['contact', 'new-member', 'group', 'study-member', 'other'].includes(data.purpose) ? data.purpose : '';
+  const purpose = ['contact', 'new-member', 'meeting', 'group', 'study-member', 'other'].includes(data.purpose) ? data.purpose : '';
   if (!purpose) throw new HttpsError('invalid-argument', 'Choose a purpose.');
   const purposeOther = requestText(data.purposeOther, 240, 'Purpose details');
   if (purpose === 'other' && !purposeOther) throw new HttpsError('invalid-argument', 'Purpose details are required.');

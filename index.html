@@ -533,30 +533,36 @@
   .member-calendar > .member-resource-toggle { padding: 10px; margin: 0; border-bottom: 1px solid var(--line); }
   .member-calendar-row { grid-template-columns: 86px minmax(0, 1fr); }
   .member-calendar-row.unit-header { position: sticky; top: 0; z-index: 3; background: #F5F7FB; min-height: 30px; }
-  .member-calendar-row.unit-header .member-time { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+  .member-calendar-row.unit-header .member-time { display: flex; flex-direction: column; justify-content: center; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+  .member-calendar-row.unit-header .member-time small { color: var(--primary); font-size: 8.5px; letter-spacing: 0; text-transform: none; }
   .member-calendar-row.unit-header .member-squares span { display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 10px; font-weight: 800; }
   .member-time { border: 0; background: transparent; text-align: left; font-family: var(--sans); }
   .member-time.selectable { cursor: pointer; color: var(--primary-dark); }
   .member-time.selectable:hover, .member-time.selectable:focus-visible, .member-time.selectable.selected { background: var(--primary-tint); outline: 2px solid var(--primary); outline-offset: -2px; }
-  .member-time small { display: block; color: var(--primary); font-size: 9px; font-weight: 800; }
   .member-square { display: flex; align-items: center; justify-content: center; min-height: 28px; padding: 2px 3px; overflow: hidden; color: #263244; font-size: 8.5px; font-weight: 750; line-height: 1.12; text-align: center; overflow-wrap: anywhere; }
   .member-square.mine { color: #fff; }
   .member-square.taken { color: #344054; }
   .member-square.pending { color: #87560B; }
+  .member-squares { column-gap: 3px; row-gap: 0; }
+  .member-square.booking-start { border-radius: 4px 4px 0 0; border-bottom-color: transparent; }
+  .member-square.booking-middle { border-radius: 0; border-top-color: transparent; border-bottom-color: transparent; }
+  .member-square.booking-end { border-radius: 0 0 4px 4px; border-top-color: transparent; }
   .activity-feed { margin: 0 0 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); overflow: hidden; }
-  .activity-title { padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 850; color: var(--ink); text-transform: uppercase; letter-spacing: .04em; }
-  .activity-feed p { padding: 10px 12px; margin: 0; color: var(--ink-soft); font-size: 13px; }
-  .activity-item { padding: 8px 12px; border-top: 1px solid #EDF0F5; color: var(--ink-soft); font-size: 12px; line-height: 1.35; }
-  .activity-item:first-of-type { border-top: 0; }
-  .activity-item strong { color: var(--ink); }
-  .activity-item.pending strong { color: #8A5A12; }
-  .activity-item.cancelled strong { color: var(--danger); }
-  .activity-item span { color: var(--ink-faint); white-space: nowrap; }
+  .activity-title { padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 850; color: var(--ink); text-transform: uppercase; letter-spacing: .04em; }
+  .activity-feed p { padding: 8px 10px; margin: 0; color: var(--ink-soft); font-size: 12px; }
+  .activity-table { max-height: 150px; overflow: auto; }
+  .activity-row { display: grid; grid-template-columns: 1.55fr 1fr 1fr .8fr .8fr; min-width: 620px; border-top: 1px solid #EDF0F5; color: var(--ink-soft); font-size: 11px; line-height: 1.25; }
+  .activity-row span { padding: 7px 8px; border-left: 1px solid #EDF0F5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .activity-row span:first-child { border-left: 0; }
+  .activity-head { position: sticky; top: 0; z-index: 2; border-top: 0; background: #F5F7FB; color: var(--ink-faint); font-size: 9px; font-weight: 850; text-transform: uppercase; letter-spacing: .035em; }
+  .activity-row strong { color: var(--ink); }
+  .activity-row.pending strong { color: #8A5A12; }
+  .activity-row.cancelled strong { color: var(--danger); }
   .demo-notice { margin: 0 0 12px; padding: 10px 12px; border: 1px dashed #7FA7F0; border-radius: 8px; background: var(--sky-tint); color: var(--primary-dark); font-size: 12.5px; font-weight: 650; }
   @media (max-width: 520px) {
     .member-calendar-row { grid-template-columns: 74px minmax(0, 1fr); }
     .member-square { min-height: 30px; font-size: 8px; }
-    .member-squares { gap: 3px; padding: 4px 7px 4px 3px; }
+    .member-squares { column-gap: 3px; row-gap: 0; padding: 4px 7px 4px 3px; }
     .member-time { padding-left: 8px; }
   }
 </style>

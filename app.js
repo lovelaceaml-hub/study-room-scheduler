@@ -22,9 +22,9 @@ const MY_BOOKINGS_KEY = 'srs-my-bookings';   // localStorage array of this devic
 const NAME_KEY = 'srs-name';                 // localStorage: last name typed in the reservation popup
 
 const PURPOSES = [
-  { id: 'contact', label: 'Contact study' },
-  { id: 'new-member', label: 'New member study' },
-  { id: 'group', label: 'Group' },
+  { id: 'contact', label: 'Contact' },
+  { id: 'new-member', label: 'New Member' },
+  { id: 'meeting', label: 'Meeting' },
   { id: 'other', label: 'Other' }
 ];
 /* Admin-only addition, used solely on the "Add a booking" form (e.g. to
@@ -267,7 +267,7 @@ function demoBookings() {
   return [
     { id: 'demo-room-4', date, start: '10:00', end: '13:30', name: 'Anthony', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-4', whiteboard: null, tv: null }, createdAt: created, decidedAt: created + 1000 },
     { id: 'demo-tv-2', date, start: '14:00', end: '15:00', name: 'Maria R.', purpose: 'new-member', purposeOther: '', status: 'cancelled', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: null }, lastAssignments: { room: null, whiteboard: null, tv: 'tv-2' }, createdAt: created - 600000, updatedAt: created - 300000 },
-    { id: 'demo-whiteboard-1', date, start: '16:00', end: '17:30', name: 'Daniel K.', purpose: 'group', purposeOther: '', status: 'pending', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1200000 },
+    { id: 'demo-whiteboard-1', date, start: '16:00', end: '17:30', name: 'Daniel K.', purpose: 'meeting', purposeOther: '', status: 'pending', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1200000 },
     { id: 'demo-room-1', date, start: '18:00', end: '19:00', name: 'Sofia M.', purpose: 'other', purposeOther: 'Family Bible study', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 1800000, decidedAt: created - 1700000 }
   ];
 }
@@ -922,10 +922,9 @@ function activityFeedHtml(date) {
     return { b, status, when: timestampMillis(when) };
   }).sort((a, b) => b.when - a.when).slice(0, 6);
   if (!events.length) return '<section class="activity-feed"><div class="activity-title">Schedule updates</div><p>No updates yet.</p></section>';
-  return '<section class="activity-feed"><div class="activity-title">Schedule updates</div>' + events.map(event =>
-    '<div class="activity-item ' + esc(event.b.status) + '"><strong>' + esc(event.status + ' ' + resourceLabelFor(event.b)) + ':</strong> ' + esc(event.b.name + ' — ' + bookingPurposeText(event.b)) +
-    ' <span>(' + esc(fmtTime(event.b.start) + '–' + fmtTime(event.b.end)) + ')</span></div>'
-  ).join('') + '</section>';
+  return '<section class="activity-feed"><div class="activity-title">Schedule updates</div><div class="activity-table"><div class="activity-row activity-head"><span>Update</span><span>Member</span><span>Purpose</span><span>Start</span><span>End</span></div>' + events.map(event =>
+    '<div class="activity-row ' + esc(event.b.status) + '"><span><strong>' + esc(event.status + ' ' + resourceLabelFor(event.b)) + '</strong></span><span>' + esc(event.b.name) + '</span><span>' + esc(bookingPurposeText(event.b)) + '</span><span>' + esc(fmtTime(event.b.start)) + '</span><span>' + esc(fmtTime(event.b.end)) + '</span></div>'
+  ).join('') + '</div></section>';
 }
 
 function memberCalendarHtml(date, type, selectable, context) {
@@ -936,7 +935,7 @@ function memberCalendarHtml(date, type, selectable, context) {
     '<div class="member-calendar-heading"><h2>' + esc(needLabel(type)) + ' schedule</h2><span>' + units.length + ' available</span></div>' +
     memberResourceToggleHtml(type, context === 'admin' ? 'admin-type' : 'member-type') +
     '<div class="member-calendar-scroll"><div class="member-calendar-grid">';
-  html += '<div class="member-calendar-row unit-header"><div class="member-time">Time</div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span>' + esc(String(unit.num)) + '</span>').join('') + '</div></div>';
+  html += '<div class="member-calendar-row unit-header"><div class="member-time"><small>Select a time</small><span>Time</span></div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span>' + esc(String(unit.num)) + '</span>').join('') + '</div></div>';
   scheduleSegments(date).forEach(window => {
     if (window.service) {
       html += '<div class="member-service"><span>' + esc(window.label) + '</span><span>' + esc(fmtTime(window.start)) + '–' + esc(fmtTime(window.end)) + '</span></div>';
@@ -947,11 +946,14 @@ function memberCalendarHtml(date, type, selectable, context) {
       const selectedHere = selected && selected.date === date && selected.type === type && selected.windowIdx === windowIdx && minsOfDay(start) >= minsOfDay(selected.start) && minsOfDay(start) < minsOfDay(selected.end);
       const end = hhmmOfMins(minsOfDay(start) + 30);
       const hasOpenUnit = freeUnitsForType(type, date, start, end, null).length > 0;
-      html += '<div class="member-calendar-row"><' + (selectable && hasOpenUnit ? 'button type="button" data-act="member-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-win="' + windowIdx + '" data-id="' + esc(start) + '" class="member-time selectable' + (selectedHere ? ' selected' : '') + '"' : 'div class="member-time"') + '>' + esc(fmtTime(start)) + (selectable && hasOpenUnit ? '<small>Select</small>' : '') + '</' + (selectable && hasOpenUnit ? 'button' : 'div') + '><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => {
+      html += '<div class="member-calendar-row"><' + (selectable && hasOpenUnit ? 'button type="button" data-act="member-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-win="' + windowIdx + '" data-id="' + esc(start) + '" class="member-time selectable' + (selectedHere ? ' selected' : '') + '"' : 'div class="member-time"') + '>' + esc(fmtTime(start)) + '</' + (selectable && hasOpenUnit ? 'button' : 'div') + '><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => {
         const status = memberSlotStatus(type, date, start, unit.id);
         const occupant = unitOccupant(type, unit.id, date, start, end, null);
-        const label = occupant ? occupant.name + ' · ' + bookingPurposeText(occupant) : '';
-        return '<div class="member-square ' + status + (selectedHere ? ' selected' : '') + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + status) + '">' + esc(label) + '</div>';
+        const before = occupant && unitOccupant(type, unit.id, date, hhmmOfMins(minsOfDay(start) - 30), start, null)?.id === occupant.id;
+        const after = occupant && unitOccupant(type, unit.id, date, end, hhmmOfMins(minsOfDay(end) + 30), null)?.id === occupant.id;
+        const segment = occupant ? (!before && after ? ' booking-start' : before && after ? ' booking-middle' : before ? ' booking-end' : ' booking-only') : '';
+        const label = occupant && !before ? occupant.name + ' · ' + bookingPurposeText(occupant) : '';
+        return '<div class="member-square ' + status + segment + (selectedHere ? ' selected' : '') + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + status) + '">' + esc(label) + '</div>';
       }).join('') + '</div></div>';
     });
   });
