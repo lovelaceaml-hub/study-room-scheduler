@@ -1,13 +1,14 @@
 # LV Zion Study Rooms — User Manual
 
-This app lets LV Zion members reserve a study room or a piece of shared equipment
-(whiteboard or TV) for a Sabbath-day (Saturday) Bible study, meeting, or other use.
-A committee member reviews and approves each request.
+This app lets LV Zion members request a Sabbath (Saturday) study room or a piece of
+shared equipment — a whiteboard, a TV, or a podium — for a Bible study, meeting, or
+other use. You say what you need and when; a committee member (the "approver")
+picks the actual room or unit and approves it.
 
 This manual has two parts:
 
-- **For members** — how to check the schedule and sign up.
-- **For the committee (Admin)** — how to review, approve, and manage requests.
+- **For members** — checking the schedule, signing up, and understanding your request's status.
+- **For the approver (Admin)** — reviewing requests, assigning rooms, and managing the day.
 
 ---
 
@@ -15,158 +16,214 @@ This manual has two parts:
 
 ### 1. Finding your way around
 
-The app has three tabs at the top: **Schedule**, **Sign Up**, and **Admin**.
+The app has three tabs at the top: **This Sabbath**, **Sign up**, and **Admin**.
 
 - Tap a tab to switch to it.
 - You can also **swipe left or right** anywhere on the screen to move between tabs.
 - Tap the **header** at the very top of the screen (the "LV Zion Study Rooms" title)
-  at any time to jump straight back to the Schedule tab.
+  at any time to jump straight back to the **This Sabbath** tab.
+
+There's no date picker anywhere — the app only ever shows the **one upcoming
+Saturday**. You don't need to hunt for the right week.
 
 ### 2. Checking the schedule
 
-1. Open the **Schedule** tab.
-2. Along the top of the schedule is a row of date buttons — one for each of the
-   next several Saturdays. Tap the Saturday you want to look at.
-3. Below that, you'll see a grid for **Study Rooms**, then one for **Whiteboards**,
-   then one for **TVs**. Each grid shows the two booking windows for the day
-   (late morning and afternoon) broken into 30-minute time slots, with a row for
-   each room or piece of equipment.
-4. A colored block in the grid means that slot is taken. Tap and hold (or hover, on
-   a computer) over a block to see who it's for.
+1. Open the **This Sabbath** tab. The date shown near the top is the upcoming
+   Saturday.
+2. Below that you'll see three groups: **Study Rooms**, **Whiteboards**, and **TVs**.
+   Each shows a timeline for the two booking windows of the day — late morning
+   (10:00 AM–2:30 PM) and afternoon (4:00–7:30 PM) — with a row per room or item.
+   (On a phone, this becomes a simple list instead of a timeline.)
+3. A colored block means that time is taken:
+   - **Green, with a checkmark** — an **approved, Confirmed** booking.
+   - **Blue/dashed, with a diamond** — an **approved, Tentative** booking (someone
+     is still confirming their plans, but the room is theirs for now).
+   - A whiteboard's block also shows which **Podium** goes with it, when one was
+     assigned alongside it.
+4. If every room (or every whiteboard, or every TV) is taken for a stretch of time,
+   you'll see an **amber "waiting in line" strip** underneath that group, listing
+   who's 1st, 2nd, and 3rd in line for that time.
+5. A legend at the top of the schedule reminds you what each color means.
 
-**What the colors mean:**
-
-- **Empty (white/blank) square** — nothing booked; the slot is open.
-- **Orange/amber square, labeled "Pending review"** — someone has asked for that
-  slot, but a committee member hasn't approved it yet. It is not guaranteed —
-  don't treat it as reserved until it turns blue.
-- **Blue square, labeled "Approved"** — the request has been approved. That room
-  or item is taken for that time.
-
-For whiteboards and the TV, more than one may be available at once (for example,
-there are 3 TVs). If several people have the same slot, the square will show
-something like "2 of 3 in use" instead of a name.
-
-A legend at the bottom of each schedule reminds you which color means what.
+**Want to check the previous Saturday?** Tap **"View last Sabbath (reference)"**
+near the top of the tab. This is read-only — it just shows what was approved that
+day; you can't sign up or make changes there. Tap **"Back to this Sabbath"** to
+return.
 
 ### 3. Signing up for a room or equipment
 
-1. Open the **Sign Up** tab.
-2. **Step 1 — Saturday:** choose the date you want from the drop-down list.
-3. **Step 2 — What do you need?** Tap **Study Rooms**, **Whiteboards**, or **TVs**,
-   then pick the specific room or item from the list below it (for example,
-   "Study Room 2" or "Large Whiteboard"). Under this you'll see a note showing
-   what's already requested or approved for that item on that date, so you can
-   avoid a clash.
-4. **Step 3 — Time:** choose a start time and an end time. Both must be inside
-   one of the two booking windows for the day (roughly late morning or
-   afternoon/evening), in 30-minute steps. If your chosen time overlaps a
-   request someone else already made, a note will appear letting you know —
-   you can still submit, but it may be declined if it truly conflicts.
-5. **Step 4 — Your name:** type your full name.
-6. **Step 5 — Purpose:** choose one — Contact (Bible study), New member study,
-   Member meeting, or Other (if you choose Other, briefly describe it).
-7. **Step 6 — Note (optional):** add anything else the reviewer should know.
-8. Tap **Submit request**.
+1. Open the **Sign up** tab. It's always for the one upcoming Saturday shown at
+   the top.
+2. **Your name** — type your full name.
+3. **What do you need?** Tap any combination of **Study room**, **Whiteboard**,
+   **TV**, **Podium** — you can ask for more than one at once (for example, a
+   whiteboard and a podium together). Remember: Study Rooms 1–4 already have
+   their own whiteboard, TV, and podium inside, so you usually only request
+   equipment on its own (e.g. for the main hall) — or after being assigned the
+   Baptism Room, which has none.
+4. **Preferred room (optional)** — if you asked for a study room, you can tap a
+   specific room (1–4, or the Baptism Room) as your preference, or leave it "No
+   preference." This is only a preference — the approver assigns the actual room,
+   and will honor your pick when it's free, but it isn't guaranteed.
+5. **Time — tap a start slot, then an end slot.** Each booking window (Morning,
+   Afternoon) is shown as a row of 30-minute time buttons. Tap the slot you want
+   to start at, then tap the slot you want to end at — the app fills in
+   everything in between. If a slot is greyed out and crossed through, it's
+   already full and can't be requested (see "The waiting line" below). Tapping a
+   different start slot at any point restarts your selection.
+6. **Purpose** — choose one: Contact study, New member study, Member meeting, or
+   Other (if Other, briefly describe it).
+7. **How sure are you?** Tap one:
+   - **Confirmed — they'll be there** — you're sure this is happening.
+   - **Tentative — still confirming** — you're not 100% sure yet, but want to
+     hold the time.
+   This matters: if two requests end up competing for the very last free room,
+   the approver sees a tip suggesting the Confirmed one should probably get it.
+8. **Note (optional)** — add anything else the approver should know.
+9. Tap **Request this time**.
 
-You'll see a confirmation that your request has been sent and is waiting for
-approval. It does **not** need a login or account — anyone with the app link can
-submit a request.
+You'll see a confirmation that your request is in and waiting for approval. No
+login or account is needed — anyone with the app link can submit a request.
 
-### 4. Checking or cancelling your own request
+**Important: you don't pick the specific room, whiteboard, TV, or podium
+yourself.** You only pick *what kind* of thing you need and when. The approver
+assigns the exact unit (e.g. "Study Room 3") when they approve your request —
+that's what shows up under **My requests**.
 
-At the bottom of the **Schedule** tab, look for the **My requests** section. This
-shows every request you've submitted from this device (phone or computer), with
-its status:
+### 4. The waiting line
 
-- **Pending review** — still waiting on the committee.
-- **Approved** — confirmed.
+Each study room, and each whiteboard/TV/podium, can only be used by one approved
+booking at a time. When every one of them is already taken (or already requested
+and pending) for a stretch of time, up to **3 more people** can still queue up
+publicly as 1st, 2nd, and 3rd in line for that same time. Once 3 are already
+waiting, that time slot can no longer be requested at all (you'll see it greyed
+out on the Sign up tab).
+
+If someone ahead of you cancels, the line automatically renumbers — you don't
+have to do anything, and you'll see your position update (e.g. from "2nd" to
+"1st") the next time you check.
+
+### 5. Checking or cancelling your own request
+
+At the bottom of the **This Sabbath** tab, look for **My requests** — every
+request you've submitted from this device (phone or computer), with its status:
+
+- **Pending review** — still waiting on the approver, and not stuck behind a
+  full room or item.
+- **In line — 2nd** (or 1st/3rd) — waiting behind a full room/item, at that
+  position in the queue.
+- **Approved — Study Room 3** (or whichever room/item was assigned) — you're
+  confirmed for that specific room or unit.
 - **Declined** — not approved.
 - **Cancelled** — you cancelled it (or it was withdrawn).
 
-If a request is still **Pending review**, you'll see a **Cancel request** button
-next to it — tap it if you no longer need that slot. Once a request has been
-approved or declined, you can no longer cancel it yourself from here; contact
-a committee member if you need it changed.
+If your request is **Pending review**, **In line**, or **Approved**, you'll see
+a **"Plans changed? Cancel"** link — tap it any time your plans change, even
+after approval. Once declined or already cancelled, there's nothing left to
+cancel.
 
-Note: "My requests" is tied to the device you signed up from. If you sign up on
-a different phone or clear your browser data, that list will be empty on the
-new device (the requests themselves are still saved and visible to the
-committee — only your personal "My requests" list is device-specific).
+**A note about the Baptism Room:** if you're approved into the Baptism Room,
+you'll see a note that it has no whiteboard, TV, or podium of its own (Study
+Rooms 1–4 each have those built in, which is why you request equipment
+separately — for example, to use a whiteboard or TV in the main hall).
 
 ---
 
-## For the committee (Admin)
+## For the approver (Admin)
 
-### 1. Opening Admin
+### 1. Unlocking Admin
 
 1. Open the **Admin** tab.
-2. You'll see a lock screen asking for a PIN. Enter **0000** and tap **Unlock**.
+2. Enter the PIN and tap **Unlock**. The default PIN is **0000**.
 3. Once unlocked, that device stays unlocked until someone taps **Lock admin**
    (top of the Admin screen) or clears their browser data.
 
-The PIN is shared among the whole committee — there's no separate login for
-each person.
+The PIN is shared across the whole committee — there's no separate login per
+person.
 
-### 2. Approving or declining requests
+### 2. Reading a pending request card
 
-At the top of the Admin tab is **Pending requests** — every request still
-waiting for a decision, oldest first. Each one shows the requester's name, the
-room/equipment, the date and time, the purpose, any note, and when it was
-submitted.
+The **Pending requests** section lists every request still waiting for a
+decision — those stuck in a waiting line come first (1st before 2nd before 3rd),
+then everything else in the order it was submitted. Each card shows:
 
-- Tap **Approve** to confirm it. It will then show as "Approved" on the
-  Schedule tab for everyone.
-- Tap **Decline** if it shouldn't be granted.
+- The requester's **name** and their **Confirmed/Tentative** badge.
+- Their **line position** (e.g. "In line — 2nd"), if they're queued behind a
+  full room or item.
+- What they asked for, the **time**, the **purpose**, their **preferred room**
+  (if any), and any **note**.
+- When it was requested.
+- Sometimes a **tip**, like *"Tip: Elena is Confirmed, Daniel is Tentative"* —
+  this appears when a Confirmed and a Tentative request are competing for what
+  would be the last free room in that time range. It's just a nudge; you decide.
 
-**Conflict warnings:** if a request would overlap a booking that's already
-approved, you'll see a warning like *"Conflicts with [Name] 2:00–3:00 PM
-(approved)."* If it only overlaps another request that's still pending (not yet
-approved), you'll see a gentler note like *"[Name] also requested this time."*
-These warnings are just a heads-up — approving anyway is allowed, but the app
-will ask you to confirm first if it would create a genuine double-booking of
-an already-approved slot.
+### 3. Assigning rooms and equipment
 
-### 3. Day overview
+Below each card's details is a row of pills for each thing they asked for (for
+example, a row of Study Room pills if they need a room). This is where you pick
+the exact unit:
 
-Below the pending queue is **Day overview** — the same kind of grid members see
-on the Schedule tab, but for whichever Saturday you pick from the date row.
-Use this to see the whole day for every room and piece of equipment at a
-glance before deciding on requests.
+- The **recommended** unit is already pre-selected and marked with a **star (★)**
+  — usually their preferred room if it's free, otherwise the lowest-numbered
+  free one. You can just go with the star, or tap a different free pill to
+  override it.
+- Units that are already taken for that time show **who has them**, and can't be
+  tapped.
+- If someone needs both a **whiteboard and a podium**, the app tries to pair the
+  same-numbered whiteboard and podium automatically (e.g. picking Whiteboard 4
+  auto-selects Podium 4, since each whiteboard pairs with the podium of the same
+  number). If no matching numbered pair is free, you'll need to pick both by
+  hand.
 
-Underneath the grid is a list of every booking for that day (pending, approved,
-or declined), with buttons to act on each one directly:
+Once every needed item has a unit picked, tap **Approve**. Tap **Decline**
+instead if the request shouldn't be granted at all. If someone else grabs a unit
+in the moment between opening the card and tapping Approve, the app will warn you
+and ask you to pick a different one — nothing is double-booked silently.
 
-- **Approve** / **Decline** — for a pending booking.
+### 4. Promoting someone from the waiting line
+
+There's no separate "promote" button — it happens naturally. If you **cancel**
+an approved booking (see below) and that frees up a room or item, the next
+person's pending card automatically re-selects the newly-freed unit as its
+recommendation (marked with the ★) the next time you look at it. Just open their
+card and tap **Approve** as usual.
+
+### 5. Day overview and managing existing bookings
+
+Below the pending queue is **Day overview** — the same kind of schedule grid
+members see, for the upcoming Saturday, so you can see everything at a glance.
+
+Underneath that is the full **list of bookings for the day** (pending, approved,
+declined, cancelled), with buttons per booking:
+
+- **Approve** / **Decline** — for a pending request.
 - **Cancel** — for an approved booking, if it needs to be called off (you'll be
-  asked to confirm).
-- **Re-approve** — for a booking you previously declined, in case you change
-  your mind.
+  asked to confirm). Cancelling frees up its room/equipment for the next person
+  in line.
+- **Re-approve** — for a booking you previously declined or cancelled, in case
+  you change your mind. This reopens the same room/equipment assignment screen
+  described above.
 
-### 4. Adding a booking directly
+### 6. Adding a booking directly
 
-Further down is **Add a booking**. Use this to reserve a room or item yourself
-— it is approved immediately, with no review step. This is useful for:
+Further down is **Add a booking**. Use this to reserve something yourself, or to
+block a room off — it's **approved immediately**, with no review step. Fill in
+the name, what's needed, the time, and assign the specific room/equipment, then
+choose a purpose and tap **Add booking (approved)**.
 
-- Blocking off the **Baptism Room** for an actual baptism.
-- Reserving something on behalf of a member who asked you in person.
+This form has one extra purpose option members don't see: **"Room unavailable /
+reserved"** — use this to block off a room (for example, the Baptism Room during
+an actual baptism) without attaching it to a person's name.
 
-Fill in the Saturday, the room/equipment, the time, a name, and a purpose (this
-form has an extra purpose option, **"Room unavailable / reserved,"** for
-blocking something off rather than booking it for a person), then tap
-**Add booking (approved)**. If it overlaps something already approved, you'll
-be asked to confirm before it's added.
-
-### 5. Cleaning up old records
+### 7. Cleaning up old records
 
 At the bottom of the Admin tab is **Housekeeping**. Tapping **Remove old
 records** permanently deletes any booking dated more than 8 weeks in the past,
-to keep the shared list from growing forever. You'll be asked to confirm, and
-you'll be told how many records were removed. This cannot be undone, so only
-use it when you're sure.
+to keep the shared list tidy. You'll be asked to confirm, and told how many
+records were removed. This cannot be undone, so only use it when you're sure.
 
-### 6. Locking Admin again
+### 8. Locking Admin again
 
-Tap **Lock admin** (top-right of the Admin tab) any time to require the PIN
-again on that device — handy if you're handing the phone to someone else or
-stepping away from a shared computer.
+Tap **Lock admin** (top of the Admin tab) any time to require the PIN again on
+that device — handy if you're handing the phone to someone else or stepping
+away from a shared computer.
