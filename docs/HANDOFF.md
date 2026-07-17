@@ -1,92 +1,65 @@
 # Handoff notes — LV Zion Study Rooms
 
-Plain-English record of where the app stands and what changed most recently, so
-anyone (including a future Claude session) can pick it back up without digging
-through the code first.
+## Current status
 
-## What this app is
+**In progress.** The revised app and shorter address must not be announced as live
+until deployment and production verification are complete.
 
-A Sabbath-day sign-up tool for LV Zion's study rooms and shared equipment. Members
-request a study room, a whiteboard, or a TV for a time inside one of the two
-after-service windows; a committee approver assigns the actual room/unit and
-approves or declines. It's a buildless vanilla-JavaScript PWA (one `index.html`
-with embedded CSS + `app.js`), synced live through Firebase Hosting + Firestore,
-with a full localStorage fallback so it still works offline.
+- **Primary address:** https://lvrooms.web.app
+- **Lobby TV:** https://lvrooms.web.app/?tv=1
+- **Previous address:** https://lvz-rooms.web.app — retained as a redirect
+- **Firebase project:** `lvz-rooms`
+- **GitHub repository:** `lovelaceaml-hub/study-room-scheduler` (private)
 
-- **Live site:** https://lvz-rooms.web.app
-- **Firebase project:** `lvz-rooms` (dedicated to this app — not shared, so a normal
-  deploy is safe)
-- **GitHub:** `lovelaceaml-hub/study-room-scheduler` (private)
-- **Local preview:** `python3 -m http.server 8095 --directory .` (the
-  `room-scheduler` entry in the Projects-root `.claude/launch.json`)
+## Approved implementation
 
-## Three tabs
+- Show only the upcoming Tuesday and upcoming Saturday, including today when
+  applicable, in chronological order.
+- Use 30-minute booking slots through 10:30 PM.
+- Block Tuesday 8:00–9:00 PM and Saturday 9:00–10:00 AM, 3:00–4:00 PM, and
+  8:00–9:00 PM for services.
+- Show Saturday from 9:00 AM so the morning service is visible; booking still begins
+  at 10:00 AM.
+- Show every pending request live in amber resource-type lanes before approval.
+- Move approved requests into Study Room 1–4, Whiteboard 1–5, or TV 1–3 rows.
+- Remove the Baptism Room from future scheduling and return active future assignments
+  there to pending for reassignment.
+- Add the read-only current-day lobby TV presentation with first name plus last
+  initial, current time, live status, and cached reconnect behavior.
+- Improve the phone layout with wrapping time buttons, larger touch targets, clearer
+  selected states, labels, announcements, keyboard access, and enlarged-text support.
+- Use silent member identity for ownership and protected backend Admin actions while
+  keeping the familiar `0000` PIN experience.
+- Keep optional notes Admin-only and never expose them on public or TV schedules.
 
-1. **Reservations** — the day's schedule. Shows who has each study room, whiteboard,
-   and TV, a "Who's requesting" list of everyone still waiting for the approver, and
-   the member's own "My requests".
-2. **Sign up** — the request form (name → what you need → time → who else wants it →
-   purpose → how sure → note).
-3. **Admin** — PIN-gated (PIN is `0000`, the house standard). Approve/decline the
-   queue, assign units, and add a booking directly.
+## Important behavior
 
-## Latest changes (2026-07-16)
+Pending requests reserve no specific unit. Their amber position means only that a
+member asked for that resource type and time. Approval performs the assignment and a
+fresh conflict check. Failed writes must visibly fail and roll back instead of looking
+saved.
 
-These five changes were made in this session and are **saved to GitHub**. Deploying
-them to the live site is a separate step — see "Deploying" below.
+The TV shows today only. On a day other than Tuesday or Saturday, **No study-room
+schedule today** is correct. It uses `?tv=1`, omits all Admin controls and private
+details, and preserves its last public schedule during a connection interruption.
 
-1. **Renamed the first tab "This Sabbath" → "Reservations"** (tab label and its
-   heading). The "View last Sabbath (reference)" link is unchanged.
+## Rollout checklist
 
-2. **New "Who's requesting" list on the Reservations tab.** It shows every request
-   still waiting for the approver — name, what they asked for, time, purpose, and a
-   badge that reads "Awaiting approval" or "In line — 2nd" (etc.) when they're queued
-   behind a full resource. This lets anyone see who has already asked to reserve
-   something. (It replaced the older, narrower "Waiting for the approver" list —
-   function `reservationRequestsHtml()` in `app.js`.)
+- Confirm protected backend deployment does not require an unapproved Firebase
+  billing change.
+- Confirm future Baptism Room bookings were safely returned to pending.
+- Verify anonymous request creation and owner-only cancellation.
+- Verify Admin unlock, approve, decline, cancel, reassignment, direct-add, and lock.
+- Verify simultaneous member, Admin, phone, and TV live updates.
+- Verify 320/375/390-pixel phone views and 720p/1080p TV views.
+- Verify the primary URL, previous-address redirect, and preservation of `?tv=1`.
+- Verify installation and offline/reconnect behavior from the new hostname.
+- Update this file and every Quick links status from **In progress** to **Live** only
+  after those checks pass.
 
-3. **New "Already reserved or requested" panel on the Sign Up tab.** As soon as a
-   member picks what they need (and, optionally, a time), it lists the people who have
-   already reserved (approved) or requested that same type of resource — with a
-   confirmed/tentative mark, their name, an Approved/Requested badge, and the time. It
-   narrows to overlapping times once a time is chosen, and says "No one else has asked
-   for this yet — you'd be first" when empty. (Function `signupExistingHtml()`.)
+## Maintenance notes
 
-4. **Podium is no longer a selectable option.** The choices are now just Study room,
-   Whiteboard, and TV. A podium is "implied": each whiteboard has its matching podium
-   built in (the schedule still shows "Pairs with Podium N" under each whiteboard), so
-   a podium comes automatically with a whiteboard and never needs to be requested
-   separately. Technically, `podium` was removed from `NEED_TYPES`; the `podium`
-   fields and pairing/sync code still exist in the data model but are now dead in
-   practice (nothing can ever set `needs.podium` true). See the Creation Guide for the
-   full note.
-
-5. **The time picker now shows a start AND end time from a single tap.** Previously,
-   tapping one 30-minute slot only showed "2:00" and you had to tap again for an end
-   time. Now a single tap selects a full 30-minute block and shows it as a range —
-   e.g. "Selected: 2:00 PM – 2:30 PM". Tapping a later slot extends the block; tapping
-   an earlier slot restarts from there. (Rewritten `tapSlot()` in `app.js`.)
-
-All five were verified working in a local browser before commit (renamed tab,
-"Who's requesting" list, the Sign Up panel showing an overlapping request, no podium
-chip, and single-tap start–end times including extend/restart behavior).
-
-**These are now live** — deployed to https://lvz-rooms.web.app on 2026-07-16 and
-re-verified on the live site after the deploy.
-
-## Deploying
-
-The app's Firebase project (`lvz-rooms`) is dedicated to this app, so a normal deploy
-is safe. From the project folder:
-
-```
-npm_config_cache=/tmp/npm-cache npx -y firebase-tools@latest deploy --only hosting
-```
-
-(Add `,firestore` if the Firestore rules changed — they have not changed since the
-app's first commit, so hosting-only has been the right scope every time so far.)
-
-## Nothing pending
-
-The five changes are complete, documented, pushed to GitHub, and live on the site.
-There are no open tasks.
+The app is intentionally buildless. Keep scheduling rules centralized so member,
+Admin, validation, and TV behavior cannot drift. Keep deployments scoped, preserve
+the old hostname redirect, and never enable Firebase billing without Anthony’s
+approval.

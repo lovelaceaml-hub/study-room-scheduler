@@ -7,18 +7,17 @@
    sync with a full localStorage fallback, one screen of embedded CSS,
    no build step.
 
-   Members request a Sabbath study room or a piece of shared equipment
-   (whiteboard, TV, podium) for the ONE upcoming Saturday; a committee
+   Members request a study room or a piece of shared equipment
+   (whiteboard or TV) for the upcoming Tuesday or Saturday; a committee
    approver assigns the actual room/unit and approves or declines. A
    derived (never stored) waiting line forms when a resource type is
-   full. Admin is PIN-gated (hash in Firestore app/settings, sha256,
-   default 0000, device unlock cached in localStorage).
+   full. Admin is PIN-gated through short-lived, server-validated sessions.
    ===================================================================== */
 
 /* ================= constants ================= */
 
 const DATA_KEY = 'srs-data-v2';
-const ADMIN_KEY = 'srs-admin-unlock';
+const ADMIN_KEY = 'srs-admin-session';
 const MY_BOOKINGS_KEY = 'srs-my-bookings';   // localStorage array of this device's own booking ids
 const NAME_KEY = 'srs-name';                 // localStorage: last name typed on the Sign Up form
 
@@ -29,7 +28,7 @@ const PURPOSES = [
   { id: 'other', label: 'Other' }
 ];
 /* Admin-only addition, used solely on the "Add a booking" form (e.g. to
-   block the Baptism Room during an actual baptism). Never offered to
+   hold a room for another use). Never offered to
    members on the Sign Up tab. Renders as a neutral "Reserved" chip. */
 const ADMIN_PURPOSES = PURPOSES.concat([{ id: 'blocked', label: 'Room unavailable / reserved' }]);
 
@@ -47,8 +46,7 @@ const ROOMS = [
   { id: 'room-1', label: 'Study Room 1', num: 1, hasEquipment: true },
   { id: 'room-2', label: 'Study Room 2', num: 2, hasEquipment: true },
   { id: 'room-3', label: 'Study Room 3', num: 3, hasEquipment: true },
-  { id: 'room-4', label: 'Study Room 4', num: 4, hasEquipment: true },
-  { id: 'room-baptism', label: 'Baptism Room', num: null, hasEquipment: false }
+  { id: 'room-4', label: 'Study Room 4', num: 4, hasEquipment: true }
 ];
 const WHITEBOARDS = [
   { id: 'wb-1', label: 'Whiteboard 1 · Large', num: 1 },
@@ -57,20 +55,13 @@ const WHITEBOARDS = [
   { id: 'wb-4', label: 'Whiteboard 4 · Vertical', num: 4 },
   { id: 'wb-5', label: 'Whiteboard 5 · Vertical', num: 5 }
 ];
-const PODIUMS = [1, 2, 3, 4, 5].map(n => ({ id: 'pod-' + n, label: 'Podium ' + n, num: n }));
 const TVS = [1, 2, 3].map(n => ({ id: 'tv-' + n, label: 'TV ' + n, num: n }));
 
-const UNITS_BY_TYPE = { room: ROOMS, whiteboard: WHITEBOARDS, tv: TVS, podium: PODIUMS };
-const CAPACITY = { room: ROOMS.length, whiteboard: WHITEBOARDS.length, tv: TVS.length, podium: PODIUMS.length };
+const UNITS_BY_TYPE = { room: ROOMS, whiteboard: WHITEBOARDS, tv: TVS };
+const CAPACITY = { room: ROOMS.length, whiteboard: WHITEBOARDS.length, tv: TVS.length };
 
 /* Preferred-room pill choices on the Sign Up form: null = "No preference". */
-const PREFERRED_ROOM_CHOICES = [null, 'room-1', 'room-2', 'room-3', 'room-4', 'room-baptism'];
-
-/* Saturdays only; two 30-min-slot windows around the services. */
-const WINDOWS = [
-  { start: '10:00', end: '14:30', label: 'Morning' },
-  { start: '16:00', end: '19:30', label: 'Afternoon' }
-];
+const PREFERRED_ROOM_CHOICES = [null, 'room-1', 'room-2', 'room-3', 'room-4'];
 
 const TABS = [
   { id: 'schedule', label: 'Reservations' },
@@ -81,22 +72,24 @@ const TABS = [
 /* ================= state ================= */
 
 let state = {
-  bookings: {},   // id -> booking (see spec shape); may contain stale/invalid docs, always filter via bookingsList()
-  settings: {}    // { pinHash, ... }
+  bookings: {}    // id -> booking (see spec shape); may contain stale/invalid docs, always filter via bookingsList()
 };
 let ui = {
   tab: 'schedule',
-  viewRef: false,       // true = viewing the read-only "last Sabbath" reference schedule
+  selectedDate: null,   // shared by Reservations, Sign Up, and Admin
   pinError: '',
   submitting: false,
   signup: null,         // Sign Up form draft, created lazily by ensureSignupDraft()
   signupConfirm: null,  // { id } of the just-submitted booking, while the confirmation panel is showing
-  adminAssign: {},       // bookingId -> { room, whiteboard, tv, podium } draft unit picks (pending or re-approve)
+  adminAssign: {},       // bookingId -> { room, whiteboard, tv } draft unit picks (pending or re-approve)
   adminReapproveId: null, // id of a declined/cancelled booking currently showing the assignment UI
-  adminForm: null        // Admin "Add a booking" form draft, created lazily by ensureAdminFormDraft()
+  adminForm: null,       // Admin "Add a booking" form draft, created lazily by ensureAdminFormDraft()
+  adminNotes: {},
+  adminNotesDate: null,
+  adminNotesLoading: false
 };
 
-let fb = null; // { db, doc, setDoc, deleteDoc, collection } when online
+let fb = null; // Firebase modules, authenticated user, Firestore, and callable functions
 
 /* ================= tiny helpers ================= */
 
@@ -106,9 +99,11 @@ function esc(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
-async function sha256(s) {
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
+function timestampMillis(value) {
+  if (typeof value === 'number') return value;
+  if (value && typeof value.toMillis === 'function') return value.toMillis();
+  if (value && typeof value.seconds === 'number') return value.seconds * 1000;
+  return 0;
 }
 
 /* ================= date/time helpers ================= */
@@ -159,7 +154,44 @@ function upcomingSaturdayISO() {
   d.setDate(d.getDate() + offset);
   return toISO(d);
 }
-function previousSaturdayISO() { return addDaysISO(upcomingSaturdayISO(), -7); }
+/* Upcoming Tuesday: today if today is Tuesday, else the next one. */
+function upcomingTuesdayISO() {
+  const d = dateObj(todayISO());
+  const offset = (2 - d.getDay() + 7) % 7;
+  d.setDate(d.getDate() + offset);
+  return toISO(d);
+}
+function upcomingBookingDates() {
+  return [upcomingTuesdayISO(), upcomingSaturdayISO()].sort();
+}
+function selectedDate() {
+  const dates = upcomingBookingDates();
+  if (dates.indexOf(ui.selectedDate) === -1) ui.selectedDate = dates[0];
+  return ui.selectedDate;
+}
+function isSaturday(date) { return dateObj(date).getDay() === 6; }
+function isTuesday(date) { return dateObj(date).getDay() === 2; }
+
+/* Every schedule segment is explicit so a selected range can never cross
+   a service. Saturday begins at 9:00 AM to keep its morning service visible;
+   reservable slots still begin at 10:00 AM. */
+function scheduleSegments(date) {
+  if (isSaturday(date)) return [
+    { start: '09:00', end: '10:00', label: 'Morning service', service: true },
+    { start: '10:00', end: '15:00', label: 'Morning and early afternoon' },
+    { start: '15:00', end: '16:00', label: 'Afternoon service', service: true },
+    { start: '16:00', end: '20:00', label: 'Afternoon and evening' },
+    { start: '20:00', end: '21:00', label: 'Evening service', service: true },
+    { start: '21:00', end: '22:30', label: 'Late evening' }
+  ];
+  return [
+    { start: '10:00', end: '20:00', label: 'Daytime and evening' },
+    { start: '20:00', end: '21:00', label: 'Evening service', service: true },
+    { start: '21:00', end: '22:30', label: 'Late evening' }
+  ];
+}
+function bookingWindows(date) { return scheduleSegments(date).filter(w => !w.service); }
+function serviceWindows(date) { return scheduleSegments(date).filter(w => w.service); }
 /* Every valid 30-min slot start inside a window. */
 function slotStarts(window) {
   const startMin = minsOfDay(window.start);
@@ -168,14 +200,21 @@ function slotStarts(window) {
   for (let m = startMin; m + 30 <= endMin; m += 30) starts.push(hhmmOfMins(m));
   return starts;
 }
-function allSlotStarts() {
+function allSlotStarts(date) {
   let out = [];
-  WINDOWS.forEach(w => { out = out.concat(slotStarts(w)); });
+  bookingWindows(date).forEach(w => { out = out.concat(slotStarts(w)); });
   return out;
 }
-function windowIndexFor(hhmm) {
+function windowIndexFor(date, hhmm) {
   const m = minsOfDay(hhmm);
-  return WINDOWS.findIndex(w => m >= minsOfDay(w.start) && m < minsOfDay(w.end));
+  return bookingWindows(date).findIndex(w => m >= minsOfDay(w.start) && m < minsOfDay(w.end));
+}
+function isValidBookingRange(date, start, end) {
+  const dates = upcomingBookingDates();
+  if (dates.indexOf(date) === -1 || !start || !end) return false;
+  const startMin = minsOfDay(start), endMin = minsOfDay(end);
+  if (startMin >= endMin || startMin % 30 || endMin % 30) return false;
+  return bookingWindows(date).some(w => startMin >= minsOfDay(w.start) && endMin <= minsOfDay(w.end));
 }
 /* Half-open interval overlap: [aStart,aEnd) vs [bStart,bEnd). */
 function rangesOverlap(aStart, aEnd, bStart, bEnd) {
@@ -188,6 +227,7 @@ function unitsForType(type) { return UNITS_BY_TYPE[type] || []; }
 function unitById(type, id) { return unitsForType(type).find(u => u.id === id) || null; }
 function unitLabel(type, id) {
   const u = unitById(type, id);
+  if (!u && type === 'room' && id === 'room-baptism') return 'Retired room';
   return u ? u.label : id;
 }
 function needLabel(type) {
@@ -235,13 +275,18 @@ function needsSummary(b) {
   return neededTypesOf(b).map(needLabel).join(', ') || '—';
 }
 
-/* ---- admin PIN gate (exhibition-tours pattern: the *hash*, not a boolean,
-   is what's stored in localStorage — so changing the PIN on one device
-   automatically re-locks every other device whose stored hash no longer
-   matches state.settings.pinHash) ---- */
+/* ---- server-validated Admin session; sessionStorage clears when the
+   browser session ends and the backend independently expires the token. ---- */
 function adminUnlocked() {
-  const h = state.settings.pinHash || '';
-  return !!h && localStorage.getItem(ADMIN_KEY) === h;
+  try {
+    const session = JSON.parse(sessionStorage.getItem(ADMIN_KEY) || 'null');
+    return !!(session && session.token && session.expiresAt > Date.now());
+  } catch (e) { return false; }
+}
+function adminSessionToken() {
+  if (!adminUnlocked()) return '';
+  try { return JSON.parse(sessionStorage.getItem(ADMIN_KEY)).token || ''; }
+  catch (e) { return ''; }
 }
 
 /* ---- this device's own requests (localStorage) ---- */
@@ -274,11 +319,11 @@ function freeUnitsForType(type, date, start, end, excludeId) {
 function typeUsageCount(type, date, slotStart) {
   const slotEnd = hhmmOfMins(minsOfDay(slotStart) + 30);
   return bookingsForDate(date).filter(b =>
-    b.status === 'approved' && needsOf(b)[type] && assignmentsOf(b)[type] &&
+    b.status === 'approved' && needsOf(b)[type] && unitById(type, assignmentsOf(b)[type]) &&
     rangesOverlap(b.start, b.end, slotStart, slotEnd)).length;
 }
 function isSlotFull(type, date, slotStart) { return typeUsageCount(type, date, slotStart) >= CAPACITY[type]; }
-function fullSlotsForType(type, date) { return allSlotStarts().filter(s => isSlotFull(type, date, s)); }
+function fullSlotsForType(type, date) { return allSlotStarts(date).filter(s => isSlotFull(type, date, s)); }
 
 /* Merge consecutive 30-min slot starts into contiguous [start,end) stretches. */
 function mergeIntoStretches(starts) {
@@ -302,7 +347,7 @@ function waitingLineForType(type, date) {
   return stretches.map(st => {
     const entries = pending
       .filter(b => rangesOverlap(b.start, b.end, st.start, st.end))
-      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+      .sort((a, b) => timestampMillis(a.createdAt) - timestampMillis(b.createdAt))
       .map((b, i) => ({ booking: b, position: i + 1 }));
     return { type: type, start: st.start, end: st.end, entries: entries };
   }).filter(st => st.entries.length);
@@ -340,7 +385,7 @@ function isSlotBlockedForNeeds(neededTypes, date, slotStart, excludeId) {
 /* Same check across a whole proposed range; returns a blocking reason
    (for the submit-time banner) or null. */
 function blockingReasonForRange(neededTypes, date, start, end, excludeId) {
-  const slots = allSlotStarts().filter(s => minsOfDay(s) >= minsOfDay(start) && minsOfDay(s) < minsOfDay(end));
+  const slots = allSlotStarts(date).filter(s => minsOfDay(s) >= minsOfDay(start) && minsOfDay(s) < minsOfDay(end));
   for (const type of neededTypes) {
     for (const s of slots) {
       if (!isSlotFull(type, date, s)) continue;
@@ -364,34 +409,20 @@ function recommendedUnit(type, booking, date) {
       const pref = free.find(u => u.id === booking.preferredRoom);
       if (pref) return pref.id;
     }
-    const nonBaptism = free.filter(u => u.id !== 'room-baptism').sort((a, b) => a.num - b.num);
-    if (nonBaptism.length) return nonBaptism[0].id;
-    const baptism = free.find(u => u.id === 'room-baptism');
-    return baptism ? baptism.id : null;
+    return free.slice().sort((a, b) => a.num - b.num)[0].id;
   }
   return free.slice().sort((a, b) => a.num - b.num)[0].id;
 }
 
-/* Builds the initial (recommended) assignment draft for a pending/
-   re-approving booking. Whiteboard+podium sync: if both are needed,
-   prefer a numbered pair that is free on BOTH sides at once. */
+/* Builds the initial recommended assignment draft for a pending or
+   re-approving booking. Whiteboards retain their visible podium pairing,
+   but podiums are no longer separate inventory. */
 function initialAssignmentFor(booking, date) {
   const need = needsOf(booking);
-  const assign = { room: null, whiteboard: null, tv: null, podium: null };
+  const assign = { room: null, whiteboard: null, tv: null };
   if (need.room) assign.room = recommendedUnit('room', booking, date);
   if (need.tv) assign.tv = recommendedUnit('tv', booking, date);
-  if (need.whiteboard && need.podium) {
-    const freeWb = freeUnitsForType('whiteboard', date, booking.start, booking.end, booking.id);
-    const freePod = freeUnitsForType('podium', date, booking.start, booking.end, booking.id);
-    const freeWbNums = freeWb.map(u => u.num);
-    const freePodNums = freePod.map(u => u.num);
-    const pairedN = [1, 2, 3, 4, 5].find(n => freeWbNums.indexOf(n) !== -1 && freePodNums.indexOf(n) !== -1);
-    if (pairedN) { assign.whiteboard = 'wb-' + pairedN; assign.podium = 'pod-' + pairedN; }
-    /* else: no free numbered pair — leave both blank; admin resolves manually. */
-  } else {
-    if (need.whiteboard) assign.whiteboard = recommendedUnit('whiteboard', booking, date);
-    if (need.podium) assign.podium = recommendedUnit('podium', booking, date);
-  }
+  if (need.whiteboard) assign.whiteboard = recommendedUnit('whiteboard', booking, date);
   return assign;
 }
 
@@ -422,29 +453,27 @@ function loadLocal() {
 }
 function saveLocal() {
   try {
-    localStorage.setItem(DATA_KEY, JSON.stringify({
-      bookings: state.bookings, settings: state.settings
-    }));
+    localStorage.setItem(DATA_KEY, JSON.stringify({ bookings: state.bookings }));
   } catch (e) { /* storage full/blocked — realtime copy still lives in Firestore */ }
 }
 
-/* ---- Firestore write layer (works in local mode too) ---- */
-function fsSet(col, id, data) {
-  if (fb) fb.setDoc(fb.doc(fb.db, col, id), data).catch(err => console.warn('setDoc', col, id, err));
-  applyLocalWrite(col, id, data);
+function friendlyFirebaseError(error) {
+  const code = String(error && error.code || '').replace(/^functions\//, '');
+  if (code === 'unauthenticated') return 'The secure connection expired. Reload the app and try again.';
+  if (code === 'permission-denied') return error.message || 'That action is not allowed.';
+  if (code === 'resource-exhausted') return error.message || 'Please wait a few minutes and try again.';
+  if (code === 'already-exists' || code === 'failed-precondition' || code === 'invalid-argument') return error.message || 'Please review the booking and try again.';
+  return 'The change could not be saved. Check the connection and try again.';
 }
-function fsDelete(col, id) {
-  if (fb) fb.deleteDoc(fb.doc(fb.db, col, id)).catch(err => console.warn('deleteDoc', col, id, err));
-  applyLocalWrite(col, id, null);
+
+async function callBackend(name, data) {
+  if (!fb || !fb.callables[name]) throw new Error('The secure connection is not ready yet.');
+  const result = await fb.callables[name](data || {});
+  return result.data;
 }
-function applyLocalWrite(col, id, data) {
-  if (col === 'bookings') { if (data) state.bookings[id] = data; else delete state.bookings[id]; }
-  if (col === 'app' && id === 'settings' && data) state.settings = data;
-  saveLocal();
-  render();
-}
-function saveSettings(patch) {
-  fsSet('app', 'settings', Object.assign({}, state.settings, patch));
+
+async function adminCall(name, data) {
+  return callBackend(name, Object.assign({ sessionToken: adminSessionToken() }, data || {}));
 }
 
 /* ================= firebase ================= */
@@ -459,40 +488,49 @@ function setSyncPill(on, label) {
 async function initFirebase(config) {
   const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
   const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  const authMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+  const fnMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
   const app = appMod.initializeApp(config);
 
-  // Anonymous auth — an invisible sign-in so the Firestore write rules can
-  // require an authenticated context without adding any login UI for members.
-  // Reads stay open, so if this fails (e.g. Anonymous auth not yet enabled in
-  // the console) the app still shows data; only writes would be rejected.
-  try {
-    const authMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
-    await authMod.signInAnonymously(authMod.getAuth(app));
-  } catch (e) { console.warn('Anonymous sign-in failed:', e); }
+  const auth = authMod.getAuth(app);
+  if (!auth.currentUser) await authMod.signInAnonymously(auth);
 
   const db = fsMod.getFirestore(app);
+  const functions = fnMod.getFunctions(app, 'us-west1');
   fb = {
-    db,
+    db, auth,
     doc: fsMod.doc,
     setDoc: fsMod.setDoc,
-    deleteDoc: fsMod.deleteDoc,
-    collection: fsMod.collection
+    updateDoc: fsMod.updateDoc,
+    serverTimestamp: fsMod.serverTimestamp,
+    Timestamp: fsMod.Timestamp,
+    collection: fsMod.collection,
+    callables: {
+      adminStartSession: fnMod.httpsCallable(functions, 'adminStartSession'),
+      adminEndSession: fnMod.httpsCallable(functions, 'adminEndSession'),
+      adminBookingAction: fnMod.httpsCallable(functions, 'adminBookingAction'),
+      adminNoteAction: fnMod.httpsCallable(functions, 'adminNoteAction'),
+      adminMigrateNotes: fnMod.httpsCallable(functions, 'adminMigrateNotes'),
+      memberSetPrivateNote: fnMod.httpsCallable(functions, 'memberSetPrivateNote')
+    }
   };
-  fsMod.onSnapshot(fsMod.collection(db, 'bookings'), snap => {
+  const bookingQuery = fsMod.query(
+    fsMod.collection(db, 'bookings'),
+    fsMod.where('date', 'in', upcomingBookingDates())
+  );
+  fsMod.onSnapshot(bookingQuery, { includeMetadataChanges: true }, snap => {
     // A cache-only empty snapshot (no server contact yet) must not wipe the
     // device's saved bookings — wait for a real server answer.
     if (snap.metadata.fromCache && snap.empty) return;
     state.bookings = {};
     snap.docs.forEach(d => { state.bookings[d.id] = d.data(); });
     saveLocal(); render();
+    setSyncPill(!snap.metadata.fromCache, snap.metadata.fromCache ? 'Reconnecting' : 'Live');
   }, err => {
     addBanner('Could not connect to the shared database (' + esc(err.code || 'error') + '). Showing this device’s copy.', true);
-    setSyncPill(false);
+    setSyncPill(false, 'Reconnecting');
   });
-  fsMod.onSnapshot(fsMod.doc(db, 'app', 'settings'), snap => {
-    if (snap.exists()) { state.settings = snap.data(); saveLocal(); render(); }
-  }, () => { /* connection errors are surfaced by the bookings listener */ });
-  setSyncPill(true);
+  setSyncPill(false, 'Connecting');
 }
 
 /* ================= banners ================= */
@@ -514,18 +552,36 @@ function render() {
   if (!app) return;
 
   const dateEl = document.getElementById('head-date');
-  if (dateEl) dateEl.textContent = 'Sabbath · ' + fmtHeaderDate(upcomingSaturdayISO());
+  const date = selectedDate();
+  if (dateEl) dateEl.textContent = fmtDate(date) + ' selected';
 
   const tabs = document.getElementById('tabs');
   if (tabs) {
     tabs.innerHTML = TABS.map(t =>
-      '<button class="tab' + (ui.tab === t.id ? ' active' : '') + '" data-act="tab" data-id="' + t.id + '">' + esc(t.label) + '</button>'
+      '<button class="tab' + (ui.tab === t.id ? ' active' : '') + '" role="tab" aria-selected="' + (ui.tab === t.id ? 'true' : 'false') + '" aria-controls="app" data-act="tab" data-id="' + t.id + '">' + esc(t.label) + '</button>'
     ).join('');
   }
 
   if (ui.tab === 'signup') app.innerHTML = renderSignup();
   else if (ui.tab === 'admin') app.innerHTML = renderAdmin();
   else app.innerHTML = renderSchedule();
+}
+
+function dateSelectorHtml() {
+  return '<div class="date-selector" role="group" aria-label="Choose reservation date">' +
+    upcomingBookingDates().map(date => {
+      const selected = date === selectedDate();
+      const dayClass = isTuesday(date) ? ' tuesday' : ' saturday';
+      return '<button type="button" class="date-choice' + dayClass + (selected ? ' active' : '') + '" data-act="select-date" data-id="' + date + '" aria-pressed="' + (selected ? 'true' : 'false') + '">' +
+        '<span class="date-choice-day">' + (isTuesday(date) ? 'Tuesday' : 'Saturday') + '</span>' +
+        '<span class="date-choice-date">' + esc(fmtHeaderDate(date)) + '</span></button>';
+    }).join('') + '</div>';
+}
+
+function serviceNoticeHtml(date) {
+  return '<div class="service-notices" aria-label="Service times">' + serviceWindows(date).map(w =>
+    '<div class="service-notice"><strong>' + esc(w.label) + '</strong><span>' + esc(fmtTime(w.start)) + '–' + esc(fmtTime(w.end)) + ' · reservations unavailable</span></div>'
+  ).join('') + '</div>';
 }
 
 /* ================= shared schedule grid (This Sabbath / reference / admin day overview) ================= */
@@ -548,32 +604,33 @@ function chipClass(b) {
 function timelineRowHtml(unitLabelHtml, sublabel, type, unitId, date) {
   const bookings = activeBookingsForDate(date).filter(b =>
     b.status === 'approved' && needsOf(b)[type] && assignmentsOf(b)[type] === unitId);
-  const tracksHtml = WINDOWS.map(w => {
+  const tracksHtml = scheduleSegments(date).map(w => {
     const total = minsOfDay(w.end) - minsOfDay(w.start);
+    const flex = ' style="flex:' + total + ' 1 0"';
+    if (w.service) return '<div class="timeline-track service-track"' + flex + ' aria-label="' + esc(w.label + ', ' + fmtTime(w.start) + ' to ' + fmtTime(w.end)) + '"><span>Service</span></div>';
     const chips = bookings.filter(b => rangesOverlap(b.start, b.end, w.start, w.end)).map(b => {
       const left = Math.max(0, minsOfDay(b.start) - minsOfDay(w.start));
       const width = Math.min(minsOfDay(b.end), minsOfDay(w.end)) - minsOfDay(w.start) - left;
-      const podiumTag = (type === 'whiteboard' && assignmentsOf(b).podium)
-        ? '<span class="chip-podium">' + esc(unitLabel('podium', assignmentsOf(b).podium)) + '</span>' : '';
       return '<div class="chip ' + chipClass(b) + '" style="left:' + (left / total * 100) + '%;width:' + (width / total * 100) + '%" title="' +
-        esc(b.name + ' — ' + bookingPurposeText(b)) + '">' + chipInner(b) + podiumTag + '</div>';
+        esc(b.name + ' — ' + bookingPurposeText(b)) + '">' + chipInner(b) + '</div>';
     }).join('');
-    return '<div class="timeline-track ' + (w === WINDOWS[0] ? 'morning' : 'afternoon') + '">' + chips + '</div>';
+    return '<div class="timeline-track"' + flex + '>' + chips + '</div>';
   }).join('');
   return '<div class="timeline-row"><div class="timeline-label">' + unitLabelHtml +
     (sublabel ? '<small>' + esc(sublabel) + '</small>' : '') + '</div>' +
     '<div class="timeline-track-wrap">' + tracksHtml + '</div></div>';
 }
 
-function rulerHtml() {
-  const tracks = WINDOWS.map((w, wi) => {
+function rulerHtml(date) {
+  const tracks = scheduleSegments(date).map(w => {
     const total = minsOfDay(w.end) - minsOfDay(w.start);
+    if (w.service) return '<div class="ruler service-ruler" style="flex:' + total + ' 1 0"><span>' + esc(w.label) + '</span></div>';
     const ticks = [];
     for (let m = minsOfDay(w.start); m < minsOfDay(w.end); m += 60) ticks.push(m);
     const ticksHtml = ticks.map(m =>
       '<span style="left:' + ((m - minsOfDay(w.start)) / total * 100) + '%">' + esc(fmtTime(hhmmOfMins(m))) + '</span>'
     ).join('');
-    return '<div class="ruler ' + (wi === 0 ? 'morning' : 'afternoon') + '">' + ticksHtml + '</div>';
+    return '<div class="ruler" style="flex:' + total + ' 1 0">' + ticksHtml + '</div>';
   }).join('');
   return '<div class="ruler-row"><div class="timeline-label"></div><div class="ruler-track-wrap">' + tracks + '</div></div>';
 }
@@ -620,6 +677,14 @@ function categoryGroupHtml(type, units, date, showWaiting) {
   if (!anyMobile) html += '<p class="hint">Nothing booked yet.</p>';
   html += '</div>';
 
+  const pending = bookingsForDate(date).filter(b => b.status === 'pending' && needsOf(b)[type])
+    .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start) || timestampMillis(a.createdAt) - timestampMillis(b.createdAt));
+  if (pending.length) {
+    html += '<div class="pending-lane"><div class="pending-lane-title">Requested — awaiting approval</div>' + pending.map(b =>
+      '<div class="pending-lane-item"><span class="pending-name">' + esc(b.name) + '</span><span>' + esc(needLabel(type)) + '</span><span>' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</span></div>'
+    ).join('') + '</div>';
+  }
+
   if (showWaiting) {
     const lines = waitingLineForType(type, date);
     if (lines.length) html += lines.map(waitingStretchLabelHtml).join('');
@@ -631,6 +696,7 @@ function legendHtml() {
   return '<div class="legend">' +
     '<span class="legend-item"><span class="legend-swatch confirmed"></span>Confirmed</span>' +
     '<span class="legend-item"><span class="legend-swatch tentative"></span>Tentative</span>' +
+    '<span class="legend-item"><span class="legend-swatch requested"></span>Requested — awaiting approval</span>' +
     '<span class="legend-item"><span class="legend-swatch waiting"></span>Waiting in line</span>' +
     '</div>';
 }
@@ -641,7 +707,8 @@ function legendHtml() {
 function scheduleGridHtml(date) {
   let html = '<div class="sched-scroll"><div class="sched-inner">';
   html += legendHtml();
-  html += '<div class="sched-desktop">' + rulerHtml() + '</div>';
+  html += serviceNoticeHtml(date);
+  html += '<div class="sched-desktop">' + rulerHtml(date) + '</div>';
   html += categoryGroupHtml('room', ROOMS, date, true);
   html += categoryGroupHtml('whiteboard', WHITEBOARDS, date, true);
   html += categoryGroupHtml('tv', TVS, date, true);
@@ -655,7 +722,7 @@ function scheduleGridHtml(date) {
    requests show their place in the queue. ---- */
 function reservationRequestsHtml(date) {
   const items = bookingsForDate(date).filter(b => b.status === 'pending')
-    .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start) || (a.createdAt || 0) - (b.createdAt || 0));
+    .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start) || timestampMillis(a.createdAt) - timestampMillis(b.createdAt));
   if (!items.length) return '';
   let html = '<div class="card"><h2>Who’s requesting</h2>' +
     '<p class="section-note">These people have asked to reserve a room or piece of equipment and are waiting for the approver.</p>';
@@ -671,30 +738,16 @@ function reservationRequestsHtml(date) {
   return html + '</div>';
 }
 
-/* ---- This Sabbath tab ---- */
+/* ---- Reservations tab ---- */
 
 function renderSchedule() {
-  const upcoming = upcomingSaturdayISO();
-  const date = ui.viewRef ? previousSaturdayISO() : upcoming;
-
-  let html = '<div class="card sched-head">';
-  if (ui.viewRef) {
-    html += '<h2>Last Sabbath <span class="ref-tag">reference</span></h2>' +
-      '<p class="section-note">' + esc(fmtHeaderDate(date)) + ' — read-only. Approved bookings only; no sign-ups happen here.</p>' +
-      '<a href="#" class="ref-link" data-act="ref-back">Back to this Sabbath</a>';
-  } else {
-    html += '<h2>Reservations</h2>' +
-      '<p class="section-note">' + esc(fmtHeaderDate(date)) + ' — see who has each study room and piece of equipment, and who has asked to reserve one.</p>' +
-      '<a href="#" class="ref-link" data-act="ref-view">View last Sabbath (reference)</a>';
-  }
-  html += '</div>';
+  const date = selectedDate();
+  let html = '<div class="card sched-head"><h2>Reservations</h2>' +
+    '<p class="section-note">Choose the upcoming Tuesday or Saturday. Approved reservations and requests awaiting approval update live.</p>' +
+    dateSelectorHtml() + '</div>';
 
   html += '<div class="card">' + scheduleGridHtml(date) + '</div>';
-
-  if (!ui.viewRef) {
-    html += reservationRequestsHtml(date);
-    html += renderMyRequests(date);
-  }
+  html += renderMyRequests(date);
   return html;
 }
 
@@ -702,7 +755,7 @@ function renderMyRequests(date) {
   const items = myBookingIds()
     .map(id => bookingByIdSafe(id))
     .filter(b => b && b.date === date)
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt));
   if (!items.length) return '';
 
   let html = '<div class="card"><h2>My requests</h2>';
@@ -727,12 +780,9 @@ function myRequestStatusHtml(b, date) {
 
 function myRequestRowHtml(b, date) {
   const active = b.status === 'pending' || b.status === 'approved';
-  const baptismNote = (b.status === 'approved' && assignmentsOf(b).room === 'room-baptism')
-    ? '<div class="req-sub baptism-note">Note: the Baptism Room has no whiteboard or TV — add a request if you need one.</div>' : '';
   return '<div class="req-row">' +
     '<div class="req-head">' + esc(needsSummary(b)) + ' ' + myRequestStatusHtml(b, date) + '</div>' +
     '<div class="req-sub">' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + ' · ' + esc(bookingPurposeText(b)) + '</div>' +
-    baptismNote +
     (active ? '<div class="req-actions"><a href="#" class="cancel-link" data-act="my-cancel" data-id="' + esc(b.id) + '">Plans changed? Cancel</a></div>' : '') +
     '</div>';
 }
@@ -743,7 +793,7 @@ function ensureSignupDraft() {
   if (ui.signup) return;
   ui.signup = {
     name: localStorage.getItem(NAME_KEY) || '',
-    needs: { room: false, whiteboard: false, tv: false, podium: false },
+    needs: { room: false, whiteboard: false, tv: false },
     preferredRoom: null,
     start: null,
     end: null,
@@ -772,7 +822,7 @@ function syncSignupDraft() {
 function currentNeedTypes(d) { return NEED_TYPES.map(nt => nt.id).filter(t => d.needs[t]); }
 
 function needsCheckboxesHtml(d) {
-  return '<div class="need-row">' + NEED_TYPES.map(nt =>
+  return '<div class="need-row" role="group" aria-labelledby="su-needs-label">' + NEED_TYPES.map(nt =>
     '<button type="button" class="need-chip' + (d.needs[nt.id] ? ' active' : '') + '" data-act="su-need" data-id="' + nt.id + '" aria-pressed="' + (d.needs[nt.id] ? 'true' : 'false') + '">' +
     (d.needs[nt.id] ? '&#10003; ' : '') + esc(nt.label) + '</button>'
   ).join('') + '</div>';
@@ -780,23 +830,23 @@ function needsCheckboxesHtml(d) {
 
 function preferredRoomHtml(d) {
   if (!d.needs.room) return '';
-  return '<label class="fld">Preferred room (optional)</label><div class="need-row">' +
+  return '<div class="fld" id="su-pref-label">Preferred room (optional)</div><div class="need-row" role="group" aria-labelledby="su-pref-label">' +
     PREFERRED_ROOM_CHOICES.map(rid => {
       const label = rid === null ? 'No preference' : unitLabel('room', rid);
       const sel = d.preferredRoom === rid;
-      return '<button type="button" class="pref-chip' + (sel ? ' active' : '') + '" data-act="su-pref" data-id="' + (rid === null ? '' : rid) + '">' + esc(label) + '</button>';
+      return '<button type="button" class="pref-chip' + (sel ? ' active' : '') + '" data-act="su-pref" data-id="' + (rid === null ? '' : rid) + '" aria-pressed="' + (sel ? 'true' : 'false') + '">' + esc(label) + '</button>';
     }).join('') + '</div>';
 }
 
 /* ---- time picker ---- */
 function timePickerHtml(d, date) {
   const needTypes = currentNeedTypes(d);
-  let html = '<label class="fld">Time — tap your start time (that gives a 30-minute block); tap a later time to make it longer</label>';
-  WINDOWS.forEach((w, wi) => {
+  let html = '<div class="fld" id="su-time-label">Time — tap a start time for 30 minutes; tap a later time in the same section to make it longer</div>' + serviceNoticeHtml(date);
+  bookingWindows(date).forEach((w, wi) => {
     const slots = slotStarts(w);
     html += '<div class="strip-wrap">' +
       '<div class="strip-window-label">' + esc(w.label) + ' · ' + esc(fmtTime(w.start)) + ' – ' + esc(fmtTime(w.end)) + '</div>' +
-      '<div class="time-strip">' + slots.map(s => {
+      '<div class="time-strip" role="group" aria-label="' + esc(w.label) + '">' + slots.map(s => {
         const blocked = needTypes.length ? isSlotBlockedForNeeds(needTypes, date, s, null) : false;
         const inStart = d.start === s;
         const endSlotStart = d.end ? hhmmOfMins(minsOfDay(d.end) - 30) : null;
@@ -806,11 +856,11 @@ function timePickerHtml(d, date) {
         let cls = 'slot';
         if (blocked) cls += ' blocked';
         else if (inRange) { cls += ' sel'; if (inStart) cls += ' start'; if (inEnd) cls += ' end'; }
-        return '<button type="button" class="' + cls + '"' + (blocked ? ' disabled' : ' data-act="su-slot" data-win="' + wi + '" data-id="' + s + '"') + '>' + esc(fmtTimeTight(s)) + '</button>';
+        return '<button type="button" class="' + cls + '" aria-label="' + esc(fmtTime(s)) + '" aria-pressed="' + (inRange ? 'true' : 'false') + '"' + (blocked ? ' disabled' : ' data-act="su-slot" data-win="' + wi + '" data-id="' + s + '"') + '>' + esc(fmtTimeTight(s)) + '</button>';
       }).join('') + '</div></div>';
   });
   if (d.start && d.end) {
-    html += '<p class="hint">Selected: ' + esc(fmtTime(d.start)) + ' – ' + esc(fmtTime(d.end)) + '</p>';
+    html += '<p class="selection-summary" aria-live="polite">Selected: ' + esc(fmtTime(d.start)) + ' – ' + esc(fmtTime(d.end)) + '</p>';
   }
   return html;
 }
@@ -826,7 +876,7 @@ function signupExistingHtml(d, date) {
   const rel = activeBookingsForDate(date).filter(b => {
     if (!needTypes.some(t => needsOf(b)[t])) return false;
     return hasTime ? rangesOverlap(b.start, b.end, d.start, d.end) : true;
-  }).sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start) || (a.createdAt || 0) - (b.createdAt || 0));
+  }).sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start) || timestampMillis(a.createdAt) - timestampMillis(b.createdAt));
 
   const scope = needTypes.map(needLabel).join(', ');
   const when = hasTime ? ' at ' + esc(fmtTime(d.start)) + '–' + esc(fmtTime(d.end)) : '';
@@ -856,17 +906,17 @@ function signupExistingHtml(d, date) {
 
 function purposeChipsHtml(d) {
   return '<div class="need-row">' + PURPOSES.map(p =>
-    '<button type="button" class="purpose-chip' + (d.purpose === p.id ? ' active' : '') + '" data-act="su-purpose" data-id="' + p.id + '">' + esc(p.label) + '</button>'
+    '<button type="button" class="purpose-chip' + (d.purpose === p.id ? ' active' : '') + '" data-act="su-purpose" data-id="' + p.id + '" aria-pressed="' + (d.purpose === p.id ? 'true' : 'false') + '">' + esc(p.label) + '</button>'
   ).join('') + '</div>' +
   (d.purpose === 'other'
-    ? '<input type="text" id="su-other" value="' + esc(d.purposeOther) + '" placeholder="Please describe" style="margin-top:8px" required>'
+    ? '<label class="sr-only" for="su-other">Describe the purpose</label><input type="text" id="su-other" value="' + esc(d.purposeOther) + '" placeholder="Please describe" style="margin-top:8px" required>'
     : '');
 }
 
 function certaintyButtonsHtml(d) {
   return '<div class="certainty-row">' +
-    '<button type="button" class="certainty-btn confirmed' + (d.certainty === 'confirmed' ? ' active' : '') + '" data-act="su-certainty" data-id="confirmed">&#10003; Confirmed<br><small>— they’ll be there</small></button>' +
-    '<button type="button" class="certainty-btn tentative' + (d.certainty === 'tentative' ? ' active' : '') + '" data-act="su-certainty" data-id="tentative">&#9670; Tentative<br><small>— still confirming</small></button>' +
+    '<button type="button" class="certainty-btn confirmed' + (d.certainty === 'confirmed' ? ' active' : '') + '" data-act="su-certainty" data-id="confirmed" aria-pressed="' + (d.certainty === 'confirmed' ? 'true' : 'false') + '">Confirmed<br><small>They’ll be there</small></button>' +
+    '<button type="button" class="certainty-btn tentative' + (d.certainty === 'tentative' ? ' active' : '') + '" data-act="su-certainty" data-id="tentative" aria-pressed="' + (d.certainty === 'tentative' ? 'true' : 'false') + '">Tentative<br><small>Still confirming</small></button>' +
     '</div>';
 }
 
@@ -874,16 +924,17 @@ function renderSignup() {
   if (ui.signupConfirm) return renderSignupConfirm();
   ensureSignupDraft();
   const d = ui.signup;
-  const date = upcomingSaturdayISO();
+  const date = selectedDate();
 
   let html = '<div class="card"><h2>Sign up</h2>' +
-    '<p class="section-note">' + esc(fmtHeaderDate(date)) + ' — request a study room or piece of equipment. The approver will assign it and let you know.</p>' +
+    '<p class="section-note">Choose Tuesday or Saturday, then request a study room or piece of equipment. The approver will assign it and let you know.</p>' +
+    dateSelectorHtml() +
     '<form data-act="su-submit">' +
 
-    '<label class="fld">Your name</label>' +
+    '<label class="fld" for="su-name">Your name</label>' +
     '<input type="text" id="su-name" value="' + esc(d.name) + '" placeholder="Full name" autocomplete="name" required>' +
 
-    '<label class="fld">What do you need?</label>' +
+    '<div class="fld" id="su-needs-label">What do you need?</div>' +
     needsCheckboxesHtml(d) +
 
     preferredRoomHtml(d) +
@@ -892,13 +943,13 @@ function renderSignup() {
 
     signupExistingHtml(d, date) +
 
-    '<label class="fld">Purpose</label>' +
+    '<div class="fld">Purpose</div>' +
     purposeChipsHtml(d) +
 
-    '<label class="fld">How sure are you?</label>' +
+    '<div class="fld">How sure are you?</div>' +
     certaintyButtonsHtml(d) +
 
-    '<label class="fld">Note (optional)</label>' +
+    '<label class="fld" for="su-note">Note (optional)</label>' +
     '<input type="text" id="su-note" value="' + esc(d.note) + '" placeholder="Anything the reviewer should know">' +
 
     '<div style="margin-top:16px"><button class="btn primary big" type="submit"' + (ui.submitting ? ' disabled' : '') + '>' +
@@ -918,11 +969,11 @@ function renderSignupConfirm() {
     '</div>';
 }
 
-function submitSignup(form) {
+async function submitSignup(form) {
   if (ui.submitting) return; // double-submit guard
   syncSignupDraft();
   const d = ui.signup;
-  const date = upcomingSaturdayISO();
+  const date = selectedDate();
   const name = (d.name || '').trim();
   const note = (d.note || '').trim();
   const purposeOther = (d.purposeOther || '').trim();
@@ -931,6 +982,7 @@ function submitSignup(form) {
   if (!name) { addBanner('Please enter your name.', true); return; }
   if (!needTypes.length) { addBanner('Please choose at least one thing you need.', true); return; }
   if (!d.start || !d.end) { addBanner('Please choose a start and end time.', true); return; }
+  if (!isValidBookingRange(date, d.start, d.end)) { addBanner('That time is outside the available reservation periods. Please choose a new time.', true); return; }
   if (!d.purpose) { addBanner('Please choose a purpose.', true); return; }
   if (d.purpose === 'other' && !purposeOther) { addBanner('Please describe the purpose.', true); return; }
   if (!d.certainty) { addBanner('Please tell us how sure you are — Confirmed or Tentative.', true); return; }
@@ -941,39 +993,60 @@ function submitSignup(form) {
     return;
   }
 
+  if (!fb || !fb.auth.currentUser) {
+    addBanner('The shared schedule is not connected yet. Wait for “Live,” then try again.', true);
+    return;
+  }
+
   ui.submitting = true;
+  setSyncPill(false, 'Saving');
   const btn = form ? form.querySelector('button[type=submit]') : null;
   if (btn) btn.disabled = true; // belt & suspenders: dead until the re-render
   const id = uid();
-  fsSet('bookings', id, {
-    date: date,
-    start: d.start,
-    end: d.end,
-    name: name,
-    needs: { room: !!d.needs.room, whiteboard: !!d.needs.whiteboard, tv: !!d.needs.tv, podium: !!d.needs.podium },
-    preferredRoom: d.needs.room ? (d.preferredRoom || null) : null,
-    purpose: d.purpose,
-    purposeOther: d.purpose === 'other' ? purposeOther : '',
-    certainty: d.certainty,
-    note: note,
-    status: 'pending',
-    assignments: { room: null, whiteboard: null, tv: null, podium: null },
-    createdAt: Date.now()
-  });
-  addMyBookingId(id);
-  try { localStorage.setItem(NAME_KEY, name); } catch (e) { /* storage full/blocked */ }
-  ui.submitting = false;
-  ui.signupConfirm = { id: id, needsRoom: !!d.needs.room };
-  ui.signup = null; // fresh draft next time
-  render();
+  try {
+    await fb.setDoc(fb.doc(fb.db, 'bookings', id), {
+      schemaVersion: 3,
+      date: date,
+      bookingDate: fb.Timestamp.fromDate(new Date(date + 'T12:00:00Z')),
+      start: d.start,
+      end: d.end,
+      name: name,
+      needs: { room: !!d.needs.room, whiteboard: !!d.needs.whiteboard, tv: !!d.needs.tv },
+      preferredRoom: d.needs.room ? (d.preferredRoom || null) : null,
+      purpose: d.purpose,
+      purposeOther: d.purpose === 'other' ? purposeOther : '',
+      certainty: d.certainty,
+      status: 'pending',
+      assignments: { room: null, whiteboard: null, tv: null },
+      ownerUid: fb.auth.currentUser.uid,
+      createdAt: fb.serverTimestamp(),
+      updatedAt: fb.serverTimestamp()
+    });
+    if (note) {
+      try { await callBackend('memberSetPrivateNote', { bookingId: id, note: note }); }
+      catch (noteError) { addBanner('The request was saved, but its private note could not be attached.', true); }
+    }
+    addMyBookingId(id);
+    try { localStorage.setItem(NAME_KEY, name); } catch (e) { /* storage full/blocked */ }
+    ui.signupConfirm = { id: id, needsRoom: !!d.needs.room };
+    ui.signup = null;
+    setSyncPill(true, 'Saved');
+  } catch (error) {
+    addBanner(friendlyFirebaseError(error), true);
+    setSyncPill(false, 'Save failed');
+  } finally {
+    ui.submitting = false;
+    render();
+  }
 }
 
 /* ================= Admin tab ================= */
 
 function renderAdmin() {
   if (!adminUnlocked()) return renderAdminLock();
-  const date = upcomingSaturdayISO();
-  return renderAdminHeader() + renderAdminQueue(date) + renderAdminDayOverview(date) +
+  const date = selectedDate();
+  loadAdminNotes(date);
+  return renderAdminHeader() + '<div class="card"><h2>Choose a date</h2>' + dateSelectorHtml() + '</div>' + renderAdminQueue(date) + renderAdminDayOverview(date) +
     renderAdminAddForm(date) + renderAdminHousekeeping();
 }
 
@@ -984,7 +1057,7 @@ function renderAdminLock() {
     '<div class="lock-title">Admin is locked</div>' +
     '<p class="hint">Enter the admin PIN to approve or decline requests, review the day, and manage bookings.</p>' +
     '<form class="pin-row" style="margin-top:12px" data-act="admin-unlock">' +
-    '<input type="password" id="admin-pin-input" placeholder="PIN" autocomplete="off" inputmode="numeric" required>' +
+    '<label class="sr-only" for="admin-pin-input">Admin PIN</label><input type="password" id="admin-pin-input" placeholder="PIN" autocomplete="off" inputmode="numeric" required>' +
     '<button class="btn primary" type="submit">Unlock</button></form>' +
     (ui.pinError ? '<p class="pin-error">' + esc(ui.pinError) + '</p>' : '') +
     '</div>';
@@ -1009,13 +1082,14 @@ function pendingQueue(date) {
       const pa = waitingPositionFor(a, date); const pb = waitingPositionFor(b, date);
       const ka = pa === null ? Infinity : pa; const kb = pb === null ? Infinity : pb;
       if (ka !== kb) return ka - kb;
-      return (a.createdAt || 0) - (b.createdAt || 0);
+      return timestampMillis(a.createdAt) - timestampMillis(b.createdAt);
     });
 }
 
 function fmtDateTime(ms) {
-  if (!ms) return '';
-  const d = new Date(ms);
+  const value = timestampMillis(ms);
+  if (!value) return '';
+  const d = new Date(value);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' at ' +
     d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
@@ -1028,8 +1102,28 @@ function renderAdminQueue(date) {
   return html + '</div>';
 }
 
-/* Pill row for one resource type on a pending/re-approving booking's
-   assignment UI. Clicking a free pill selects it (with wb<->podium sync). */
+async function loadAdminNotes(date) {
+  if (!adminUnlocked() || ui.adminNotesLoading || ui.adminNotesDate === date) return;
+  ui.adminNotesLoading = true;
+  const ids = bookingsForDate(date).map(b => b.id).slice(0, 50);
+  try {
+    const result = ids.length
+      ? await adminCall('adminNoteAction', { action: 'get-many', bookingIds: ids })
+      : { notes: [] };
+    const notes = {};
+    (result.notes || []).forEach(item => { notes[item.bookingId] = item.note || ''; });
+    ui.adminNotes = notes;
+    ui.adminNotesDate = date;
+    render();
+  } catch (error) {
+    if (/expired|locked|permission/i.test(error.message || '')) sessionStorage.removeItem(ADMIN_KEY);
+    addBanner(friendlyFirebaseError(error), true);
+  } finally {
+    ui.adminNotesLoading = false;
+  }
+}
+
+/* Pill row for one resource type on a pending/re-approving booking. */
 function assignPillRowHtml(booking, type, date, assign) {
   const free = freeUnitsForType(type, date, booking.start, booking.end, booking.id);
   const freeIds = free.map(u => u.id);
@@ -1043,6 +1137,7 @@ function assignPillRowHtml(booking, type, date, assign) {
       const cls = 'unit-pill' + (isSel ? ' active' : '') + (!isFree ? ' disabled' : '');
       const title = occupant ? (' title="' + esc(occupant.name) + '"') : '';
       return '<button type="button" class="' + cls + '"' + title +
+        ' aria-pressed="' + (isSel ? 'true' : 'false') + '"' +
         (isFree ? ' data-act="admin-assign" data-booking="' + esc(booking.id) + '" data-type="' + type + '" data-id="' + u.id + '"' : ' disabled') + '>' +
         esc(u.label) + star + (occupant ? ' — ' + esc(occupant.name) : '') + '</button>';
     }).join('') + '</div></div>';
@@ -1074,17 +1169,21 @@ function pendingCardHtml(b, date) {
     '<div class="req-head">' + esc(b.name) + ' ' + certBadge + (pos !== null ? '<span class="badge status-waiting">In line — ' + ordinal(pos) + '</span>' : '') + '</div>' +
     '<div class="req-sub">' + esc(needsSummary(b)) + ' · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</div>' +
     '<div class="req-sub">' + esc(bookingPurposeText(b)) + (b.preferredRoom ? ' · Preferred: ' + esc(unitLabel('room', b.preferredRoom)) : '') + '</div>' +
-    (b.note ? '<div class="req-sub">Note: ' + esc(b.note) + '</div>' : '') +
+    (ui.adminNotes[b.id] ? '<div class="req-sub">Private note: ' + esc(ui.adminNotes[b.id]) + '</div>' : '') +
     '<div class="req-sub muted">Requested ' + esc(fmtDateTime(b.createdAt)) + '</div>' +
     (hint ? '<p class="conflict-note">' + esc(hint) + '</p>' : '') +
     assignmentUiHtml(b, date) +
     '</div>';
 }
 
-function approveBooking(id) {
+async function approveBooking(id) {
   const b = bookingByIdSafe(id);
   if (!b) return;
   const date = b.date;
+  if (!isValidBookingRange(date, b.start, b.end)) {
+    addBanner('This request overlaps a service or is outside the current reservation dates, so it cannot be approved.', true);
+    return;
+  }
   const assign = ui.adminAssign[id] || initialAssignmentFor(b, date);
   const need = neededTypesOf(b);
   // Re-check every needed type is still free at approve time.
@@ -1094,19 +1193,33 @@ function approveBooking(id) {
     const occ = unitOccupant(type, unitId, date, b.start, b.end, b.id);
     if (occ) { addBanner(esc(unitLabel(type, unitId)) + ' was just taken by ' + esc(occ.name) + ' — pick another.', true); return; }
   }
-  fsSet('bookings', id, Object.assign({}, state.bookings[id], {
-    status: 'approved',
-    assignments: { room: assign.room || null, whiteboard: assign.whiteboard || null, tv: assign.tv || null, podium: assign.podium || null },
-    decidedAt: Date.now()
-  }));
-  delete ui.adminAssign[id];
-  if (ui.adminReapproveId === id) ui.adminReapproveId = null;
+  try {
+    setSyncPill(false, 'Saving');
+    await adminCall('adminBookingAction', {
+      action: ui.adminReapproveId === id ? 'reapprove' : 'approve',
+      bookingId: id,
+      assignments: { room: assign.room || null, whiteboard: assign.whiteboard || null, tv: assign.tv || null }
+    });
+    delete ui.adminAssign[id];
+    if (ui.adminReapproveId === id) ui.adminReapproveId = null;
+    setSyncPill(true, 'Saved');
+  } catch (error) {
+    addBanner(friendlyFirebaseError(error), true);
+    setSyncPill(false, 'Save failed');
+  }
 }
-function declineBooking(id) {
+async function declineBooking(id) {
   const b = state.bookings[id];
   if (!b) return;
-  fsSet('bookings', id, Object.assign({}, b, { status: 'declined', decidedAt: Date.now() }));
-  delete ui.adminAssign[id];
+  try {
+    setSyncPill(false, 'Saving');
+    await adminCall('adminBookingAction', { action: 'decline', bookingId: id });
+    delete ui.adminAssign[id];
+    setSyncPill(true, 'Saved');
+  } catch (error) {
+    addBanner(friendlyFirebaseError(error), true);
+    setSyncPill(false, 'Save failed');
+  }
 }
 
 /* ---- 2. Day overview ---- */
@@ -1156,21 +1269,28 @@ function adminDayRowHtml(b, date) {
     '</div>';
 }
 
-function cancelBooking(id) {
+async function cancelBooking(id) {
   const b = state.bookings[id];
   if (!b) return;
   if (!confirm('Cancel the approved booking for ' + b.name + '?')) return;
-  fsSet('bookings', id, Object.assign({}, b, { status: 'cancelled' }));
+  try {
+    setSyncPill(false, 'Saving');
+    await adminCall('adminBookingAction', { action: 'cancel', bookingId: id });
+    setSyncPill(true, 'Saved');
+  } catch (error) {
+    addBanner(friendlyFirebaseError(error), true);
+    setSyncPill(false, 'Save failed');
+  }
 }
 
 /* ---- 3. Add a booking directly ---- */
 
 function ensureAdminFormDraft(date) {
-  if (ui.adminForm) return;
+  if (ui.adminForm && ui.adminForm.date === date) return;
   ui.adminForm = {
     date: date,
     name: '',
-    needs: { room: false, whiteboard: false, tv: false, podium: false },
+    needs: { room: false, whiteboard: false, tv: false },
     preferredRoom: null,
     start: null,
     end: null,
@@ -1179,7 +1299,7 @@ function ensureAdminFormDraft(date) {
     purposeOther: '',
     certainty: 'confirmed',
     note: '',
-    assign: { room: null, whiteboard: null, tv: null, podium: null }
+    assign: { room: null, whiteboard: null, tv: null }
   };
 }
 
@@ -1197,27 +1317,27 @@ function syncAdminFormDraft() {
 }
 
 function afNeedsCheckboxesHtml(d) {
-  return '<div class="need-row">' + NEED_TYPES.map(nt =>
-    '<button type="button" class="need-chip' + (d.needs[nt.id] ? ' active' : '') + '" data-act="af-need" data-id="' + nt.id + '">' +
+  return '<div class="need-row" role="group" aria-labelledby="af-needs-label">' + NEED_TYPES.map(nt =>
+    '<button type="button" class="need-chip' + (d.needs[nt.id] ? ' active' : '') + '" data-act="af-need" data-id="' + nt.id + '" aria-pressed="' + (d.needs[nt.id] ? 'true' : 'false') + '">' +
     (d.needs[nt.id] ? '&#10003; ' : '') + esc(nt.label) + '</button>'
   ).join('') + '</div>';
 }
 function afPreferredRoomHtml(d) {
   if (!d.needs.room) return '';
-  return '<label class="fld">Preferred room (optional)</label><div class="need-row">' +
+  return '<div class="fld" id="af-pref-label">Preferred room (optional)</div><div class="need-row" role="group" aria-labelledby="af-pref-label">' +
     PREFERRED_ROOM_CHOICES.map(rid => {
       const label = rid === null ? 'No preference' : unitLabel('room', rid);
       const sel = d.preferredRoom === rid;
-      return '<button type="button" class="pref-chip' + (sel ? ' active' : '') + '" data-act="af-pref" data-id="' + (rid === null ? '' : rid) + '">' + esc(label) + '</button>';
+      return '<button type="button" class="pref-chip' + (sel ? ' active' : '') + '" data-act="af-pref" data-id="' + (rid === null ? '' : rid) + '" aria-pressed="' + (sel ? 'true' : 'false') + '">' + esc(label) + '</button>';
     }).join('') + '</div>';
 }
 function afTimePickerHtml(d) {
-  let html = '<label class="fld">Time</label>';
-  WINDOWS.forEach((w, wi) => {
+  let html = '<div class="fld">Time</div>' + serviceNoticeHtml(d.date);
+  bookingWindows(d.date).forEach((w, wi) => {
     const slots = slotStarts(w);
     html += '<div class="strip-wrap">' +
       '<div class="strip-window-label">' + esc(w.label) + ' · ' + esc(fmtTime(w.start)) + ' – ' + esc(fmtTime(w.end)) + '</div>' +
-      '<div class="time-strip">' + slots.map(s => {
+      '<div class="time-strip" role="group" aria-label="' + esc(w.label) + '">' + slots.map(s => {
         const inStart = d.start === s;
         const endSlotStart = d.end ? hhmmOfMins(minsOfDay(d.end) - 30) : null;
         const inEnd = d.end !== null && endSlotStart === s;
@@ -1225,10 +1345,10 @@ function afTimePickerHtml(d) {
           minsOfDay(s) >= minsOfDay(d.start) && (d.end === null ? s === d.start : minsOfDay(s) < minsOfDay(d.end));
         let cls = 'slot';
         if (inRange) { cls += ' sel'; if (inStart) cls += ' start'; if (inEnd) cls += ' end'; }
-        return '<button type="button" class="' + cls + '" data-act="af-slot" data-win="' + wi + '" data-id="' + s + '">' + esc(fmtTimeTight(s)) + '</button>';
+        return '<button type="button" class="' + cls + '" data-act="af-slot" data-win="' + wi + '" data-id="' + s + '" aria-label="' + esc(fmtTime(s)) + '" aria-pressed="' + (inRange ? 'true' : 'false') + '">' + esc(fmtTimeTight(s)) + '</button>';
       }).join('') + '</div></div>';
   });
-  if (d.start && d.end) html += '<p class="hint">Selected: ' + esc(fmtTime(d.start)) + ' – ' + esc(fmtTime(d.end)) + '</p>';
+  if (d.start && d.end) html += '<p class="selection-summary" aria-live="polite">Selected: ' + esc(fmtTime(d.start)) + ' – ' + esc(fmtTime(d.end)) + '</p>';
   return html;
 }
 function afAssignPillRowHtml(d, type) {
@@ -1243,22 +1363,23 @@ function afAssignPillRowHtml(d, type) {
       const isSel = d.assign[type] === u.id;
       const cls = 'unit-pill' + (isSel ? ' active' : '') + (!isFree ? ' disabled' : '');
       return '<button type="button" class="' + cls + '"' +
+        ' aria-pressed="' + (isSel ? 'true' : 'false') + '"' +
         (isFree ? ' data-act="af-assign" data-type="' + type + '" data-id="' + u.id + '"' : ' disabled') + '>' +
         esc(u.label) + (occupant ? ' — ' + esc(occupant.name) : '') + '</button>';
     }).join('') + '</div></div>';
 }
 function afPurposeChipsHtml(d) {
   return '<div class="need-row">' + ADMIN_PURPOSES.map(p =>
-    '<button type="button" class="purpose-chip' + (d.purpose === p.id ? ' active' : '') + '" data-act="af-purpose" data-id="' + p.id + '">' + esc(p.label) + '</button>'
+    '<button type="button" class="purpose-chip' + (d.purpose === p.id ? ' active' : '') + '" data-act="af-purpose" data-id="' + p.id + '" aria-pressed="' + (d.purpose === p.id ? 'true' : 'false') + '">' + esc(p.label) + '</button>'
   ).join('') + '</div>' +
   (d.purpose === 'other'
-    ? '<input type="text" id="af-other" value="' + esc(d.purposeOther) + '" placeholder="Please describe" style="margin-top:8px" required>'
+    ? '<label class="sr-only" for="af-other">Describe the purpose</label><input type="text" id="af-other" value="' + esc(d.purposeOther) + '" placeholder="Please describe" style="margin-top:8px" required>'
     : '');
 }
 function afCertaintyButtonsHtml(d) {
   return '<div class="certainty-row">' +
-    '<button type="button" class="certainty-btn confirmed' + (d.certainty === 'confirmed' ? ' active' : '') + '" data-act="af-certainty" data-id="confirmed">&#10003; Confirmed<br><small>— they’ll be there</small></button>' +
-    '<button type="button" class="certainty-btn tentative' + (d.certainty === 'tentative' ? ' active' : '') + '" data-act="af-certainty" data-id="tentative">&#9670; Tentative<br><small>— still confirming</small></button>' +
+    '<button type="button" class="certainty-btn confirmed' + (d.certainty === 'confirmed' ? ' active' : '') + '" data-act="af-certainty" data-id="confirmed" aria-pressed="' + (d.certainty === 'confirmed' ? 'true' : 'false') + '">Confirmed<br><small>They’ll be there</small></button>' +
+    '<button type="button" class="certainty-btn tentative' + (d.certainty === 'tentative' ? ' active' : '') + '" data-act="af-certainty" data-id="tentative" aria-pressed="' + (d.certainty === 'tentative' ? 'true' : 'false') + '">Tentative<br><small>Still confirming</small></button>' +
     '</div>';
 }
 
@@ -1268,33 +1389,33 @@ function renderAdminAddForm(date) {
   const needTypes = NEED_TYPES.map(nt => nt.id).filter(t => d.needs[t]);
 
   return '<div class="card"><h2>Add a booking</h2>' +
-    '<p class="section-note">Adds a booking that is approved immediately — for reserving directly, or blocking a room off (e.g. the Baptism Room during an actual baptism).</p>' +
+    '<p class="section-note">Adds a booking that is approved immediately, including a room held for another use.</p>' +
     '<form data-act="admin-add-submit">' +
 
-    '<label class="fld">Name</label>' +
+    '<label class="fld" for="af-name">Name</label>' +
     '<input type="text" id="af-name" value="' + esc(d.name) + '" placeholder="Full name" required>' +
 
-    '<label class="fld">What do they need?</label>' +
+    '<div class="fld" id="af-needs-label">What do they need?</div>' +
     afNeedsCheckboxesHtml(d) +
     afPreferredRoomHtml(d) +
     afTimePickerHtml(d) +
 
-    (needTypes.length && d.start && d.end ? '<label class="fld">Assign</label>' + needTypes.map(t => afAssignPillRowHtml(d, t)).join('') : '') +
+    (needTypes.length && d.start && d.end ? '<div class="fld">Assign</div>' + needTypes.map(t => afAssignPillRowHtml(d, t)).join('') : '') +
 
-    '<label class="fld">Purpose</label>' +
+    '<div class="fld">Purpose</div>' +
     afPurposeChipsHtml(d) +
 
-    '<label class="fld">How sure?</label>' +
+    '<div class="fld">How sure?</div>' +
     afCertaintyButtonsHtml(d) +
 
-    '<label class="fld">Note (optional)</label>' +
+    '<label class="fld" for="af-note">Note (optional)</label>' +
     '<input type="text" id="af-note" value="' + esc(d.note) + '" placeholder="Anything worth noting">' +
 
     '<div style="margin-top:16px"><button class="btn primary big" type="submit">Add booking (approved)</button></div>' +
     '</form></div>';
 }
 
-function submitAdminAdd() {
+async function submitAdminAdd() {
   syncAdminFormDraft();
   const d = ui.adminForm;
   const name = (d.name || '').trim();
@@ -1305,6 +1426,7 @@ function submitAdminAdd() {
   if (!name) { addBanner('Please enter a name.', true); return; }
   if (!needTypes.length) { addBanner('Please choose at least one thing needed.', true); return; }
   if (!d.start || !d.end) { addBanner('Please choose a start and end time.', true); return; }
+  if (!isValidBookingRange(d.date, d.start, d.end)) { addBanner('That time is outside the available reservation periods. Please choose a new time.', true); return; }
   if (d.purpose === 'other' && !purposeOther) { addBanner('Please describe the purpose.', true); return; }
   for (const t of needTypes) {
     if (!d.assign[t]) { addBanner('Please assign a ' + needLabel(t).toLowerCase() + '.', true); return; }
@@ -1312,25 +1434,29 @@ function submitAdminAdd() {
     if (occ) { addBanner(esc(unitLabel(t, d.assign[t])) + ' was just taken by ' + esc(occ.name) + ' — pick another.', true); return; }
   }
 
-  fsSet('bookings', uid(), {
-    date: d.date,
-    start: d.start,
-    end: d.end,
-    name: name,
-    needs: { room: !!d.needs.room, whiteboard: !!d.needs.whiteboard, tv: !!d.needs.tv, podium: !!d.needs.podium },
-    preferredRoom: d.needs.room ? (d.preferredRoom || null) : null,
-    purpose: d.purpose,
-    purposeOther: d.purpose === 'other' ? purposeOther : '',
-    certainty: d.certainty || 'confirmed',
-    note: note,
-    status: 'approved',
-    assignments: { room: d.assign.room || null, whiteboard: d.assign.whiteboard || null, tv: d.assign.tv || null, podium: d.assign.podium || null },
-    createdAt: Date.now(),
-    decidedAt: Date.now()
-  });
-  addBanner('Booking added and approved for ' + esc(name) + '.');
-  ui.adminForm = null; // reset the draft for next time
-  render();
+  try {
+    setSyncPill(false, 'Saving');
+    await adminCall('adminBookingAction', {
+      action: 'direct-add',
+      booking: {
+        date: d.date, start: d.start, end: d.end, name: name,
+        needs: { room: !!d.needs.room, whiteboard: !!d.needs.whiteboard, tv: !!d.needs.tv },
+        preferredRoom: d.needs.room ? (d.preferredRoom || null) : null,
+        purpose: d.purpose, purposeOther: d.purpose === 'other' ? purposeOther : '',
+        certainty: d.certainty || 'confirmed', status: 'approved',
+        assignments: { room: d.assign.room || null, whiteboard: d.assign.whiteboard || null, tv: d.assign.tv || null }
+      },
+      note: note
+    });
+    addBanner('Booking added and approved for ' + esc(name) + '.');
+    ui.adminForm = null;
+    ui.adminNotesDate = null;
+    setSyncPill(true, 'Saved');
+    render();
+  } catch (error) {
+    addBanner(friendlyFirebaseError(error), true);
+    setSyncPill(false, 'Save failed');
+  }
 }
 
 /* ---- 4. Housekeeping ---- */
@@ -1342,19 +1468,109 @@ function renderAdminHousekeeping() {
     '</div>';
 }
 
+async function cancelMyBooking(id) {
+  const b = bookingByIdSafe(id);
+  if (!b || (b.status !== 'pending' && b.status !== 'approved')) return;
+  if (!confirm('Cancel this request?')) return;
+  if (!fb || !fb.auth.currentUser || b.ownerUid !== fb.auth.currentUser.uid) {
+    addBanner('Only the device that made this new request can cancel it. Ask an Admin for help with an older request.', true);
+    return;
+  }
+  try {
+    setSyncPill(false, 'Saving');
+    await fb.updateDoc(fb.doc(fb.db, 'bookings', id), { status: 'cancelled', updatedAt: fb.serverTimestamp() });
+    setSyncPill(true, 'Saved');
+  } catch (error) {
+    addBanner(friendlyFirebaseError(error), true);
+    setSyncPill(false, 'Save failed');
+  }
+}
+
+async function startAdminSession(pin) {
+  ui.pinError = '';
+  try {
+    setSyncPill(false, 'Checking PIN');
+    const result = await callBackend('adminStartSession', { pin: pin });
+    sessionStorage.setItem(ADMIN_KEY, JSON.stringify({ token: result.sessionToken, expiresAt: result.expiresAt }));
+    ui.adminNotesDate = null;
+    setSyncPill(true, 'Admin unlocked');
+    render();
+    await runAdminMigrations();
+  } catch (error) {
+    ui.pinError = friendlyFirebaseError(error);
+    setSyncPill(false, 'Locked');
+    render();
+  }
+}
+
+async function endAdminSession() {
+  const token = adminSessionToken();
+  sessionStorage.removeItem(ADMIN_KEY);
+  ui.adminNotes = {};
+  ui.adminNotesDate = null;
+  render();
+  if (token && fb) {
+    try { await callBackend('adminEndSession', { sessionToken: token }); } catch (error) { /* already locked */ }
+  }
+}
+
+async function runAdminMigrations() {
+  try {
+    let roomCursor = {};
+    do {
+      roomCursor = await adminCall('adminBookingAction', Object.assign({ action: 'retire-baptism-room' }, roomCursor.done === false ? {
+        afterDate: roomCursor.afterDate,
+        afterBookingId: roomCursor.afterBookingId
+      } : {}));
+    } while (!roomCursor.done);
+
+    let noteCursor = {};
+    do {
+      const payload = noteCursor.done === false ? { afterBookingId: noteCursor.afterBookingId } : {};
+      noteCursor = await adminCall('adminMigrateNotes', payload);
+    } while (!noteCursor.done);
+    ui.adminNotesDate = null;
+  } catch (error) {
+    addBanner('Admin opened, but older records could not be tidied automatically. ' + friendlyFirebaseError(error), true);
+  }
+}
+
+async function cleanupOldRecords() {
+  const cutoff = addDaysISO(todayISO(), -56);
+  const count = bookingsList().filter(b => b.date < cutoff).length;
+  if (!count) { addBanner('No records older than 8 weeks.'); return; }
+  if (!confirm('Delete old booking records? This cannot be undone.')) return;
+  try {
+    let result;
+    let removed = 0;
+    do {
+      result = await adminCall('adminBookingAction', { action: 'cleanup' });
+      removed += result.removed || 0;
+    } while (result.more);
+    addBanner('Removed ' + removed + ' old booking' + (removed === 1 ? '' : 's') + '.');
+  } catch (error) { addBanner(friendlyFirebaseError(error), true); }
+}
+
 /* ================= actions ================= */
 
 function handleAction(act, el) {
   if (act === 'tab') { ui.tab = el.dataset.id; ui.pinError = ''; render(); return; }
 
-  /* ---- This Sabbath tab ---- */
-  if (act === 'ref-view') { ui.viewRef = true; render(); return; }
-  if (act === 'ref-back') { ui.viewRef = false; render(); return; }
+  if (act === 'select-date') {
+    const date = el.dataset.id;
+    if (upcomingBookingDates().indexOf(date) === -1) return;
+    syncSignupDraft();
+    if (ui.signup) { ui.signup.start = null; ui.signup.end = null; ui.signup.windowIdx = null; }
+    syncAdminFormDraft();
+    ui.adminForm = null;
+    ui.selectedDate = date;
+    render();
+    return;
+  }
+
+  /* ---- Reservations tab ---- */
   if (act === 'my-cancel') {
-    const b = state.bookings[el.dataset.id];
-    if (!b || (b.status !== 'pending' && b.status !== 'approved')) return;
-    if (!confirm('Cancel this request?')) return;
-    fsSet('bookings', el.dataset.id, Object.assign({}, b, { status: 'cancelled' }));
+    cancelMyBooking(el.dataset.id);
     return;
   }
 
@@ -1383,24 +1599,10 @@ function handleAction(act, el) {
   /* ---- Admin tab: PIN gate ---- */
   if (act === 'admin-unlock') {
     const val = document.getElementById('admin-pin-input').value;
-    sha256(val).then(h => {
-      const existing = state.settings.pinHash || '';
-      if (existing) {
-        if (h === existing) { localStorage.setItem(ADMIN_KEY, h); ui.pinError = ''; }
-        else { ui.pinError = 'That PIN is not right.'; }
-      } else if (val === '0000') {
-        // bootstrap: first successful entry of the default PIN sets it for good
-        localStorage.setItem(ADMIN_KEY, h);
-        ui.pinError = '';
-        saveSettings({ pinHash: h });
-      } else {
-        ui.pinError = 'That PIN is not right.';
-      }
-      render();
-    });
+    startAdminSession(val);
     return;
   }
-  if (act === 'admin-lock') { localStorage.removeItem(ADMIN_KEY); render(); return; }
+  if (act === 'admin-lock') { endAdminSession(); return; }
 
   /* ---- Admin tab: pending queue + assignment + day overview ---- */
   if (act === 'admin-assign') {
@@ -1412,19 +1614,6 @@ function handleAction(act, el) {
     if (!ui.adminAssign[bookingId]) ui.adminAssign[bookingId] = initialAssignmentFor(b, b.date);
     const assign = ui.adminAssign[bookingId];
     assign[type] = unitId;
-    // whiteboard <-> podium sync, only when both are needed
-    if (type === 'whiteboard' && needsOf(b).podium) {
-      const u = unitById('whiteboard', unitId);
-      const podId = u ? 'pod-' + u.num : null;
-      const podFree = podId && !unitOccupant('podium', podId, b.date, b.start, b.end, b.id);
-      assign.podium = podFree ? podId : null;
-    }
-    if (type === 'podium' && needsOf(b).whiteboard) {
-      const u = unitById('podium', unitId);
-      const wbId = u ? 'wb-' + u.num : null;
-      const wbFree = wbId && !unitOccupant('whiteboard', wbId, b.date, b.start, b.end, b.id);
-      assign.whiteboard = wbFree ? wbId : null;
-    }
     render();
     return;
   }
@@ -1443,54 +1632,37 @@ function handleAction(act, el) {
 
   /* ---- Admin tab: add a booking directly ---- */
   if (act === 'af-need') {
-    syncAdminFormDraft(); ensureAdminFormDraft(upcomingSaturdayISO());
+    syncAdminFormDraft(); ensureAdminFormDraft(selectedDate());
     const d = ui.adminForm;
     d.needs[el.dataset.id] = !d.needs[el.dataset.id];
-    d.assign = { room: null, whiteboard: null, tv: null, podium: null };
+    d.assign = { room: null, whiteboard: null, tv: null };
     if (!d.needs.room) d.preferredRoom = null;
     render();
     return;
   }
-  if (act === 'af-pref') { syncAdminFormDraft(); ensureAdminFormDraft(upcomingSaturdayISO()); ui.adminForm.preferredRoom = el.dataset.id || null; render(); return; }
+  if (act === 'af-pref') { syncAdminFormDraft(); ensureAdminFormDraft(selectedDate()); ui.adminForm.preferredRoom = el.dataset.id || null; render(); return; }
   if (act === 'af-slot') {
-    syncAdminFormDraft(); ensureAdminFormDraft(upcomingSaturdayISO());
+    syncAdminFormDraft(); ensureAdminFormDraft(selectedDate());
     tapSlot(ui.adminForm, +el.dataset.win, el.dataset.id);
-    ui.adminForm.assign = { room: null, whiteboard: null, tv: null, podium: null };
+    ui.adminForm.assign = { room: null, whiteboard: null, tv: null };
     render();
     return;
   }
   if (act === 'af-assign') {
-    syncAdminFormDraft(); ensureAdminFormDraft(upcomingSaturdayISO());
+    syncAdminFormDraft(); ensureAdminFormDraft(selectedDate());
     const d = ui.adminForm;
     const type = el.dataset.type, unitId = el.dataset.id;
     d.assign[type] = unitId;
-    if (type === 'whiteboard' && d.needs.podium) {
-      const u = unitById('whiteboard', unitId);
-      const podId = u ? 'pod-' + u.num : null;
-      const podFree = podId && !unitOccupant('podium', podId, d.date, d.start, d.end, '__new__');
-      d.assign.podium = podFree ? podId : null;
-    }
-    if (type === 'podium' && d.needs.whiteboard) {
-      const u = unitById('podium', unitId);
-      const wbId = u ? 'wb-' + u.num : null;
-      const wbFree = wbId && !unitOccupant('whiteboard', wbId, d.date, d.start, d.end, '__new__');
-      d.assign.whiteboard = wbFree ? wbId : null;
-    }
     render();
     return;
   }
-  if (act === 'af-purpose') { syncAdminFormDraft(); ensureAdminFormDraft(upcomingSaturdayISO()); ui.adminForm.purpose = el.dataset.id; render(); return; }
-  if (act === 'af-certainty') { syncAdminFormDraft(); ensureAdminFormDraft(upcomingSaturdayISO()); ui.adminForm.certainty = el.dataset.id; render(); return; }
+  if (act === 'af-purpose') { syncAdminFormDraft(); ensureAdminFormDraft(selectedDate()); ui.adminForm.purpose = el.dataset.id; render(); return; }
+  if (act === 'af-certainty') { syncAdminFormDraft(); ensureAdminFormDraft(selectedDate()); ui.adminForm.certainty = el.dataset.id; render(); return; }
   if (act === 'admin-add-submit') { submitAdminAdd(); return; }
 
   /* ---- Admin tab: housekeeping ---- */
   if (act === 'admin-cleanup') {
-    const cutoff = addDaysISO(todayISO(), -56); // 8 weeks
-    const old = bookingsList().filter(b => b.date < cutoff);
-    if (!old.length) { addBanner('No records older than 8 weeks.'); return; }
-    if (!confirm('Delete ' + old.length + ' booking' + (old.length === 1 ? '' : 's') + ' older than 8 weeks? This cannot be undone.')) return;
-    old.forEach(b => fsDelete('bookings', b.id));
-    addBanner('Removed ' + old.length + ' old booking' + (old.length === 1 ? '' : 's') + '.');
+    cleanupOldRecords();
     return;
   }
 }
@@ -1569,13 +1741,25 @@ function init() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
-  state = loadLocal() || { bookings: {}, settings: {} };
+  if (new URLSearchParams(location.search).get('tv') === '1') {
+    location.replace('tv.html' + location.search + location.hash);
+    return;
+  }
+  state = loadLocal() || { bookings: {} };
   saveLocal();
   render();
 
   attachSwipeTabs(document.getElementById('app'));
   const masthead = document.getElementById('masthead');
-  if (masthead) masthead.addEventListener('click', () => { ui.tab = 'schedule'; ui.viewRef = false; render(); });
+  const goHome = () => { ui.tab = 'schedule'; render(); };
+  if (masthead) {
+    masthead.addEventListener('click', goHome);
+    masthead.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      goHome();
+    });
+  }
 
   if (window.FIREBASE_CONFIG) {
     initFirebase(window.FIREBASE_CONFIG).catch(err => {

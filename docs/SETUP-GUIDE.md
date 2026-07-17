@@ -1,82 +1,81 @@
 # LV Zion Study Rooms — Setup Guide
 
-This guide is for getting the app open and installed — no technical background
-needed. If you're looking for how the app was built or how to change it, see
-`docs/CREATION-GUIDE.md` instead; that information is deliberately kept out of
-this guide.
+## Current status
 
-## Before you start: current status
+The shorter address and revised scheduler are **In progress**. The intended primary
+address is **https://lvrooms.web.app**. Do not announce the rollout as complete until
+the project handoff says the live deployment has been verified.
 
-The app is **live and ready to use** at the address below. It's connected to
-its online database, so everyone's sign-ups sync together in real time. There
-is nothing to install or set up first — just open the link and share it.
+The previous address, **https://lvz-rooms.web.app**, will remain available and send
+visitors to the shorter address after rollout.
 
-## 1. Opening the app
+## Open the member app
 
-The app is available at this web address:
+Once deployment is confirmed:
 
-**https://lvz-rooms.web.app**
+1. Open Safari, Chrome, or another current web browser.
+2. Go to **https://lvrooms.web.app**.
+3. The app opens without an account screen. It quietly identifies the device so each
+   member can manage only their own new requests.
 
-Just open that link in any web browser — on a phone, tablet, or computer. No
-account, password, or app-store download is required.
+## Install it on an iPhone
 
-## 2. Installing it to a phone's home screen
+1. Open **https://lvrooms.web.app** in **Safari**.
+2. Tap the **Share** button—the square with the upward arrow.
+3. Scroll down and tap **Add to Home Screen**.
+4. Leave the name as **Study Rooms**, then tap **Add**.
+5. Open the new Study Rooms icon from the Home Screen.
 
-The app works fine just opened in a browser, but "installing" it makes it
-behave like a regular app — its own icon on the home screen, and it opens full
-screen without browser bars around it.
+If an older version was installed from the previous address, remove that Home Screen
+icon after the new site is live, then repeat the steps above using the shorter address.
 
-### On an iPhone (Safari)
+## Install it on an Android phone
 
-1. Open **https://lvz-rooms.web.app** in **Safari** (this must be Safari, not
-   Chrome, for this step to work on iPhone).
-2. Tap the **Share** button — the square icon with an arrow pointing up,
-   usually at the bottom of the screen.
-3. Scroll down the menu that appears and tap **Add to Home Screen**.
-4. Confirm the name (it will default to "Study Rooms") and tap **Add** in the
-   top-right corner.
-5. The app icon now appears on the home screen like any other app.
+1. Open **https://lvrooms.web.app** in **Chrome**.
+2. Tap the three-dot menu in the upper-right corner.
+3. Tap **Install app** or **Add to Home screen**.
+4. Tap **Install** or **Add** to confirm.
+5. Open Study Rooms from the Home Screen or app drawer.
 
-### On an Android phone (Chrome)
+## Set up the lobby TV
 
-1. Open **https://lvz-rooms.web.app** in **Chrome**.
-2. Tap the **three-dot menu** (⋮) in the top-right corner.
-3. Tap **Install app** (or **Add to Home screen**, depending on the phone).
-4. Confirm by tapping **Install** or **Add**.
-5. The app icon now appears on the home screen or app drawer.
+The lobby screen does not require an Admin unlock.
 
-## 3. Sharing the link with members
+1. Turn on the TV and the device that provides its web browser.
+2. Open the browser.
+3. Go to **https://lvrooms.web.app/?tv=1**.
+4. Put the browser into full-screen mode if the TV device offers that option.
+5. Confirm that the upper-right status reads **Live**.
+6. Leave this page open. It updates automatically when requests are submitted,
+   approved, declined, or cancelled.
 
-Anyone with the link can use the app right away — there's no sign-up or
-account to create. To share it, simply send members the link:
+On Tuesday and Saturday, confirm that the screen shows today’s date and timeline. On
+other days, **No study-room schedule today** is the correct display.
 
-**https://lvz-rooms.web.app**
+If the TV loses internet access, the last received schedule stays visible and the
+status changes to **Reconnecting**. It returns to **Live** after data reconnects.
 
-This can go out however the church normally shares announcements — a GroupMe
-message, a text, an email, or posted somewhere members will see it. It's a
-good idea to mention that they can "install" it to their home screen using the
-steps above, so it's easy to find later.
+## Share the right links
 
-## 4. The Admin PIN
+- Members: **https://lvrooms.web.app**
+- Lobby TV: **https://lvrooms.web.app/?tv=1**
+- Previous bookmarks: **https://lvz-rooms.web.app** redirects to the new address
 
-The **Admin** tab (used by the committee to approve or decline requests) is
-protected by a simple 4-digit PIN so that regular members don't accidentally
-open it.
+The TV link is meant for a public lobby screen. It abbreviates names and hides private
+request and Admin details.
 
-- **The PIN is `0000`.**
-- Anyone on the committee can enter it on the Admin tab to unlock admin
-  features on their own device.
-- Once a device is unlocked, it stays unlocked (it doesn't ask again) until
-  someone taps **Lock admin** on that device, or clears their browser's saved
-  data.
-- This PIN is shared by the whole committee — there isn't a separate PIN per
-  person.
-- The app does not currently have a screen for changing this PIN. If it ever
-  needs to change (for example, if it's shared too widely), that would need to
-  be done by whoever helps Anthony with the technical side — see the Creation
-  Guide.
+## Admin access
 
-This PIN is meant as a simple "keep honest people out" gate, not a strong
-security measure — it keeps the Admin tools out of members' way, but it isn't
-meant to stop someone determined to get in. That's an intentional, low-risk
-trade-off for a small church tool like this one.
+The Admin PIN remains **0000**. Enter it on the Admin tab only on a trusted device.
+The app verifies it through a protected backend service and grants a short-lived
+Admin session. Tap **Lock admin** when the work is finished.
+
+## If something looks out of date
+
+1. Check that the address begins with **https://lvrooms.web.app**.
+2. Refresh the page once.
+3. Confirm the connection indicator says **Live**.
+4. If it says **Reconnecting**, wait for the internet connection to return; the last
+   schedule remains visible in the meantime.
+5. If an old Home Screen installation continues showing the previous design, remove
+   its icon and install again from the shorter address.

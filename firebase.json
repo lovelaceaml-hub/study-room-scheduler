@@ -1,28 +1,49 @@
 {
-  "hosting": {
-    "public": ".",
-    "ignore": [
-      "firebase.json",
-      "firestore.rules",
-      "firestore.indexes.json",
-      "**/.*",
-      "README.md",
-      "docs/**"
-    ],
-    "headers": [
-      {
-        "source": "/",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-      },
-      {
-        "source": "**/index.html",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-      },
-      {
-        "source": "**/*.js",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-      }
-    ]
+  "hosting": [
+    {
+      "target": "app",
+      "public": ".",
+      "ignore": [
+        "firebase.json",
+        "firestore.rules",
+        "firestore.indexes.json",
+        "**/.*",
+        "README.md",
+        "docs/**",
+        "functions/**",
+        "legacy/**",
+        "test/**",
+        "node_modules/**"
+      ],
+      "headers": [
+        {
+          "source": "/",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        },
+        {
+          "source": "**/*.html",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        },
+        {
+          "source": "**/*.js",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        }
+      ]
+    },
+    {
+      "target": "legacy",
+      "public": "legacy",
+      "redirects": [
+        {
+          "source": "/:path*",
+          "destination": "https://lvrooms.web.app/:path",
+          "type": 301
+        }
+      ]
+    }
+  ],
+  "functions": {
+    "source": "functions"
   },
   "firestore": {
     "rules": "firestore.rules",

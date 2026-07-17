@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "lvz-rooms"
+  },
+  "targets": {
+    "lvz-rooms": {
+      "hosting": {
+        "app": ["lvrooms"],
+        "legacy": ["lvz-rooms"]
+      }
+    }
   }
 }

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7fb">
+  <title>LV Zion Study Room Schedule</title>
+  <link rel="icon" href="icon.svg">
+  <link rel="stylesheet" href="tv.css">
+</head>
+<body>
+  <div class="tv-shell">
+    <header class="tv-header">
+      <div>
+        <p class="eyebrow">Lobby schedule</p>
+        <h1>Study Rooms</h1>
+        <p class="today" id="today-label"></p>
+      </div>
+      <div class="header-status">
+        <time class="clock" id="clock" aria-label="Current time"></time>
+        <div class="connection" id="connection" role="status" aria-live="polite">
+          <span class="connection-dot" aria-hidden="true"></span>
+          <span id="connection-label">Connecting</span>
+        </div>
+        <p class="updated" id="updated-label"></p>
+      </div>
+    </header>
+
+    <main id="schedule" aria-live="polite"></main>
+
+    <footer class="tv-footer">
+      <span>Approved reservations</span>
+      <span class="legend approved"><i aria-hidden="true"></i>Assigned</span>
+      <span class="legend pending"><i aria-hidden="true"></i>Requested — awaiting approval</span>
+      <span class="legend service"><i aria-hidden="true"></i>Service</span>
+    </footer>
+  </div>
+
+  <script src="firebase-config.js"></script>
+  <script type="module" src="tv.js"></script>
+</body>
+</html>
