@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — current-day lobby schedule
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** In progress
+- **Status:** Live
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -23,5 +23,5 @@ updates. It includes a phone-friendly booking experience and a dedicated lobby T
 screen. Reservations use 30-minute slots, show service periods as unavailable, and
 run through 10:30 PM.
 
-The shorter address and revised app are being prepared for deployment. Until the
-rollout is confirmed, use the status and handoff notes above as the source of truth.
+The primary address, lobby TV, secure Admin backend, and permanent redirect from
+the former address are live.

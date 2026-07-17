@@ -9,9 +9,9 @@ LV Zion Study Rooms is an installable web app for reserving study rooms and shar
 equipment on the upcoming Tuesday and Saturday. Members request a resource type and
 time; Admin assigns the exact unit and approves or declines the request.
 
-The primary member address is intended to be **https://lvrooms.web.app**. The former
-address, **https://lvz-rooms.web.app**, remains as a permanent redirect. The current
-rollout status is **In progress** until production is verified.
+The primary member address is **https://lvrooms.web.app**. The former address,
+**https://lvz-rooms.web.app**, is a permanent redirect. Production deployment was
+verified on July 17, 2026.
 
 ## Architecture
 
@@ -124,7 +124,7 @@ text and reduced motion.
 
 ## Testing expectations
 
-Before production rollout, verify:
+Production verification covers:
 
 - Upcoming-date calculation, including when today is Tuesday or Saturday.
 - Every service block and rejection of crossing ranges.
@@ -147,7 +147,6 @@ is not present yet:
 3. Deploy restrictive Firestore rules.
 4. Verify both addresses, live updates, Admin actions, anonymous member requests, and
    `?tv=1` in production.
-5. Only then change the documented status from **In progress** to **Live**.
 
-If Firebase requires enabling paid billing for protected functions, stop and ask
-Anthony before enabling it.
+Firebase Blaze billing is enabled for this project because protected functions and
+Secret Manager require it. It uses the church's existing Firebase Payment account.

@@ -2,8 +2,8 @@
 
 ## Current status
 
-**In progress.** The revised app and shorter address must not be announced as live
-until deployment and production verification are complete.
+**Live.** The secure backend, revised app, lobby TV, and shorter address were deployed
+and verified on July 17, 2026.
 
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
@@ -45,8 +45,8 @@ details, and preserves its last public schedule during a connection interruption
 
 ## Rollout checklist
 
-- Confirm protected backend deployment does not require an unapproved Firebase
-  billing change.
+- Firebase Blaze billing is enabled on this project through the church's existing
+  Firebase Payment account because protected functions require it.
 - Confirm future Baptism Room bookings were safely returned to pending.
 - Verify anonymous request creation and owner-only cancellation.
 - Verify Admin unlock, approve, decline, cancel, reassignment, direct-add, and lock.
@@ -54,12 +54,10 @@ details, and preserves its last public schedule during a connection interruption
 - Verify 320/375/390-pixel phone views and 720p/1080p TV views.
 - Verify the primary URL, previous-address redirect, and preservation of `?tv=1`.
 - Verify installation and offline/reconnect behavior from the new hostname.
-- Update this file and every Quick links status from **In progress** to **Live** only
-  after those checks pass.
+- Keep this file and the Quick links status current after future releases.
 
 ## Maintenance notes
 
 The app is intentionally buildless. Keep scheduling rules centralized so member,
 Admin, validation, and TV behavior cannot drift. Keep deployments scoped, preserve
-the old hostname redirect, and never enable Firebase billing without Anthony’s
-approval.
+the old hostname redirect, and seek Anthony’s approval before changing billing.

@@ -35,6 +35,11 @@
       "public": "legacy",
       "redirects": [
         {
+          "source": "/",
+          "destination": "https://lvrooms.web.app/",
+          "type": 301
+        },
+        {
           "source": "/:path*",
           "destination": "https://lvrooms.web.app/:path",
           "type": 301

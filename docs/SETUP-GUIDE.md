@@ -2,16 +2,13 @@
 
 ## Current status
 
-The shorter address and revised scheduler are **In progress**. The intended primary
-address is **https://lvrooms.web.app**. Do not announce the rollout as complete until
-the project handoff says the live deployment has been verified.
+The shorter address and revised scheduler are **Live** at
+**https://lvrooms.web.app**.
 
-The previous address, **https://lvz-rooms.web.app**, will remain available and send
-visitors to the shorter address after rollout.
+The previous address, **https://lvz-rooms.web.app**, remains available and sends
+visitors to the shorter address automatically.
 
 ## Open the member app
-
-Once deployment is confirmed:
 
 1. Open Safari, Chrome, or another current web browser.
 2. Go to **https://lvrooms.web.app**.
