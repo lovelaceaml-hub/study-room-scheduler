@@ -75,7 +75,7 @@ service cloud.firestore {
         && request.resource.data.name.size() >= 1
         && request.resource.data.name.size() <= 120
         && request.resource.data.purpose is string
-        && request.resource.data.purpose in ['contact', 'new-member', 'study-member', 'meeting', 'other']
+        && request.resource.data.purpose in ['contact', 'new-member', 'group', 'study-member', 'meeting', 'other']
         && request.resource.data.purposeOther is string
         && request.resource.data.purposeOther.size() <= 240
         && request.resource.data.certainty is string

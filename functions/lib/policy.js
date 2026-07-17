@@ -8,7 +8,7 @@ const ALLOWED_UNITS = Object.freeze({
 
 // `meeting` is retained for earlier records. New member requests use
 // `study-member`, which is clearer in the new calendar flow.
-const PURPOSES = Object.freeze(['contact', 'new-member', 'study-member', 'meeting', 'other', 'blocked']);
+const PURPOSES = Object.freeze(['contact', 'new-member', 'group', 'study-member', 'meeting', 'other', 'blocked']);
 const CERTAINTIES = Object.freeze(['confirmed', 'tentative']);
 const RESOURCE_TYPES = Object.freeze(['room', 'whiteboard', 'tv']);
 
@@ -80,7 +80,7 @@ function validateBookingTime(date, startValue, endValue, now = new Date(), requi
 }
 
 function priorityForPurpose(purpose) {
-  return ({ contact: 0, 'new-member': 1, 'study-member': 2, meeting: 2, other: 3 }[purpose] ?? 3);
+  return ({ contact: 0, 'new-member': 1, group: 2, 'study-member': 2, meeting: 2, other: 3 }[purpose] ?? 3);
 }
 
 function sortBookingsByPriority(bookings) {

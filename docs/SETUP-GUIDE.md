@@ -15,7 +15,7 @@ visitors to the shorter address automatically.
 3. The app opens without an account screen. It quietly identifies the device so each
    member can manage only their own new requests.
 4. To make a request, choose Tuesday or Saturday, select Study room, Whiteboard, or
-   TV, then tap an open calendar square. Select the end time on the calendar, tap
+   TV, then tap an open time on the left side of the calendar. Select the end time on the calendar, tap
    **Continue**, and complete the short name-and-purpose form.
 
 The member app has no separate **Sign up** screen. Service times appear as blocked

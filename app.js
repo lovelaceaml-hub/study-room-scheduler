@@ -24,7 +24,7 @@ const NAME_KEY = 'srs-name';                 // localStorage: last name typed in
 const PURPOSES = [
   { id: 'contact', label: 'Contact study' },
   { id: 'new-member', label: 'New member study' },
-  { id: 'study-member', label: 'Study Member Meeting' },
+  { id: 'group', label: 'Group' },
   { id: 'other', label: 'Other' }
 ];
 /* Admin-only addition, used solely on the "Add a booking" form (e.g. to
@@ -65,6 +65,7 @@ const PREFERRED_ROOM_CHOICES = [null, 'room-1', 'room-2', 'room-3', 'room-4'];
 
 const TABS = [
   { id: 'schedule', label: 'Reservations' },
+  { id: 'mine', label: 'My reservations' },
   { id: 'admin', label: 'Admin' }
 ];
 
@@ -77,6 +78,7 @@ let ui = {
   tab: 'schedule',
   selectedDate: null,   // shared by Reservations and Admin
   memberType: 'room',   // selected resource in the compact member calendar
+  adminType: 'room',    // resource displayed in the matching Admin calendar
   memberSelection: null, // { date, type, start, end, windowIdx }
   pinError: '',
   submitting: false,
@@ -173,6 +175,7 @@ function selectedDate() {
 }
 function isSaturday(date) { return dateObj(date).getDay() === 6; }
 function isTuesday(date) { return dateObj(date).getDay() === 2; }
+function demoMode() { return new URLSearchParams(window.location.search).get('demo') === '1'; }
 
 /* Every schedule segment is explicit so a selected range can never cross
    a service. Saturday begins at 9:00 AM to keep its morning service visible;
@@ -245,13 +248,28 @@ function isValidBooking(b) {
   return !!b && typeof b === 'object' && !('resourceId' in b) && b.needs && typeof b.needs === 'object';
 }
 function bookingsList() {
-  return Object.keys(state.bookings)
+  const live = Object.keys(state.bookings)
     .map(id => Object.assign({ id: id }, state.bookings[id]))
     .filter(isValidBooking);
+  return demoMode() ? live.concat(demoBookings()) : live;
 }
 function bookingByIdSafe(id) {
+  const sample = demoBookings().find(b => b.id === id);
+  if (sample) return sample;
   const b = state.bookings[id];
   return isValidBooking(b) ? Object.assign({ id: id }, b) : null;
+}
+
+function demoBookings() {
+  if (!demoMode()) return [];
+  const date = upcomingBookingDates()[0];
+  const created = Date.now() - 45 * 60 * 1000;
+  return [
+    { id: 'demo-room-4', date, start: '10:00', end: '13:30', name: 'Anthony', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-4', whiteboard: null, tv: null }, createdAt: created, decidedAt: created + 1000 },
+    { id: 'demo-tv-2', date, start: '14:00', end: '15:00', name: 'Maria R.', purpose: 'new-member', purposeOther: '', status: 'cancelled', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: null }, lastAssignments: { room: null, whiteboard: null, tv: 'tv-2' }, createdAt: created - 600000, updatedAt: created - 300000 },
+    { id: 'demo-whiteboard-1', date, start: '16:00', end: '17:30', name: 'Daniel K.', purpose: 'group', purposeOther: '', status: 'pending', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1200000 },
+    { id: 'demo-room-1', date, start: '18:00', end: '19:00', name: 'Sofia M.', purpose: 'other', purposeOther: 'Family Bible study', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 1800000, decidedAt: created - 1700000 }
+  ];
 }
 function bookingsForDate(date) { return bookingsList().filter(b => b.date === date); }
 function activeBookingsForDate(date) {
@@ -404,7 +422,7 @@ function blockingReasonForRange(neededTypes, date, start, end, excludeId) {
 /* ================= admin assignment recommendation ================= */
 
 function bookingPriority(b) {
-  return ({ contact: 0, 'new-member': 1, 'study-member': 2, meeting: 2, other: 3 }[b.purpose] ?? 3);
+  return ({ contact: 0, 'new-member': 1, group: 2, 'study-member': 2, meeting: 2, other: 3 }[b.purpose] ?? 3);
 }
 
 function recommendedUnit(type, booking, date) {
@@ -580,6 +598,7 @@ function render() {
   }
 
   if (ui.tab === 'admin') app.innerHTML = renderAdmin();
+  else if (ui.tab === 'mine') app.innerHTML = renderMyReservations();
   else app.innerHTML = renderSchedule();
 
   if (ui.signup) {
@@ -864,15 +883,17 @@ function renderSchedule() {
   const date = selectedDate();
   let html = '<section class="member-booking"><div class="member-intro"><h1>Reserve a study room</h1>' +
     '<p>Choose what you need, then select your time directly on the schedule.</p></div>' +
-    myApprovalHtml(date) + dateSelectorHtml() + memberResourceToggleHtml() + memberCalendarHtml(date) + '</section>';
-  html += renderMyRequests(date);
+    (demoMode() ? '<div class="demo-notice">Sample preview — no changes here affect the real schedule.</div>' : '') +
+    activityFeedHtml(date) + myApprovalHtml(date) + memberCalendarHtml(date, ui.memberType, true, 'member') + '</section>';
   if (ui.signup) html += bookingModalHtml();
   return html;
 }
 
-function memberResourceToggleHtml() {
+function memberResourceToggleHtml(type, action) {
+  const currentType = type;
+  const actionName = action;
   return '<div class="member-resource-toggle" role="group" aria-label="Choose reservation type">' + NEED_TYPES.map(type =>
-    '<button type="button" class="member-resource' + (ui.memberType === type.id ? ' active' : '') + '" data-act="member-type" data-id="' + esc(type.id) + '" aria-pressed="' + (ui.memberType === type.id ? 'true' : 'false') + '">' + esc(type.label) + '</button>'
+    '<button type="button" class="member-resource' + (currentType === type.id ? ' active' : '') + '" data-act="' + esc(actionName) + '" data-id="' + esc(type.id) + '" aria-pressed="' + (currentType === type.id ? 'true' : 'false') + '">' + esc(type.label) + '</button>'
   ).join('') + '</div>';
 }
 
@@ -884,17 +905,38 @@ function memberSlotStatus(type, date, start, unitId) {
   const freePosition = freeUnits.findIndex(unit => unit.id === unitId);
   const pendingCount = bookingsForDate(date).filter(b => b.status === 'pending' && needsOf(b)[type] && rangesOverlap(b.start, b.end, start, end)).length;
   if (freePosition >= 0 && freePosition < pendingCount) return 'pending';
-  const cancelled = bookingsForDate(date).some(b => b.status === 'cancelled' && needsOf(b)[type] && rangesOverlap(b.start, b.end, start, end));
+  const cancelled = bookingsForDate(date).some(b => b.status === 'cancelled' && needsOf(b)[type] && (assignmentsOf(b)[type] === unitId || (b.lastAssignments || {})[type] === unitId) && rangesOverlap(b.start, b.end, start, end));
   return cancelled ? 'cancelled' : 'open';
 }
 
-function memberCalendarHtml(date) {
-  const type = ui.memberType;
+function resourceLabelFor(b) {
+  const type = neededTypesOf(b)[0];
+  const id = assignmentsOf(b)[type] || (b.lastAssignments || {})[type];
+  return id ? unitLabel(type, id) : needLabel(type);
+}
+
+function activityFeedHtml(date) {
+  const events = bookingsForDate(date).filter(b => ['pending', 'approved', 'cancelled'].includes(b.status)).map(b => {
+    const status = b.status === 'approved' ? 'Reserved' : b.status === 'cancelled' ? 'Cancelled' : 'Requested';
+    const when = b.status === 'approved' ? (b.decidedAt || b.updatedAt || b.createdAt) : (b.updatedAt || b.createdAt);
+    return { b, status, when: timestampMillis(when) };
+  }).sort((a, b) => b.when - a.when).slice(0, 6);
+  if (!events.length) return '<section class="activity-feed"><div class="activity-title">Schedule updates</div><p>No updates yet.</p></section>';
+  return '<section class="activity-feed"><div class="activity-title">Schedule updates</div>' + events.map(event =>
+    '<div class="activity-item ' + esc(event.b.status) + '"><strong>' + esc(event.status + ' ' + resourceLabelFor(event.b)) + ':</strong> ' + esc(event.b.name + ' — ' + bookingPurposeText(event.b)) +
+    ' <span>(' + esc(fmtTime(event.b.start) + '–' + fmtTime(event.b.end)) + ')</span></div>'
+  ).join('') + '</section>';
+}
+
+function memberCalendarHtml(date, type, selectable, context) {
   const units = unitsForType(type);
   const selected = ui.memberSelection;
   let html = '<section class="member-calendar" aria-label="' + esc(needLabel(type)) + ' schedule">' +
+    '<div class="calendar-date-wrap">' + dateSelectorHtml() + '</div>' +
     '<div class="member-calendar-heading"><h2>' + esc(needLabel(type)) + ' schedule</h2><span>' + units.length + ' available</span></div>' +
+    memberResourceToggleHtml(type, context === 'admin' ? 'admin-type' : 'member-type') +
     '<div class="member-calendar-scroll"><div class="member-calendar-grid">';
+  html += '<div class="member-calendar-row unit-header"><div class="member-time">Time</div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span>' + esc(String(unit.num)) + '</span>').join('') + '</div></div>';
   scheduleSegments(date).forEach(window => {
     if (window.service) {
       html += '<div class="member-service"><span>' + esc(window.label) + '</span><span>' + esc(fmtTime(window.start)) + '–' + esc(fmtTime(window.end)) + '</span></div>';
@@ -903,12 +945,13 @@ function memberCalendarHtml(date) {
     const windowIdx = windowIndexFor(date, window.start);
     slotStarts(window).forEach(start => {
       const selectedHere = selected && selected.date === date && selected.type === type && selected.windowIdx === windowIdx && minsOfDay(start) >= minsOfDay(selected.start) && minsOfDay(start) < minsOfDay(selected.end);
-      html += '<div class="member-calendar-row"><div class="member-time">' + esc(fmtTime(start)) + '</div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => {
+      const end = hhmmOfMins(minsOfDay(start) + 30);
+      const hasOpenUnit = freeUnitsForType(type, date, start, end, null).length > 0;
+      html += '<div class="member-calendar-row"><' + (selectable && hasOpenUnit ? 'button type="button" data-act="member-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-win="' + windowIdx + '" data-id="' + esc(start) + '" class="member-time selectable' + (selectedHere ? ' selected' : '') + '"' : 'div class="member-time"') + '>' + esc(fmtTime(start)) + (selectable && hasOpenUnit ? '<small>Select</small>' : '') + '</' + (selectable && hasOpenUnit ? 'button' : 'div') + '><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => {
         const status = memberSlotStatus(type, date, start, unit.id);
-        const selectable = status === 'open' || status === 'cancelled' || status === 'pending';
-        return '<button type="button" class="member-square ' + status + (selectedHere ? ' selected' : '') + '"' +
-          (selectable ? ' data-act="member-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-win="' + windowIdx + '" data-id="' + esc(start) + '"' : ' disabled') +
-          ' aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + status) + '"></button>';
+        const occupant = unitOccupant(type, unit.id, date, start, end, null);
+        const label = occupant ? occupant.name + ' · ' + bookingPurposeText(occupant) : '';
+        return '<div class="member-square ' + status + (selectedHere ? ' selected' : '') + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + status) + '">' + esc(label) + '</div>';
       }).join('') + '</div></div>';
     });
   });
@@ -938,6 +981,17 @@ function renderMyRequests(date) {
   items.forEach(b => { html += myRequestRowHtml(b, date); });
   html += '</div>';
   return html;
+}
+
+function renderMyReservations() {
+  const date = selectedDate();
+  const items = myBookingIds().map(bookingByIdSafe).filter(Boolean)
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+  let html = '<section class="member-booking"><div class="member-intro"><h1>My reservations</h1><p>Check the status of reservations made from this device.</p></div>' + dateSelectorHtml() + '</section>';
+  html += '<div class="card"><h2>Your requests</h2>';
+  if (!items.length) html += '<p class="hint">No reservations have been made from this device yet.</p>';
+  else items.forEach(b => { html += myRequestRowHtml(b, b.date); });
+  return html + '</div>';
 }
 
 function myRequestStatusHtml(b, date) {
@@ -1273,7 +1327,7 @@ function renderAdmin() {
   if (!adminUnlocked()) return renderAdminLock();
   const date = selectedDate();
   loadAdminNotes(date);
-  return renderAdminHeader() + '<div class="card"><h2>Choose a date</h2>' + dateSelectorHtml() + '</div>' + renderAdminQueue(date) + renderAdminDayOverview(date) +
+  return renderAdminHeader() + activityFeedHtml(date) + renderAdminDayOverview(date) + renderAdminQueue(date) +
     renderAdminAddForm(date) + renderAdminHousekeeping();
 }
 
@@ -1452,8 +1506,8 @@ async function declineBooking(id) {
 
 function renderAdminDayOverview(date) {
   let html = '<div class="card"><h2>Day overview</h2>' +
-    '<p class="section-note">' + esc(fmtHeaderDate(date)) + ' at a glance, then manage individual bookings below.</p>' +
-    scheduleGridHtml(date) +
+    '<p class="section-note">Select a resource to see the same unit-by-unit calendar members see. Each approved unit shows the member and purpose.</p>' +
+    memberCalendarHtml(date, ui.adminType, false, 'admin') +
     '</div>';
   html += renderAdminDayList(date);
   return html;
@@ -1800,6 +1854,12 @@ function handleAction(act, el) {
     if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
     ui.memberType = el.dataset.id;
     ui.memberSelection = null;
+    render();
+    return;
+  }
+  if (act === 'admin-type') {
+    if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
+    ui.adminType = el.dataset.id;
     render();
     return;
   }

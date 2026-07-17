@@ -163,7 +163,7 @@ function memberRequestInput(input) {
   if (timeError) throw new HttpsError('invalid-argument', timeError);
   const resourceType = requestText(data.resourceType, 20, 'Resource type', true);
   if (!UNITS_BY_TYPE[resourceType]) throw new HttpsError('invalid-argument', 'Choose a study room, whiteboard, or TV.');
-  const purpose = ['contact', 'new-member', 'study-member', 'other'].includes(data.purpose) ? data.purpose : '';
+  const purpose = ['contact', 'new-member', 'group', 'study-member', 'other'].includes(data.purpose) ? data.purpose : '';
   if (!purpose) throw new HttpsError('invalid-argument', 'Choose a purpose.');
   const purposeOther = requestText(data.purposeOther, 240, 'Purpose details');
   if (purpose === 'other' && !purposeOther) throw new HttpsError('invalid-argument', 'Purpose details are required.');
@@ -274,6 +274,7 @@ async function changeExistingStatus(action, bookingId, uid) {
     if (!allowed.includes(booking.status)) throw new HttpsError('failed-precondition', 'This booking is no longer ready for that action.');
     transaction.update(bookingRef, {
       status: nextStatus,
+      ...(nextStatus === 'cancelled' && booking.status === 'approved' ? { lastAssignments: booking.assignments || {} } : {}),
       assignments: { room: null, whiteboard: null, tv: null },
       updatedAt: FieldValue.serverTimestamp(),
       decidedAt: FieldValue.serverTimestamp(),

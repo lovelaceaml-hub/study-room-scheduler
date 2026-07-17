@@ -31,11 +31,16 @@ The schedule has separate sections for:
 
 The Baptism Room is no longer part of scheduling and will not appear as an option.
 
-Choose **Study room**, **Whiteboard**, or **TV** above the calendar. The scrollable
-calendar shows times on the left and one small square for each available resource on
-the right. Green means your approved reservation, gray means someone else’s approved
-reservation, yellow outlines are pending requests, and light-red outlines show a
-cancelled time that can be booked again if space is available.
+Choose **Study room**, **Whiteboard**, or **TV** directly on the calendar. The
+scrollable calendar has a clickable time column on the left and numbered resource
+columns (1, 2, 3, and so on) on the right. An approved unit displays the person’s
+name and purpose. Green means your approved reservation, gray means someone else’s
+approved reservation, yellow outlines are pending requests, and light-red outlines
+show a cancelled time that can be booked again if space is available.
+
+At the top, **Schedule updates** records recent Requested, Reserved, and Cancelled
+activity with the unit, name, purpose, and time. Open **My reservations** to see the
+status of every request made from this device.
 
 ### Service periods and available times
 
@@ -53,10 +58,10 @@ reservation cannot overlap or cross through one.
 ### Request a room or equipment
 
 1. Open the app, choose Tuesday or Saturday, and choose the resource type.
-2. Tap an open square for the start time. Tap a later time in the same section to
+2. Tap an open time on the left for the start time. Tap a later time in the same section to
    extend the reservation.
 3. Tap **Continue**.
-4. Enter your full name and choose Contact, New Member, Study Member Meeting, or Other.
+4. Enter your full name and choose Contact, New Member, Group, or Other.
    For Other, briefly explain the purpose.
 5. Tap **Reserve now** on Tuesday or **Send request** on Saturday.
 
@@ -75,7 +80,7 @@ requests but cannot change another member’s request or perform approval action
 
 Tuesday reservations from 10:00 AM through 10:00 PM are approved automatically when
 a resource is free. Saturday reservations remain pending for manual approval. Saturday
-requests are reviewed in this order: Contact, New Member, Study Member Meeting, Other;
+requests are reviewed in this order: Contact, New Member, Group, Other;
 the earlier request wins when two have the same purpose.
 
 ### Check or cancel your request
@@ -106,9 +111,16 @@ a short-lived Admin session, and repeated incorrect attempts are limited.
 
 ### Review and assign requests
 
-Saturday pending requests are listed by priority: Contact, New Member, Study Member
-Meeting, then Other. The Admin screen preselects the recommended available resource;
-you can change it before approving or declining.
+Saturday pending requests are listed by priority: Contact, New Member, Group, then
+Other. The Admin screen includes the same unit grid and activity feed used by members,
+then preselects the recommended available resource; you can change it before approving
+or declining.
+
+## Preview sample information
+
+To inspect the layout without changing the real schedule, add `?demo=1` to the end of
+the app address. This shows clearly labeled sample reservations, requests, and a
+cancelled item only in your browser.
 
 Approval moves the booking live from the amber request lane into its assigned green
 row. Declining or cancelling removes it from the active public schedule. Protected

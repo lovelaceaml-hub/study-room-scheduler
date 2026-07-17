@@ -45,12 +45,12 @@ test('rejects service overlaps and ranges crossing a service', () => {
 test('orders Saturday recommendations by purpose priority, then request time', () => {
   const bookings = [
     { id: 'other', purpose: 'other', createdAt: 1 },
-    { id: 'study', purpose: 'study-member', createdAt: 30 },
+    { id: 'group', purpose: 'group', createdAt: 30 },
     { id: 'contact-late', purpose: 'contact', createdAt: 20 },
     { id: 'contact-early', purpose: 'contact', createdAt: 10 },
     { id: 'new', purpose: 'new-member', createdAt: 5 }
   ];
-  assert.deepEqual(sortBookingsByPriority(bookings).map(item => item.id), ['contact-early', 'contact-late', 'new', 'study', 'other']);
+  assert.deepEqual(sortBookingsByPriority(bookings).map(item => item.id), ['contact-early', 'contact-late', 'new', 'group', 'other']);
   assert.equal(priorityForPurpose('contact'), 0);
   assert.equal(priorityForPurpose('other'), 3);
 });

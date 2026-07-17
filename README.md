@@ -17,6 +17,8 @@ An installable study-room scheduling app for LV Zion. Members choose Study room,
 Whiteboard, or TV, select their time directly in the compact Tuesday or Saturday
 calendar, then provide only their name and purpose. Tuesday bookings auto-approve
 when a resource is open; Saturday requests are manually reviewed by priority.
+The unit grid shows approved names and purposes, a live update feed summarizes
+requests/reservations/cancellations, and **My reservations** shows this device’s status.
 
 The app uses buildless vanilla JavaScript, Firebase Hosting, and Firestore live
 updates. It includes a phone-friendly booking experience and a dedicated lobby TV

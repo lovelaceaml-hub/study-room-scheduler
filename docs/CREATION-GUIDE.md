@@ -56,7 +56,9 @@ The Reservations screen is a compact resource calendar. A three-way toggle selec
 Study room, Whiteboard, or TV. The schedule panel alone scrolls, with time labels on
 the left and slim capacity squares on the right. The member selects a 30-minute start
 and optionally extends the range before tapping Continue. The short sheet then asks
-only for name and purpose (Contact, New Member, Study Member Meeting, or Other).
+only for name and purpose (Contact, New Member, Group, or Other). The time column,
+not the unit cell, is the member’s selectable control; numbered unit cells show the
+approved member and purpose.
 
 Service periods remain visible as blocked calendar areas rather than separate notices
 that say reservations are unavailable. They cannot be selected or crossed when a
@@ -79,7 +81,13 @@ retain the old identifier for records without making the room bookable again.
 Tuesday requests are created through a protected callable function, which assigns the
 first free unit and approves the request in one transaction. Saturday requests stay
 pending. The Admin queue and assignment recommendations sort Saturday requests by
-Contact, New Member, Study Member Meeting, Other, then request time.
+Contact, New Member, Group, Other, then request time.
+
+The activity feed derives Requested, Reserved, and Cancelled events from booking
+timestamps. Approved cancellations retain their last assigned unit in server-only
+write data so the feed can accurately say which room, whiteboard, or TV was cancelled.
+`?demo=1` overlays fixed sample records in the browser only; it never writes them to
+Firestore.
 
 Approval performs a fresh conflict check, records the chosen assignment, and moves the
 booking from the pending lane into the assigned row. Decline or cancellation removes
