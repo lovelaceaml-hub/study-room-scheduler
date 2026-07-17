@@ -12,6 +12,8 @@ const {
   migrationResourceUpdate,
   normalizeBookingIds,
   normalizeLegacyResourceMaps,
+  priorityForPurpose,
+  rangesOverlap,
   validateBookingTime,
   validateDirectBooking
 } = require('./lib/policy');
@@ -139,6 +141,79 @@ async function approvedBookingsForDate(transaction, date) {
   const query = db.collection('bookings').where('date', '==', date).where('status', '==', 'approved');
   const snapshot = await transaction.get(query);
   return snapshot.docs.map(document => ({ id: document.id, ...document.data() }));
+}
+
+const UNITS_BY_TYPE = Object.freeze({
+  room: Object.freeze(['room-1', 'room-2', 'room-3', 'room-4']),
+  whiteboard: Object.freeze(['wb-1', 'wb-2', 'wb-3', 'wb-4', 'wb-5']),
+  tv: Object.freeze(['tv-1', 'tv-2', 'tv-3'])
+});
+
+function requestText(value, maximum, field, required = false) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (required && !text) throw new HttpsError('invalid-argument', `${field} is required.`);
+  if (text.length > maximum) throw new HttpsError('invalid-argument', `${field} is too long.`);
+  return text;
+}
+
+function memberRequestInput(input) {
+  const data = input && typeof input === 'object' ? input : {};
+  const date = requestText(data.date, 10, 'Date', true);
+  const timeError = validateBookingTime(date, data.start, data.end, new Date(), true);
+  if (timeError) throw new HttpsError('invalid-argument', timeError);
+  const resourceType = requestText(data.resourceType, 20, 'Resource type', true);
+  if (!UNITS_BY_TYPE[resourceType]) throw new HttpsError('invalid-argument', 'Choose a study room, whiteboard, or TV.');
+  const purpose = ['contact', 'new-member', 'study-member', 'other'].includes(data.purpose) ? data.purpose : '';
+  if (!purpose) throw new HttpsError('invalid-argument', 'Choose a purpose.');
+  const purposeOther = requestText(data.purposeOther, 240, 'Purpose details');
+  if (purpose === 'other' && !purposeOther) throw new HttpsError('invalid-argument', 'Purpose details are required.');
+  return { date, start: data.start, end: data.end, resourceType, name: requestText(data.name, 120, 'Name', true), purpose, purposeOther };
+}
+
+function isTuesday(date) { return isoWeekday(date) === 2; }
+
+function assignmentFor(type, candidate, approved) {
+  return UNITS_BY_TYPE[type].find(unitId => !approved.some(existing =>
+    existing.status === 'approved'
+      && existing.assignments && existing.assignments[type] === unitId
+      && rangesOverlap(candidate, existing)
+  )) || null;
+}
+
+async function memberSubmitBooking(input, uid) {
+  let request;
+  try { request = memberRequestInput(input); }
+  catch (error) { throw errorFromValidation(error); }
+  const bookingRef = db.collection('bookings').doc();
+  return db.runTransaction(async transaction => {
+    const approved = await approvedBookingsForDate(transaction, request.date);
+    const candidate = { ...request, date: request.date, assignments: { room: null, whiteboard: null, tv: null } };
+    const automatic = isTuesday(request.date);
+    const unitId = automatic ? assignmentFor(request.resourceType, candidate, approved) : null;
+    if (automatic && !unitId) {
+      throw new HttpsError('already-exists', 'That resource is fully booked for the selected time. Please choose another time.');
+    }
+    candidate.assignments[request.resourceType] = unitId;
+    const now = FieldValue.serverTimestamp();
+    transaction.create(bookingRef, {
+      schemaVersion: 4,
+      date: request.date,
+      bookingDate: bookingDateTimestamp(request.date),
+      start: request.start,
+      end: request.end,
+      name: request.name,
+      needs: { room: request.resourceType === 'room', whiteboard: request.resourceType === 'whiteboard', tv: request.resourceType === 'tv' },
+      purpose: request.purpose,
+      purposeOther: request.purpose === 'other' ? request.purposeOther : '',
+      status: automatic ? 'approved' : 'pending',
+      assignments: candidate.assignments,
+      ownerUid: uid,
+      createdAt: now,
+      updatedAt: now,
+      ...(automatic ? { decidedAt: now, decidedBy: 'automatic' } : {})
+    });
+    return { bookingId: bookingRef.id, status: automatic ? 'approved' : 'pending', assignment: unitId, priority: priorityForPurpose(request.purpose) };
+  });
 }
 
 function assertNoConflict(candidate, existing, excludeId) {
@@ -363,6 +438,11 @@ exports.adminBookingAction = onCall({ region: REGION, secrets: [ADMIN_PIN] }, as
     default:
       throw new HttpsError('invalid-argument', 'Unknown Admin action.');
   }
+});
+
+exports.memberSubmitBooking = onCall({ region: REGION }, async request => {
+  const uid = requireAuth(request);
+  return memberSubmitBooking(request.data, uid);
 });
 
 exports.adminNoteAction = onCall({ region: REGION, secrets: [ADMIN_PIN] }, async request => {

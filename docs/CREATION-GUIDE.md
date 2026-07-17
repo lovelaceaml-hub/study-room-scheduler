@@ -40,7 +40,7 @@ member booking screen; there is no separate Sign up tab.
 ### Time range and services
 
 All reservable slots are 30 minutes. Booking begins at 10:00 AM and the final slot is
-10:00–10:30 PM.
+9:30–10:00 PM.
 
 Unavailable service periods are:
 
@@ -52,14 +52,11 @@ must reject ranges that overlap a service or begin before reservable time.
 
 ### Member booking flow
 
-The Reservations screen is time-first: it shows the two permitted dates and one calm
-two-column list of 30-minute study-room times. Every open time shows the number of
-rooms available; selecting one opens a short pop-up with the date and initial
-30-minute time prefilled. A study room is included by default. The member enters a
-name, can add a whiteboard or TV, and submits. Room preference, purpose, certainty,
-and an optional note live under **More details** so ordinary booking stays focused.
-The detailed room-by-room schedule is available on demand rather than dominating the
-member screen.
+The Reservations screen is a compact resource calendar. A three-way toggle selects
+Study room, Whiteboard, or TV. The schedule panel alone scrolls, with time labels on
+the left and slim capacity squares on the right. The member selects a 30-minute start
+and optionally extends the range before tapping Continue. The short sheet then asks
+only for name and purpose (Contact, New Member, Study Member Meeting, or Other).
 
 Service periods remain visible as blocked calendar areas rather than separate notices
 that say reservations are unavailable. They cannot be selected or crossed when a
@@ -79,10 +76,10 @@ retain the old identifier for records without making the room bookable again.
 
 ## Live booking behavior
 
-Approved bookings have concrete assignments and render in the assigned unit row.
-Pending bookings do not have assignments. They render immediately in an amber
-**Requested — awaiting approval** lane for each requested resource type. If requests
-overlap, the display stacks them so one does not hide another.
+Tuesday requests are created through a protected callable function, which assigns the
+first free unit and approves the request in one transaction. Saturday requests stay
+pending. The Admin queue and assignment recommendations sort Saturday requests by
+Contact, New Member, Study Member Meeting, Other, then request time.
 
 Approval performs a fresh conflict check, records the chosen assignment, and moves the
 booking from the pending lane into the assigned row. Decline or cancellation removes
@@ -144,7 +141,7 @@ Production verification covers:
 
 - Upcoming-date calculation, including when today is Tuesday or Saturday.
 - Every service block and rejection of crossing ranges.
-- The final 10:00–10:30 PM slot.
+- The final 9:30–10:00 PM slot.
 - Four-room capacity and removal of every future Baptism Room path.
 - Pending-to-approved, decline, cancel, reconnect, and failed-save transitions.
 - Member ownership and rejection of unauthorized Admin or cross-member changes.

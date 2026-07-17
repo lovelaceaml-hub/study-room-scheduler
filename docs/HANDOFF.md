@@ -15,7 +15,7 @@ and verified on July 17, 2026.
 
 - Show only the upcoming Tuesday and upcoming Saturday, including today when
   applicable, in chronological order.
-- Use 30-minute booking slots through 10:30 PM.
+- Use 30-minute booking slots through 10:00 PM.
 - Block Tuesday 8:00–9:00 PM and Saturday 9:00–10:00 AM, 3:00–4:00 PM, and
   8:00–9:00 PM for services.
 - Show Saturday from 9:00 AM so the morning service is visible; booking still begins
@@ -37,6 +37,11 @@ and verified on July 17, 2026.
 - Use silent member identity for ownership and protected backend Admin actions while
   keeping the familiar `0000` PIN experience.
 - Keep optional notes Admin-only and never expose them on public or TV schedules.
+- Member reservations now use one resource type at a time (Study room, Whiteboard, or
+  TV), a compact scrollable calendar, and a name-and-purpose-only confirmation sheet.
+- Tuesday reservations auto-approve securely; Saturday remains manual with the Admin
+  queue and assignment recommendation ordered Contact, New Member, Study Member
+  Meeting, Other, then request time.
 
 ## Important behavior
 

@@ -1,8 +1,7 @@
 # LV Zion Study Rooms — User Manual
 
-This app lets LV Zion members request a study room for the upcoming Tuesday or
-Saturday. A whiteboard or TV can be added when needed. Requests appear on the
-shared schedule immediately, even before an approver assigns a specific room or item.
+This app lets LV Zion members reserve a study room, whiteboard, or TV for the
+upcoming Tuesday or Saturday from one phone-friendly calendar.
 
 The revised version is still being prepared for deployment. Its primary address
 will be **https://lvrooms.web.app**.
@@ -32,18 +31,15 @@ The schedule has separate sections for:
 
 The Baptism Room is no longer part of scheduling and will not appear as an option.
 
-The first screen shows only what is needed to book quickly: the two available dates
-and a simple list of 30-minute times. Each time says how many study rooms are open.
-Tap an open time to begin a request. If you need to check individual rooms or the
-shared equipment, open **View room-by-room schedule** below the time list.
-
-Green reservations are approved. Requests that are still waiting for review remain
-visible in the detailed schedule; a request never guarantees a particular room until
-an approver assigns it.
+Choose **Study room**, **Whiteboard**, or **TV** above the calendar. The scrollable
+calendar shows times on the left and one small square for each available resource on
+the right. Green means your approved reservation, gray means someone else’s approved
+reservation, yellow outlines are pending requests, and light-red outlines show a
+cancelled time that can be booked again if space is available.
 
 ### Service periods and available times
 
-Slots are 30 minutes long. The final reservable period is **10:00–10:30 PM**.
+Slots are 30 minutes long. The final reservable period is **9:30–10:00 PM**.
 
 The schedule marks these service periods as blocked areas:
 
@@ -56,16 +52,13 @@ reservation cannot overlap or cross through one.
 
 ### Request a room or equipment
 
-1. Open the app and choose the upcoming Tuesday or Saturday.
-2. Tap an open 30-minute time. A pop-up opens with that date
-   and time already selected.
-3. Enter your full name.
-4. A study room is included automatically. Add a **Whiteboard** or **TV** only if you
-   need one.
-5. If needed, adjust the end time in the pop-up. You can extend only through open
-   30-minute periods in the same available section.
-6. Tap **Request this time**. Open **More details** only when you want to add a room
-   preference, change the purpose or certainty, or leave a note.
+1. Open the app, choose Tuesday or Saturday, and choose the resource type.
+2. Tap an open square for the start time. Tap a later time in the same section to
+   extend the reservation.
+3. Tap **Continue**.
+4. Enter your full name and choose Contact, New Member, Study Member Meeting, or Other.
+   For Other, briefly explain the purpose.
+5. Tap **Reserve now** on Tuesday or **Send request** on Saturday.
 
 There is no separate **Sign up** screen. Starting with the calendar makes the time
 you are requesting clear before you fill in the rest of the information.
@@ -77,6 +70,13 @@ submitted instead of pretending it succeeded.
 No visible login is required. The app quietly gives the device a private member
 identity so that it can recognize ownership. That device can cancel its own new
 requests but cannot change another member’s request or perform approval actions.
+
+### Tuesday and Saturday approval
+
+Tuesday reservations from 10:00 AM through 10:00 PM are approved automatically when
+a resource is free. Saturday reservations remain pending for manual approval. Saturday
+requests are reviewed in this order: Contact, New Member, Study Member Meeting, Other;
+the earlier request wins when two have the same purpose.
 
 ### Check or cancel your request
 
@@ -106,9 +106,9 @@ a short-lived Admin session, and repeated incorrect attempts are limited.
 
 ### Review and assign requests
 
-Pending requests show what the member needs, their requested time, and the details
-needed for review. Choose an available Study Room 1–4, whiteboard, or TV for every
-requested type, then approve or decline the request.
+Saturday pending requests are listed by priority: Contact, New Member, Study Member
+Meeting, then Other. The Admin screen preselects the recommended available resource;
+you can change it before approving or declining.
 
 Approval moves the booking live from the amber request lane into its assigned green
 row. Declining or cancelling removes it from the active public schedule. Protected

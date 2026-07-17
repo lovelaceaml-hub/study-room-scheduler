@@ -6,7 +6,9 @@ const ALLOWED_UNITS = Object.freeze({
   tv: Object.freeze(['tv-1', 'tv-2', 'tv-3'])
 });
 
-const PURPOSES = Object.freeze(['contact', 'new-member', 'meeting', 'other', 'blocked']);
+// `meeting` is retained for earlier records. New member requests use
+// `study-member`, which is clearer in the new calendar flow.
+const PURPOSES = Object.freeze(['contact', 'new-member', 'study-member', 'meeting', 'other', 'blocked']);
 const CERTAINTIES = Object.freeze(['confirmed', 'tentative']);
 const RESOURCE_TYPES = Object.freeze(['room', 'whiteboard', 'tv']);
 
@@ -60,8 +62,8 @@ function validateBookingTime(date, startValue, endValue, now = new Date(), requi
   const end = parseMinutes(endValue);
   if (!Number.isFinite(start) || !Number.isFinite(end)) return 'Times must use HH:MM format.';
   if (start % 30 !== 0 || end % 30 !== 0) return 'Times must use 30-minute boundaries.';
-  if (start < 10 * 60 || end > 22 * 60 + 30 || start >= end) {
-    return 'Bookings must be between 10:00 and 22:30.';
+  if (start < 10 * 60 || end > 22 * 60 || start >= end) {
+    return 'Bookings must be between 10:00 and 22:00.';
   }
   const weekday = isoWeekday(date);
   if (weekday !== 2 && weekday !== 6) return 'Bookings are available only on Tuesday or Saturday.';
@@ -75,6 +77,20 @@ function validateBookingTime(date, startValue, endValue, now = new Date(), requi
     return 'This time overlaps a service.';
   }
   return null;
+}
+
+function priorityForPurpose(purpose) {
+  return ({ contact: 0, 'new-member': 1, 'study-member': 2, meeting: 2, other: 3 }[purpose] ?? 3);
+}
+
+function sortBookingsByPriority(bookings) {
+  return bookings.slice().sort((first, second) => {
+    const priorityDifference = priorityForPurpose(first.purpose) - priorityForPurpose(second.purpose);
+    if (priorityDifference) return priorityDifference;
+    const firstCreated = typeof first.createdAt === 'number' ? first.createdAt : (first.createdAt?.toMillis?.() ?? first.createdAt?.seconds * 1000 ?? 0);
+    const secondCreated = typeof second.createdAt === 'number' ? second.createdAt : (second.createdAt?.toMillis?.() ?? second.createdAt?.seconds * 1000 ?? 0);
+    return firstCreated - secondCreated;
+  });
 }
 
 function validateNeeds(needs) {
@@ -218,7 +234,9 @@ module.exports = {
   normalizeBookingIds,
   normalizeLegacyResourceMaps,
   parseMinutes,
+  priorityForPurpose,
   rangesOverlap,
+  sortBookingsByPriority,
   upcomingTuesdayAndSaturday,
   validateBookingTime,
   validateDirectBooking,

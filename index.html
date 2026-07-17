@@ -497,6 +497,35 @@
     .availability-slot { min-height: 58px; padding: 9px 10px; }
     .card { margin-top: 20px; }
   }
+
+  /* ---- v4 phone-first resource calendar ---- */
+  .approval-notice { margin: 0 0 12px; padding: 11px 12px; border: 1px solid #82C9AB; border-radius: 8px; background: var(--green-tint); color: #0F5E40; font-size: 13px; line-height: 1.45; }
+  .member-resource-toggle { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 12px; }
+  .member-resource { min-height: 42px; padding: 7px 5px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); color: var(--ink-soft); font: 700 12px var(--sans); cursor: pointer; }
+  .member-resource.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .member-calendar { border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--card); }
+  .member-calendar-heading { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid var(--line); }
+  .member-calendar-heading h2 { font-family: var(--sans); font-size: 15px; letter-spacing: -.01em; }
+  .member-calendar-heading span { color: var(--ink-faint); font-size: 11px; font-weight: 700; }
+  .member-calendar-scroll { height: min(54vh, 470px); overflow-y: auto; overscroll-behavior: contain; }
+  .member-calendar-grid { padding: 3px 0; }
+  .member-calendar-row { display: grid; grid-template-columns: 82px minmax(0, 1fr); min-height: 34px; border-bottom: 1px solid #EDF0F5; }
+  .member-time { display: flex; align-items: center; padding-left: 12px; color: var(--ink-soft); font-size: 11px; font-weight: 750; }
+  .member-squares { display: grid; grid-template-columns: repeat(var(--capacity, 4), minmax(0, 1fr)); gap: 5px; padding: 5px 10px 5px 4px; }
+  .member-square { min-width: 0; min-height: 24px; border: 1px solid #CDD5E3; border-radius: 4px; background: #fff; cursor: pointer; }
+  .member-square:hover, .member-square:focus-visible, .member-square.selected { border-color: var(--primary); background: var(--primary-tint); outline: none; }
+  .member-square.mine { background: var(--green); border-color: var(--green); }
+  .member-square.taken { background: #C8CED8; border-color: #C8CED8; cursor: not-allowed; }
+  .member-square.pending { border: 2px solid #E8A13C; background: #fff; }
+  .member-square.cancelled { border: 2px solid #E5A8A2; background: #fff; }
+  .member-service { display: flex; justify-content: space-between; padding: 9px 12px; background: #FFF7E8; border-bottom: 1px solid #E3C58C; color: #71470B; font-size: 11px; font-weight: 750; }
+  .member-selection-summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line); background: #F5F7FB; font-size: 12.5px; color: var(--primary-dark); }
+  .member-selection-summary .btn { min-height: 38px; padding: 8px 13px; font-size: 13px; }
+  @media (max-width: 360px) {
+    .member-calendar-row { grid-template-columns: 70px minmax(0, 1fr); }
+    .member-squares { gap: 4px; padding-right: 7px; }
+    .member-time { padding-left: 8px; font-size: 10px; }
+  }
 </style>
 </head>
 <body>

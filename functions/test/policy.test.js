@@ -8,6 +8,8 @@ const {
   migrationResourceUpdate,
   normalizeBookingIds,
   normalizeLegacyResourceMaps,
+  priorityForPurpose,
+  sortBookingsByPriority,
   upcomingTuesdayAndSaturday,
   validateBookingTime,
   validateDirectBooking
@@ -26,9 +28,10 @@ test('returns only the upcoming Tuesday and Saturday, including today', () => {
   );
 });
 
-test('accepts the final 22:00-22:30 booking', () => {
+test('ends the reservation window at 10:00 PM', () => {
   const now = new Date('2026-07-17T19:00:00Z');
-  assert.equal(validateBookingTime('2026-07-18', '22:00', '22:30', now), null);
+  assert.equal(validateBookingTime('2026-07-18', '21:30', '22:00', now), null);
+  assert.match(validateBookingTime('2026-07-18', '22:00', '22:30', now), /22:00/);
 });
 
 test('rejects service overlaps and ranges crossing a service', () => {
@@ -36,7 +39,20 @@ test('rejects service overlaps and ranges crossing a service', () => {
   assert.match(validateBookingTime('2026-07-18', '14:30', '15:30', now), /service/);
   assert.match(validateBookingTime('2026-07-18', '19:30', '21:30', now), /service/);
   assert.match(validateBookingTime('2026-07-21', '19:30', '20:30', now), /service/);
-  assert.equal(validateBookingTime('2026-07-21', '21:00', '22:30', now), null);
+  assert.equal(validateBookingTime('2026-07-21', '21:00', '22:00', now), null);
+});
+
+test('orders Saturday recommendations by purpose priority, then request time', () => {
+  const bookings = [
+    { id: 'other', purpose: 'other', createdAt: 1 },
+    { id: 'study', purpose: 'study-member', createdAt: 30 },
+    { id: 'contact-late', purpose: 'contact', createdAt: 20 },
+    { id: 'contact-early', purpose: 'contact', createdAt: 10 },
+    { id: 'new', purpose: 'new-member', createdAt: 5 }
+  ];
+  assert.deepEqual(sortBookingsByPriority(bookings).map(item => item.id), ['contact-early', 'contact-late', 'new', 'study', 'other']);
+  assert.equal(priorityForPurpose('contact'), 0);
+  assert.equal(priorityForPurpose('other'), 3);
 });
 
 test('rejects days other than the upcoming Tuesday and Saturday', () => {
