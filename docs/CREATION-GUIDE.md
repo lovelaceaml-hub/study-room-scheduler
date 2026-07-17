@@ -13,9 +13,12 @@ open/install the app with no technical steps, see `docs/SETUP-GUIDE.md`.
 
 "LV Zion Study Rooms" is a Sabbath-day (Saturday) sign-up app for LV Zion
 church (World Mission Society Church of God, Las Vegas). Members request a
-study room or a piece of shared equipment (whiteboard, TV, podium) for the one
+study room or a piece of shared equipment (whiteboard, TV) for the one
 upcoming Saturday; a committee member (the approver) assigns the specific room
 or unit and approves or declines each request through a PIN-gated Admin screen.
+A podium is never requested on its own — each whiteboard has a matching,
+same-numbered podium built in, so it comes along automatically (see "Podiums
+are implied, not requestable" below).
 This is the **v2 rebuild**: members no longer pick a specific room/unit
 themselves or see a multi-week calendar — v1 (dropdown time pickers, members
 choosing exact rooms, an 8-Saturday view) has been fully replaced.
@@ -91,13 +94,25 @@ banner in the file):
     runtime, no npm package needed) and keeps `state` in sync via
     `onSnapshot` listeners.
 12. **Render functions** — one function per screen/section
-    (`renderSchedule`, `renderSignup`, `renderAdmin`, etc.) that build HTML
-    strings from the current `state`/`ui`.
+    (`renderSchedule` for the **Reservations** tab, `renderSignup`,
+    `renderAdmin`, etc.) that build HTML strings from the current
+    `state`/`ui`. Two smaller render functions worth knowing about:
+    `reservationRequestsHtml()` builds the "Who's requesting" list on the
+    Reservations tab (every pending request, with an "Awaiting approval" or
+    "In line — Nth" badge), and `signupExistingHtml()` builds the "Already
+    reserved or requested" panel on the Sign Up tab (everyone who already has
+    or wants the same resource type, narrowed to overlapping times once a
+    time is picked).
 13. **Actions** — `handleAction()` is the single place that responds to every
     button click, tap, and form submit, via `data-act` attributes in the HTML
-    rather than one listener per element. `tapSlot()` holds the shared
-    "tap a start slot, then an end slot" logic used by both the member Sign
-    Up form and the Admin "Add a booking" form.
+    rather than one listener per element. `tapSlot(draft, windowIdx,
+    slotStart)` holds the shared time-picker logic used by both the member
+    Sign Up form and the Admin "Add a booking" form: a single tap selects a
+    full 30-minute block (`start`/`end` 30 minutes apart) in one step: tapping
+    a slot later than the current block's start extends `end` through it;
+    tapping at or before the current start moves the whole block to start
+    there instead. There's no separate "tap start, then tap end" mode
+    anymore — every tap keeps the selection to exactly one contiguous block.
 14. **Swipe-to-switch-tabs** — the touch-swipe gesture, shared with the
     sibling apps.
 15. **Init** — registers the service worker, loads local data, connects to
@@ -115,12 +130,15 @@ here changes what members see, without touching any other logic:
   stay unique and unchanged once bookings exist, since approved bookings store
   this id in their `assignments`.
 - **`WHITEBOARDS`** — Whiteboards 1–3 (Large) and 4–5 (Vertical). Whiteboard
-  *n* is treated as paired with **Podium *n*** — see `initialAssignmentFor()`
-  and the `admin-assign`/`af-assign` handlers in `app.js` for the pairing
-  logic, if you ever change how many whiteboards or podiums exist.
-- **`PODIUMS`** — Podiums 1–5, generated as `[1,2,3,4,5].map(...)`. Keep this
-  in sync with `WHITEBOARDS` if you add/remove either, since the pairing logic
-  matches them by number.
+  *n* is treated as paired with **Podium *n*** purely for display — the
+  schedule shows "Pairs with Podium N" under each whiteboard (`unitSublabel()`)
+  as an informational note. This is not a real per-booking assignment (see
+  "Podiums are implied, not requestable" below).
+- **`PODIUMS`** — Podiums 1–5, generated as `[1,2,3,4,5].map(...)`. Still
+  exists as a unit list/type internally (`UNITS_BY_TYPE`, `CAPACITY`, the
+  `needs`/`assignments` shape on a booking all still have a `podium` field),
+  but it's no longer reachable from any UI — see "Podiums are implied, not
+  requestable" below before assuming any podium-related code path still runs.
 - **`TVS`** — TVs 1–3, generated the same way.
 - **`CAPACITY`** — derived automatically from the length of `ROOMS` /
   `WHITEBOARDS` / `PODIUMS` / `TVS` (`CAPACITY = { room: ROOMS.length, ... }`).
@@ -131,15 +149,41 @@ here changes what members see, without touching any other logic:
   `start`/`end` times here if service times or buffer periods change. Time
   slots are always 30 minutes, computed from `WINDOWS` via `slotStarts()` —
   there's no separate slot-length constant.
-- **`NEED_TYPES`** — the four things a member can ask for (`room`,
-  `whiteboard`, `tv`, `podium`), in the order they appear everywhere
-  (checkboxes, assignment pill rows, etc).
+- **`NEED_TYPES`** — the three things a member (or the admin, on either the
+  approval-assignment UI or the "Add a booking" form) can ask for/assign:
+  `room`, `whiteboard`, `tv`, in the order they appear everywhere (checkboxes,
+  assignment pill rows, etc). `podium` is deliberately **not** in this list —
+  see "Podiums are implied, not requestable" below.
 - **`PURPOSES`** — the purpose choices members pick from on the Sign Up form
   (Contact study, New member study, Member meeting, Other).
 - **`ADMIN_PURPOSES`** — `PURPOSES` plus one admin-only extra option, "Room
   unavailable / reserved," used only on the Admin "Add a booking" form.
 - **`PREFERRED_ROOM_CHOICES`** — the pill choices on the Sign Up form's
   optional "preferred room" row (`null` = "No preference," plus each room id).
+
+## Podiums are implied, not requestable
+
+Podiums used to be a fourth, independently-requestable/assignable resource
+type, same as room/whiteboard/TV. That's been removed: `NEED_TYPES` no longer
+lists `podium`, so there's no member checkbox, no admin assignment pill, and
+no "Podiums" group on the schedule for it anymore. Instead, each whiteboard
+*n* is treated as having Podium *n* built in — the schedule shows a static
+"Pairs with Podium N" note under each whiteboard (`unitSublabel()` in
+`app.js`), and members/admins simply request or assign "Whiteboard."
+
+The `podium` field itself is **still present in the data model** (`needs`,
+`assignments`, `PODIUMS`, `UNITS_BY_TYPE.podium`, `CAPACITY.podium`) and some
+of the old whiteboard↔podium pairing/sync code (`initialAssignmentFor()`'s
+`need.whiteboard && need.podium` branch, the `admin-assign`/`af-assign`
+handlers' "whiteboard <-> podium sync" blocks) is still there — but it's now
+dead in practice, because no UI path can ever set `needs.podium` to `true`
+anymore. Don't be confused into thinking a whiteboard booking actually
+reserves a specific podium unit behind the scenes; it doesn't — the podium
+pairing shown to users is informational text only. If you ever want real
+per-podium tracking back (e.g. to let two different whiteboard bookings *not*
+share a podium), you'd need to either restore `podium` to `NEED_TYPES` or
+build a dedicated pairing feature; the vestigial fields are there to make
+that easier, not because anything currently depends on them.
 
 ## Data model and v1 cleanup
 
@@ -152,7 +196,8 @@ currently open read/write (see `firestore.rules`):
   - `name` — the requester's typed name.
   - `needs` — `{ room, whiteboard, tv, podium }`, each `true`/`false` — what
     the member asked for. **Multiple can be true at once** (e.g. a room and a
-    TV together).
+    TV together). `podium` is a vestigial field that's always `false` now —
+    no UI path sets it (see "Podiums are implied, not requestable" above).
   - `preferredRoom` — a room id (e.g. `"room-2"`) or `null`. Only meaningful
     when `needs.room` is true; a hint for the approver, never a guarantee.
   - `purpose`, `purposeOther` — same as before: one of the `PURPOSES`/
@@ -165,6 +210,9 @@ currently open read/write (see `firestore.rules`):
     (e.g. `"room-3"`, `"wb-4"`, `"tv-1"`, `"pod-4"`) or `null`. Set by the
     approver at approval time (or immediately, for admin-added bookings); this
     is what actually reserves a specific room/unit for the occupancy checks.
+    `assignments.podium` stays `null` in practice (see "Podiums are implied,
+    not requestable" above) — the podium a whiteboard "comes with" is shown
+    to users as a static label, not stored as a real assignment.
   - `createdAt` — timestamp (milliseconds) when submitted. This is also what
     the derived waiting line sorts by (see below).
   - `decidedAt` — timestamp when approved/declined (admin actions only).

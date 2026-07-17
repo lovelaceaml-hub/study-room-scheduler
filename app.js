@@ -33,13 +33,14 @@ const PURPOSES = [
    members on the Sign Up tab. Renders as a neutral "Reserved" chip. */
 const ADMIN_PURPOSES = PURPOSES.concat([{ id: 'blocked', label: 'Room unavailable / reserved' }]);
 
-/* The four things a member can ask for, in the order they appear
-   everywhere (checkboxes, admin assignment rows, etc). */
+/* The things a member can ask for, in the order they appear everywhere
+   (checkboxes, admin assignment rows, etc). A podium is NOT listed: each
+   whiteboard has its matching podium built in, so it comes automatically
+   with the whiteboard and never needs to be requested separately. */
 const NEED_TYPES = [
   { id: 'room', label: 'Study room', plural: 'Study Rooms' },
   { id: 'whiteboard', label: 'Whiteboard', plural: 'Whiteboards' },
-  { id: 'tv', label: 'TV', plural: 'TVs' },
-  { id: 'podium', label: 'Podium', plural: 'Podiums' }
+  { id: 'tv', label: 'TV', plural: 'TVs' }
 ];
 
 const ROOMS = [
@@ -72,7 +73,7 @@ const WINDOWS = [
 ];
 
 const TABS = [
-  { id: 'schedule', label: 'This Sabbath' },
+  { id: 'schedule', label: 'Reservations' },
   { id: 'signup', label: 'Sign up' },
   { id: 'admin', label: 'Admin' }
 ];
@@ -638,16 +639,24 @@ function scheduleGridHtml(date) {
   return html;
 }
 
-/* ---- "Waiting for the approver" quiet list: pending requests NOT in a full stretch ---- */
-function waitingForApproverHtml(date) {
-  const items = bookingsForDate(date).filter(b => b.status === 'pending' && waitingPositionFor(b, date) === null);
+/* ---- "Who's requesting" list: every request still waiting for the
+   approver, so anyone browsing (or signing up) can see who has already
+   asked for a room or piece of equipment, and at what time. In-line
+   requests show their place in the queue. ---- */
+function reservationRequestsHtml(date) {
+  const items = bookingsForDate(date).filter(b => b.status === 'pending')
+    .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start) || (a.createdAt || 0) - (b.createdAt || 0));
   if (!items.length) return '';
-  let html = '<div class="card"><h2>Waiting for the approver</h2>' +
-    '<p class="section-note">These requests are pending review — not stuck behind a full room or piece of equipment.</p>';
-  items.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)).forEach(b => {
+  let html = '<div class="card"><h2>Who’s requesting</h2>' +
+    '<p class="section-note">These people have asked to reserve a room or piece of equipment and are waiting for the approver.</p>';
+  items.forEach(b => {
+    const pos = waitingPositionFor(b, date);
     const certBadge = b.certainty === 'confirmed' ? '<span class="badge-cert confirmed">&#10003;</span>' : '<span class="badge-cert tentative">&#9670;</span>';
-    html += '<div class="req-row"><div class="req-head">' + esc(b.name) + ' ' + certBadge + '</div>' +
-      '<div class="req-sub">' + esc(needsSummary(b)) + ' · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</div></div>';
+    const statusBadge = pos !== null
+      ? '<span class="badge status-waiting">In line — ' + ordinal(pos) + '</span>'
+      : '<span class="badge status-pending">Awaiting approval</span>';
+    html += '<div class="req-row"><div class="req-head">' + esc(b.name) + ' ' + certBadge + ' ' + statusBadge + '</div>' +
+      '<div class="req-sub">' + esc(needsSummary(b)) + ' · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + ' · ' + esc(bookingPurposeText(b)) + '</div></div>';
   });
   return html + '</div>';
 }
@@ -664,8 +673,8 @@ function renderSchedule() {
       '<p class="section-note">' + esc(fmtHeaderDate(date)) + ' — read-only. Approved bookings only; no sign-ups happen here.</p>' +
       '<a href="#" class="ref-link" data-act="ref-back">Back to this Sabbath</a>';
   } else {
-    html += '<h2>This Sabbath</h2>' +
-      '<p class="section-note">' + esc(fmtHeaderDate(date)) + ' — see who has each study room and piece of equipment.</p>' +
+    html += '<h2>Reservations</h2>' +
+      '<p class="section-note">' + esc(fmtHeaderDate(date)) + ' — see who has each study room and piece of equipment, and who has asked to reserve one.</p>' +
       '<a href="#" class="ref-link" data-act="ref-view">View last Sabbath (reference)</a>';
   }
   html += '</div>';
@@ -673,7 +682,7 @@ function renderSchedule() {
   html += '<div class="card">' + scheduleGridHtml(date) + '</div>';
 
   if (!ui.viewRef) {
-    html += waitingForApproverHtml(date);
+    html += reservationRequestsHtml(date);
     html += renderMyRequests(date);
   }
   return html;
@@ -709,7 +718,7 @@ function myRequestStatusHtml(b, date) {
 function myRequestRowHtml(b, date) {
   const active = b.status === 'pending' || b.status === 'approved';
   const baptismNote = (b.status === 'approved' && assignmentsOf(b).room === 'room-baptism')
-    ? '<div class="req-sub baptism-note">Note: the Baptism Room has no whiteboard, TV, or podium — add a request if you need one.</div>' : '';
+    ? '<div class="req-sub baptism-note">Note: the Baptism Room has no whiteboard or TV — add a request if you need one.</div>' : '';
   return '<div class="req-row">' +
     '<div class="req-head">' + esc(needsSummary(b)) + ' ' + myRequestStatusHtml(b, date) + '</div>' +
     '<div class="req-sub">' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + ' · ' + esc(bookingPurposeText(b)) + '</div>' +
@@ -772,7 +781,7 @@ function preferredRoomHtml(d) {
 /* ---- time picker ---- */
 function timePickerHtml(d, date) {
   const needTypes = currentNeedTypes(d);
-  let html = '<label class="fld">Time — tap a start slot, then an end slot</label>';
+  let html = '<label class="fld">Time — tap your start time (that gives a 30-minute block); tap a later time to make it longer</label>';
   WINDOWS.forEach((w, wi) => {
     const slots = slotStarts(w);
     html += '<div class="strip-wrap">' +
@@ -794,6 +803,45 @@ function timePickerHtml(d, date) {
     html += '<p class="hint">Selected: ' + esc(fmtTime(d.start)) + ' – ' + esc(fmtTime(d.end)) + '</p>';
   }
   return html;
+}
+
+/* ---- "who already has / wants this" panel on the Sign Up form ----
+   As soon as a member picks what they need (and, if they want, a time),
+   show the approved bookings and pending requests for that same resource
+   type — so they can see who else is asking before they submit. */
+function signupExistingHtml(d, date) {
+  const needTypes = currentNeedTypes(d);
+  if (!needTypes.length) return '';
+  const hasTime = !!(d.start && d.end);
+  const rel = activeBookingsForDate(date).filter(b => {
+    if (!needTypes.some(t => needsOf(b)[t])) return false;
+    return hasTime ? rangesOverlap(b.start, b.end, d.start, d.end) : true;
+  }).sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start) || (a.createdAt || 0) - (b.createdAt || 0));
+
+  const scope = needTypes.map(needLabel).join(', ');
+  const when = hasTime ? ' at ' + esc(fmtTime(d.start)) + '–' + esc(fmtTime(d.end)) : '';
+  let html = '<div class="strip-wrap" style="margin-top:10px">' +
+    '<div class="strip-window-label">Already reserved or requested — ' + esc(scope) + when + '</div>';
+  if (!rel.length) {
+    html += '<p class="hint" style="margin:0">No one else has asked for this yet' + (hasTime ? ' at this time' : '') + ' — you’d be first.</p>';
+  } else {
+    rel.forEach(b => {
+      let who, status;
+      if (b.purpose === 'blocked') {
+        who = '<span class="mini-reserved">Reserved</span>';
+        status = '<span class="badge status-approved">Held</span>';
+      } else {
+        const cert = b.certainty === 'confirmed' ? '<span class="badge-cert confirmed">&#10003;</span>' : '<span class="badge-cert tentative">&#9670;</span>';
+        who = cert + ' ' + esc(b.name);
+        status = b.status === 'approved'
+          ? '<span class="badge status-approved">Approved</span>'
+          : '<span class="badge status-pending">Requested</span>';
+      }
+      html += '<div class="mini-row"><span class="mini-detail">' + who + ' ' + status + '</span>' +
+        '<span class="mini-time">' + esc(fmtTimeTight(b.start)) + '–' + esc(fmtTimeTight(b.end)) + '</span></div>';
+    });
+  }
+  return html + '</div>';
 }
 
 function purposeChipsHtml(d) {
@@ -831,6 +879,8 @@ function renderSignup() {
     preferredRoomHtml(d) +
 
     timePickerHtml(d, date) +
+
+    signupExistingHtml(d, date) +
 
     '<label class="fld">Purpose</label>' +
     purposeChipsHtml(d) +
@@ -1440,13 +1490,25 @@ function handleAction(act, el) {
    the same window) sets the end (inclusive); tapping before the current
    start restarts the selection; a tap after a completed range starts a
    fresh one. */
+/* Tapping a slot always leaves a complete [start,end) block selected — a
+   single tap gives that one 30-min block (e.g. 2:00 -> 2:00–2:30). Tapping
+   a later slot in the same block extends the end through it; tapping a new
+   block (earlier slot, a different window, or after a multi-slot range was
+   finished) starts a fresh single block. */
 function tapSlot(draft, windowIdx, slotStart) {
-  if (draft.start === null || draft.end !== null || draft.windowIdx !== windowIdx) {
-    draft.start = slotStart; draft.end = null; draft.windowIdx = windowIdx;
-  } else if (minsOfDay(slotStart) < minsOfDay(draft.start)) {
-    draft.start = slotStart; draft.end = null;
+  const slotEnd = hhmmOfMins(minsOfDay(slotStart) + 30);
+  const haveSingle = draft.start !== null && draft.end !== null &&
+    draft.windowIdx === windowIdx &&
+    minsOfDay(draft.end) - minsOfDay(draft.start) === 30;
+  if (!haveSingle) {
+    // nothing yet, other window, or a finished multi-slot range -> new single block
+    draft.start = slotStart; draft.end = slotEnd; draft.windowIdx = windowIdx;
+  } else if (minsOfDay(slotStart) <= minsOfDay(draft.start)) {
+    // earlier (or the same) slot -> move the single block there
+    draft.start = slotStart; draft.end = slotEnd;
   } else {
-    draft.end = hhmmOfMins(minsOfDay(slotStart) + 30);
+    // later slot -> extend the block's end through it
+    draft.end = slotEnd;
   }
 }
 

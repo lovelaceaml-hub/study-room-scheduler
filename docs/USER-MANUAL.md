@@ -1,9 +1,11 @@
 # LV Zion Study Rooms — User Manual
 
 This app lets LV Zion members request a Sabbath (Saturday) study room or a piece of
-shared equipment — a whiteboard, a TV, or a podium — for a Bible study, meeting, or
-other use. You say what you need and when; a committee member (the "approver")
-picks the actual room or unit and approves it.
+shared equipment — a whiteboard or a TV — for a Bible study, meeting, or other use.
+You say what you need and when; a committee member (the "approver") picks the
+actual room or unit and approves it. (A podium isn't something you request on its
+own — every whiteboard has a matching podium built in, so it just comes along
+automatically. See "A note about podiums" below.)
 
 This manual has two parts:
 
@@ -16,19 +18,19 @@ This manual has two parts:
 
 ### 1. Finding your way around
 
-The app has three tabs at the top: **This Sabbath**, **Sign up**, and **Admin**.
+The app has three tabs at the top: **Reservations**, **Sign up**, and **Admin**.
 
 - Tap a tab to switch to it.
 - You can also **swipe left or right** anywhere on the screen to move between tabs.
 - Tap the **header** at the very top of the screen (the "LV Zion Study Rooms" title)
-  at any time to jump straight back to the **This Sabbath** tab.
+  at any time to jump straight back to the **Reservations** tab.
 
 There's no date picker anywhere — the app only ever shows the **one upcoming
 Saturday**. You don't need to hunt for the right week.
 
 ### 2. Checking the schedule
 
-1. Open the **This Sabbath** tab. The date shown near the top is the upcoming
+1. Open the **Reservations** tab. The date shown near the top is the upcoming
    Saturday.
 2. Below that you'll see three groups: **Study Rooms**, **Whiteboards**, and **TVs**.
    Each shows a timeline for the two booking windows of the day — late morning
@@ -38,12 +40,20 @@ Saturday**. You don't need to hunt for the right week.
    - **Green, with a checkmark** — an **approved, Confirmed** booking.
    - **Blue/dashed, with a diamond** — an **approved, Tentative** booking (someone
      is still confirming their plans, but the room is theirs for now).
-   - A whiteboard's block also shows which **Podium** goes with it, when one was
-     assigned alongside it.
+   - A whiteboard's block also shows a small note underneath, **"Pairs with
+     Podium N"**, as a reminder of which podium physically goes with that
+     whiteboard.
 4. If every room (or every whiteboard, or every TV) is taken for a stretch of time,
    you'll see an **amber "waiting in line" strip** underneath that group, listing
    who's 1st, 2nd, and 3rd in line for that time.
 5. A legend at the top of the schedule reminds you what each color means.
+6. Below the schedule grid is **"Who's requesting"** — a list of every request
+   that's still waiting for the approver's decision. For each one you'll see the
+   person's name, what they asked for (study room / whiteboard / TV), the time,
+   the purpose, and a badge: **"Awaiting approval"** if the approver just hasn't
+   gotten to it yet, or **"In line — 2nd"** (or 1st/3rd) if they're queued behind
+   a room or item that's completely full. This lets anyone — not just the
+   approver — see who has already asked for something before they show up.
 
 **Want to check the previous Saturday?** Tap **"View last Sabbath (reference)"**
 near the top of the tab. This is read-only — it just shows what was approved that
@@ -56,31 +66,45 @@ return.
    the top.
 2. **Your name** — type your full name.
 3. **What do you need?** Tap any combination of **Study room**, **Whiteboard**,
-   **TV**, **Podium** — you can ask for more than one at once (for example, a
-   whiteboard and a podium together). Remember: Study Rooms 1–4 already have
-   their own whiteboard, TV, and podium inside, so you usually only request
-   equipment on its own (e.g. for the main hall) — or after being assigned the
-   Baptism Room, which has none.
+   **TV** — you can ask for more than one at once (for example, a room and a
+   TV together). Remember: Study Rooms 1–4 already have their own whiteboard,
+   TV, and podium inside, so you usually only request equipment on its own
+   (e.g. for the main hall) — or after being assigned the Baptism Room, which
+   has none. There's no separate "Podium" option to pick — every whiteboard has
+   its matching podium built in, so asking for a whiteboard is all you need to
+   do (see "A note about podiums" below).
 4. **Preferred room (optional)** — if you asked for a study room, you can tap a
    specific room (1–4, or the Baptism Room) as your preference, or leave it "No
    preference." This is only a preference — the approver assigns the actual room,
    and will honor your pick when it's free, but it isn't guaranteed.
-5. **Time — tap a start slot, then an end slot.** Each booking window (Morning,
-   Afternoon) is shown as a row of 30-minute time buttons. Tap the slot you want
-   to start at, then tap the slot you want to end at — the app fills in
-   everything in between. If a slot is greyed out and crossed through, it's
-   already full and can't be requested (see "The waiting line" below). Tapping a
-   different start slot at any point restarts your selection.
-6. **Purpose** — choose one: Contact study, New member study, Member meeting, or
+5. **Time — tap your start time.** Each booking window (Morning, Afternoon) is
+   shown as a row of 30-minute time buttons. Tap the time you want to start at
+   and the app immediately selects a 30-minute block for you and shows it as a
+   range, e.g. "Selected: 2:00 PM – 2:30 PM." If you need longer, tap a later
+   time in the same row to stretch the block out to end there (e.g. tapping
+   3:00 PM extends it to "2:00 PM – 3:30 PM"). Tapping an earlier time moves
+   your start time back to a fresh 30-minute block there instead. If a slot is
+   greyed out and crossed through, it's already full and can't be requested
+   (see "The waiting line" below).
+6. **Already reserved or requested** — as soon as you've picked what you need
+   (and, if you've picked one, a time), a panel appears showing everyone who has
+   already reserved or requested that same kind of room or equipment: a green
+   checkmark or diamond for Confirmed/Tentative, their name, an "Approved" or
+   "Requested" badge, and the time. If you've narrowed it down to a specific
+   time, only the requests that overlap yours are shown; otherwise it shows
+   everyone for that whole day. If no one else has asked yet, it simply says
+   "No one else has asked for this yet — you'd be first." This is just for your
+   own awareness — it doesn't stop you from submitting.
+7. **Purpose** — choose one: Contact study, New member study, Member meeting, or
    Other (if Other, briefly describe it).
-7. **How sure are you?** Tap one:
+8. **How sure are you?** Tap one:
    - **Confirmed — they'll be there** — you're sure this is happening.
    - **Tentative — still confirming** — you're not 100% sure yet, but want to
      hold the time.
    This matters: if two requests end up competing for the very last free room,
    the approver sees a tip suggesting the Confirmed one should probably get it.
-8. **Note (optional)** — add anything else the approver should know.
-9. Tap **Request this time**.
+9. **Note (optional)** — add anything else the approver should know.
+10. Tap **Request this time**.
 
 You'll see a confirmation that your request is in and waiting for approval. No
 login or account is needed — anyone with the app link can submit a request.
@@ -90,9 +114,15 @@ yourself.** You only pick *what kind* of thing you need and when. The approver
 assigns the exact unit (e.g. "Study Room 3") when they approve your request —
 that's what shows up under **My requests**.
 
+**A note about podiums:** you never request a podium by itself. Each whiteboard
+has a matching, same-numbered podium that comes with it automatically (the
+schedule shows "Pairs with Podium N" under each whiteboard as a reminder). If
+you need a whiteboard, just ask for "Whiteboard" — the podium is already taken
+care of.
+
 ### 4. The waiting line
 
-Each study room, and each whiteboard/TV/podium, can only be used by one approved
+Each study room, and each whiteboard or TV, can only be used by one approved
 booking at a time. When every one of them is already taken (or already requested
 and pending) for a stretch of time, up to **3 more people** can still queue up
 publicly as 1st, 2nd, and 3rd in line for that same time. Once 3 are already
@@ -105,8 +135,9 @@ have to do anything, and you'll see your position update (e.g. from "2nd" to
 
 ### 5. Checking or cancelling your own request
 
-At the bottom of the **This Sabbath** tab, look for **My requests** — every
-request you've submitted from this device (phone or computer), with its status:
+At the bottom of the **Reservations** tab, below "Who's requesting," look for
+**My requests** — every request you've submitted from this device (phone or
+computer), with its status:
 
 - **Pending review** — still waiting on the approver, and not stuck behind a
   full room or item.
@@ -169,11 +200,10 @@ the exact unit:
   override it.
 - Units that are already taken for that time show **who has them**, and can't be
   tapped.
-- If someone needs both a **whiteboard and a podium**, the app tries to pair the
-  same-numbered whiteboard and podium automatically (e.g. picking Whiteboard 4
-  auto-selects Podium 4, since each whiteboard pairs with the podium of the same
-  number). If no matching numbered pair is free, you'll need to pick both by
-  hand.
+- There's no separate podium pill to assign — a podium is never requested or
+  assigned on its own. Each whiteboard has its matching podium built in (shown
+  as "Pairs with Podium N" on the schedule), so approving a whiteboard request
+  is all that's needed.
 
 Once every needed item has a unit picked, tap **Approve**. Tap **Decline**
 instead if the request shouldn't be granted at all. If someone else grabs a unit
