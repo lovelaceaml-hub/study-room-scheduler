@@ -52,12 +52,14 @@ must reject ranges that overlap a service or begin before reservable time.
 
 ### Member booking flow
 
-The Reservations calendar is the starting point for every member request. It presents
-compact resource rows with visible dividers for each 30-minute period. An available
-period is a direct tap target; selecting one opens a pop-up with the date and initial
-30-minute time prefilled. The pop-up collects the member name, requested resource
-types, optional room preference, an allowed end time, purpose, certainty, and optional
-note, then submits the normal pending request.
+The Reservations screen is time-first: it shows the two permitted dates and one calm
+two-column list of 30-minute study-room times. Every open time shows the number of
+rooms available; selecting one opens a short pop-up with the date and initial
+30-minute time prefilled. A study room is included by default. The member enters a
+name, can add a whiteboard or TV, and submits. Room preference, purpose, certainty,
+and an optional note live under **More details** so ordinary booking stays focused.
+The detailed room-by-room schedule is available on demand rather than dominating the
+member screen.
 
 Service periods remain visible as blocked calendar areas rather than separate notices
 that say reservations are unavailable. They cannot be selected or crossed when a
@@ -128,8 +130,8 @@ for 1920×1080 and 1280×720 lobby screens.
 ## Phone and accessibility design
 
 The phone layout uses a compact two-column date selector and a compact, tappable
-30-minute calendar. It keeps time dividers visible and opens the same booking pop-up
-as the desktop view. Main controls use at least 44×44-pixel touch targets.
+two-column time list. It opens the same short booking pop-up as the desktop view.
+Main controls use at least 44×44-pixel touch targets.
 
 Tabs and selected controls expose their state to assistive technology. Inputs have
 real labels, status and error messages are announced, the masthead home behavior is

@@ -774,6 +774,35 @@ function mobileBookingCalendarHtml(date) {
   return html + '</div>';
 }
 
+/* The member-facing path is deliberately time-first.  A person generally
+   wants a room, not a tour of every room and accessory, so each row answers
+   the immediate question: is a study room open at this time? */
+function availabilityPickerHtml(date) {
+  let html = '<section class="availability-picker" aria-labelledby="choose-time-title">' +
+    '<div class="availability-heading"><div><h2 id="choose-time-title">Choose a time</h2>' +
+    '<p>Study room requests are reviewed before they are confirmed.</p></div>' +
+    '<span class="availability-key">Rooms available</span></div>';
+  scheduleSegments(date).forEach(w => {
+    if (w.service) {
+      html += '<div class="availability-service"><strong>' + esc(w.label) + '</strong><span>' + esc(fmtTime(w.start)) + '–' + esc(fmtTime(w.end)) + '</span></div>';
+      return;
+    }
+    html += '<div class="availability-window">';
+    slotStarts(w).forEach(start => {
+      const end = hhmmOfMins(minsOfDay(start) + 30);
+      const free = freeUnitsForType('room', date, start, end, null).length;
+      const key = calendarCellKey(date, start, 'room', null);
+      if (!free) {
+        html += '<span class="availability-slot full" aria-label="' + esc(fmtTime(start) + ' to ' + fmtTime(end) + ': all study rooms are in use') + '"><strong>' + esc(fmtTime(start)) + '</strong><small>Full</small></span>';
+      } else {
+        html += '<button type="button" class="availability-slot" data-act="open-booking" data-date="' + esc(date) + '" data-start="' + esc(start) + '" data-type="room" data-unit="" data-focus-key="' + esc(key) + '" aria-label="Request a study room from ' + esc(fmtTime(start)) + ' to ' + esc(fmtTime(end)) + '. ' + free + ' room' + (free === 1 ? '' : 's') + ' available."><strong>' + esc(fmtTime(start)) + '</strong><small>' + free + ' room' + (free === 1 ? '' : 's') + ' open</small></button>';
+      }
+    });
+    html += '</div>';
+  });
+  return html + '</section>';
+}
+
 function legendHtml() {
   return '<div class="legend">' +
     '<span class="legend-item"><span class="legend-swatch confirmed"></span>Confirmed</span>' +
@@ -826,11 +855,9 @@ function reservationRequestsHtml(date) {
 
 function renderSchedule() {
   const date = selectedDate();
-  let html = '<div class="card sched-head"><h2>Reservations</h2>' +
-    '<p class="section-note">Choose a date, then select any open 30-minute time to make a request. Approved reservations and requests awaiting approval update live.</p>' +
-    dateSelectorHtml() + '</div>';
-
-  html += '<div class="card">' + scheduleGridHtml(date) + '</div>';
+  let html = '<section class="member-booking"><div class="member-intro"><h1>Reserve a study room</h1>' +
+    '<p>Choose a date and an available time.</p></div>' + dateSelectorHtml() + availabilityPickerHtml(date) +
+    '<details class="schedule-details"><summary>View room-by-room schedule</summary><div class="schedule-details-body">' + scheduleGridHtml(date) + '</div></details></section>';
   html += renderMyRequests(date);
   if (ui.signup) html += bookingModalHtml();
   return html;
@@ -935,7 +962,7 @@ function openBookingFromCell(el) {
     windowIdx: wi,
     purpose: 'contact',
     purposeOther: '',
-    certainty: null,
+    certainty: 'confirmed',
     note: ''
   };
   ui.signupBaseline = signupComparable(ui.signup);
@@ -961,10 +988,12 @@ function closeBookingModal(force) {
 function currentNeedTypes(d) { return NEED_TYPES.map(nt => nt.id).filter(t => d.needs[t]); }
 
 function needsCheckboxesHtml(d) {
-  return '<div class="need-row" role="group" aria-labelledby="su-needs-label">' + NEED_TYPES.map(nt =>
-    '<button type="button" class="need-chip' + (d.needs[nt.id] ? ' active' : '') + '" data-act="su-need" data-id="' + nt.id + '" aria-pressed="' + (d.needs[nt.id] ? 'true' : 'false') + '">' +
-    (d.needs[nt.id] ? '&#10003; ' : '') + esc(nt.label) + '</button>'
-  ).join('') + '</div>';
+  return '<div class="included-room">Study room included</div><div class="need-row equipment-row" role="group" aria-labelledby="su-needs-label">' +
+    ['whiteboard', 'tv'].map(id => {
+      const nt = NEED_TYPES.find(item => item.id === id);
+      return '<button type="button" class="need-chip' + (d.needs[id] ? ' active' : '') + '" data-act="su-need" data-id="' + id + '" aria-pressed="' + (d.needs[id] ? 'true' : 'false') + '">' +
+        (d.needs[id] ? '&#10003; ' : '') + esc(nt.label) + '</button>';
+    }).join('') + '</div>';
 }
 
 function preferredRoomHtml(d) {
@@ -1053,9 +1082,9 @@ function purposeChipsHtml(d) {
 }
 
 function certaintyButtonsHtml(d) {
-  return '<div class="certainty-row">' +
-    '<button type="button" class="certainty-btn confirmed' + (d.certainty === 'confirmed' ? ' active' : '') + '" data-act="su-certainty" data-id="confirmed" aria-pressed="' + (d.certainty === 'confirmed' ? 'true' : 'false') + '">Confirmed<br><small>They’ll be there</small></button>' +
-    '<button type="button" class="certainty-btn tentative' + (d.certainty === 'tentative' ? ' active' : '') + '" data-act="su-certainty" data-id="tentative" aria-pressed="' + (d.certainty === 'tentative' ? 'true' : 'false') + '">Tentative<br><small>Still confirming</small></button>' +
+  return '<div class="certainty-row compact-certainty">' +
+    '<button type="button" class="certainty-btn confirmed' + (d.certainty === 'confirmed' ? ' active' : '') + '" data-act="su-certainty" data-id="confirmed" aria-pressed="' + (d.certainty === 'confirmed' ? 'true' : 'false') + '">Confirmed</button>' +
+    '<button type="button" class="certainty-btn tentative' + (d.certainty === 'tentative' ? ' active' : '') + '" data-act="su-certainty" data-id="tentative" aria-pressed="' + (d.certainty === 'tentative' ? 'true' : 'false') + '">Tentative</button>' +
     '</div>';
 }
 
@@ -1077,7 +1106,7 @@ function bookingModalHtml() {
   return '<div class="modal-backdrop" role="presentation"><section class="booking-dialog" role="dialog" aria-modal="true" aria-labelledby="booking-dialog-title" aria-describedby="booking-dialog-summary">' +
     '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(date)) + '</div><h2 id="booking-dialog-title">Request this time</h2></div>' +
     '<button type="button" class="modal-close" data-act="su-close" aria-label="Close reservation popup">&times;</button></div>' +
-    '<p class="booking-time-summary" id="booking-dialog-summary"><strong>' + esc(fmtTime(d.start)) + '</strong> start · 30-minute minimum</p>' +
+    '<p class="booking-time-summary" id="booking-dialog-summary"><strong>' + esc(fmtTime(d.start)) + '</strong> · choose an end time below</p>' +
     '<form data-act="su-submit">' +
 
     '<label class="fld" for="su-end">End time</label>' +
@@ -1086,21 +1115,16 @@ function bookingModalHtml() {
     '<label class="fld" for="su-name">Your name</label>' +
     '<input type="text" id="su-name" value="' + esc(d.name) + '" placeholder="Full name" autocomplete="name" required>' +
 
-    '<div class="fld" id="su-needs-label">What do you need?</div>' +
+    '<div class="fld" id="su-needs-label">Add equipment (optional)</div>' +
     needsCheckboxesHtml(d) +
 
+    '<details class="more-details"><summary>More details</summary>' +
     preferredRoomHtml(d) +
-
-    signupExistingHtml(d, date) +
-
-    '<div class="fld">Purpose</div>' +
-    purposeChipsHtml(d) +
-
-    '<div class="fld">How sure are you?</div>' +
-    certaintyButtonsHtml(d) +
-
+    '<div class="fld">Purpose</div>' + purposeChipsHtml(d) +
+    '<div class="fld">How sure are you?</div>' + certaintyButtonsHtml(d) +
     '<label class="fld" for="su-note">Note (optional)</label>' +
     '<input type="text" id="su-note" value="' + esc(d.note) + '" placeholder="Anything the reviewer should know">' +
+    '</details>' +
 
     '<div class="modal-actions"><button type="button" class="btn" data-act="su-close">Cancel</button>' +
     '<button class="btn primary" type="submit"' + (ui.submitting ? ' disabled' : '') + '>' +
@@ -1722,7 +1746,6 @@ function handleAction(act, el) {
     syncSignupDraft(); ensureSignupDraft();
     const d = ui.signup;
     d.needs[el.dataset.id] = !d.needs[el.dataset.id];
-    if (!d.needs.room) d.preferredRoom = null;
     render();
     return;
   }

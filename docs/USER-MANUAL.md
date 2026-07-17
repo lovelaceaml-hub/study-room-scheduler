@@ -1,8 +1,8 @@
 # LV Zion Study Rooms — User Manual
 
-This app lets LV Zion members request a study room, whiteboard, or TV for the
-upcoming Tuesday or Saturday. Requests appear on the shared schedule immediately,
-even before an approver assigns a specific room or item.
+This app lets LV Zion members request a study room for the upcoming Tuesday or
+Saturday. A whiteboard or TV can be added when needed. Requests appear on the
+shared schedule immediately, even before an approver assigns a specific room or item.
 
 The revised version is still being prepared for deployment. Its primary address
 will be **https://lvrooms.web.app**.
@@ -19,7 +19,7 @@ The app shows only two dates:
 If today is Tuesday or Saturday, today counts as the upcoming date. The two dates
 are shown in calendar order and have distinct Tuesday and Saturday styling.
 
-### Read the schedule
+### Choose a time
 
 Open **Reservations**, then choose Tuesday or Saturday. Reservations is the member
 booking screen. The selected date also stays the same when you move to Admin.
@@ -32,14 +32,14 @@ The schedule has separate sections for:
 
 The Baptism Room is no longer part of scheduling and will not appear as an option.
 
-Green reservations are approved and appear in the row for their assigned room or
-item. Amber entries marked **Requested — awaiting approval** are live requests that
-have not been assigned yet. They appear in a request lane for the type of item the
-member needs; an amber request does not mean a particular room is being held.
+The first screen shows only what is needed to book quickly: the two available dates
+and a simple list of 30-minute times. Each time says how many study rooms are open.
+Tap an open time to begin a request. If you need to check individual rooms or the
+shared equipment, open **View room-by-room schedule** below the time list.
 
-Each resource section is compact so more of the day is visible at once. The calendar
-has clear dividers for every 30-minute period. Tap an open time period to begin a
-request.
+Green reservations are approved. Requests that are still waiting for review remain
+visible in the detailed schedule; a request never guarantees a particular room until
+an approver assigns it.
 
 ### Service periods and available times
 
@@ -56,16 +56,16 @@ reservation cannot overlap or cross through one.
 
 ### Request a room or equipment
 
-1. Open **Reservations** and choose the upcoming Tuesday or Saturday.
-2. Tap an open 30-minute time period in the calendar. A pop-up opens with that date
+1. Open the app and choose the upcoming Tuesday or Saturday.
+2. Tap an open 30-minute time. A pop-up opens with that date
    and time already selected.
 3. Enter your full name.
-4. Choose **Study room**, **Whiteboard**, **TV**, or a combination of those needs.
-5. If you requested a room, optionally choose Study Room 1–4 as a preference. The
-   approver may assign a different available room.
-6. If needed, adjust the end time in the pop-up. You can extend only through open
+4. A study room is included automatically. Add a **Whiteboard** or **TV** only if you
+   need one.
+5. If needed, adjust the end time in the pop-up. You can extend only through open
    30-minute periods in the same available section.
-7. Complete the remaining request details and tap **Request this time**.
+6. Tap **Request this time**. Open **More details** only when you want to add a room
+   preference, change the purpose or certainty, or leave a note.
 
 There is no separate **Sign up** screen. Starting with the calendar makes the time
 you are requesting clear before you fill in the rest of the information.
