@@ -28,6 +28,16 @@ The member interface and lobby display share booking data but use separate rende
 The TV view is available at **https://lvrooms.web.app/?tv=1** and is intentionally
 read-only.
 
+### Visual design system
+
+The July 17 redesign separates the visual styling from the page markup. `tokens.css`
+holds the shared color, type, shape, and status-color choices; `styles.css` contains
+the member and Admin components; and `tv.css` adds only the lobby display's timeline
+layout on top of the same tokens. This keeps the member app and TV consistent in light
+and dark display settings without changing any booking, approval, privacy, or
+scheduling behavior. The service worker caches both shared style files, and Hosting
+serves CSS without a long-lived cache so a new design reaches installed copies promptly.
+
 ## Scheduling rules
 
 ### Dates

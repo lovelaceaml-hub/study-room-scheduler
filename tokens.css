@@ -1,0 +1,81 @@
+/* LV Zion Study Rooms — design tokens (single source of truth)
+   Crisp & efficient: one sans family, cool neutrals, one decisive blue,
+   four status colors that stay distinguishable in light AND dark. */
+
+:root {
+  color-scheme: light dark;
+
+  /* type */
+  --sans: -apple-system, BlinkMacSystemFont, "Avenir Next", "Segoe UI", Roboto, sans-serif;
+  --fs-xs: 12px;
+  --fs-sm: 13.5px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 22px;
+  --fs-title: 26px;
+
+  /* shape */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+  --tap: 44px;
+
+  /* light theme (default) */
+  --bg: #F5F6F8;
+  --surface: #FFFFFF;
+  --surface-sunken: #EDEFF3;
+  --line: #E2E5EB;
+  --line-strong: #C9CED8;
+  --ink: #171A20;
+  --ink-soft: #4E5666;
+  --ink-faint: #7A828F;
+
+  --primary: #2F52D9;
+  --primary-strong: #2542B8;
+  --primary-tint: #E9EDFC;
+  --primary-ink: #FFFFFF;
+
+  --ok: #147A56;          /* confirmed */
+  --ok-tint: #E1F3EC;
+  --info: #4C86E8;        /* tentative */
+  --info-tint: #E8F0FD;
+  --warn: #9A6407;        /* waiting / requested */
+  --warn-tint: #FBF0DA;
+  --danger: #C23A30;
+  --danger-tint: #FBE9E7;
+
+  --shadow-card: 0 1px 2px rgba(23, 26, 32, 0.05), 0 6px 16px -10px rgba(23, 26, 32, 0.12);
+  --shadow-sheet: 0 -8px 32px rgba(23, 26, 32, 0.18);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101216;
+    --surface: #191C22;
+    --surface-sunken: #13151A;
+    --line: #2A2F39;
+    --line-strong: #3A4150;
+    --ink: #E9EBEF;
+    --ink-soft: #ADB4C0;
+    --ink-faint: #7E8592;
+
+    --primary: #7E97FF;
+    --primary-strong: #97ABFF;
+    --primary-tint: #232A45;
+    --primary-ink: #0E1220;
+
+    --ok: #4ADE9E;
+    --ok-tint: #15302A;
+    --info: #7FB0F7;
+    --info-tint: #1C2A42;
+    --warn: #F0B45A;
+    --warn-tint: #362A14;
+    --danger: #F2776C;
+    --danger-tint: #3A1F1C;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px -10px rgba(0, 0, 0, 0.5);
+    --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.55);
+  }
+}

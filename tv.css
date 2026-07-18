@@ -1,22 +1,11 @@
+/* LV Zion Study Rooms — lobby TV board.
+   Theme comes from the shared tokens.css (light + dark follow the display);
+   this file keeps only TV-specific layout and the timeline mechanics. */
+
 :root {
-  --paper: #f5f7fb;
-  --card: #ffffff;
-  --line: #d9e0eb;
-  --ink: #182235;
-  --muted: #5d687a;
-  --faint: #8c97a8;
-  --blue: #2948b8;
-  --blue-tint: #edf1ff;
-  --green: #147451;
-  --green-tint: #dff2e9;
-  --amber: #9a5a00;
-  --amber-tint: #fff0d6;
-  --service: #677386;
-  --service-tint: #e8ebf0;
-  --danger: #a93c34;
   --label-width: clamp(138px, 11.5vw, 220px);
-  --sans: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --serif: "Iowan Old Style", Palatino, Georgia, serif;
+  --service-stripe: color-mix(in srgb, var(--ink-soft) 16%, transparent);
+  --service-stripe-strong: color-mix(in srgb, var(--ink-soft) 26%, transparent);
 }
 
 * { box-sizing: border-box; }
@@ -25,7 +14,7 @@ html, body { min-height: 100%; }
 
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
   font-size: clamp(14px, 1vw, 20px);
@@ -52,7 +41,7 @@ body {
 
 .eyebrow {
   margin: 0 0 5px;
-  color: var(--blue);
+  color: var(--primary);
   font-size: .72em;
   font-weight: 800;
   letter-spacing: .11em;
@@ -61,15 +50,15 @@ body {
 
 h1 {
   margin: 0;
-  font-family: var(--serif);
   font-size: clamp(34px, 3.1vw, 62px);
-  font-weight: 600;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   line-height: 1;
 }
 
 .today {
   margin: 8px 0 0;
-  color: var(--muted);
+  color: var(--ink-soft);
   font-size: clamp(16px, 1.2vw, 24px);
   font-weight: 600;
 }
@@ -80,7 +69,7 @@ h1 {
   display: block;
   font-size: clamp(34px, 3.2vw, 64px);
   font-variant-numeric: tabular-nums;
-  font-weight: 650;
+  font-weight: 800;
   letter-spacing: -.035em;
   line-height: 1;
 }
@@ -90,7 +79,7 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--green);
+  color: var(--ok);
   font-size: .78em;
   font-weight: 800;
 }
@@ -102,13 +91,13 @@ h1 {
   background: currentColor;
 }
 
-.connection.reconnecting { color: var(--amber); }
+.connection.reconnecting { color: var(--warn); }
 .connection.error { color: var(--danger); }
 
 .updated {
   min-height: 1em;
   margin: 4px 0 0;
-  color: var(--faint);
+  color: var(--ink-faint);
   font-size: .65em;
 }
 
@@ -120,7 +109,7 @@ h1 {
   display: grid;
   place-content: center;
   text-align: center;
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 48px;
@@ -128,22 +117,25 @@ h1 {
 
 .closed-day h2 {
   margin: 0;
-  font: 600 clamp(30px, 3.4vw, 66px)/1.12 var(--serif);
+  font-size: clamp(30px, 3.4vw, 66px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
 }
 
 .closed-day p {
   margin: 14px 0 0;
-  color: var(--muted);
+  color: var(--ink-soft);
   font-size: clamp(16px, 1.25vw, 25px);
 }
 
 .board {
   min-width: 0;
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 16px 42px -38px rgba(24, 34, 53, .55);
+  box-shadow: var(--shadow-card);
 }
 
 .time-ruler,
@@ -156,13 +148,13 @@ h1 {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: #fafbfe;
+  background: var(--surface-sunken);
   border-bottom: 1px solid var(--line);
 }
 
 .ruler-label {
   padding: 12px clamp(12px, 1vw, 20px);
-  color: var(--muted);
+  color: var(--ink-soft);
   font-size: .67em;
   font-weight: 800;
   letter-spacing: .06em;
@@ -177,8 +169,8 @@ h1 {
     to right,
     transparent 0,
     transparent calc(var(--slot-width) - 1px),
-    rgba(217, 224, 235, .7) calc(var(--slot-width) - 1px),
-    rgba(217, 224, 235, .7) var(--slot-width)
+    var(--line) calc(var(--slot-width) - 1px),
+    var(--line) var(--slot-width)
   );
 }
 
@@ -188,7 +180,7 @@ h1 {
   position: absolute;
   top: 13px;
   transform: translateX(-50%);
-  color: var(--muted);
+  color: var(--ink-soft);
   font-size: clamp(9px, .65vw, 13px);
   font-weight: 750;
   white-space: nowrap;
@@ -199,8 +191,8 @@ h1 {
 
 .category-title {
   padding: 9px clamp(12px, 1vw, 20px);
-  background: var(--blue-tint);
-  color: var(--blue);
+  background: var(--primary-tint);
+  color: var(--primary);
   border-bottom: 1px solid var(--line);
   font-size: .7em;
   font-weight: 850;
@@ -223,13 +215,13 @@ h1 {
 
 .row-label small {
   margin-top: 2px;
-  color: var(--faint);
+  color: var(--ink-faint);
   font-size: .78em;
   font-weight: 650;
 }
 
-.pending-row { background: #fffcf7; }
-.pending-row .row-label { color: var(--amber); }
+.pending-row { background: var(--warn-tint); }
+.pending-row .row-label { color: var(--warn); }
 .pending-row { min-height: calc(12px + var(--pending-lanes, 1) * 40px); }
 
 .service-block {
@@ -240,15 +232,15 @@ h1 {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  color: #495566;
+  color: var(--ink-soft);
   background: repeating-linear-gradient(
     -45deg,
-    rgba(103, 115, 134, .14) 0,
-    rgba(103, 115, 134, .14) 7px,
-    rgba(103, 115, 134, .24) 7px,
-    rgba(103, 115, 134, .24) 14px
+    var(--service-stripe) 0,
+    var(--service-stripe) 7px,
+    var(--service-stripe-strong) 7px,
+    var(--service-stripe-strong) 14px
   );
-  border-inline: 1px solid rgba(103, 115, 134, .32);
+  border-inline: 1px solid var(--line-strong);
   font-size: clamp(8px, .58vw, 12px);
   font-weight: 900;
   letter-spacing: .04em;
@@ -267,24 +259,24 @@ h1 {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border: 1px solid var(--green);
-  background: var(--green-tint);
-  color: #0c563b;
+  border: 1px solid var(--ok);
+  background: var(--ok-tint);
+  color: var(--ok);
 }
 
 .booking.pending {
   top: calc(5px + var(--lane, 0) * 40px);
   bottom: auto;
   height: 34px;
-  border-color: #c27a14;
+  border-color: var(--warn);
   background: repeating-linear-gradient(
     -45deg,
-    var(--amber-tint) 0,
-    var(--amber-tint) 7px,
-    #ffe5b8 7px,
-    #ffe5b8 14px
+    var(--warn-tint) 0,
+    var(--warn-tint) 7px,
+    color-mix(in srgb, var(--warn) 22%, var(--warn-tint)) 7px,
+    color-mix(in srgb, var(--warn) 22%, var(--warn-tint)) 14px
   );
-  color: #734500;
+  color: var(--warn);
 }
 
 .booking-name,
@@ -305,8 +297,8 @@ h1 {
   top: 0;
   bottom: 0;
   width: 2px;
-  background: #d1453d;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, .7);
+  background: var(--danger);
+  box-shadow: 0 0 0 1px var(--surface);
   pointer-events: none;
 }
 
@@ -318,7 +310,7 @@ h1 {
   padding: 1px 4px;
   border-radius: 3px;
   color: #fff;
-  background: #d1453d;
+  background: var(--danger);
   font-size: 8px;
   font-weight: 900;
 }
@@ -328,7 +320,7 @@ h1 {
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--faint);
+  color: var(--ink-faint);
   font-size: .65em;
   font-weight: 650;
 }
@@ -339,17 +331,17 @@ h1 {
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 10px clamp(14px, 1.5vw, 28px);
-  color: var(--muted);
+  color: var(--ink-soft);
   font-size: .67em;
   font-weight: 750;
 }
 
-.tv-footer > span:first-child { margin-right: auto; color: var(--faint); }
+.tv-footer > span:first-child { margin-right: auto; color: var(--ink-faint); }
 .legend { display: inline-flex; align-items: center; gap: 7px; }
 .legend i { width: 16px; height: 10px; border-radius: 3px; }
-.legend.approved i { background: var(--green-tint); border: 1px solid var(--green); }
-.legend.pending i { background: var(--amber-tint); border: 1px solid #c27a14; }
-.legend.service i { background: var(--service-tint); border: 1px solid var(--service); }
+.legend.approved i { background: var(--ok-tint); border: 1px solid var(--ok); }
+.legend.pending i { background: var(--warn-tint); border: 1px solid var(--warn); }
+.legend.service i { background: var(--surface-sunken); border: 1px solid var(--line-strong); }
 
 @media (max-height: 800px) {
   .tv-shell { padding: 9px 18px 8px; gap: 7px; }

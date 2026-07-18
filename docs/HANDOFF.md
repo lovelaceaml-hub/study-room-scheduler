@@ -2,8 +2,8 @@
 
 ## Current status
 
-**Live.** The secure backend, revised app, lobby TV, and shorter address were deployed
-and verified on July 17, 2026.
+**Live.** The secure backend, redesigned app, lobby TV, and shorter address were
+deployed and verified on July 17, 2026.
 
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
@@ -39,6 +39,8 @@ and verified on July 17, 2026.
 - Keep optional notes Admin-only and never expose them on public or TV schedules.
 - Member reservations now use one resource type at a time (Study room, Whiteboard, or
   TV), a compact scrollable calendar, and a name-and-purpose-only confirmation sheet.
+- The visual redesign uses shared, accessible light/dark design tokens across the
+  member app and lobby TV. It preserves every scheduling and security behavior.
 - Tuesday reservations auto-approve securely; Saturday remains manual with the Admin
   queue and assignment recommendation ordered Contact, New Member, Study Member
   Meeting, Other, then request time.
@@ -65,6 +67,8 @@ details, and preserves its last public schedule during a connection interruption
   phone; verify service areas and unavailable periods cannot be selected.
 - Verify simultaneous member, Admin, phone, and TV live updates.
 - Verify 320/375/390-pixel phone views and 720p/1080p TV views.
+- Verify the shared visual tokens load in both the member app and lobby TV after an
+  installed copy updates.
 - Verify the primary URL, previous-address redirect, and preservation of `?tv=1`.
 - Verify installation and offline/reconnect behavior from the new hostname.
 - Keep this file and the Quick links status current after future releases.

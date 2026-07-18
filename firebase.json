@@ -10,6 +10,7 @@
         "**/.*",
         "README.md",
         "docs/**",
+        "design/**",
         "functions/**",
         "legacy/**",
         "test/**",
@@ -26,6 +27,10 @@
         },
         {
           "source": "**/*.js",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        },
+        {
+          "source": "**/*.css",
           "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
         }
       ]
