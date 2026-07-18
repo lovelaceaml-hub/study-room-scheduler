@@ -7,25 +7,26 @@ app later. For everyday instructions, use the [User Manual](USER-MANUAL.md).
 
 LV Zion Study Rooms is an installable web app for reserving study rooms and shared
 equipment on the upcoming Tuesday and Saturday. Members request a resource type and
-time; Admin assigns the exact unit and approves or declines the request.
+time; Tuesday is assigned and approved automatically when open, while Saturday Admin
+assigns the exact unit and approves or declines the request.
 
 The primary member address is **https://lvrooms.web.app**. The former address,
 **https://lvz-rooms.web.app**, is a permanent redirect. Production deployment was
 verified on July 17, 2026.
 
-## Proposed visual redesign prototype
+## Applied visual redesign
 
-An isolated, interactive redesign preview was added on July 17, 2026. It proposes
+An isolated, interactive redesign preview was added on July 17, 2026 and approved
+for production. The live application now uses
 the **Quiet Study** member/Admin visual system, the **Signal Timetable** lobby TV,
-and an availability-first phone scheduler. It uses sample information only and does
-not connect to Firebase or change the live app.
+and an availability-first phone scheduler. The prototype remains as the design
+reference and continues to use sample information only.
 
 - [Open the interactive prototype](design-prototype.html)
 - [Read the design research and decisions](DESIGN-RESEARCH.md)
 
-The prototype must be approved before its presentation or interaction changes are
-applied to the production files. The scheduling, security, privacy, and approval
-rules documented below remain the source of truth.
+The scheduling, security, privacy, and approval rules documented below remain the
+source of truth.
 
 ## Architecture
 
@@ -76,14 +77,14 @@ must reject ranges that overlap a service or begin before reservable time.
 
 ### Member booking flow
 
-The Reservations screen shows one Study room, Whiteboard, or TV calendar at a time.
-The Tuesday/Saturday choice and resource picker sit directly above it. The calendar has
-time labels on the left and slim capacity squares on the right. The member selects a
+The Reservations screen shows one Study room, Whiteboard, or TV availability list at a time.
+The Tuesday/Saturday choice and resource picker sit directly above it. Each row leads
+with the time and the number of units open; numbered-unit occupancy is expandable
+secondary detail. The member selects a
 30-minute start and optionally extends the range before tapping
 Continue. The short sheet then asks
-only for name and purpose (Contact, New Member, Meeting, or Other). The time column,
-not the unit cell, is the member’s selectable control; numbered unit cells show the
-approved member and purpose.
+only for name and purpose (Contact, New Member, Meeting, or Other). Pending requests
+are shown as an aggregate count and never occupy a numbered unit before approval.
 
 Service periods remain visible as blocked calendar areas rather than separate notices
 that say reservations are unavailable. They cannot be selected or crossed when a
@@ -148,7 +149,7 @@ PIN controls, and Admin actions.
 
 The TV renderer shows only the current local calendar day:
 
-- Tuesday or Saturday: full timeline through 10:30 PM, service blocks, approved rows,
+- Tuesday or Saturday: full timeline through 10:00 PM, service blocks, approved rows,
   pending lanes, current-time marker, clock, and connection status.
 - Any other day: **No study-room schedule today**.
 

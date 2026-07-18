@@ -1,141 +1,164 @@
-/* LV Zion Study Rooms — lobby TV board.
-   Theme comes from the shared tokens.css (light + dark follow the display);
-   this file keeps only TV-specific layout and the timeline mechanics. */
+/* LV Zion Study Rooms — Signal Timetable lobby board.
+   tv.js owns all booking, privacy, reconnect, lane, and time calculations.
+   This file only gives that complete data model a high-contrast timetable form. */
 
 :root {
-  --label-width: clamp(138px, 11.5vw, 220px);
-  --service-stripe: color-mix(in srgb, var(--ink-soft) 16%, transparent);
-  --service-stripe-strong: color-mix(in srgb, var(--ink-soft) 26%, transparent);
+  --signal-paper: color-mix(in srgb, var(--bg) 88%, #eadfc9);
+  --signal-mat: color-mix(in srgb, var(--surface) 94%, #fff8ea);
+  --signal-ink: color-mix(in srgb, var(--ink) 94%, #1b2921);
+  --signal-soft: color-mix(in srgb, var(--ink-soft) 90%, #4c5e53);
+  --signal-rule: color-mix(in srgb, var(--line-strong) 78%, var(--ink) 22%);
+  --signal-faint-rule: color-mix(in srgb, var(--line) 88%, #c8bda8);
+  --signal-pine: color-mix(in srgb, var(--primary) 72%, #235244);
+  --signal-pine-tint: color-mix(in srgb, var(--primary-tint) 78%, #e0ebe5);
+  --signal-brass: var(--accent, #77521f);
+  --signal-brass-tint: var(--accent-tint, #f5ead6);
+  --signal-ruler-bg: #203229;
+  --signal-ruler-ink: #FFFAF0;
+  --label-width: clamp(148px, 13.5vw, 250px);
+  --service-stripe: color-mix(in srgb, var(--ink-soft) 14%, transparent);
+  --service-stripe-strong: color-mix(in srgb, var(--ink-soft) 28%, transparent);
 }
 
 * { box-sizing: border-box; }
 
-html, body { min-height: 100%; }
+html,
+body { min-height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--ink);
+  background: var(--signal-paper);
+  color: var(--signal-ink);
   font-family: var(--sans);
-  font-size: clamp(14px, 1vw, 20px);
-  line-height: 1.25;
+  font-size: clamp(14px, 1.05vw, 20px);
+  line-height: 1.2;
   -webkit-font-smoothing: antialiased;
 }
 
 .tv-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  padding: clamp(18px, 2vw, 38px) clamp(22px, 2.4vw, 48px) clamp(14px, 1.5vw, 28px);
-  gap: clamp(14px, 1.4vw, 26px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(10px, 1.25vw, 22px);
+  padding: clamp(14px, 1.7vw, 34px) clamp(16px, 2.35vw, 48px) clamp(12px, 1.45vw, 26px);
 }
 
 .tv-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 32px;
-  padding-bottom: clamp(13px, 1.2vw, 22px);
-  border-bottom: 1px solid var(--line);
+  gap: 28px;
+  padding: 0 0 clamp(10px, 1vw, 18px);
+  border-top: 4px solid var(--signal-ink);
+  border-bottom: 1px solid var(--signal-rule);
 }
 
 .eyebrow {
-  margin: 0 0 5px;
-  color: var(--primary);
-  font-size: .72em;
-  font-weight: 800;
-  letter-spacing: .11em;
+  margin: clamp(9px, .8vw, 14px) 0 5px;
+  color: var(--signal-brass);
+  font-size: clamp(10px, .7vw, 13px);
+  font-weight: 850;
+  letter-spacing: .13em;
   text-transform: uppercase;
 }
 
 h1 {
   margin: 0;
-  font-size: clamp(34px, 3.1vw, 62px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1;
+  color: var(--signal-ink);
+  font-size: clamp(34px, 3.4vw, 66px);
+  font-weight: 850;
+  letter-spacing: -.045em;
+  line-height: .94;
 }
 
 .today {
-  margin: 8px 0 0;
-  color: var(--ink-soft);
-  font-size: clamp(16px, 1.2vw, 24px);
-  font-weight: 600;
+  margin: 9px 0 0;
+  color: var(--signal-soft);
+  font-size: clamp(14px, 1.08vw, 23px);
+  font-weight: 700;
 }
 
-.header-status { text-align: right; flex: 0 0 auto; }
+.header-status {
+  flex: 0 0 auto;
+  padding-top: clamp(10px, .85vw, 16px);
+  text-align: right;
+}
 
 .clock {
   display: block;
-  font-size: clamp(34px, 3.2vw, 64px);
+  color: var(--signal-ink);
+  font-size: clamp(30px, 3.05vw, 62px);
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  letter-spacing: -.035em;
-  line-height: 1;
+  font-weight: 850;
+  letter-spacing: -.055em;
+  line-height: .92;
 }
 
 .connection {
-  margin-top: 10px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin-top: 10px;
   color: var(--ok);
-  font-size: .78em;
-  font-weight: 800;
+  font-size: clamp(11px, .76vw, 15px);
+  font-weight: 850;
+  letter-spacing: .03em;
+  text-transform: uppercase;
 }
 
 .connection-dot {
   width: 9px;
   height: 9px;
+  border: 2px solid currentColor;
   border-radius: 50%;
   background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
 }
 
-.connection.reconnecting { color: var(--warn); }
+.connection.reconnecting { color: var(--signal-brass); }
 .connection.error { color: var(--danger); }
 
 .updated {
   min-height: 1em;
-  margin: 4px 0 0;
-  color: var(--ink-faint);
-  font-size: .65em;
+  margin: 5px 0 0;
+  color: var(--signal-soft);
+  font-size: clamp(10px, .66vw, 13px);
+  font-weight: 650;
 }
 
 #schedule { min-width: 0; }
 
 .closed-day {
-  height: 100%;
-  min-height: 46vh;
+  min-height: 48vh;
   display: grid;
   place-content: center;
-  text-align: center;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 18px;
   padding: 48px;
+  border: 1px solid var(--signal-rule);
+  background: var(--signal-mat);
+  text-align: center;
 }
 
 .closed-day h2 {
   margin: 0;
-  font-size: clamp(30px, 3.4vw, 66px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.12;
+  font-size: clamp(30px, 3.2vw, 62px);
+  font-weight: 850;
+  letter-spacing: -.04em;
 }
 
 .closed-day p {
-  margin: 14px 0 0;
-  color: var(--ink-soft);
-  font-size: clamp(16px, 1.25vw, 25px);
+  max-width: 42ch;
+  margin: 13px auto 0;
+  color: var(--signal-soft);
+  font-size: clamp(15px, 1.15vw, 23px);
 }
 
+/* The board is intentionally a flat printed timetable, not a card dashboard. */
 .board {
   min-width: 0;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
   overflow: hidden;
-  box-shadow: var(--shadow-card);
+  border: 2px solid var(--signal-ink);
+  background: var(--signal-mat);
+  box-shadow: 7px 7px 0 color-mix(in srgb, var(--signal-ink) 18%, transparent);
 }
 
 .time-ruler,
@@ -147,82 +170,110 @@ h1 {
 .time-ruler {
   position: sticky;
   top: 0;
-  z-index: 5;
-  background: var(--surface-sunken);
-  border-bottom: 1px solid var(--line);
+  z-index: 8;
+  background: var(--signal-ruler-bg);
+  border-bottom: 2px solid var(--signal-ruler-bg);
 }
 
 .ruler-label {
-  padding: 12px clamp(12px, 1vw, 20px);
-  color: var(--ink-soft);
-  font-size: .67em;
-  font-weight: 800;
-  letter-spacing: .06em;
+  display: flex;
+  align-items: center;
+  padding: 8px clamp(10px, .95vw, 18px);
+  border-right: 1px solid color-mix(in srgb, #fff 35%, transparent);
+  color: var(--signal-ruler-ink);
+  font-size: clamp(10px, .72vw, 14px);
+  font-weight: 850;
+  letter-spacing: .12em;
   text-transform: uppercase;
-  border-right: 1px solid var(--line);
 }
 
 .track {
   position: relative;
   min-width: 0;
+  isolation: isolate;
+  background-color: var(--signal-mat);
   background-image: repeating-linear-gradient(
     to right,
     transparent 0,
     transparent calc(var(--slot-width) - 1px),
-    var(--line) calc(var(--slot-width) - 1px),
-    var(--line) var(--slot-width)
+    var(--signal-faint-rule) calc(var(--slot-width) - 1px),
+    var(--signal-faint-rule) var(--slot-width)
   );
 }
 
-.ruler-track { height: 45px; }
+.ruler-track {
+  height: clamp(42px, 3.5vw, 58px);
+  background-color: var(--signal-ruler-bg);
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(var(--slot-width) - 1px),
+    color-mix(in srgb, #fff 24%, transparent) calc(var(--slot-width) - 1px),
+    color-mix(in srgb, #fff 24%, transparent) var(--slot-width)
+  );
+}
 
 .tick {
   position: absolute;
-  top: 13px;
-  transform: translateX(-50%);
-  color: var(--ink-soft);
-  font-size: clamp(9px, .65vw, 13px);
-  font-weight: 750;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--signal-ruler-ink);
+  font-size: clamp(9px, .66vw, 14px);
+  font-weight: 800;
   white-space: nowrap;
 }
 
-.tick.edge-start { transform: none; }
-.tick.edge-end { transform: translateX(-100%); }
+.tick.edge-start { transform: translate(4px, -50%); }
+.tick.edge-end { transform: translate(calc(-100% - 4px), -50%); }
 
 .category-title {
-  padding: 9px clamp(12px, 1vw, 20px);
-  background: var(--primary-tint);
-  color: var(--primary);
-  border-bottom: 1px solid var(--line);
-  font-size: .7em;
-  font-weight: 850;
-  letter-spacing: .07em;
+  padding: clamp(5px, .55vw, 10px) clamp(10px, 1vw, 20px);
+  border-bottom: 1px solid var(--signal-rule);
+  background: var(--signal-pine-tint);
+  color: var(--signal-pine);
+  font-size: clamp(10px, .75vw, 15px);
+  font-weight: 900;
+  letter-spacing: .12em;
   text-transform: uppercase;
 }
 
-.schedule-row { min-height: clamp(53px, 4.3vh, 72px); border-bottom: 1px solid var(--line); }
+.schedule-row {
+  min-height: clamp(36px, 4.1vh, 72px);
+  border-bottom: 1px solid var(--signal-faint-rule);
+}
+
 .schedule-row:last-child { border-bottom: 0; }
 
 .row-label {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 8px clamp(12px, 1vw, 20px);
-  border-right: 1px solid var(--line);
-  font-size: .75em;
-  font-weight: 800;
+  padding: 5px clamp(10px, 1vw, 20px);
+  border-right: 1px solid var(--signal-rule);
+  background: color-mix(in srgb, var(--signal-paper) 72%, var(--signal-mat));
+  color: var(--signal-ink);
+  font-size: clamp(10px, .82vw, 17px);
+  font-weight: 850;
+  line-height: 1.05;
 }
 
 .row-label small {
-  margin-top: 2px;
-  color: var(--ink-faint);
-  font-size: .78em;
-  font-weight: 650;
+  margin-top: 3px;
+  color: var(--signal-soft);
+  font-size: .76em;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
-.pending-row { background: var(--warn-tint); }
-.pending-row .row-label { color: var(--warn); }
-.pending-row { min-height: calc(12px + var(--pending-lanes, 1) * 40px); }
+.pending-row {
+  min-height: calc(9px + var(--pending-lanes, 1) * clamp(30px, 3.4vh, 52px));
+  background: var(--signal-brass-tint);
+}
+
+.pending-row .row-label {
+  background: var(--signal-brass-tint);
+  color: color-mix(in srgb, var(--signal-brass) 78%, var(--signal-ink));
+}
 
 .service-block {
   position: absolute;
@@ -232,7 +283,7 @@ h1 {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  color: var(--ink-soft);
+  border-inline: 1px solid var(--signal-rule);
   background: repeating-linear-gradient(
     -45deg,
     var(--service-stripe) 0,
@@ -240,79 +291,98 @@ h1 {
     var(--service-stripe-strong) 7px,
     var(--service-stripe-strong) 14px
   );
-  border-inline: 1px solid var(--line-strong);
-  font-size: clamp(8px, .58vw, 12px);
+  color: var(--signal-soft);
+  font-size: clamp(8px, .58vw, 13px);
   font-weight: 900;
-  letter-spacing: .04em;
+  letter-spacing: .06em;
   text-transform: uppercase;
 }
 
+/* tv.js positions a single continuous element per booking: this lets a long
+   reservation read as one deliberate timetable bar rather than loose cells. */
 .booking {
   position: absolute;
-  z-index: 2;
-  top: 6px;
-  bottom: 6px;
+  z-index: 3;
+  top: clamp(3px, .4vh, 7px);
+  bottom: clamp(3px, .4vh, 7px);
   min-width: 2px;
   overflow: hidden;
-  border-radius: 7px;
-  padding: 5px clamp(5px, .45vw, 9px);
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding: 3px clamp(4px, .5vw, 10px);
   border: 1px solid var(--ok);
+  border-radius: 2px;
   background: var(--ok-tint);
-  color: var(--ok);
+  color: color-mix(in srgb, var(--ok) 82%, var(--signal-ink));
+}
+
+.booking::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--ok);
+  content: "";
 }
 
 .booking.pending {
-  top: calc(5px + var(--lane, 0) * 40px);
+  top: calc(4px + var(--lane, 0) * clamp(30px, 3.4vh, 52px));
   bottom: auto;
-  height: 34px;
-  border-color: var(--warn);
+  height: clamp(25px, 2.8vh, 43px);
+  border: 1px dashed var(--signal-brass);
+  border-radius: 2px;
   background: repeating-linear-gradient(
     -45deg,
-    var(--warn-tint) 0,
-    var(--warn-tint) 7px,
-    color-mix(in srgb, var(--warn) 22%, var(--warn-tint)) 7px,
-    color-mix(in srgb, var(--warn) 22%, var(--warn-tint)) 14px
+    var(--signal-brass-tint) 0,
+    var(--signal-brass-tint) 7px,
+    color-mix(in srgb, var(--signal-brass) 20%, var(--signal-brass-tint)) 7px,
+    color-mix(in srgb, var(--signal-brass) 20%, var(--signal-brass-tint)) 14px
   );
-  color: var(--warn);
+  color: color-mix(in srgb, var(--signal-brass) 82%, var(--signal-ink));
 }
+
+.booking.pending::before { background: var(--signal-brass); }
 
 .booking-name,
 .booking-status,
 .booking-time {
+  position: relative;
+  z-index: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.booking-name { font-size: clamp(9px, .7vw, 14px); font-weight: 850; }
-.booking-time { font-size: clamp(8px, .59vw, 12px); font-weight: 700; opacity: .86; }
-.booking-status { font-size: clamp(7px, .52vw, 10px); font-weight: 850; }
+.booking-name { padding-left: 3px; font-size: clamp(8px, .76vw, 16px); font-weight: 900; }
+.booking-time { padding-left: 3px; font-size: clamp(7px, .59vw, 13px); font-weight: 750; opacity: .9; }
+.booking-status { padding-left: 3px; font-size: clamp(7px, .53vw, 11px); font-weight: 850; }
 
+/* tv.js calculates each marker against its own .track, so this stays accurate
+   at every screen width. Only the ruler receives a visible "Now" label. */
 .current-time {
   position: absolute;
-  z-index: 4;
+  z-index: 6;
   top: 0;
   bottom: 0;
   width: 2px;
   background: var(--danger);
-  box-shadow: 0 0 0 1px var(--surface);
+  box-shadow: 0 0 0 1px var(--signal-mat);
   pointer-events: none;
 }
 
-.current-time::before {
-  content: "Now";
+.schedule-row .current-time::before { display: none; }
+
+.ruler-track .current-time::before {
   position: absolute;
-  top: -1px;
+  top: 3px;
   left: 4px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  color: #fff;
+  padding: 2px 5px;
   background: var(--danger);
-  font-size: 8px;
+  color: var(--danger-ink);
+  content: "NOW";
+  font-size: clamp(7px, .5vw, 10px);
   font-weight: 900;
+  letter-spacing: .06em;
 }
 
 .empty-note {
@@ -320,54 +390,81 @@ h1 {
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--ink-faint);
-  font-size: .65em;
-  font-weight: 650;
+  color: var(--signal-soft);
+  font-size: clamp(8px, .6vw, 13px);
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
 }
 
 .tv-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 10px clamp(14px, 1.5vw, 28px);
-  color: var(--ink-soft);
-  font-size: .67em;
+  gap: 8px clamp(14px, 1.45vw, 28px);
+  color: var(--signal-soft);
+  font-size: clamp(10px, .68vw, 14px);
   font-weight: 750;
 }
 
-.tv-footer > span:first-child { margin-right: auto; color: var(--ink-faint); }
-.legend { display: inline-flex; align-items: center; gap: 7px; }
-.legend i { width: 16px; height: 10px; border-radius: 3px; }
-.legend.approved i { background: var(--ok-tint); border: 1px solid var(--ok); }
-.legend.pending i { background: var(--warn-tint); border: 1px solid var(--warn); }
-.legend.service i { background: var(--surface-sunken); border: 1px solid var(--line-strong); }
+.tv-footer > span:first-child {
+  margin-right: auto;
+  color: var(--signal-ink);
+  font-weight: 850;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
 
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legend i {
+  width: 20px;
+  height: 11px;
+  border-radius: 1px;
+}
+
+.legend.approved i { border: 1px solid var(--ok); background: var(--ok-tint); box-shadow: inset 4px 0 var(--ok); }
+.legend.pending i { border: 1px dashed var(--signal-brass); background: var(--signal-brass-tint); box-shadow: inset 4px 0 var(--signal-brass); }
+.legend.service i { border: 1px solid var(--signal-rule); background: repeating-linear-gradient(-45deg, var(--service-stripe) 0, var(--service-stripe) 4px, var(--service-stripe-strong) 4px, var(--service-stripe-strong) 8px); }
+
+/* A 720p lobby screen needs every unit and request lane on one calm, complete
+   view. Reduce decorative space first; preserve labels and the full time scale. */
 @media (max-height: 800px) {
-  .tv-shell { padding: 9px 18px 8px; gap: 7px; }
-  .tv-header { padding-bottom: 7px; }
-  .eyebrow { margin-bottom: 2px; font-size: 9px; }
-  h1 { font-size: 29px; }
-  .clock { font-size: 32px; }
-  .today { margin-top: 2px; font-size: 12px; }
-  .connection { margin-top: 3px; font-size: 10px; }
-  .connection-dot { width: 7px; height: 7px; }
-  .updated { margin-top: 1px; font-size: 8px; }
-  .schedule-row { min-height: 30px; }
-  .pending-row { min-height: calc(6px + var(--pending-lanes, 1) * 24px); }
-  .ruler-track { height: 29px; }
-  .ruler-label { padding-block: 6px; }
-  .tick { top: 8px; }
-  .category-title { padding-block: 4px; font-size: 9px; }
+  .tv-shell { gap: 7px; padding: 9px 16px 8px; }
+  .tv-header { border-top-width: 3px; padding-bottom: 7px; }
+  .eyebrow { margin: 6px 0 2px; font-size: 9px; }
+  h1 { font-size: 31px; }
+  .today { margin-top: 3px; font-size: 12px; }
+  .header-status { padding-top: 7px; }
+  .clock { font-size: 34px; }
+  .connection { gap: 6px; margin-top: 4px; font-size: 9px; }
+  .connection-dot { width: 7px; height: 7px; border-width: 1px; box-shadow: none; }
+  .updated { margin-top: 2px; font-size: 8px; }
+  .board { border-width: 1px; box-shadow: 4px 4px 0 color-mix(in srgb, var(--signal-ink) 16%, transparent); }
+  .ruler-track { height: 30px; }
+  .ruler-label { padding-block: 5px; font-size: 9px; }
+  .tick { font-size: 8px; }
+  .category-title { padding-block: 3px; font-size: 8px; }
+  .schedule-row { min-height: 29px; }
   .row-label { padding-block: 2px; font-size: 9px; }
-  .row-label small { margin-top: 0; font-size: 7px; }
+  .row-label small { margin-top: 1px; font-size: 7px; }
+  .pending-row { min-height: calc(5px + var(--pending-lanes, 1) * 23px); }
   .booking { top: 2px; bottom: 2px; padding: 1px 4px; }
-  .booking.pending { top: calc(3px + var(--lane, 0) * 24px); bottom: auto; height: 21px; }
-  .booking-name { font-size: 9px; }
-  .booking-time { display: none; }
-  .booking-status { display: none; }
-  .current-time::before { display: none; }
-  .tv-footer { font-size: 10px; }
+  .booking::before { width: 3px; }
+  .booking.pending { top: calc(2px + var(--lane, 0) * 23px); height: 20px; }
+  .booking-name { padding-left: 2px; font-size: 8px; }
+  .booking-time, .booking-status { display: none; }
+  .ruler-track .current-time::before { display: none; }
+  .tv-footer { font-size: 9px; }
+  .legend i { width: 14px; height: 8px; }
+}
+
+@media (max-width: 1050px) {
+  .tick:not(.edge-start):not(.edge-end):nth-of-type(even) { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -23,7 +23,7 @@ are shown in calendar order and have distinct Tuesday and Saturday styling.
 Open **Reservations**, then choose Tuesday or Saturday. Reservations is the member
 booking screen. The selected date also stays the same when you move to Admin.
 
-The schedule has separate sections for:
+Choose one of these resource types:
 
 - Study Rooms 1–4.
 - Whiteboards 1–5. Each whiteboard remains paired with its same-numbered podium.
@@ -32,12 +32,10 @@ The schedule has separate sections for:
 The Baptism Room is no longer part of scheduling and will not appear as an option.
 
 Use the **Study room**, **Whiteboard**, or **TV** picker above the calendar to choose
-which resource schedule to show. The
-scrollable calendar has a clickable time column on the left and numbered resource
-columns (1, 2, 3, and so on) on the right. An approved unit displays the person’s
-name and purpose. Green means your approved reservation, gray means someone else’s
-approved reservation, yellow outlines are pending requests, and light-red outlines
-show a cancelled time that can be booked again if space is available.
+which availability list to show. Each time row says how many units remain open.
+Tap **View numbered units** when you need the secondary unit-by-unit detail. Pending
+requests appear only in the request count because they do not own a numbered unit
+until Admin approves and assigns one.
 
 Open **My reservations** to see the status of every request made from this device and
 recent **Schedule updates**, including Requested, Reserved, and Cancelled activity.
@@ -85,7 +83,7 @@ the earlier request wins when two have the same purpose.
 
 ### Check or cancel your request
 
-Your requests appear under **My requests** on the device used to submit them.
+Your requests appear under **My reservations** on the device used to submit them.
 Possible statuses include:
 
 - **Requested — awaiting approval:** visible to everyone but not assigned.
@@ -93,7 +91,7 @@ Possible statuses include:
 - **Declined:** not approved.
 - **Cancelled:** withdrawn by the member or Admin.
 
-Use **Cancel** when your plans change. Cancelling removes the active request from the
+Use **Cancel request** or **Cancel reservation** when your plans change. Cancelling removes the active request from the
 live schedule. Older requests created before secure ownership was added may require
 Admin to make changes.
 
@@ -112,9 +110,9 @@ a short-lived Admin session, and repeated incorrect attempts are limited.
 ### Review and assign requests
 
 Saturday pending requests are listed by priority: Contact, New Member, Meeting, then
-Other. The Admin screen includes the same unit grid and activity feed used by members,
-then preselects the recommended available resource; you can change it before approving
-or declining.
+Other. Select a request in the priority queue to see its details, whole-range
+availability, recommended numbered assignment, and day map together. You can change
+the recommended unit before approving or declining.
 
 ## Preview sample information
 

@@ -79,6 +79,7 @@ let ui = {
   selectedDate: null,   // shared by Reservations and Admin
   memberType: 'room',   // resource highlighted by the Reservations picker
   adminType: 'room',    // resource displayed in the matching Admin calendar
+  adminSelectedId: null, // one pending request shown in the Admin detail pane
   memberSelection: null, // { date, type, start, end, windowIdx }
   pinError: '',
   submitting: false,
@@ -87,6 +88,8 @@ let ui = {
   returnFocusKey: null, // calendar-cell key to restore focus after the popup closes
   adminAssign: {},       // bookingId -> { room, whiteboard, tv } draft unit picks (pending or re-approve)
   adminReapproveId: null, // id of a declined/cancelled booking currently showing the assignment UI
+  adminActionId: null,    // booking currently saving through a protected Admin action
+  adminSubmitting: false, // prevents duplicate direct-add bookings
   adminForm: null,       // Admin "Add a booking" form draft, created lazily by ensureAdminFormDraft()
   adminNotes: {},
   adminNotesDate: null,
@@ -94,6 +97,10 @@ let ui = {
 };
 
 let fb = null; // Firebase modules, authenticated user, Firestore, and callable functions
+let scheduleReady = false; // unverified empty data must never look like real availability
+let adminExpiryTimer = null;
+let subscribedDateKey = '';
+let rolloverWarningShown = false;
 
 /* ================= tiny helpers ================= */
 
@@ -251,7 +258,7 @@ function bookingsList() {
   const live = Object.keys(state.bookings)
     .map(id => Object.assign({ id: id }, state.bookings[id]))
     .filter(isValidBooking);
-  return demoMode() ? live.concat(demoBookings()) : live;
+  return demoMode() ? demoBookings() : live;
 }
 function bookingByIdSafe(id) {
   const sample = demoBookings().find(b => b.id === id);
@@ -307,6 +314,14 @@ function adminSessionToken() {
   if (!adminUnlocked()) return '';
   try { return JSON.parse(sessionStorage.getItem(ADMIN_KEY)).token || ''; }
   catch (e) { return ''; }
+}
+function scheduleAdminExpiry(expiresAt) {
+  if (adminExpiryTimer) clearTimeout(adminExpiryTimer);
+  const delay = Math.max(0, Number(expiresAt || 0) - Date.now());
+  adminExpiryTimer = setTimeout(() => {
+    adminExpiryTimer = null;
+    endAdminSession();
+  }, Math.min(delay, 2147483647));
 }
 
 /* ---- this device's own requests (localStorage) ---- */
@@ -477,7 +492,7 @@ function loadLocal() {
 }
 function saveLocal() {
   try {
-    localStorage.setItem(DATA_KEY, JSON.stringify({ bookings: state.bookings }));
+    localStorage.setItem(DATA_KEY, JSON.stringify({ bookings: state.bookings, queryDates: upcomingBookingDates() }));
   } catch (e) { /* storage full/blocked — realtime copy still lives in Firestore */ }
 }
 
@@ -543,6 +558,7 @@ async function initFirebase(config) {
     fsMod.collection(db, 'bookings'),
     fsMod.where('date', 'in', upcomingBookingDates())
   );
+  subscribedDateKey = upcomingBookingDates().join('|');
   fsMod.onSnapshot(bookingQuery, { includeMetadataChanges: true }, snap => {
     // A cache-only empty snapshot (no server contact yet) must not wipe the
     // device's saved bookings — wait for a real server answer.
@@ -551,6 +567,7 @@ async function initFirebase(config) {
     myBookingIds().forEach(id => { if (state.bookings[id]) previousStatuses[id] = state.bookings[id].status; });
     state.bookings = {};
     snap.docs.forEach(d => { state.bookings[d.id] = d.data(); });
+    scheduleReady = true;
     // Tell this device's owner (visibly and via the aria-live banner region)
     // when the approver decides one of their pending requests.
     myBookingIds().forEach(id => {
@@ -562,20 +579,21 @@ async function initFirebase(config) {
     saveLocal(); render();
     setSyncPill(!snap.metadata.fromCache, snap.metadata.fromCache ? 'Reconnecting' : 'Live');
   }, err => {
-    addBanner('Could not connect to the shared database (' + esc(err.code || 'error') + '). Showing this device’s copy.', true);
+    addBanner('Could not connect to the shared database (' + (err.code || 'error') + '). Showing this device’s copy.', true);
     setSyncPill(false, 'Reconnecting');
+    render();
   });
   setSyncPill(false, 'Connecting');
 }
 
 /* ================= banners ================= */
 
-function addBanner(html, isError) {
+function addBanner(text, isError) {
   const box = document.getElementById('banners');
   if (!box) return;
   const div = document.createElement('div');
   div.className = 'banner' + (isError ? ' error' : '');
-  div.innerHTML = html;
+  div.textContent = String(text || '');
   box.appendChild(div);
   setTimeout(() => div.remove(), 8000);
 }
@@ -590,24 +608,66 @@ function render() {
   // current inputs into the draft before rebuilding the calendar so those
   // live updates never erase unsaved member details.
   const activeBeforeRender = document.activeElement;
+  const adminPinDraft = activeBeforeRender && activeBeforeRender.id === 'admin-pin-input' ? activeBeforeRender.value : '';
   const popupFocus = ui.signup && activeBeforeRender && activeBeforeRender.closest('.booking-dialog')
     ? { id: activeBeforeRender.id || '', act: activeBeforeRender.dataset.act || '', item: activeBeforeRender.dataset.id || '' }
     : null;
+  const actionNode = activeBeforeRender && !activeBeforeRender.closest('.booking-dialog') ? activeBeforeRender.closest('[data-act]') : null;
+  const fieldFocus = activeBeforeRender && !activeBeforeRender.closest('.booking-dialog') && activeBeforeRender.id ? {
+    id: activeBeforeRender.id,
+    start: typeof activeBeforeRender.selectionStart === 'number' ? activeBeforeRender.selectionStart : null,
+    end: typeof activeBeforeRender.selectionEnd === 'number' ? activeBeforeRender.selectionEnd : null
+  } : null;
+  const actionFocus = actionNode ? {
+    act: actionNode.dataset.act || '', id: actionNode.dataset.id || '', date: actionNode.dataset.date || '',
+    type: actionNode.dataset.type || '', win: actionNode.dataset.win || '', booking: actionNode.dataset.booking || ''
+  } : null;
   syncSignupDraft();
+  syncAdminFormDraft();
   document.body.classList.toggle('modal-open', !!ui.signup);
+  document.body.classList.toggle('admin-workspace-open', ui.tab === 'admin' && adminUnlocked());
 
   const date = selectedDate();
 
   const tabs = document.getElementById('tabs');
   if (tabs) {
-    tabs.innerHTML = TABS.map(t =>
-      '<button class="tab' + (ui.tab === t.id ? ' active' : '') + '" role="tab" aria-selected="' + (ui.tab === t.id ? 'true' : 'false') + '" aria-controls="app" data-act="tab" data-id="' + t.id + '">' + esc(t.label) + '</button>'
+    const visibleTabs = demoMode() ? TABS.filter(t => t.id !== 'admin') : TABS;
+    if (!visibleTabs.some(t => t.id === ui.tab)) ui.tab = 'schedule';
+    tabs.innerHTML = visibleTabs.map(t =>
+      '<button id="tab-' + t.id + '" class="tab' + (ui.tab === t.id ? ' active' : '') + '" role="tab" aria-selected="' + (ui.tab === t.id ? 'true' : 'false') + '" tabindex="' + (ui.tab === t.id ? '0' : '-1') + '" aria-controls="app" data-act="tab" data-id="' + t.id + '">' + esc(t.label) + '</button>'
     ).join('');
   }
+
+  app.setAttribute('aria-labelledby', 'tab-' + ui.tab);
 
   if (ui.tab === 'admin') app.innerHTML = renderAdmin();
   else if (ui.tab === 'mine') app.innerHTML = renderMyReservations();
   else app.innerHTML = renderSchedule();
+
+  const masthead = document.getElementById('masthead');
+  const primaryNav = document.querySelector('nav[aria-label="Primary"]');
+  if (masthead) masthead.inert = !!ui.signup;
+  if (primaryNav) primaryNav.inert = !!ui.signup;
+  const memberBackground = app.querySelector(':scope > .member-booking');
+  if (memberBackground) memberBackground.inert = !!ui.signup;
+  const freshPin = document.getElementById('admin-pin-input');
+  if (freshPin && adminPinDraft) freshPin.value = adminPinDraft;
+
+  if (!ui.signup && (actionFocus || fieldFocus)) {
+    requestAnimationFrame(() => {
+      const exactField = fieldFocus ? document.getElementById(fieldFocus.id) : null;
+      const fresh = Array.from(document.querySelectorAll('[data-act]')).find(node =>
+        actionFocus &&
+        (node.dataset.act || '') === actionFocus.act && (node.dataset.id || '') === actionFocus.id &&
+        (node.dataset.date || '') === actionFocus.date && (node.dataset.type || '') === actionFocus.type &&
+        (node.dataset.win || '') === actionFocus.win && (node.dataset.booking || '') === actionFocus.booking);
+      const fallback = document.querySelector('.admin-queue-item.selected, .admin-queue-item');
+      if (exactField) {
+        exactField.focus();
+        if (fieldFocus.start !== null && typeof exactField.setSelectionRange === 'function') exactField.setSelectionRange(fieldFocus.start, fieldFocus.end);
+      } else if (fresh && !fresh.disabled) fresh.focus(); else if (fallback) fallback.focus();
+    });
+  }
 
   if (ui.signup) {
     requestAnimationFrame(() => {
@@ -633,7 +693,7 @@ function dateSelectorHtml() {
       const dayClass = isTuesday(date) ? ' tuesday' : ' saturday';
       return '<button type="button" class="date-choice' + dayClass + (selected ? ' active' : '') + '" data-act="select-date" data-id="' + date + '" aria-pressed="' + (selected ? 'true' : 'false') + '">' +
         '<span class="date-choice-day">' + (isTuesday(date) ? 'Tuesday' : 'Saturday') + '</span>' +
-        '<span class="date-choice-date">' + esc(fmtHeaderDate(date)) + '</span></button>';
+        '<span class="date-choice-date">' + esc(fmtHeaderDate(date)) + ' · ' + (isTuesday(date) ? 'Instant if open' : 'Approval required') + '</span></button>';
     }).join('') + '</div>';
 }
 
@@ -641,12 +701,15 @@ function dateSelectorHtml() {
 
 function renderSchedule() {
   const date = selectedDate();
+  if (!scheduleReady && !demoMode()) {
+    return '<section class="member-booking"><div class="member-intro"><div class="eyebrow">Reservations</div><h1>Confirming availability.</h1><p>The shared schedule is connecting. Times will appear as soon as current availability is verified.</p></div><div class="schedule-loading" role="status" aria-live="polite"><span aria-hidden="true"></span>Connecting to the shared schedule</div></section>';
+  }
   let html = '<section class="member-booking">' +
     (demoMode() ? '<div class="demo-notice">Sample preview — no changes here affect the real schedule.</div>' : '') +
-    myApprovalHtml(date) +
+    '<div class="member-intro"><div class="eyebrow">Reservations</div><h1>Find an open time.</h1><p>Choose a resource and a time. Admin assigns the exact numbered unit when approval is needed.</p></div>' +
     '<div class="member-calendars"><div class="calendar-date-wrap">' + dateSelectorHtml() + '</div>' +
     memberResourceToggleHtml(ui.memberType, 'member-type') +
-    '<p class="calendar-help">Tap a time to reserve 30 minutes. Tap a later time in the same calendar to make your reservation longer.</p>' +
+    '<p class="calendar-help">One tap selects 30 minutes. Tap a later available time in the same section to extend the reservation.</p>' +
     memberCalendarHtml(date, ui.memberType, true, 'member') +
     '</div></section>';
   if (ui.signup) html += bookingModalHtml();
@@ -657,7 +720,7 @@ function memberResourceToggleHtml(type, action) {
   const currentType = type;
   const actionName = action;
   return '<div class="member-resource-toggle" role="group" aria-label="Choose reservation type">' + NEED_TYPES.map(type =>
-    '<button type="button" class="member-resource' + (currentType === type.id ? ' active' : '') + '" data-act="' + esc(actionName) + '" data-id="' + esc(type.id) + '" aria-pressed="' + (currentType === type.id ? 'true' : 'false') + '">' + esc(type.label) + '</button>'
+    '<button type="button" class="member-resource' + (currentType === type.id ? ' active' : '') + '" data-act="' + esc(actionName) + '" data-id="' + esc(type.id) + '" aria-pressed="' + (currentType === type.id ? 'true' : 'false') + '">' + esc(type.label) + ' · ' + unitsForType(type.id).length + '</button>'
   ).join('') + '</div>';
 }
 
@@ -665,12 +728,9 @@ function memberSlotStatus(type, date, start, unitId) {
   const end = hhmmOfMins(minsOfDay(start) + 30);
   const approved = unitOccupant(type, unitId, date, start, end, null);
   if (approved) return myBookingIds().indexOf(approved.id) !== -1 ? 'mine' : 'taken';
-  const freeUnits = unitsForType(type).filter(unit => !unitOccupant(type, unit.id, date, start, end, null));
-  const freePosition = freeUnits.findIndex(unit => unit.id === unitId);
-  const pendingCount = bookingsForDate(date).filter(b => b.status === 'pending' && needsOf(b)[type] && rangesOverlap(b.start, b.end, start, end)).length;
-  if (freePosition >= 0 && freePosition < pendingCount) return 'pending';
-  const cancelled = bookingsForDate(date).some(b => b.status === 'cancelled' && needsOf(b)[type] && (assignmentsOf(b)[type] === unitId || (b.lastAssignments || {})[type] === unitId) && rangesOverlap(b.start, b.end, start, end));
-  return cancelled ? 'cancelled' : 'open';
+  // Pending requests never own a numbered unit. They appear only in the
+  // aggregate request count and Admin queue until approval assigns a unit.
+  return 'open';
 }
 
 function resourceLabelFor(b) {
@@ -679,26 +739,29 @@ function resourceLabelFor(b) {
   return id ? unitLabel(type, id) : needLabel(type);
 }
 
-function activityFeedHtml(date) {
-  const events = bookingsForDate(date).filter(b => ['pending', 'approved', 'cancelled'].includes(b.status)).map(b => {
+function activityFeedHtml(dateOrDates) {
+  const dates = Array.isArray(dateOrDates) ? dateOrDates : [dateOrDates];
+  const events = bookingsList().filter(b => dates.includes(b.date) && ['pending', 'approved', 'cancelled'].includes(b.status)).map(b => {
     const status = b.status === 'approved' ? 'Reserved' : b.status === 'cancelled' ? 'Cancelled' : 'Requested';
     const when = b.status === 'approved' ? (b.decidedAt || b.updatedAt || b.createdAt) : (b.updatedAt || b.createdAt);
     return { b, status, when: timestampMillis(when) };
   }).sort((a, b) => b.when - a.when).slice(0, 6);
-  if (!events.length) return '<section class="activity-feed"><div class="activity-title">Schedule updates</div><p>No updates yet.</p></section>';
-  return '<section class="activity-feed"><div class="activity-title">Schedule updates</div><div class="activity-table"><div class="activity-row activity-head"><span>Update</span><span>Member</span><span>Purpose</span><span>Start</span><span>End</span></div>' + events.map(event =>
-    '<div class="activity-row ' + esc(event.b.status) + '"><span><strong>' + esc(event.status + ' ' + resourceLabelFor(event.b)) + '</strong></span><span>' + esc(event.b.name) + '</span><span>' + esc(bookingPurposeText(event.b)) + '</span><span>' + esc(fmtTime(event.b.start)) + '</span><span>' + esc(fmtTime(event.b.end)) + '</span></div>'
+  if (!events.length) return '<section class="activity-feed"><div class="activity-title">Recent updates</div><p>No updates yet.</p></section>';
+  return '<section class="activity-feed"><div class="activity-title">Recent updates</div><div class="activity-list">' + events.map(event =>
+    '<div class="activity-row ' + esc(event.b.status) + '"><div><strong>' + esc(event.status + ' ' + resourceLabelFor(event.b)) + '</strong><span>' + esc(event.b.name) + ' · ' + esc(bookingPurposeText(event.b)) + '</span></div><time>' + esc(fmtDate(event.b.date)) + '<br>' + esc(fmtTime(event.b.start)) + '–' + esc(fmtTime(event.b.end)) + '</time></div>'
   ).join('') + '</div></section>';
 }
 
 function memberCalendarHtml(date, type, selectable, context) {
+  if (context === 'admin') return adminUnitCalendarHtml(date, type);
   const units = unitsForType(type);
   const selected = ui.memberSelection;
-  let html = '<section class="member-calendar" aria-label="' + esc(needLabel(type)) + ' schedule">' +
-    '<div class="member-calendar-heading"><h2>' + esc(needLabel(type)) + ' schedule</h2><span>' + units.length + ' available</span></div>' +
-    (context === 'admin' ? '<div class="calendar-date-wrap">' + dateSelectorHtml() + '</div>' + memberResourceToggleHtml(type, 'admin-type') : '') +
-    '<div class="member-calendar-scroll"><div class="member-calendar-grid">';
-  html += '<div class="member-calendar-row unit-header"><div class="member-time"><small>Select a time</small><span>Time</span></div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span>' + esc(String(unit.num)) + '</span>').join('') + '</div></div>';
+  const firstOpen = allSlotStarts(date).find(start => freeUnitsForType(type, date, start, hhmmOfMins(minsOfDay(start) + 30), null).length > 0);
+  const firstCount = firstOpen ? freeUnitsForType(type, date, firstOpen, hhmmOfMins(minsOfDay(firstOpen) + 30), null).length : 0;
+  let html = '<section class="member-calendar availability-calendar" aria-label="' + esc(needLabel(type)) + ' availability">' +
+    '<div class="member-calendar-heading"><h2>Available times</h2><span>' + units.length + ' total</span></div>' +
+    '<div class="first-opening"><span>First opening</span><strong>' + (firstOpen ? esc(fmtTime(firstOpen) + ' · ' + firstCount + ' of ' + units.length + ' open') : 'No openings') + '</strong></div>' +
+    '<div class="availability-list">';
   scheduleSegments(date).forEach(window => {
     if (window.service) {
       html += '<div class="member-service"><span>' + esc(window.label) + '</span><span>' + esc(fmtTime(window.start)) + '–' + esc(fmtTime(window.end)) + '</span></div>';
@@ -708,21 +771,46 @@ function memberCalendarHtml(date, type, selectable, context) {
     slotStarts(window).forEach(start => {
       const selectedHere = selected && selected.date === date && selected.type === type && selected.windowIdx === windowIdx && minsOfDay(start) >= minsOfDay(selected.start) && minsOfDay(start) < minsOfDay(selected.end);
       const end = hhmmOfMins(minsOfDay(start) + 30);
-      const hasOpenUnit = freeUnitsForType(type, date, start, end, null).length > 0;
-      html += '<div class="member-calendar-row"><' + (selectable && hasOpenUnit ? 'button type="button" data-act="member-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-win="' + windowIdx + '" data-id="' + esc(start) + '" class="member-time selectable' + (selectedHere ? ' selected' : '') + '"' : 'div class="member-time"') + '>' + esc(fmtTime(start)) + '</' + (selectable && hasOpenUnit ? 'button' : 'div') + '><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => {
+      const free = freeUnitsForType(type, date, start, end, null);
+      const hasOpenUnit = free.length > 0;
+      const pendingCount = bookingsForDate(date).filter(b => b.status === 'pending' && needsOf(b)[type] && rangesOverlap(b.start, b.end, start, end)).length;
+      const approvedCount = units.length - free.length;
+      const selectTag = selectable && hasOpenUnit ? 'button' : 'div';
+      html += '<div class="availability-item' + (selectedHere ? ' selected' : '') + (!hasOpenUnit ? ' full' : '') + '"><' + selectTag + (selectTag === 'button' ? ' type="button" data-act="member-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-win="' + windowIdx + '" data-id="' + esc(start) + '" aria-pressed="' + (selectedHere ? 'true' : 'false') + '"' : ' aria-disabled="true"') + ' class="availability-select"><span class="availability-time">' + esc(fmtTime(start)) + '</span><span class="availability-copy"><strong>' + (hasOpenUnit ? free.length + ' of ' + units.length + ' open' : 'Full') + '</strong><small>' + approvedCount + ' approved' + (pendingCount ? ' · ' + pendingCount + ' requested' : '') + '</small></span><span class="availability-arrow" aria-hidden="true">' + (hasOpenUnit ? '›' : '—') + '</span></' + selectTag + '><details class="availability-details"><summary>View numbered units</summary><div class="unit-detail-grid" style="--capacity:' + units.length + '">' + units.map(unit => {
         const status = memberSlotStatus(type, date, start, unit.id);
         const occupant = unitOccupant(type, unit.id, date, start, end, null);
-        const before = occupant && unitOccupant(type, unit.id, date, hhmmOfMins(minsOfDay(start) - 30), start, null)?.id === occupant.id;
-        const after = occupant && unitOccupant(type, unit.id, date, end, hhmmOfMins(minsOfDay(end) + 30), null)?.id === occupant.id;
-        const segment = occupant ? (!before && after ? ' booking-start' : before && after ? ' booking-middle' : before ? ' booking-end' : ' booking-only') : '';
-        const label = occupant && !before ? occupant.name + ' · ' + bookingPurposeText(occupant) : '';
-        return '<div class="member-square ' + status + segment + (selectedHere ? ' selected' : '') + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + status) + '">' + esc(label) + '</div>';
+        const shortLabel = type === 'room' ? 'R' + unit.num : type === 'whiteboard' ? 'W' + unit.num : 'TV' + unit.num;
+        return '<div class="unit-detail ' + status + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + status) + '"><strong>' + esc(shortLabel) + '</strong><span>' + (occupant ? esc(occupant.name) : 'Open') + '</span></div>';
+      }).join('') + '</div></details></div>';
+    });
+  });
+  html += '</div>';
+  if (selected && selected.type === type) {
+    const wholeRangeOpen = freeUnitsForType(type, date, selected.start, selected.end, null).length;
+    html += '<div class="member-selection-summary" role="status" aria-live="polite"><span><strong>' + esc(fmtTime(selected.start)) + '–' + esc(fmtTime(selected.end)) + '</strong><small>' + esc(needLabel(type)) + ' · ' + wholeRangeOpen + ' open for the entire range</small></span><button type="button" class="selection-clear" data-act="member-clear">Clear</button><button type="button" class="btn primary" data-act="member-continue" data-focus-key="member-continue">Continue</button></div>';
+  }
+  return html + '</section>';
+}
+
+function adminUnitCalendarHtml(date, type) {
+  const units = unitsForType(type);
+  let html = '<section class="member-calendar admin-unit-calendar" aria-label="' + esc(needLabel(type)) + ' schedule">' +
+    '<div class="member-calendar-heading"><h2>' + esc(needLabel(type)) + ' day map</h2><span>' + units.length + ' units</span></div>' +
+    memberResourceToggleHtml(type, 'admin-type') +
+    '<div class="member-calendar-scroll"><div class="member-calendar-grid">' +
+    '<div class="member-calendar-row unit-header"><div class="member-time"><small>Time</small></div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span>' + esc(String(unit.num)) + '</span>').join('') + '</div></div>';
+  scheduleSegments(date).forEach(window => {
+    if (window.service) { html += '<div class="member-service"><span>' + esc(window.label) + '</span><span>' + esc(fmtTime(window.start)) + '–' + esc(fmtTime(window.end)) + '</span></div>'; return; }
+    slotStarts(window).forEach(start => {
+      const end = hhmmOfMins(minsOfDay(start) + 30);
+      html += '<div class="member-calendar-row"><div class="member-time">' + esc(fmtTime(start)) + '</div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => {
+        const status = memberSlotStatus(type, date, start, unit.id);
+        const occupant = unitOccupant(type, unit.id, date, start, end, null);
+        return '<div class="member-square ' + status + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + status) + '">' + (occupant ? esc(occupant.name) : '') + '</div>';
       }).join('') + '</div></div>';
     });
   });
-  html += '</div></div>';
-  if (selected && selected.type === type) html += '<div class="member-selection-summary"><span><strong>' + esc(fmtTime(selected.start)) + '–' + esc(fmtTime(selected.end)) + '</strong> · ' + esc(needLabel(type)) + '</span><button type="button" class="btn primary" data-act="member-continue" data-focus-key="member-continue">Continue</button></div>';
-  return html + '</section>';
+  return html + '</div></div></section>';
 }
 
 function myApprovalHtml(date) {
@@ -749,15 +837,29 @@ function renderMyRequests(date) {
 }
 
 function renderMyReservations() {
+  if (!scheduleReady && !demoMode()) {
+    return '<section class="member-booking"><div class="member-intro"><div class="eyebrow">My reservations</div><h1>Confirming your reservations.</h1><p>The shared schedule is connecting.</p></div><div class="schedule-loading" role="status" aria-live="polite"><span aria-hidden="true"></span>Loading current reservation statuses</div></section>';
+  }
   const items = myBookingIds().map(bookingByIdSafe).filter(Boolean)
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
   // No date selector here on purpose: this list always shows every upcoming
   // reservation from this device, so a day filter would only mislead.
-  let html = '<section class="member-booking"><div class="member-intro"><h1>My reservations</h1><p>Check the status of reservations made from this device.</p></div></section>';
-  html += '<div class="card"><h2>Your requests</h2>';
+  let html = '<section class="member-booking"><div class="member-intro"><div class="eyebrow">My reservations</div><h1>Your upcoming plans.</h1><p>Requests made from this device stay here with their latest status.</p></div></section>';
+  const active = items.filter(b => b.status === 'pending' || b.status === 'approved');
+  const inactive = items.filter(b => b.status !== 'pending' && b.status !== 'approved');
+  html += '<div class="reservation-list">';
   if (!items.length) html += '<p class="hint">No reservations have been made from this device yet.</p>';
-  else items.forEach(b => { html += myRequestRowHtml(b, b.date); });
-  return html + '</div>' + activityFeedHtml(selectedDate());
+  else {
+    if (active.length) {
+      html += '<h2>Upcoming</h2>';
+      active.forEach((b, index) => { html += myRequestRowHtml(b, b.date, index === 0); });
+    }
+    if (inactive.length) {
+      html += '<h2 class="reservation-section-title">Previous decisions</h2>';
+      inactive.forEach(b => { html += myRequestRowHtml(b, b.date, false); });
+    }
+  }
+  return html + '</div>' + activityFeedHtml(upcomingBookingDates());
 }
 
 function myRequestStatusHtml(b, date) {
@@ -774,13 +876,17 @@ function myRequestStatusHtml(b, date) {
   return '<span class="badge status-approved">Approved' + (parts.length ? ' — ' + esc(parts.join(', ')) : '') + '</span>';
 }
 
-function myRequestRowHtml(b, date) {
+function myRequestRowHtml(b, date, featured) {
   const active = b.status === 'pending' || b.status === 'approved';
-  return '<div class="req-row">' +
+  const featureClass = featured ? (b.status === 'approved' ? ' featured-approved' : b.status === 'pending' ? ' featured-pending' : '') : '';
+  const kicker = featured ? (b.status === 'approved' ? 'Next reservation' : b.status === 'pending' ? 'Next request' : 'Latest request') : (STATUS_LABEL[b.status] || 'Reservation');
+  return '<article class="req-row reservation-card' + featureClass + '">' +
+    '<div class="reservation-kicker">' + esc(kicker) + '</div>' +
+    '<div class="reservation-time">' + esc(fmtDate(b.date)) + ' · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</div>' +
     '<div class="req-head">' + esc(needsSummary(b)) + ' ' + myRequestStatusHtml(b, date) + '</div>' +
-    '<div class="req-sub">' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + ' · ' + esc(bookingPurposeText(b)) + '</div>' +
-    (active ? '<div class="req-actions"><a href="#" class="cancel-link" data-act="my-cancel" data-id="' + esc(b.id) + '">Plans changed? Cancel</a></div>' : '') +
-    '</div>';
+    '<div class="req-sub">' + esc(bookingPurposeText(b)) + '</div>' +
+    (active ? '<div class="req-actions"><a href="#" class="cancel-link" data-act="my-cancel" data-id="' + esc(b.id) + '">' + (b.status === 'approved' ? 'Cancel reservation' : 'Cancel request') + '</a></div>' : '') +
+    '</article>';
 }
 
 /* ================= calendar-first reservation popup ================= */
@@ -788,6 +894,7 @@ function myRequestRowHtml(b, date) {
 function ensureSignupDraft() {
   if (ui.signup) return;
   ui.signup = {
+    date: selectedDate(),
     name: localStorage.getItem(NAME_KEY) || '',
     needs: { room: false, whiteboard: false, tv: false },
     preferredRoom: null,
@@ -818,7 +925,7 @@ function syncSignupDraft() {
 function signupComparable(d) {
   if (!d) return '';
   return JSON.stringify({
-    name: d.name || '', needs: d.needs, preferredRoom: d.preferredRoom || null,
+    date: d.date || '', name: d.name || '', needs: d.needs, preferredRoom: d.preferredRoom || null,
     start: d.start, end: d.end, windowIdx: d.windowIdx,
     purpose: d.purpose, purposeOther: d.purposeOther || '', certainty: d.certainty,
     note: d.note || ''
@@ -836,14 +943,17 @@ function selectMemberSlot(el) {
     ? { ...ui.memberSelection }
     : { date, type, start: null, end: null, windowIdx: null };
   tapSlot(selection, windowIdx, el.dataset.id);
-  const selectedSlots = allSlotStarts(date).filter(start => minsOfDay(start) >= minsOfDay(selection.start) && minsOfDay(start) < minsOfDay(selection.end));
-  const containsFullTime = selectedSlots.some(start => freeUnitsForType(type, date, start, hhmmOfMins(minsOfDay(start) + 30), null).length === 0);
-  if (containsFullTime) {
-    addBanner('Part of that time is already full. Please choose an available range.', true);
+  const openForWholeRange = freeUnitsForType(type, date, selection.start, selection.end, null);
+  if (!openForWholeRange.length) {
+    addBanner('No single ' + needLabel(type).toLowerCase() + ' is open for that entire range. Please choose a shorter time.', true);
     return;
   }
   ui.memberSelection = selection;
   render();
+  requestAnimationFrame(() => {
+    const fresh = document.querySelector('[data-act="member-slot"][data-date="' + date + '"][data-type="' + type + '"][data-id="' + el.dataset.id + '"]');
+    if (fresh) fresh.focus();
+  });
 }
 
 function openMemberDetails() {
@@ -852,6 +962,7 @@ function openMemberDetails() {
   ui.selectedDate = selected.date;
   ui.returnFocusKey = 'member-continue';
   ui.signup = {
+    date: selected.date,
     name: localStorage.getItem(NAME_KEY) || '',
     resourceType: selected.type,
     start: selected.start,
@@ -967,11 +1078,11 @@ function signupExistingHtml(d, date) {
 }
 
 function purposeChipsHtml(d) {
-  return '<div class="need-row">' + PURPOSES.map(p =>
+  return '<div class="purpose-grid">' + PURPOSES.map(p =>
     '<button type="button" class="purpose-chip' + (d.purpose === p.id ? ' active' : '') + '" data-act="su-purpose" data-id="' + p.id + '" aria-pressed="' + (d.purpose === p.id ? 'true' : 'false') + '">' + esc(p.label) + '</button>'
   ).join('') + '</div>' +
   (d.purpose === 'other'
-    ? '<label class="sr-only" for="su-other">Describe the purpose</label><input type="text" id="su-other" value="' + esc(d.purposeOther) + '" placeholder="Please describe" style="margin-top:8px" required>'
+    ? '<label class="fld purpose-other-label" for="su-other">Describe the purpose</label><input class="purpose-other-field" type="text" id="su-other" value="' + esc(d.purposeOther) + '" placeholder="Short description" required>'
     : '');
 }
 
@@ -995,10 +1106,10 @@ function endTimeOptionsHtml(d, date) {
 
 function bookingModalHtml() {
   const d = ui.signup;
-  const date = selectedDate();
+  const date = d.date || selectedDate();
 
   return '<div class="modal-backdrop" role="presentation"><section class="booking-dialog" role="dialog" aria-modal="true" aria-labelledby="booking-dialog-title" aria-describedby="booking-dialog-summary">' +
-    '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(date)) + '</div><h2 id="booking-dialog-title">Request this time</h2></div>' +
+    '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(date)) + '</div><h2 id="booking-dialog-title">' + (isTuesday(date) ? 'Reserve this time' : 'Request this time') + '</h2></div>' +
     '<button type="button" class="modal-close" data-act="su-close" aria-label="Close reservation popup">&times;</button></div>' +
     '<p class="booking-time-summary" id="booking-dialog-summary"><strong>' + esc(needLabel(d.resourceType)) + '</strong> · ' + esc(fmtTime(d.start)) + '–' + esc(fmtTime(d.end)) + '</p>' +
     '<p class="hint booking-approval-hint">' + (isTuesday(date)
@@ -1017,11 +1128,17 @@ function bookingModalHtml() {
 
 async function submitSignup(form) {
   if (ui.submitting) return; // double-submit guard
+  if (demoMode()) { addBanner('Sample preview only — no reservation was saved.'); return; }
   syncSignupDraft();
   const d = ui.signup;
-  const date = selectedDate();
+  const date = d.date || selectedDate();
   const name = (d.name || '').trim();
   const purposeOther = (d.purposeOther || '').trim();
+
+  if (!subscribedDateKey || subscribedDateKey !== upcomingBookingDates().join('|') || !upcomingBookingDates().includes(date)) {
+    addBanner('The schedule changed overnight. Reload the app and choose the time again.', true);
+    return;
+  }
 
   if (!name) { addBanner('Please enter your name.', true); return; }
   if (!d.start || !d.end) { addBanner('Please choose a start and end time.', true); return; }
@@ -1029,7 +1146,7 @@ async function submitSignup(form) {
   if (!d.purpose) { addBanner('Please choose a purpose.', true); return; }
   if (d.purpose === 'other' && !purposeOther) { addBanner('Please describe the purpose.', true); return; }
   if (!fb || !fb.auth.currentUser) {
-    addBanner('The shared schedule is not connected yet. Wait for “Live,” then try again.', true);
+    addBanner('The shared schedule is still connecting. Wait a moment, then try again.', true);
     return;
   }
 
@@ -1069,10 +1186,17 @@ async function submitSignup(form) {
 
 function renderAdmin() {
   if (!adminUnlocked()) return renderAdminLock();
+  if (!scheduleReady) {
+    return '<section class="admin-workspace"><div class="card admin-header-card"><div class="eyebrow">Admin workspace</div><h1>Confirming the shared schedule.</h1><p class="section-note">Approval controls will appear after current bookings and availability are verified.</p></div><div class="schedule-loading" role="status" aria-live="polite"><span aria-hidden="true"></span>Loading protected Admin workspace</div></section>';
+  }
   const date = selectedDate();
   loadAdminNotes(date);
-  return renderAdminHeader() + activityFeedHtml(date) + renderAdminDayOverview(date) + renderAdminQueue(date) +
-    renderAdminAddForm(date) + renderAdminHousekeeping();
+  const queue = pendingQueue(date);
+  if (!queue.some(b => b.id === ui.adminSelectedId)) ui.adminSelectedId = queue.length ? queue[0].id : null;
+  return '<section class="admin-workspace">' + renderAdminHeader(date) +
+    '<div class="admin-command"><aside class="admin-queue-panel">' + renderAdminQueue(date, queue) + '</aside>' +
+    '<section class="admin-context-panel">' + renderAdminSelectedRequest(date) + renderAdminDayOverview(date) + activityFeedHtml(date) + '</section></div>' +
+    '<div class="admin-tools-grid">' + renderAdminAddForm(date) + renderAdminHousekeeping() + '</div></section>';
 }
 
 /* ---- PIN gate ---- */
@@ -1088,14 +1212,16 @@ function renderAdminLock() {
     '</div>';
 }
 
-function renderAdminHeader() {
-  return '<div class="card">' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
-    '<h2 style="margin:0">Admin</h2>' +
+function renderAdminHeader(date) {
+  const dayBookings = bookingsForDate(date);
+  const pending = dayBookings.filter(b => b.status === 'pending').length;
+  const approved = dayBookings.filter(b => b.status === 'approved').length;
+  const waiting = dayBookings.filter(b => b.status === 'pending' && waitingPositionFor(b, date) !== null).length;
+  return '<div class="card admin-header-card">' +
+    '<div class="admin-header-main"><div><div class="eyebrow">Admin workspace</div><h1>Study Rooms Admin</h1><p>' + esc(fmtDate(date)) + (isSaturday(date) ? ' · Approval required' : ' · Instant reservations') + '</p></div>' +
+    '<div class="admin-counts"><span><strong>' + pending + '</strong> Pending</span><span><strong>' + approved + '</strong> Approved</span><span><strong>' + waiting + '</strong> In line</span></div>' +
     '<button class="btn small danger" data-act="admin-lock">Lock admin</button>' +
-    '</div>' +
-    '<p class="section-note" style="margin-top:10px">Approve or decline requests, review the day, add bookings directly, and tidy up old records.</p>' +
-    '</div>';
+    '</div><div class="admin-header-date">' + dateSelectorHtml() + '</div></div>';
 }
 
 /* ---- 1. Pending requests queue ---- */
@@ -1118,12 +1244,41 @@ function fmtDateTime(ms) {
     d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-function renderAdminQueue(date) {
-  const items = pendingQueue(date);
-  let html = '<div class="card"><h2>Pending requests</h2>';
+function renderAdminQueue(date, items) {
+  items = items || pendingQueue(date);
+  let html = '<div class="card admin-queue-card"><div class="eyebrow">Priority queue</div><h2>Pending requests <span class="queue-total">' + items.length + '</span></h2>';
   if (!items.length) return html + '<p class="hint">No pending requests right now.</p></div>';
-  items.forEach(b => { html += pendingCardHtml(b, date); });
+  items.forEach((b, index) => {
+    const selected = b.id === ui.adminSelectedId;
+    const pos = waitingPositionFor(b, date);
+    html += '<button type="button" class="admin-queue-item' + (selected ? ' selected' : '') + '" data-act="admin-select-request" data-id="' + esc(b.id) + '" aria-pressed="' + (selected ? 'true' : 'false') + '">' +
+      '<span class="admin-priority">' + (index + 1) + ' · ' + esc(purposeLabel(b.purpose)) + '</span>' +
+      '<span class="admin-queue-name"><strong>' + esc(b.name) + '</strong><time>' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</time></span>' +
+      '<span class="admin-queue-meta">' + esc(needsSummary(b)) + (pos !== null ? ' · In line ' + ordinal(pos) : '') + '</span></button>';
+  });
   return html + '</div>';
+}
+
+function renderAdminSelectedRequest(date) {
+  const booking = ui.adminSelectedId ? bookingByIdSafe(ui.adminSelectedId) : null;
+  if (!booking || booking.status !== 'pending' || booking.date !== date) {
+    return '<div class="card admin-selected-card"><div class="eyebrow">Selected request</div><h2>Queue is clear</h2><p class="hint">New Saturday requests will appear here automatically.</p></div>';
+  }
+  const openCounts = neededTypesOf(booking).map(type => {
+    const count = freeUnitsForType(type, date, booking.start, booking.end, booking.id).length;
+    return count + ' ' + needLabel(type).toLowerCase() + (count === 1 ? '' : 's') + ' open for the full range';
+  }).join(' · ');
+  const certainty = booking.certainty === 'confirmed' ? '<span class="badge-cert confirmed">Confirmed</span>' : booking.certainty === 'tentative' ? '<span class="badge-cert tentative">Tentative</span>' : '';
+  const waiting = waitingPositionFor(booking, date);
+  const hint = certaintyHint(booking, date);
+  return '<div class="card admin-selected-card"><div class="eyebrow">Selected request</div><h2>' + esc(booking.name) + '</h2>' +
+    '<p class="selected-request-time">' + esc(needsSummary(booking)) + ' · ' + esc(fmtTime(booking.start)) + '–' + esc(fmtTime(booking.end)) + '</p>' +
+    '<p class="section-note">' + certainty + (waiting !== null ? ' <span class="badge status-waiting">In line — ' + ordinal(waiting) + '</span>' : '') + '</p>' +
+    '<p class="section-note">' + esc(bookingPurposeText(booking)) + (booking.preferredRoom ? ' · Preferred: ' + esc(unitLabel('room', booking.preferredRoom)) : '') + ' · Requested ' + esc(fmtDateTime(booking.createdAt)) + '</p>' +
+    '<p class="availability-note">' + esc(openCounts) + '</p>' +
+    (hint ? '<p class="conflict-note">' + esc(hint) + '</p>' : '') +
+    (ui.adminNotes[booking.id] ? '<p class="private-note">Private note: ' + esc(ui.adminNotes[booking.id]) + '</p>' : '') +
+    assignmentUiHtml(booking, date) + '</div>';
 }
 
 async function loadAdminNotes(date) {
@@ -1140,7 +1295,20 @@ async function loadAdminNotes(date) {
     ui.adminNotesDate = date;
     render();
   } catch (error) {
-    if (/expired|locked|permission/i.test(error.message || '')) sessionStorage.removeItem(ADMIN_KEY);
+    if (/expired|locked|permission/i.test(error.message || '')) {
+      sessionStorage.removeItem(ADMIN_KEY);
+      ui.adminNotes = {};
+      ui.adminNotesDate = null;
+      ui.adminSelectedId = null;
+      ui.adminAssign = {};
+      ui.adminForm = null;
+      ui.adminReapproveId = null;
+      ui.adminActionId = null;
+      ui.adminSubmitting = false;
+      if (adminExpiryTimer) clearTimeout(adminExpiryTimer);
+      adminExpiryTimer = null;
+      render();
+    }
     addBanner(friendlyFirebaseError(error), true);
   } finally {
     ui.adminNotesLoading = false;
@@ -1157,13 +1325,13 @@ function assignPillRowHtml(booking, type, date, assign) {
       const isFree = freeIds.indexOf(u.id) !== -1;
       const occupant = isFree ? null : unitOccupant(type, u.id, date, booking.start, booking.end, booking.id);
       const isSel = assign[type] === u.id;
-      const star = (u.id === recommendedId) ? ' &#9733;' : '';
+      const recommendation = (u.id === recommendedId) ? ' · Recommended' : '';
       const cls = 'unit-pill' + (isSel ? ' active' : '') + (!isFree ? ' disabled' : '');
       const title = occupant ? (' title="' + esc(occupant.name) + '"') : '';
       return '<button type="button" class="' + cls + '"' + title +
         ' aria-pressed="' + (isSel ? 'true' : 'false') + '"' +
         (isFree ? ' data-act="admin-assign" data-booking="' + esc(booking.id) + '" data-type="' + type + '" data-id="' + u.id + '"' : ' disabled') + '>' +
-        esc(u.label) + star + (occupant ? ' — ' + esc(occupant.name) : '') + '</button>';
+        esc(u.label) + recommendation + (occupant ? ' — ' + esc(occupant.name) : '') + '</button>';
     }).join('') + '</div></div>';
 }
 
@@ -1175,18 +1343,21 @@ function assignmentUiHtml(booking, date) {
     ui.adminAssign[booking.id] = initialAssignmentFor(booking, date);
   }
   const assign = ui.adminAssign[booking.id];
+  const busy = ui.adminActionId === booking.id;
   let html = '<div class="assign-ui">';
   neededTypesOf(booking).forEach(type => { html += assignPillRowHtml(booking, type, date, assign); });
   const ready = neededTypesOf(booking).every(t => !!assign[t]);
   html += '<div class="req-actions">' +
-    '<button class="btn small ok" data-act="admin-approve" data-id="' + esc(booking.id) + '"' + (ready ? '' : ' disabled') + '>Approve</button>' +
-    '<button class="btn small danger" data-act="admin-decline" data-id="' + esc(booking.id) + '">Decline</button>' +
+    '<button class="btn small ok" data-act="admin-approve" data-id="' + esc(booking.id) + '"' + (ready && !busy ? '' : ' disabled') + '>' + (busy ? 'Saving…' : 'Approve') + '</button>' +
+    '<button class="btn small danger" data-act="admin-decline" data-id="' + esc(booking.id) + '"' + (busy ? ' disabled' : '') + '>Decline</button>' +
     '</div></div>';
   return html;
 }
 
 function pendingCardHtml(b, date) {
-  const certBadge = b.certainty === 'confirmed' ? '<span class="badge-cert confirmed">&#10003; Confirmed</span>' : '<span class="badge-cert tentative">&#9670; Tentative</span>';
+  const certBadge = b.certainty === 'confirmed'
+    ? '<span class="badge-cert confirmed">Confirmed</span>'
+    : b.certainty === 'tentative' ? '<span class="badge-cert tentative">Tentative</span>' : '';
   const pos = waitingPositionFor(b, date);
   const hint = certaintyHint(b, date);
   return '<div class="req-row">' +
@@ -1201,6 +1372,7 @@ function pendingCardHtml(b, date) {
 }
 
 async function approveBooking(id) {
+  if (ui.adminActionId) return;
   const b = bookingByIdSafe(id);
   if (!b) return;
   const date = b.date;
@@ -1215,9 +1387,11 @@ async function approveBooking(id) {
     const unitId = assign[type];
     if (!unitId) { addBanner('Please pick a ' + needLabel(type).toLowerCase() + ' before approving.', true); return; }
     const occ = unitOccupant(type, unitId, date, b.start, b.end, b.id);
-    if (occ) { addBanner(esc(unitLabel(type, unitId)) + ' was just taken by ' + esc(occ.name) + ' — pick another.', true); return; }
+    if (occ) { addBanner(unitLabel(type, unitId) + ' was just taken by ' + occ.name + ' — pick another.', true); return; }
   }
   try {
+    ui.adminActionId = id;
+    render();
     setSyncPill(false, 'Saving');
     await adminCall('adminBookingAction', {
       action: ui.adminReapproveId === id ? 'reapprove' : 'approve',
@@ -1230,12 +1404,18 @@ async function approveBooking(id) {
   } catch (error) {
     addBanner(friendlyFirebaseError(error), true);
     setSyncPill(false, 'Save failed');
+  } finally {
+    ui.adminActionId = null;
+    render();
   }
 }
 async function declineBooking(id) {
+  if (ui.adminActionId) return;
   const b = state.bookings[id];
   if (!b) return;
   try {
+    ui.adminActionId = id;
+    render();
     setSyncPill(false, 'Saving');
     await adminCall('adminBookingAction', { action: 'decline', bookingId: id });
     delete ui.adminAssign[id];
@@ -1243,6 +1423,9 @@ async function declineBooking(id) {
   } catch (error) {
     addBanner(friendlyFirebaseError(error), true);
     setSyncPill(false, 'Save failed');
+  } finally {
+    ui.adminActionId = null;
+    render();
   }
 }
 
@@ -1250,7 +1433,7 @@ async function declineBooking(id) {
 
 function renderAdminDayOverview(date) {
   let html = '<div class="card"><h2>Day overview</h2>' +
-    '<p class="section-note">Select a resource to see the same unit-by-unit calendar members see. Each approved unit shows the member and purpose.</p>' +
+    '<p class="section-note">Approved assignments appear by numbered unit. Pending requests remain unassigned in the queue until approval.</p>' +
     memberCalendarHtml(date, ui.adminType, false, 'admin') +
     '</div>';
   html += renderAdminDayList(date);
@@ -1294,16 +1477,22 @@ function adminDayRowHtml(b, date) {
 }
 
 async function cancelBooking(id) {
+  if (ui.adminActionId) return;
   const b = state.bookings[id];
   if (!b) return;
   if (!confirm('Cancel the approved booking for ' + b.name + '?')) return;
   try {
+    ui.adminActionId = id;
+    render();
     setSyncPill(false, 'Saving');
     await adminCall('adminBookingAction', { action: 'cancel', bookingId: id });
     setSyncPill(true, 'Saved');
   } catch (error) {
     addBanner(friendlyFirebaseError(error), true);
     setSyncPill(false, 'Save failed');
+  } finally {
+    ui.adminActionId = null;
+    render();
   }
 }
 
@@ -1435,17 +1624,23 @@ function renderAdminAddForm(date) {
     '<label class="fld" for="af-note">Note (optional)</label>' +
     '<input type="text" id="af-note" value="' + esc(d.note) + '" placeholder="Anything worth noting">' +
 
-    '<div style="margin-top:16px"><button class="btn primary big" type="submit">Add booking (approved)</button></div>' +
+    '<div style="margin-top:16px"><button class="btn primary big" type="submit"' + (ui.adminSubmitting ? ' disabled' : '') + '>' + (ui.adminSubmitting ? 'Adding booking…' : 'Add booking (approved)') + '</button></div>' +
     '</form></div>';
 }
 
 async function submitAdminAdd() {
+  if (ui.adminSubmitting) return;
   syncAdminFormDraft();
   const d = ui.adminForm;
   const name = (d.name || '').trim();
   const note = (d.note || '').trim();
   const purposeOther = (d.purposeOther || '').trim();
   const needTypes = NEED_TYPES.map(nt => nt.id).filter(t => d.needs[t]);
+
+  if (!subscribedDateKey || subscribedDateKey !== upcomingBookingDates().join('|') || !upcomingBookingDates().includes(d.date)) {
+    addBanner('The schedule changed overnight. Reload the app and choose the time again.', true);
+    return;
+  }
 
   if (!name) { addBanner('Please enter a name.', true); return; }
   if (!needTypes.length) { addBanner('Please choose at least one thing needed.', true); return; }
@@ -1455,10 +1650,12 @@ async function submitAdminAdd() {
   for (const t of needTypes) {
     if (!d.assign[t]) { addBanner('Please assign a ' + needLabel(t).toLowerCase() + '.', true); return; }
     const occ = unitOccupant(t, d.assign[t], d.date, d.start, d.end, '__new__');
-    if (occ) { addBanner(esc(unitLabel(t, d.assign[t])) + ' was just taken by ' + esc(occ.name) + ' — pick another.', true); return; }
+    if (occ) { addBanner(unitLabel(t, d.assign[t]) + ' was just taken by ' + occ.name + ' — pick another.', true); return; }
   }
 
   try {
+    ui.adminSubmitting = true;
+    render();
     setSyncPill(false, 'Saving');
     await adminCall('adminBookingAction', {
       action: 'direct-add',
@@ -1472,14 +1669,16 @@ async function submitAdminAdd() {
       },
       note: note
     });
-    addBanner('Booking added and approved for ' + esc(name) + '.');
+    addBanner('Booking added and approved for ' + name + '.');
     ui.adminForm = null;
     ui.adminNotesDate = null;
     setSyncPill(true, 'Saved');
-    render();
   } catch (error) {
     addBanner(friendlyFirebaseError(error), true);
     setSyncPill(false, 'Save failed');
+  } finally {
+    ui.adminSubmitting = false;
+    render();
   }
 }
 
@@ -1493,9 +1692,10 @@ function renderAdminHousekeeping() {
 }
 
 async function cancelMyBooking(id) {
+  if (demoMode()) { addBanner('Sample preview only — nothing was cancelled.'); return; }
   const b = bookingByIdSafe(id);
   if (!b || (b.status !== 'pending' && b.status !== 'approved')) return;
-  if (!confirm('Cancel this request?')) return;
+  if (!confirm(b.status === 'approved' ? 'Cancel this approved reservation?' : 'Cancel this request?')) return;
   if (!fb || !fb.auth.currentUser || b.ownerUid !== fb.auth.currentUser.uid) {
     addBanner('Only the device that made this new request can cancel it. Ask an Admin for help with an older request.', true);
     return;
@@ -1516,6 +1716,7 @@ async function startAdminSession(pin) {
     setSyncPill(false, 'Checking PIN');
     const result = await callBackend('adminStartSession', { pin: pin });
     sessionStorage.setItem(ADMIN_KEY, JSON.stringify({ token: result.sessionToken, expiresAt: result.expiresAt }));
+    scheduleAdminExpiry(result.expiresAt);
     ui.adminNotesDate = null;
     setSyncPill(true, 'Admin unlocked');
     render();
@@ -1533,9 +1734,17 @@ async function startAdminSession(pin) {
 
 async function endAdminSession() {
   const token = adminSessionToken();
+  if (adminExpiryTimer) clearTimeout(adminExpiryTimer);
+  adminExpiryTimer = null;
   sessionStorage.removeItem(ADMIN_KEY);
   ui.adminNotes = {};
   ui.adminNotesDate = null;
+  ui.adminSelectedId = null;
+  ui.adminAssign = {};
+  ui.adminForm = null;
+  ui.adminReapproveId = null;
+  ui.adminActionId = null;
+  ui.adminSubmitting = false;
   render();
   if (token && fb) {
     try { await callBackend('adminEndSession', { sessionToken: token }); } catch (error) { /* already locked */ }
@@ -1593,6 +1802,9 @@ function handleAction(act, el) {
     ui.adminForm = null;
     ui.selectedDate = date;
     ui.memberSelection = null;
+    ui.adminSelectedId = null;
+    ui.adminAssign = {};
+    ui.adminReapproveId = null;
     render();
     return;
   }
@@ -1612,6 +1824,7 @@ function handleAction(act, el) {
     return;
   }
   if (act === 'member-slot') { selectMemberSlot(el); return; }
+  if (act === 'member-clear') { ui.memberSelection = null; render(); return; }
   if (act === 'member-continue') { openMemberDetails(); return; }
   if (act === 'su-close') { closeBookingModal(false); return; }
   if (act === 'my-cancel') {
@@ -1647,12 +1860,23 @@ function handleAction(act, el) {
   if (act === 'admin-lock') { endAdminSession(); return; }
 
   /* ---- Admin tab: pending queue + assignment + day overview ---- */
+  if (act === 'admin-select-request') {
+    const booking = bookingByIdSafe(el.dataset.id);
+    if (!booking || booking.status !== 'pending' || booking.date !== selectedDate()) return;
+    ui.adminSelectedId = booking.id;
+    const selectedType = neededTypesOf(booking)[0];
+    if (selectedType) ui.adminType = selectedType;
+    render();
+    return;
+  }
   if (act === 'admin-assign') {
     const bookingId = el.dataset.booking;
     const b = bookingByIdSafe(bookingId);
-    if (!b) return;
+    if (!b || b.date !== selectedDate() || (b.status !== 'pending' && ui.adminReapproveId !== b.id)) return;
     const type = el.dataset.type;
     const unitId = el.dataset.id;
+    if (!neededTypesOf(b).includes(type) || !unitsForType(type).some(unit => unit.id === unitId)) return;
+    if (unitOccupant(type, unitId, b.date, b.start, b.end, b.id)) return;
     if (!ui.adminAssign[bookingId]) ui.adminAssign[bookingId] = initialAssignmentFor(b, b.date);
     const assign = ui.adminAssign[bookingId];
     assign[type] = unitId;
@@ -1786,9 +2010,16 @@ function init() {
     location.replace('tv.html' + location.search + location.hash);
     return;
   }
-  state = loadLocal() || { bookings: {} };
-  saveLocal();
+  const cachedState = loadLocal();
+  const cacheMatchesDates = !!(cachedState && Array.isArray(cachedState.queryDates) && cachedState.queryDates.join('|') === upcomingBookingDates().join('|'));
+  // Never carry bookings from an expired date pair into the new schedule. The
+  // realtime snapshot is the only code path allowed to stamp a new pair.
+  state = (demoMode() || cacheMatchesDates) && cachedState ? cachedState : { bookings: {} };
+  scheduleReady = demoMode() || cacheMatchesDates;
   render();
+  if (adminUnlocked()) {
+    try { scheduleAdminExpiry(JSON.parse(sessionStorage.getItem(ADMIN_KEY)).expiresAt); } catch (error) { sessionStorage.removeItem(ADMIN_KEY); }
+  }
 
   // Keyboard support for the role=tablist tab bar (arrows, Home, End).
   const tabsEl = document.getElementById('tabs');
@@ -1824,6 +2055,22 @@ function init() {
     });
   }
 
+  if (demoMode()) return;
+  setInterval(() => {
+    if (!subscribedDateKey || subscribedDateKey === upcomingBookingDates().join('|')) return;
+    syncSignupDraft();
+    syncAdminFormDraft();
+    const adminDraftDirty = ui.adminForm && (ui.adminForm.name || ui.adminForm.start || ui.adminForm.note || ui.adminForm.purposeOther);
+    if (ui.signup || ui.submitting || ui.adminSubmitting || ui.adminActionId || adminDraftDirty) {
+      if (!rolloverWarningShown) {
+        rolloverWarningShown = true;
+        addBanner('The schedule changed overnight. Finish or close the open form, then reload.', true);
+      }
+      return;
+    }
+    scheduleReady = false;
+    location.reload();
+  }, 60000);
   if (window.FIREBASE_CONFIG) {
     initFirebase(window.FIREBASE_CONFIG).catch(err => {
       console.warn('firebase init failed', err);

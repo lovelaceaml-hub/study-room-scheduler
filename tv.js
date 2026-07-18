@@ -34,13 +34,13 @@ const dayConfig = {
   2: {
     name: 'Tuesday',
     start: '10:00',
-    end: '22:30',
+    end: '22:00',
     services: [{ start: '20:00', end: '21:00', label: 'Service' }]
   },
   6: {
     name: 'Saturday',
     start: '09:00',
-    end: '22:30',
+    end: '22:00',
     services: [
       { start: '09:00', end: '10:00', label: 'Service' },
       { start: '15:00', end: '16:00', label: 'Service' },
@@ -125,7 +125,7 @@ function toPublicBooking(id, booking) {
     date: booking.date,
     start: booking.start,
     end: booking.end,
-    name: booking.name,
+    name: publicName(booking.name),
     needs: booking.needs || {},
     status: booking.status,
     assignments: booking.assignments || {},
@@ -383,6 +383,9 @@ function updateClock() {
     lastUpdatedAt = 0;
     loadCache();
     render();
+    // The listener query is date-specific. Restart it at midnight so a lobby
+    // display left open overnight subscribes to the new day automatically.
+    startFirebase();
   }
 }
 

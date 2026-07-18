@@ -11,15 +11,16 @@
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
   - [Creation Guide](docs/CREATION-GUIDE.md) — how it was built
   - [Handoff](docs/HANDOFF.md) — current implementation and rollout notes
-  - [Design Prototype](docs/design-prototype.html) — interactive preview of the proposed redesign
-  - [Design Research](docs/DESIGN-RESEARCH.md) — evidence and decisions behind the preview
+  - [Design Prototype](docs/design-prototype.html) — the approved reference used for the live redesign
+  - [Design Research](docs/DESIGN-RESEARCH.md) — evidence and decisions behind the redesign
+  - [UI Quality Report](docs/UI-QUALITY-REPORT.md) — browser and accessibility verification
   - [All documents →](docs/)
 
 An installable study-room scheduling app for LV Zion. Members choose Study room,
 Whiteboard, or TV, select their time directly in the compact Tuesday or Saturday
-calendar, then provide only their name and purpose. Tuesday bookings auto-approve
+availability list, then provide only their name and purpose. Tuesday bookings auto-approve
 when a resource is open; Saturday requests are manually reviewed by priority.
-The unit grid shows approved names and purposes, a live update feed summarizes
+Members see open capacity first and can expand a time to inspect numbered units. A live update feed summarizes
 requests/reservations/cancellations, and **My reservations** shows this device’s status.
 
 The app uses buildless vanilla JavaScript, Firebase Hosting, and Firestore live

@@ -1,8 +1,8 @@
 # Study Rooms design research — July 2026
 
-This document records the research and decisions behind the proposed Study Rooms
-visual redesign. The live app has not been changed. Open the
-[interactive prototype](design-prototype.html) to review the proposed experience.
+This document records the research and decisions behind the Study Rooms visual
+redesign now used by the live app. Open the [interactive prototype](design-prototype.html)
+to review the sample-data reference experience.
 
 ## Chosen direction
 
@@ -105,8 +105,9 @@ Before the design is applied to production, confirm:
 - Status remains understandable in light mode, dark mode, enlarged text, and without
   relying on color alone.
 
-## Deliberately not changed yet
+## Production application
 
-The prototype does not alter production HTML, CSS, JavaScript, Firebase data,
-security rules, Cloud Functions, scheduling policy, or deployment. Implementation
-begins only after Anthony accepts the accurate prototype.
+Anthony approved the prototype and its presentation was applied to the production
+HTML, CSS, and JavaScript. The implementation did not change Firebase data, security
+rules, Cloud Functions, or scheduling policy. The prototype remains available as a
+sample-data reference for future visual changes.

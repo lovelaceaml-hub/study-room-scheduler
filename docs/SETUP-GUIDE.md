@@ -15,7 +15,7 @@ visitors to the shorter address automatically.
 3. The app opens without an account screen. It quietly identifies the device so each
    member can manage only their own new requests.
 4. To make a request, choose Tuesday or Saturday, select Study room, Whiteboard, or
-   TV, then tap an open time on the left side of the calendar. Select the end time on the calendar, tap
+   TV, then tap an available time row. Tap a later row in the same section to extend the time, then tap
    **Continue**, and complete the short name-and-purpose form.
 
 The member app has no separate **Sign up** screen. Service times appear as blocked
@@ -77,8 +77,6 @@ Admin session. Tap **Lock admin** when the work is finished.
 
 1. Check that the address begins with **https://lvrooms.web.app**.
 2. Refresh the page once.
-3. Confirm the connection indicator says **Live**.
-4. If it says **Reconnecting**, wait for the internet connection to return; the last
-   schedule remains visible in the meantime.
-5. If an old Home Screen installation continues showing the previous design, remove
+3. If the schedule is still connecting, wait a moment and refresh once.
+4. If an old Home Screen installation continues showing the previous design, remove
    its icon and install again from the shorter address.

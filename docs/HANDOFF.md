@@ -48,6 +48,13 @@ deployed and verified on July 17, 2026.
 - Tuesday reservations auto-approve securely; Saturday remains manual with the Admin
   queue and assignment recommendation ordered Contact, New Member, Study Member
   Meeting, Other, then request time.
+- The approved Quiet Study production design leads with availability counts on
+  member screens, keeps numbered-unit occupancy expandable and secondary, presents
+  My reservations as durable status cards, and expands Admin into a desktop
+  queue-and-detail workspace.
+- The lobby TV uses the approved Signal Timetable treatment with all 12 units,
+  full-day positioning, pending request lanes, service bands, and a track-relative
+  current-time marker.
 
 ## Important behavior
 
