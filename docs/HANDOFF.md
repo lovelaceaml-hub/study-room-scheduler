@@ -41,6 +41,10 @@ deployed and verified on July 17, 2026.
   TV), a compact scrollable calendar, and a name-and-purpose-only confirmation sheet.
 - The visual redesign uses shared, accessible light/dark design tokens across the
   member app and lobby TV. It preserves every scheduling and security behavior.
+- Reservations now begins directly with the selected-day calendar. Study room,
+  Whiteboard, and TV schedules appear as three stacked, vertically scrollable blocks;
+  the date buttons sit directly above them. Schedule updates live in My reservations.
+  The header has no connection-status label, and left/right tab swiping is disabled.
 - Tuesday reservations auto-approve securely; Saturday remains manual with the Admin
   queue and assignment recommendation ordered Contact, New Member, Study Member
   Meeting, Other, then request time.

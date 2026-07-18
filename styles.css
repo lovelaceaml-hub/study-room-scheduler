@@ -206,9 +206,9 @@ h2 { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.01em; margin:
 .member-square.pending { background: transparent; border: 1.5px dashed var(--warn); }
 .member-square.cancelled { background: transparent; border: 1.5px dashed var(--line-strong); }
 .member-square.selected { background: var(--primary-tint); border-color: var(--primary); }
-.member-square.booking-start { border-radius: var(--r-sm) var(--r-sm) 0 0; border-bottom: 0; }
-.member-square.booking-middle { border-radius: 0; border-top: 0; border-bottom: 0; }
-.member-square.booking-end { border-radius: 0 0 var(--r-sm) var(--r-sm); border-top: 0; }
+.member-square.booking-start { border-radius: var(--r-sm) var(--r-sm) 0 0; border-bottom: 0; margin-bottom: -5px; position: relative; z-index: 1; }
+.member-square.booking-middle { border-radius: 0; border-top: 0; border-bottom: 0; margin: -5px 0; position: relative; z-index: 1; }
+.member-square.booking-end { border-radius: 0 0 var(--r-sm) var(--r-sm); border-top: 0; margin-top: -5px; position: relative; z-index: 1; }
 .member-service {
   display: flex;
   justify-content: space-between;
@@ -403,7 +403,11 @@ nav[aria-label="Primary"] .tabs { padding: 8px 14px; }
 .member-booking { margin: 4px 0 18px; }
 .member-intro h1 { margin-top: 16px; }
 .calendar-date-wrap { margin: 12px 0; }
-footer { text-align: center; color: var(--ink-faint); font-size: var(--fs-sm); padding: 26px 0 34px; }
+.member-calendars { display: grid; gap: 18px; }
+.member-calendars .calendar-date-wrap { margin: 0; }
+.member-calendars .calendar-help { margin: 0; }
+.member-calendars .member-calendar { margin: 0; }
+.member-calendars .member-calendar-scroll { max-height: none; overflow: visible; }
 
 /* time-strip picker (admin add form + popup time editing) */
 .strip-wrap { margin-top: 10px; }

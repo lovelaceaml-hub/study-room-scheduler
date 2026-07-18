@@ -31,16 +31,15 @@ The schedule has separate sections for:
 
 The Baptism Room is no longer part of scheduling and will not appear as an option.
 
-Choose **Study room**, **Whiteboard**, or **TV** directly on the calendar. The
+Choose **Study room**, **Whiteboard**, or **TV** directly in its own calendar block. The
 scrollable calendar has a clickable time column on the left and numbered resource
 columns (1, 2, 3, and so on) on the right. An approved unit displays the person’s
 name and purpose. Green means your approved reservation, gray means someone else’s
 approved reservation, yellow outlines are pending requests, and light-red outlines
 show a cancelled time that can be booked again if space is available.
 
-At the top, **Schedule updates** records recent Requested, Reserved, and Cancelled
-activity with the unit, name, purpose, and time. Open **My reservations** to see the
-status of every request made from this device.
+Open **My reservations** to see the status of every request made from this device and
+recent **Schedule updates**, including Requested, Reserved, and Cancelled activity.
 
 ### Service periods and available times
 

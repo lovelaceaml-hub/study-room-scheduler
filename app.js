@@ -77,7 +77,6 @@ let state = {
 let ui = {
   tab: 'schedule',
   selectedDate: null,   // shared by Reservations and Admin
-  memberType: 'room',   // selected resource in the compact member calendar
   adminType: 'room',    // resource displayed in the matching Admin calendar
   memberSelection: null, // { date, type, start, end, windowIdx }
   pinError: '',
@@ -596,9 +595,7 @@ function render() {
   syncSignupDraft();
   document.body.classList.toggle('modal-open', !!ui.signup);
 
-  const dateEl = document.getElementById('head-date');
   const date = selectedDate();
-  if (dateEl) dateEl.textContent = fmtDate(date) + ' selected';
 
   const tabs = document.getElementById('tabs');
   if (tabs) {
@@ -643,10 +640,13 @@ function dateSelectorHtml() {
 
 function renderSchedule() {
   const date = selectedDate();
-  let html = '<section class="member-booking"><div class="member-intro"><h1>Reserve a study room</h1>' +
-    '<p>Choose what you need, then select your time directly on the schedule.</p></div>' +
+  let html = '<section class="member-booking">' +
     (demoMode() ? '<div class="demo-notice">Sample preview — no changes here affect the real schedule.</div>' : '') +
-    activityFeedHtml(date) + myApprovalHtml(date) + memberCalendarHtml(date, ui.memberType, true, 'member') + '</section>';
+    myApprovalHtml(date) +
+    '<div class="member-calendars"><div class="calendar-date-wrap">' + dateSelectorHtml() + '</div>' +
+    '<p class="calendar-help">Tap a time to reserve 30 minutes. Tap a later time in the same calendar to make your reservation longer.</p>' +
+    NEED_TYPES.map(type => memberCalendarHtml(date, type.id, true, 'member')).join('') +
+    '</div></section>';
   if (ui.signup) html += bookingModalHtml();
   return html;
 }
@@ -693,10 +693,8 @@ function memberCalendarHtml(date, type, selectable, context) {
   const units = unitsForType(type);
   const selected = ui.memberSelection;
   let html = '<section class="member-calendar" aria-label="' + esc(needLabel(type)) + ' schedule">' +
-    '<div class="calendar-date-wrap">' + dateSelectorHtml() + '</div>' +
     '<div class="member-calendar-heading"><h2>' + esc(needLabel(type)) + ' schedule</h2><span>' + units.length + ' available</span></div>' +
-    memberResourceToggleHtml(type, context === 'admin' ? 'admin-type' : 'member-type') +
-    (selectable ? '<p class="calendar-help">Tap a time to reserve 30 minutes. Tap a later time to make your reservation longer.</p>' : '') +
+    (context === 'admin' ? '<div class="calendar-date-wrap">' + dateSelectorHtml() + '</div>' + memberResourceToggleHtml(type, 'admin-type') : '') +
     '<div class="member-calendar-scroll"><div class="member-calendar-grid">';
   html += '<div class="member-calendar-row unit-header"><div class="member-time"><small>Select a time</small><span>Time</span></div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span>' + esc(String(unit.num)) + '</span>').join('') + '</div></div>';
   scheduleSegments(date).forEach(window => {
@@ -721,7 +719,7 @@ function memberCalendarHtml(date, type, selectable, context) {
     });
   });
   html += '</div></div>';
-  if (selected) html += '<div class="member-selection-summary"><span><strong>' + esc(fmtTime(selected.start)) + '–' + esc(fmtTime(selected.end)) + '</strong> · ' + esc(needLabel(type)) + '</span><button type="button" class="btn primary" data-act="member-continue" data-focus-key="member-continue">Continue</button></div>';
+  if (selected && selected.type === type) html += '<div class="member-selection-summary"><span><strong>' + esc(fmtTime(selected.start)) + '–' + esc(fmtTime(selected.end)) + '</strong> · ' + esc(needLabel(type)) + '</span><button type="button" class="btn primary" data-act="member-continue" data-focus-key="member-continue">Continue</button></div>';
   return html + '</section>';
 }
 
@@ -757,7 +755,7 @@ function renderMyReservations() {
   html += '<div class="card"><h2>Your requests</h2>';
   if (!items.length) html += '<p class="hint">No reservations have been made from this device yet.</p>';
   else items.forEach(b => { html += myRequestRowHtml(b, b.date); });
-  return html + '</div>';
+  return html + '</div>' + activityFeedHtml(selectedDate());
 }
 
 function myRequestStatusHtml(b, date) {
@@ -829,7 +827,7 @@ function selectMemberSlot(el) {
   const date = el.dataset.date;
   const type = el.dataset.type;
   const windowIdx = +el.dataset.win;
-  if (!date || type !== ui.memberType || !isValidBookingRange(date, el.dataset.id, hhmmOfMins(minsOfDay(el.dataset.id) + 30))) return;
+  if (!date || !NEED_TYPES.some(need => need.id === type) || !isValidBookingRange(date, el.dataset.id, hhmmOfMins(minsOfDay(el.dataset.id) + 30))) return;
   // Work on a copy: if the tapped range turns out to be invalid we bail out
   // below, and the saved selection must stay untouched in that case.
   const selection = ui.memberSelection && ui.memberSelection.date === date && ui.memberSelection.type === type
@@ -1598,13 +1596,6 @@ function handleAction(act, el) {
   }
 
   /* ---- Reservations tab ---- */
-  if (act === 'member-type') {
-    if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
-    ui.memberType = el.dataset.id;
-    ui.memberSelection = null;
-    render();
-    return;
-  }
   if (act === 'admin-type') {
     if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
     ui.adminType = el.dataset.id;
@@ -1776,33 +1767,6 @@ document.addEventListener('keydown', e => {
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 });
 
-/* ================= swipe-to-switch-tabs (house convention) ================= */
-
-function attachSwipeTabs(el) {
-  if (!el) return;
-  let touch = null;
-  el.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) { touch = null; return; }
-    const t = e.touches[0];
-    touch = { x: t.clientX, y: t.clientY, time: Date.now() };
-  }, { passive: true });
-  el.addEventListener('touchend', e => {
-    if (ui.signup) { touch = null; return; }
-    if (!touch) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touch.x;
-    const dy = t.clientY - touch.y;
-    const dt = Date.now() - touch.time;
-    touch = null;
-    if (Math.abs(dx) < 60 || Math.abs(dx) <= 1.5 * Math.abs(dy) || dt >= 600) return;
-    const idx = TABS.findIndex(t2 => t2.id === ui.tab);
-    const next = idx + (dx < 0 ? 1 : -1);
-    if (next < 0 || next >= TABS.length) return; // no wrap
-    ui.tab = TABS[next].id;
-    render();
-  }, { passive: true });
-}
-
 /* ================= init ================= */
 
 function init() {
@@ -1816,8 +1780,6 @@ function init() {
   state = loadLocal() || { bookings: {} };
   saveLocal();
   render();
-
-  attachSwipeTabs(document.getElementById('app'));
 
   // Keyboard support for the role=tablist tab bar (arrows, Home, End).
   const tabsEl = document.getElementById('tabs');
