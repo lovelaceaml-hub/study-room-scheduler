@@ -63,9 +63,10 @@ must reject ranges that overlap a service or begin before reservable time.
 ### Member booking flow
 
 The Reservations screen places Study room, Whiteboard, and TV calendars one below the
-other, with the Tuesday/Saturday choice attached above them. The page scrolls vertically;
-each calendar has time labels on the left and slim capacity squares on the right. The
-member selects a 30-minute start and optionally extends the range before tapping
+other, with the Tuesday/Saturday choice and a resource picker attached above them. The
+picker jumps directly to the selected calendar block. The page scrolls vertically; each
+calendar has time labels on the left and slim capacity squares on the right. The member
+selects a 30-minute start and optionally extends the range before tapping
 Continue. The short sheet then asks
 only for name and purpose (Contact, New Member, Meeting, or Other). The time column,
 not the unit cell, is the member’s selectable control; numbered unit cells show the

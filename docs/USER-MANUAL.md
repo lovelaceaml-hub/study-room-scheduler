@@ -31,7 +31,8 @@ The schedule has separate sections for:
 
 The Baptism Room is no longer part of scheduling and will not appear as an option.
 
-Choose **Study room**, **Whiteboard**, or **TV** directly in its own calendar block. The
+Use the **Study room**, **Whiteboard**, or **TV** picker above the calendars to jump
+directly to that resource’s calendar block. The
 scrollable calendar has a clickable time column on the left and numbered resource
 columns (1, 2, 3, and so on) on the right. An approved unit displays the person’s
 name and purpose. Green means your approved reservation, gray means someone else’s
