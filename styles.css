@@ -407,7 +407,6 @@ nav[aria-label="Primary"] .tabs { padding: 8px 14px; }
 .member-calendars .calendar-date-wrap { margin: 0; }
 .member-calendars .calendar-help { margin: 0; }
 .member-calendars .member-calendar { margin: 0; }
-.member-calendars .member-calendar-scroll { max-height: none; overflow: visible; }
 
 /* time-strip picker (admin add form + popup time editing) */
 .strip-wrap { margin-top: 10px; }

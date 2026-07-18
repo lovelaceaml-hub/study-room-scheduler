@@ -647,7 +647,7 @@ function renderSchedule() {
     '<div class="member-calendars"><div class="calendar-date-wrap">' + dateSelectorHtml() + '</div>' +
     memberResourceToggleHtml(ui.memberType, 'member-type') +
     '<p class="calendar-help">Tap a time to reserve 30 minutes. Tap a later time in the same calendar to make your reservation longer.</p>' +
-    NEED_TYPES.map(type => memberCalendarHtml(date, type.id, true, 'member')).join('') +
+    memberCalendarHtml(date, ui.memberType, true, 'member') +
     '</div></section>';
   if (ui.signup) html += bookingModalHtml();
   return html;
@@ -694,7 +694,7 @@ function activityFeedHtml(date) {
 function memberCalendarHtml(date, type, selectable, context) {
   const units = unitsForType(type);
   const selected = ui.memberSelection;
-  let html = '<section class="member-calendar"' + (context === 'member' ? ' id="member-calendar-' + esc(type) + '"' : '') + ' aria-label="' + esc(needLabel(type)) + ' schedule">' +
+  let html = '<section class="member-calendar" aria-label="' + esc(needLabel(type)) + ' schedule">' +
     '<div class="member-calendar-heading"><h2>' + esc(needLabel(type)) + ' schedule</h2><span>' + units.length + ' available</span></div>' +
     (context === 'admin' ? '<div class="calendar-date-wrap">' + dateSelectorHtml() + '</div>' + memberResourceToggleHtml(type, 'admin-type') : '') +
     '<div class="member-calendar-scroll"><div class="member-calendar-grid">';
@@ -1601,11 +1601,8 @@ function handleAction(act, el) {
   if (act === 'member-type') {
     if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
     ui.memberType = el.dataset.id;
+    ui.memberSelection = null;
     render();
-    requestAnimationFrame(() => {
-      const calendar = document.getElementById('member-calendar-' + ui.memberType);
-      if (calendar) calendar.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
     return;
   }
   if (act === 'admin-type') {
