@@ -11,6 +11,8 @@
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
   - [Creation Guide](docs/CREATION-GUIDE.md) — how it was built
   - [Handoff](docs/HANDOFF.md) — current implementation and rollout notes
+  - [Design Prototype](docs/design-prototype.html) — interactive preview of the proposed redesign
+  - [Design Research](docs/DESIGN-RESEARCH.md) — evidence and decisions behind the preview
   - [All documents →](docs/)
 
 An installable study-room scheduling app for LV Zion. Members choose Study room,

@@ -13,6 +13,20 @@ The primary member address is **https://lvrooms.web.app**. The former address,
 **https://lvz-rooms.web.app**, is a permanent redirect. Production deployment was
 verified on July 17, 2026.
 
+## Proposed visual redesign prototype
+
+An isolated, interactive redesign preview was added on July 17, 2026. It proposes
+the **Quiet Study** member/Admin visual system, the **Signal Timetable** lobby TV,
+and an availability-first phone scheduler. It uses sample information only and does
+not connect to Firebase or change the live app.
+
+- [Open the interactive prototype](design-prototype.html)
+- [Read the design research and decisions](DESIGN-RESEARCH.md)
+
+The prototype must be approved before its presentation or interaction changes are
+applied to the production files. The scheduling, security, privacy, and approval
+rules documented below remain the source of truth.
+
 ## Architecture
 
 The app remains deliberately simple:
