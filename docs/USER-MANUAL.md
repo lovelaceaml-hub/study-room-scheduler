@@ -6,10 +6,9 @@ upcoming Tuesday or Saturday from one phone-friendly calendar.
 The app is live at **https://lvrooms.web.app**. (The older address,
 https://lvz-rooms.web.app, forwards there automatically.)
 
-> Release note: the mobile, approval, TV-day-picker, and expanded mock-data changes
-> below were deployed and live-verified on July 20, 2026. The simplified Home,
-> compact reservation rows, and study-room-focused TV described here are current-branch
-> changes awaiting deployment.
+> Release note: the mobile, approval, TV-day-picker, expanded mock-data, simplified
+> Home, compact reservation rows, and study-room-focused TV changes below were deployed
+> and live-verified on July 20, 2026.
 
 ## For members
 

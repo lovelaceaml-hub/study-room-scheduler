@@ -23,21 +23,20 @@ fixture-isolation, and shared-day-map findings were corrected and rechecked.
 Firestore rules are unchanged. The Firestore rule emulator was not run because this
 Mac does not have the Java runtime required by Firebase Emulator.
 
-## Pending layout-refinement verification
+## July 20 layout-refinement verification
 
-The current branch changes layout only and has **not** been deployed or live-verified.
-It removes Home's device-specific notification and current/next-summary cards; makes
-the Day overview expandable by Morning, Afternoon, and Evening; uses compact connected
-time/availability rows in Reservations; and changes the lobby TV to four study-room
-availability cards with an approved-only study-room timeline. Pending-request,
-Whiteboard, and TV lanes are excluded from that public display.
+The layout-only refinement was deployed to **https://lvrooms.web.app** and live-verified
+after the primary Hosting release. It removes Home's device-specific notification and
+current/next-summary cards; makes the Day overview expandable by Morning, Afternoon,
+and Evening; uses compact connected time/availability rows in Reservations; and changes
+the lobby TV to four study-room availability cards with an approved-only study-room
+timeline. Pending-request, Whiteboard, and TV lanes are excluded from that public
+display.
 
-Before deployment, re-run policy, UI, accessibility, and TV smoke tests. Specifically
-verify no Home overflow at 320×720 and 390×844; independent keyboard focus for the time
-and availability actions; daypart expansion and Home-to-Reservations handoff; and the
-TV at narrow width, 1280×720, and 1920×1080. Retain the existing limitation: the
-Firestore rule emulator cannot run on this Mac without Java, and automated/browser
-checks do not replace a first-time-member user study.
+The release check confirmed the deployed `app.js` contains the Daypart overview and the
+deployed `tv.js` contains the four study-room availability cards. Retain the existing
+limitation: the Firestore rule emulator cannot run on this Mac without Java, and
+automated/browser checks do not replace a first-time-member user study.
 
 ## July 19 compact-dashboard verification
 

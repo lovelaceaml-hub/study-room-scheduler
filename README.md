@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — the July 20 mobile, scheduling, TV, and demo update is deployed; the layout refinement described below is on the current branch and awaits deployment
+- **Status:** Live — the July 20 mobile, scheduling, TV, demo, and layout-refinement updates are deployed and live-verified
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -45,6 +45,5 @@ half-hour to the selected end, and remain separated by service periods. The refi
 lobby TV continues to show service bands in its study-room timetable.
 
 The primary address, lobby TV, secure Admin backend, and permanent redirect from the
-former address are live. The July 20 update was deployed and live-verified at the
-primary address. The layout refinement is documented here as branch work and must not be
-treated as deployed until its release is verified.
+former address are live. The July 20 update, including the layout refinement, was
+deployed and live-verified at the primary address.

@@ -16,7 +16,8 @@ The primary member address is **https://lvrooms.web.app**. The former address,
 **https://lvz-rooms.web.app**, is a permanent redirect. Production deployment was
 verified initially on July 17, 2026; the compact dashboard and exact-time release was
 deployed and verified on July 19, 2026; and the mobile, scheduling, TV, and demo update
-was deployed and live-verified on July 20, 2026.
+was deployed and live-verified on July 20, 2026. The same day's Hosting-only layout
+refinement was also deployed and live-verified.
 
 ## Applied visual redesign
 
@@ -37,10 +38,9 @@ dashboard-and-disclosure flow. Home now opens first with current/upcoming unit u
 a bounded live feed. Reservations uses a single-date arrow stepper and three daypart
 disclosures. On July 20, the compact two-column start grid was replaced with a vertical
 phone list that opens an immediate **When should it end?** prompt after a start is
-chosen, while retaining the exact end boundary. The current branch refines that list
-into compact connected time/availability rows, starts Home with a three-daypart Day
-overview, and narrows the lobby display to study-room availability. Those refinement
-changes are not yet deployed.
+chosen, while retaining the exact end boundary. The deployed July 20 refinement makes
+that list compact connected time/availability rows, starts Home with a three-daypart Day
+overview, and narrows the lobby display to study-room availability.
 
 ## Architecture
 

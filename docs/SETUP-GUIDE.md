@@ -8,9 +8,9 @@ The shorter address and revised scheduler are **Live** at
 The previous address, **https://lvz-rooms.web.app**, remains available and sends
 visitors to the shorter address automatically.
 
-The mobile, scheduling, TV, and demo update was deployed and live-verified on July 20,
-2026. The current branch's simplified Home, compact reservation rows, and study-room
-TV layout are awaiting a separate deployment and verification.
+The mobile, scheduling, TV, demo, and layout-refinement updates were deployed and
+live-verified on July 20, 2026. Home now starts with the simplified day overview,
+Reservations uses compact connected rows, and the lobby TV is study-room-focused.
 
 ## Open the member app
 

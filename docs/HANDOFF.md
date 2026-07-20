@@ -9,11 +9,12 @@ overview, named assignment/pending details, 11:00 PM closing, an eligible-day TV
 and complete browser-only mock data. The earlier compact dashboard and exact-time
 scheduler were deployed and verified on July 19, 2026.
 
-**Current branch, not deployed.** The accepted layout refinement removes Home's
-device-specific notification and current/next-summary cards, makes its Day overview
-expandable by Morning/Afternoon/Evening, combines the Reservations time and availability
-controls into compact connected rows, and makes the lobby TV study-room-only. Deploy and
-live-verify this refinement separately before describing it as live.
+**Live layout refinement.** The July 20 Hosting-only release also removed Home's
+device-specific notification and current/next-summary cards, made its Day overview
+expandable by Morning/Afternoon/Evening, combined the Reservations time and availability
+controls into compact connected rows, and made the lobby TV study-room-only. The deployed
+assets were checked at the primary address after release; Functions, Firestore rules,
+indexes, and the legacy redirect were unchanged.
 
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
