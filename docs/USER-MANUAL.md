@@ -7,22 +7,20 @@ The app is live at **https://lvrooms.web.app**. (The older address,
 https://lvz-rooms.web.app, forwards there automatically.)
 
 > Release note: the mobile, approval, TV-day-picker, and expanded mock-data changes
-> below were deployed and live-verified on July 20, 2026.
+> below were deployed and live-verified on July 20, 2026. The simplified Home,
+> compact reservation rows, and study-room-focused TV described here are current-branch
+> changes awaiting deployment.
 
 ## For members
 
 ### Home dashboard
 
-The app opens on **Home**. Its day overview shows Study Rooms 1–4 by default. On a
-Tuesday or Saturday it shows who is using each room now and when the reservation ends;
-otherwise it shows the next reservation day and each unit’s next booking. Choose
-**Whiteboard** or **TV** when you want those unit details. An open time in this overview
-is a button: it opens **Reservations** with that day, resource, and start time
-highlighted, ready for the member to choose an ending.
-
-**My notifications** shows updates for reservations made from this device. It calls out
-pending requests, the next approved reservation, and denied requests without exposing
-another member’s private reservation status.
+The app opens on **Home**. Its Day overview is the first feature, showing Study Rooms
+1–4 by default. Choose **Whiteboard** or **TV** when you want those unit details. Open
+the expandable **Morning**, **Afternoon**, or **Evening** section to see the applicable
+service band and half-hour room grid. An open time is a button: it opens
+**Reservations** with that day, resource, and start time highlighted, ready for the
+member to choose an ending. Occupied and service cells remain informational.
 
 **Live updates** is a scrollable box containing the latest Requested, Reserved, and
 Cancelled activity. It updates automatically without making the page grow indefinitely.
@@ -52,9 +50,10 @@ Choose one of these resource types:
 The Baptism Room is no longer part of scheduling and will not appear as an option.
 
 Use the **Study room**, **Whiteboard**, or **TV** picker above the time menus. Open
-**Morning**, **Afternoon**, or **Evening**, then tap one vertically stacked start time,
-such as **10:00 AM**, **10:30 AM**, or **11:00 AM**. A small prompt asks **When should
-it end?** Choose the exact ending.
+**Morning**, **Afternoon**, or **Evening**, then use one compact, visually connected
+row for each start time. Tap the time portion to start, or the attached availability
+portion to inspect the open/full details. A small prompt asks **When should it end?**
+Choose the exact ending.
 
 The availability result includes a button with the open and pending totals. Tap it to
 see who has each numbered room or item, plus every overlapping pending request. Pending
@@ -175,15 +174,15 @@ Open **https://lvrooms.web.app/?tv=1** on the lobby display.
 - Choose an eligible Tuesday or Saturday with the TV day setting. The chosen day’s
   complete timeline remains visible; on a non-schedule day, choose the next eligible day
   instead of seeing an empty timetable.
-- It includes the current time, service periods, approved assignments, pending
-  request lanes, and live connection status.
+- It leads with four study-room availability cards and an approved-reservations-only
+  supporting timeline. It includes service periods and live connection status.
 - Names use first name plus last initial, such as **Anthony L.**
 - It never shows notes, purposes, room preferences, the Admin PIN, or Admin controls.
 - If the connection drops, it keeps the last known schedule visible and shows
   **Reconnecting** with the last successful update time.
 
 Use TV demo mode when you want to inspect a filled schedule without real reservations.
-Its mock entries are browser-only and include approved assignments, pending lanes, and
+Its mock entries are browser-only and include approved study-room assignments and
 service bands.
 
 The TV screen is designed for 1920×1080 and remains usable at 1280×720.

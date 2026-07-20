@@ -78,7 +78,6 @@ let state = {
 let ui = {
   tab: 'home',
   selectedDate: null,   // shared by Reservations and Admin
-  homeType: 'room',     // resource shown in the compact Home schedule
   homeDate: null,       // independent date in the member Home day overview
   homeOverviewType: 'room', // resource shown in the member Home day overview
   memberType: 'room',   // resource highlighted by the Reservations picker
@@ -786,30 +785,6 @@ function dateSelectorHtml() {
 
 /* ---- Home dashboard ---- */
 
-function currentMinutes() {
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
-}
-
-function homeUnitScheduleHtml(date, type) {
-  const today = date === todayISO();
-  const now = currentMinutes();
-  const rows = unitsForType(type).map(unit => {
-    const assigned = bookingsForDate(date)
-      .filter(b => b.status === 'approved' && assignmentsOf(b)[type] === unit.id)
-      .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start));
-    const current = today ? assigned.find(b => minsOfDay(b.start) <= now && now < minsOfDay(b.end)) : null;
-    const next = assigned.find(b => today ? minsOfDay(b.start) > now : true);
-    let status = '<strong>Open</strong><span>No upcoming reservation</span>';
-    if (current) status = '<strong>' + esc(current.name) + '</strong><span>Now · until ' + esc(fmtTime(current.end)) + '</span>' + (next ? '<em>Next: ' + esc(next.name) + ' · ' + esc(fmtTime(next.start)) + '–' + esc(fmtTime(next.end)) + '</em>' : '<em>No later reservation</em>');
-    else if (next) status = '<strong>' + esc(next.name) + '</strong><span>Next · ' + esc(fmtTime(next.start)) + '–' + esc(fmtTime(next.end)) + '</span>';
-    return '<div class="home-unit-row"><div class="home-unit-name">' + esc(unit.label) + '</div><div class="home-unit-status' + (current ? ' current' : '') + '">' + status + '</div></div>';
-  }).join('');
-  return '<section class="home-schedule" aria-label="Current and upcoming ' + esc(needLabel(type).toLowerCase()) + ' schedule">' +
-    '<div class="home-section-head"><div><div class="eyebrow">' + (today ? 'Today' : 'Next reservation day') + '</div><h2>' + esc(fmtDate(date)) + '</h2></div><a class="text-link" href="?tv=1">Open TV view</a></div>' +
-    memberResourceToggleHtml(type, 'home-type') + '<div class="home-unit-list">' + rows + '</div></section>';
-}
-
 /* Shared read-only day map. Admin gets status styling; Home opts into open-cell
    actions, which still start a general reservation rather than assigning that
    specific unit. */
@@ -817,7 +792,7 @@ function dayMapGridHtml(date, type, options = {}) {
   const units = unitsForType(type);
   let html = '<div class="member-calendar-grid">' +
     '<div class="member-calendar-row unit-header"><div class="member-time"><small>Time</small></div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span>' + esc(String(unit.num)) + '</span>').join('') + '</div></div>';
-  scheduleSegments(date).forEach(window => {
+  (options.segments || scheduleSegments(date)).forEach(window => {
     if (window.service) {
       html += '<div class="member-service"><span>' + esc(window.label) + '</span><span>' + esc(fmtTime(window.start)) + '–' + esc(fmtTime(window.end)) + '</span></div>';
       return;
@@ -833,6 +808,29 @@ function dayMapGridHtml(date, type, options = {}) {
     });
   });
   return html + '</div>';
+}
+
+function homeDayparts(date) {
+  const start = isSaturday(date) ? '09:00' : '10:00';
+  return [
+    { label: 'Morning', start, end: '15:00' },
+    { label: 'Afternoon', start: '15:00', end: '20:00' },
+    { label: 'Evening', start: '20:00', end: '23:00' }
+  ];
+}
+
+function homeDaypartSegments(date, daypart) {
+  const start = minsOfDay(daypart.start);
+  const end = minsOfDay(daypart.end);
+  return scheduleSegments(date).reduce((segments, segment) => {
+    const segmentStart = Math.max(start, minsOfDay(segment.start));
+    const segmentEnd = Math.min(end, minsOfDay(segment.end));
+    if (segmentStart < segmentEnd) segments.push(Object.assign({}, segment, {
+      start: hhmmOfMins(segmentStart),
+      end: hhmmOfMins(segmentEnd)
+    }));
+    return segments;
+  }, []);
 }
 
 function homeDateControlsHtml(date) {
@@ -856,48 +854,11 @@ function homeDayOverviewHtml(date, type) {
   return '<section class="home-day-overview" aria-labelledby="home-day-overview-title">' +
     '<div class="home-section-head"><div><div class="eyebrow">Plan a reservation</div><h2 id="home-day-overview-title">Day overview</h2><p class="section-note">Tap an open space to choose its start time, then choose when it should end.</p></div></div>' +
     homeDateControlsHtml(date) + memberResourceToggleHtml(type, 'home-overview-type') +
-    '<div class="member-calendar-scroll home-day-map">' + dayMapGridHtml(date, type, { clickOpen: true }) + '</div>' +
+    '<div class="home-daypart-list">' + homeDayparts(date).map((daypart, index) =>
+      '<details class="home-daypart"' + (index === 0 ? ' open' : '') + '><summary><span><strong>' + esc(daypart.label) + '</strong><small>' + esc(fmtTime(daypart.start) + '–' + fmtTime(daypart.end)) + '</small></span><span class="home-daypart-summary">View schedule</span></summary>' +
+      '<div class="member-calendar-scroll home-day-map" aria-label="' + esc(daypart.label + ' ' + needLabel(type).toLowerCase() + ' schedule') + '">' + dayMapGridHtml(date, type, { clickOpen: true, segments: homeDaypartSegments(date, daypart) }) + '</div></details>'
+    ).join('') + '</div>' +
     homePendingRequestsHtml(date, type) + '</section>';
-}
-
-function myHomeNotificationsHtml() {
-  const mine = myBookingIds().map(bookingByIdSafe).filter(Boolean);
-  if (!mine.length) {
-    return '<section class="home-notifications" aria-labelledby="home-notifications-title"><div class="home-section-head"><div><div class="eyebrow">For this device</div><h2 id="home-notifications-title">My notifications</h2></div></div><p class="home-notifications-empty">No reservation notifications yet.</p></section>';
-  }
-
-  const today = todayISO();
-  const nowMinutes = currentMinutes();
-  const chronological = mine.slice().sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
-  const current = chronological.find(b => b.status === 'approved' && b.date === today && minsOfDay(b.start) <= nowMinutes && nowMinutes < minsOfDay(b.end));
-  const next = current || chronological.find(b => b.status === 'approved' && (b.date > today || (b.date === today && minsOfDay(b.end) > nowMinutes)));
-  const pending = chronological.filter(b => b.status === 'pending').slice(0, 2);
-  const denied = mine.filter(b => b.status === 'declined').sort((a, b) => timestampMillis(b.updatedAt || b.createdAt) - timestampMillis(a.updatedAt || a.createdAt)).slice(0, 2);
-  const notices = [];
-
-  pending.forEach(b => notices.push({
-    booking: b,
-    kind: 'pending',
-    title: 'Reservation pending',
-    detail: resourceLabelFor(b) + ' · awaiting review'
-  }));
-  if (next) notices.push({
-    booking: next,
-    kind: 'approved',
-    title: current ? 'Your reservation is happening now' : 'Your next reservation',
-    detail: resourceLabelFor(next) + (current ? ' · reserved until ' + fmtTime(next.end) : '')
-  });
-  denied.forEach(b => notices.push({
-    booking: b,
-    kind: 'declined',
-    title: 'Reservation denied',
-    detail: resourceLabelFor(b) + ' · choose another open time'
-  }));
-
-  return '<section class="home-notifications" aria-labelledby="home-notifications-title"><div class="home-section-head"><div><div class="eyebrow">For this device</div><h2 id="home-notifications-title">My notifications</h2></div><a class="text-link" href="#" data-act="tab" data-id="mine">View all</a></div><div class="home-notification-list">' + notices.slice(0, 5).map(notice => {
-    const b = notice.booking;
-    return '<div class="home-notification ' + notice.kind + '"><span class="notification-dot" aria-hidden="true"></span><div><strong>' + esc(notice.title) + '</strong><span>' + esc(fmtDate(b.date) + ' · ' + fmtTime(b.start) + '–' + fmtTime(b.end)) + '</span><small>' + esc(notice.detail) + '</small></div></div>';
-  }).join('') + '</div></section>';
 }
 
 function renderHome() {
@@ -905,10 +866,9 @@ function renderHome() {
     return '<section class="member-booking"><div class="member-intro"><div class="eyebrow">Home</div><h1>Loading today’s room activity.</h1><p>The dashboard will appear as soon as the shared schedule is verified.</p></div><div class="schedule-loading" role="status" aria-live="polite"><span aria-hidden="true"></span>Connecting to the shared schedule</div></section>';
   }
   const dates = upcomingBookingDates();
-  const date = dates.includes(todayISO()) ? todayISO() : dates[0];
   const overviewDate = selectedHomeDate();
-  return '<section class="home-dashboard"><div class="member-intro"><div class="eyebrow">Home</div><h1>Study room dashboard.</h1><p>See your reservation notices, what is happening now, and what is next.</p></div>' +
-    myHomeNotificationsHtml() + homeUnitScheduleHtml(date, ui.homeType) + homeDayOverviewHtml(overviewDate, ui.homeOverviewType) + activityFeedHtml(dates, true) + '</section>';
+  return '<section class="home-dashboard"><div class="member-intro"><div class="eyebrow">Home</div><h1>Find your study room time.</h1><p>Choose an open space in the day overview, then choose when it should end.</p></div>' +
+    homeDayOverviewHtml(overviewDate, ui.homeOverviewType) + activityFeedHtml(dates, true) + '</section>';
 }
 
 /* ---- Reservations tab ---- */
@@ -2140,12 +2100,6 @@ function handleAction(act, el) {
   }
 
   /* ---- Reservations tab ---- */
-  if (act === 'home-type') {
-    if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
-    ui.homeType = el.dataset.id;
-    render();
-    return;
-  }
   if (act === 'home-date') {
     if (!upcomingBookingDates().includes(el.dataset.id)) return;
     ui.homeDate = el.dataset.id;

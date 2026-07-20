@@ -50,15 +50,24 @@ try {
   assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.shouldAutoApproveMemberBooking('2026-07-21', new Date('2026-07-20T17:00:00Z'))), true);
   assert.equal(await page.getByRole('tab', { name: 'Home' }).getAttribute('aria-selected'), 'true');
   assert.equal(await page.getByText('Real Cached Person').count(), 0);
-  assert.equal(await page.locator('.home-unit-row').count(), 4);
-  assert.match(await page.locator('.home-notifications').innerText(), /Reservation pending/);
-  assert.match(await page.locator('.home-notifications').innerText(), /Your next reservation/);
-  assert.match(await page.locator('.home-notifications').innerText(), /Reservation denied/);
+  assert.equal(await page.locator('.home-notifications').count(), 0);
+  assert.equal(await page.locator('.home-schedule').count(), 0);
   assert.ok(await page.locator('.home-day-overview').isVisible());
+  assert.equal(await page.locator('.home-daypart').count(), 3);
+  assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null);
+  assert.equal(await page.locator('.home-daypart').nth(1).getAttribute('open'), null);
   assert.equal(await page.locator('.home-date-choice').count(), 2);
   await page.locator('.home-date-choice').filter({ hasText: 'Saturday' }).click();
   assert.match(await page.locator('.home-day-overview').innerText(), /Saturday/);
   assert.match(await page.locator('.home-pending-requests').innerText(), /Grace L\./);
+  assert.match(await page.locator('.home-daypart').nth(0).innerText(), /Morning service/);
+  assert.equal(await page.locator('.home-daypart').nth(0).locator('.member-service button').count(), 0);
+  await page.locator('.home-daypart').nth(1).locator('summary').click();
+  assert.notEqual(await page.locator('.home-daypart').nth(1).getAttribute('open'), null);
+  assert.match(await page.locator('.home-daypart').nth(1).innerText(), /Afternoon service/);
+  await page.locator('.home-daypart').nth(2).locator('summary').click();
+  assert.notEqual(await page.locator('.home-daypart').nth(2).getAttribute('open'), null);
+  assert.match(await page.locator('.home-daypart').nth(2).innerText(), /Evening service/);
   await page.locator('.home-day-overview .member-resource[data-id="tv"]').click();
   assert.match(await page.locator('.home-pending-requests').innerText(), /Micah S\./);
   await page.locator('.home-day-overview .member-resource[data-id="room"]').click();
@@ -84,6 +93,17 @@ try {
   await page.getByRole('button', { name: 'Next reservation date' }).click();
   assert.notEqual(await page.locator('.date-current strong').innerText(), firstDate);
   await page.getByRole('button', { name: 'Previous reservation date' }).click();
+
+  assert.equal(await page.locator('.start-time-choice').count(), await page.locator('.slot-availability').count());
+  assert.equal(await page.locator('.start-time-row').first().evaluate(node => Math.round(node.getBoundingClientRect().height)), 36);
+  await page.locator('.start-time-choice[data-start="10:00"]').focus();
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey), 'member-start-10:00');
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey), 'member-availability-10:00');
+  await page.locator('.slot-availability[data-start="10:00"]').click();
+  assert.ok(await page.locator('.availability-dialog').isVisible());
+  await page.getByRole('button', { name: 'Close availability details' }).click();
+  await page.waitForFunction(() => document.activeElement?.dataset.focusKey === 'member-availability-10:00');
 
   await page.locator('.start-time-choice[data-start="10:30"]').click();
   assert.ok(await page.locator('.end-time-dialog').isVisible());

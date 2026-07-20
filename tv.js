@@ -3,32 +3,10 @@
 const FIREBASE_VERSION = '10.12.2';
 const CACHE_KEY = 'srs-tv-cache-v2';
 
-const RESOURCES = [
-  {
-    id: 'room',
-    label: 'Study Rooms',
-    pendingLabel: 'Room requests',
-    units: [1, 2, 3, 4].map(n => ({ id: `room-${n}`, label: `Study Room ${n}` }))
-  },
-  {
-    id: 'whiteboard',
-    label: 'Whiteboards',
-    pendingLabel: 'Whiteboard requests',
-    units: [
-      { id: 'wb-1', label: 'Whiteboard 1', detail: 'Large · Podium 1' },
-      { id: 'wb-2', label: 'Whiteboard 2', detail: 'Large · Podium 2' },
-      { id: 'wb-3', label: 'Whiteboard 3', detail: 'Large · Podium 3' },
-      { id: 'wb-4', label: 'Whiteboard 4', detail: 'Vertical · Podium 4' },
-      { id: 'wb-5', label: 'Whiteboard 5', detail: 'Vertical · Podium 5' }
-    ]
-  },
-  {
-    id: 'tv',
-    label: 'TVs',
-    pendingLabel: 'TV requests',
-    units: [1, 2, 3].map(n => ({ id: `tv-${n}`, label: `TV ${n}` }))
-  }
-];
+// The lobby display is intentionally limited to the four study rooms. Shared
+// equipment and pending requests are useful in the member/Admin app, but they
+// make a room-finding display harder to read from across the lobby.
+const ROOM_UNITS = [1, 2, 3, 4].map(n => ({ id: `room-${n}`, label: `Study Room ${n}` }));
 
 // 10:30 PM is the final bookable start. The display includes the resulting
 // 10:30–11:00 PM assignment, so every schedule ends at 11:00 PM.
@@ -245,7 +223,7 @@ function timeRuler(config) {
     return `<span class="tick${edgeClass}" style="left:${percentage.toFixed(4)}%">${escapeHtml(formatTime(hhmm))}</span>`;
   }).join('');
   return `<div class="time-ruler">
-    <div class="ruler-label">${escapeHtml(config.name)}</div>
+    <div class="ruler-label">${escapeHtml(config.name)} · ${escapeHtml(formatTime(config.start))}</div>
     <div class="track ruler-track" style="--slot-width:${(30 / (end - start) * 100).toFixed(4)}%">${labels}${currentTimeMarker(config)}</div>
   </div>`;
 }
@@ -259,39 +237,94 @@ function approvedForUnit(type, unitId, config) {
     .join('');
 }
 
-function pendingForType(type, config) {
-  const pending = bookings
+function approvedBookingsForRoom(unitId) {
+  return bookings
     .filter(isDisplayableBooking)
-    .filter(booking => booking.status === 'pending' && booking.needs[type])
-    .sort((a, b) => minutes(a.start) - minutes(b.start) || Number(a.createdAt || 0) - Number(b.createdAt || 0));
-  const laneEnds = [];
-  const html = pending.map(booking => {
-    let lane = laneEnds.findIndex(end => minutes(booking.start) >= end);
-    if (lane === -1) lane = laneEnds.length;
-    laneEnds[lane] = minutes(booking.end);
-    return bookingChip(booking, config, true, lane);
-  }).join('');
-  return { html, laneCount: Math.max(1, laneEnds.length) };
+    .filter(booking => booking.status === 'approved' && booking.needs.room && booking.assignments && booking.assignments.room === unitId)
+    .sort((a, b) => minutes(a.start) - minutes(b.start));
 }
 
-function resourceSection(resource, config) {
-  const unitRows = resource.units.map(unit => {
-    const chips = approvedForUnit(resource.id, unit.id, config);
+function roomTimeline(config) {
+  const unitRows = ROOM_UNITS.map(unit => {
+    const chips = approvedForUnit('room', unit.id, config);
     return `<div class="schedule-row">
-      <div class="row-label">${escapeHtml(unit.label)}${unit.detail ? `<small>${escapeHtml(unit.detail)}</small>` : ''}</div>
+      <div class="row-label">${escapeHtml(unit.label)}</div>
       ${timelineTrack(chips, config, true)}
     </div>`;
   }).join('');
-
-  const pending = pendingForType(resource.id, config);
-  return `<section aria-label="${escapeHtml(resource.label)}">
-    <div class="category-title">${escapeHtml(resource.label)}</div>
+  return `<section class="room-timeline" aria-label="Study room timeline">
     ${unitRows}
-    <div class="schedule-row pending-row" style="--pending-lanes:${pending.laneCount}">
-      <div class="row-label">${escapeHtml(resource.pendingLabel)}<small>Requested — awaiting approval</small></div>
-      ${timelineTrack(pending.html, config, false)}
+  </section>`;
+}
+
+function serviceInProgress(config, at) {
+  return config.services.find(service => minutes(service.start) <= at && at < minutes(service.end));
+}
+
+function roomCard(unit, config) {
+  const reservations = approvedBookingsForRoom(unit.id);
+  const isToday = selectedDate === localISO();
+  const now = new Date();
+  const current = now.getHours() * 60 + now.getMinutes();
+  const active = isToday && reservations.find(booking => minutes(booking.start) <= current && current < minutes(booking.end));
+  const next = isToday
+    ? reservations.find(booking => minutes(booking.start) >= current)
+    : reservations[0];
+  const service = isToday ? serviceInProgress(config, current) : null;
+  const nextDetail = next
+    ? `Next: ${bookingName(next)} · ${formatTime(next.start)}–${formatTime(next.end)}`
+    : '';
+  const withNext = detail => [detail, nextDetail].filter(Boolean).join(' · ');
+
+  let state = 'Open all day';
+  let detail = 'No approved reservation';
+  if (isToday && active) {
+    state = 'In use now';
+    detail = withNext(`${bookingName(active)} · until ${formatTime(active.end)}`);
+  } else if (isToday && service) {
+    state = 'Service in progress';
+    detail = withNext(`Available after ${formatTime(service.end)}`);
+  } else if (isToday && current < minutes(config.start)) {
+    state = 'Available when rooms open';
+    detail = withNext(`Opens at ${formatTime(config.start)}`);
+  } else if (isToday && current >= minutes(config.end)) {
+    state = 'Schedule ended';
+    detail = `Reopens on the next schedule day`;
+  } else if (next) {
+    state = isToday ? 'Available now' : 'First reservation';
+    detail = isToday
+      ? nextDetail
+      : `${bookingName(next)} · ${formatTime(next.start)}–${formatTime(next.end)}`;
+  } else if (isToday) {
+    state = 'Available now';
+    detail = `Open through ${formatTime(config.end)}`;
+  }
+
+  return `<article class="room-card${active ? ' occupied' : ''}" aria-label="${escapeHtml(`${unit.label}: ${state}. ${detail}`)}">
+    <h2>${escapeHtml(unit.label)}</h2>
+    <p class="room-state">${escapeHtml(state)}</p>
+    <p class="room-detail">${escapeHtml(detail)}</p>
+  </article>`;
+}
+
+function roomAvailability(config) {
+  return `<section class="room-availability" aria-label="Study room availability">
+    <div class="availability-heading">
+      <p>Room availability</p>
+      <span>${selectedDate === localISO() ? 'Right now' : 'Selected day'}</span>
+    </div>
+    <div class="room-card-grid">
+      ${ROOM_UNITS.map(unit => roomCard(unit, config)).join('')}
     </div>
   </section>`;
+}
+
+function renderFooter() {
+  const footer = document.querySelector('.tv-footer');
+  if (!footer) return;
+  footer.innerHTML = `<span>Live study room availability</span>
+    <span class="legend approved"><i aria-hidden="true"></i>Approved reservation</span>
+    <span class="legend service"><i aria-hidden="true"></i>Service</span>`;
 }
 
 function renderDayChooser() {
@@ -320,8 +353,19 @@ function render() {
   }
 
   schedule.innerHTML = `<div class="board" aria-label="${escapeHtml(config.name)} study room schedule for ${escapeHtml(formatDate(selectedDate))}">
-    ${timeRuler(config)}
-    ${RESOURCES.map(resource => resourceSection(resource, config)).join('')}
+    ${roomAvailability(config)}
+    <section class="timeline-section" aria-label="Study room schedule timeline">
+      <div class="timeline-heading">
+        <p>${selectedDate === localISO() ? 'Today’s timeline' : 'Selected day’s timeline'}</p>
+        <span>Approved reservations only</span>
+      </div>
+      <div class="timeline-scroller" tabindex="0" aria-label="Scroll horizontally to view the full room timeline">
+        <div class="timeline-canvas">
+          ${timeRuler(config)}
+          ${roomTimeline(config)}
+        </div>
+      </div>
+    </section>
   </div>`;
   renderedDate = selectedDate;
 }
@@ -532,6 +576,7 @@ function initSelectedDate() {
 
 function init() {
   initSelectedDate();
+  renderFooter();
   setSelectedDate(selectedDate, { updateUrl: false, restart: false });
   if (isDemoMode()) {
     setConnection('live', 'Sample preview');

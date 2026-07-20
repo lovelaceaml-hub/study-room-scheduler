@@ -37,7 +37,10 @@ dashboard-and-disclosure flow. Home now opens first with current/upcoming unit u
 a bounded live feed. Reservations uses a single-date arrow stepper and three daypart
 disclosures. On July 20, the compact two-column start grid was replaced with a vertical
 phone list that opens an immediate **When should it end?** prompt after a start is
-chosen, while retaining the exact end boundary.
+chosen, while retaining the exact end boundary. The current branch refines that list
+into compact connected time/availability rows, starts Home with a three-daypart Day
+overview, and narrows the lobby display to study-room availability. Those refinement
+changes are not yet deployed.
 
 ## Architecture
 
@@ -93,8 +96,10 @@ must reject ranges that overlap a service or begin before reservable time.
 The Reservations screen shows one Study room, Whiteboard, or TV at a time. The date
 stepper and resource picker sit directly above three native disclosures: Morning,
 Afternoon, and Evening. Each disclosure states its available start-time range and
-contains vertically stacked buttons for each listed start time. Tapping a start opens
-one **When should it end?** choice. The chosen ending is stored exactly;
+contains compact, visually connected 36px rows for each listed start time. The time
+action starts a reservation; the separate attached availability action opens details
+without starting one. Tapping a start opens one **When should it end?** choice. The
+chosen ending is stored exactly;
 selecting 10:00 AM then 11:30 AM means 10:00–11:30 AM. After a complete range, the
 screen shows an open/pending button. Its detail lists approved occupants by numbered
 unit and every overlapping pending request separately. Pending requests never occupy a
@@ -105,12 +110,13 @@ Service periods divide the daypart options but do not appear as selectable membe
 times. They cannot be selected or crossed. The lobby timetable continues to show the
 service bands explicitly. The same interaction works on phone and desktop layouts.
 
-Home derives **My notifications** only from reservation IDs saved by this browser. It
-surfaces pending requests, the nearest approved reservation, and denied requests before
-the shared unit schedule and live activity feed. The Home overview mirrors the
-member-safe part of the Admin day map. Its open slots are buttons that set the selected
-date, resource, and start time in Reservations, then focus the end-time choice; full and
-service slots are not booking actions.
+Home’s Day overview mirrors the member-safe part of the Admin day map and is the first
+Home feature. It separates the schedule into expandable Morning, Afternoon, and Evening
+sections, each with the applicable service band and half-hour grid. Its open slots are
+buttons that set the selected date, resource, and start time in Reservations, then focus
+the end-time choice; full and service slots are not booking actions. The former
+device-specific notification and current/next-summary cards are not part of this
+refinement; the bounded live activity feed follows the overview.
 
 If no numbered unit is free for the complete selected range, the member interface
 uses an inline alert with the exact unavailable message. It computes the longest
@@ -148,10 +154,10 @@ Firestore. The planned member and TV previews include both eligible dates, all r
 types, assigned bookings, overlapping pending requests, a full range, a declined item,
 a cancellation, and visible service periods.
 
-Home is the opening screen. It shows Study Rooms by default and lets a member switch
-to Whiteboards or TVs. Each numbered unit shows the current occupant and ending time
-on an eligible day, or its next reservation. The live update feed is capped in the DOM
-and scrolls inside a fixed-height region so ongoing activity does not lengthen the page.
+Home is the opening screen. It shows Study Rooms by default and lets a member switch to
+Whiteboards or TVs. The overview's daypart grid shows approved use and open cells; the
+live update feed is capped in the DOM and scrolls inside a fixed-height region so ongoing
+activity does not lengthen the page.
 
 Approval performs a fresh conflict check, records the chosen assignment, and moves the
 booking from the pending lane into the assigned row. Decline or cancellation removes
@@ -188,14 +194,17 @@ PIN controls, and Admin actions.
 
 The TV renderer has a day setting limited to eligible Tuesday/Saturday dates:
 
-- The selected day: full timeline through 11:00 PM, service blocks, approved rows,
-  pending lanes, clock, and connection status.
+- Four prominent study-room availability cards, plus a supporting approved-reservations-
+  only study-room timeline through 11:00 PM with service blocks, clock, and connection
+  status.
 - A current-time marker only when the selected day is today.
 
-Public names are reduced to first name plus last initial. The display keeps a narrow
-cache of only the information it needs. When Firestore disconnects, it preserves the
-last schedule and shows **Reconnecting** and the last update time. The CSS has layouts
-for 1920×1080 and 1280×720 lobby screens.
+Public names are reduced to first name plus last initial. Pending requests, Whiteboard
+lanes, and TV lanes are intentionally excluded from the lobby display. The display keeps
+a narrow cache of only the information it needs. When Firestore disconnects, it
+preserves the last schedule and shows **Reconnecting** and the last update time. The CSS
+has layouts for 1920×1080 and 1280×720 lobby screens, and preserves a horizontal
+timetable rather than compressing labels at narrow widths.
 
 ## Phone and accessibility design
 
@@ -227,11 +236,13 @@ Production verification covers:
 - A range with no whole-range unit shows the unavailable alert and shorter-ending
   recovery; the backend independently refuses the stale/conflicting submission.
 - A member can choose a range only within the same non-service period.
-- Home’s open-slot handoff to Reservations, the named assignment/pending detail button,
-  vertical mobile start list, and immediate end-time prompt.
+- Home’s open-slot handoff to Reservations, expandable Morning/Afternoon/Evening
+  overview, named assignment/pending detail button, compact connected mobile start
+  rows, and immediate end-time prompt.
 - The calendar has no separate Sign up tab or "reservations unavailable" notice.
 - Phones at 320, 375, and 390 pixels.
-- TV mode at 1280×720 and 1920×1080, including its eligible-day selector and demo data.
+- TV mode at narrow width, 1280×720, and 1920×1080, including its eligible-day selector,
+  four room cards, approved-only study-room timeline, and demo data.
 - Old-address redirect, new primary address, installation, and offline reopening.
 
 ## Deployment order

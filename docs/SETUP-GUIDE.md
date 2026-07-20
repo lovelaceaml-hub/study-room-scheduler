@@ -9,7 +9,8 @@ The previous address, **https://lvz-rooms.web.app**, remains available and sends
 visitors to the shorter address automatically.
 
 The mobile, scheduling, TV, and demo update was deployed and live-verified on July 20,
-2026.
+2026. The current branch's simplified Home, compact reservation rows, and study-room
+TV layout are awaiting a separate deployment and verification.
 
 ## Open the member app
 
@@ -19,14 +20,16 @@ The mobile, scheduling, TV, and demo update was deployed and live-verified on Ju
    member can manage only their own new requests.
 4. To make a request, open **Reservations**, use the arrows to choose Tuesday or
    Saturday, select Study room, Whiteboard, or TV, and open Morning, Afternoon, or
-   Evening. Tap a vertically listed **Start time**, answer **When should it end?** with
-   the exact ending, tap **Continue**, and complete the short name-and-purpose form.
+Evening. Tap the time side of a compact connected row, answer **When should it end?**
+with the exact ending, tap **Continue**, and complete the short name-and-purpose form.
+Tap the attached availability side instead when you want to inspect who has rooms or
+which requests are pending.
 
 The member app has no separate **Sign up** screen. The time menus are divided around
-service periods, which cannot be selected. Home contains this device’s reservation
-notifications, a live day overview, and a scrollable update feed. Tapping an open Home
-slot takes the member straight to Reservations with that time ready for an end-time
-choice.
+service periods, which cannot be selected. On the current branch, Home begins with a
+live Day overview split into expandable Morning, Afternoon, and Evening sections, then
+shows the scrollable update feed. Tapping an open Home slot takes the member straight to
+Reservations with that time ready for an end-time choice.
 
 ## Install it on an iPhone
 
@@ -60,8 +63,9 @@ The lobby screen does not require an Admin unlock.
    page open. It updates automatically when requests are submitted, approved, declined,
    or cancelled.
 
-Confirm that the selected date and timeline agree. The current-time marker appears only
-when the TV is showing today.
+Confirm that the selected date and study-room availability cards agree with the
+approved-reservation timeline. The current-time marker appears only when the TV is
+showing today. Pending requests and Whiteboard/TV lanes do not appear on the lobby TV.
 
 If the TV loses internet access, the last received schedule stays visible and the
 status changes to **Reconnecting**. It returns to **Live** after data reconnects.
@@ -78,9 +82,9 @@ request and Admin details.
 ## Preview the filled mock schedule
 
 For a safe walkthrough before using a real reservation, add `?demo=1` to the member
-address. The filled TV demo is available at `?tv=1&demo=1`. Mock rooms, requests,
-service bands, and cancellations stay in that browser and are never written to the live
-schedule.
+address. The filled TV demo is available at `?tv=1&demo=1`. Mock rooms, approved
+study-room bookings, service bands, and cancellations stay in that browser and are never
+written to the live schedule.
 
 ## Admin access
 

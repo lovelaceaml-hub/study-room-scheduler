@@ -9,6 +9,12 @@ overview, named assignment/pending details, 11:00 PM closing, an eligible-day TV
 and complete browser-only mock data. The earlier compact dashboard and exact-time
 scheduler were deployed and verified on July 19, 2026.
 
+**Current branch, not deployed.** The accepted layout refinement removes Home's
+device-specific notification and current/next-summary cards, makes its Day overview
+expandable by Morning/Afternoon/Evening, combines the Reservations time and availability
+controls into compact connected rows, and makes the lobby TV study-room-only. Deploy and
+live-verify this refinement separately before describing it as live.
+
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
 - **Previous address:** https://lvz-rooms.web.app — retained as a redirect
@@ -24,13 +30,13 @@ scheduler were deployed and verified on July 19, 2026.
   8:00–9:00 PM for services.
 - Show Saturday from 9:00 AM so the morning service is visible; booking still begins
   at 10:00 AM.
-- Open on Home with device-private reservation notifications, current/upcoming
-  numbered-unit use, and a bounded, scrollable live update feed. Study Rooms are the
-  default; Whiteboard and TV schedules are optional.
+- Open on Home with the member-safe Day overview first, separated into expandable
+  Morning, Afternoon, and Evening grids, followed by a bounded, scrollable live update
+  feed. Study Rooms are the default; Whiteboard and TV schedules remain selectable.
 - Make Reservations the only member booking screen: members step between the two
-  eligible dates, open Morning/Afternoon/Evening, tap a listed start time, choose the
-  exact ending in the **When should it end?** sheet, then complete the remaining details
-  in a pop-up.
+  eligible dates, open Morning/Afternoon/Evening, use a compact connected row to tap a
+  listed start or inspect availability, choose the exact ending in the **When should it
+  end?** sheet, then complete the remaining details in a pop-up.
 - Store the second selected time as the exact ending; never silently add another
   30 minutes. Keep member options divided around service periods while the TV retains
   visible service bands.
@@ -39,12 +45,14 @@ scheduler were deployed and verified on July 19, 2026.
 - Refuse a range that has no one unit open throughout. Offer the longest continuous
   shorter ending with Yes/No actions when possible, and repeat the check in the
   protected backend transaction for both Tuesday and Saturday.
-- Show every pending request live in amber resource-type lanes before approval.
+- Keep pending requests unassigned in the member and Admin views; do not show them on
+  the lobby TV.
 - Move approved requests into Study Room 1–4, Whiteboard 1–5, or TV 1–3 rows.
 - Remove the Baptism Room from future scheduling and return active future assignments
   there to pending for reassignment.
 - Add the read-only lobby TV presentation with an eligible-day picker, first name plus
-  last initial, current time when viewing today, live status, and cached reconnect behavior.
+  last initial, four study-room availability cards, an approved-only supporting timeline,
+  current time when viewing today, live status, and cached reconnect behavior.
 - Improve the phone layout with a compact tappable calendar, larger touch targets,
   clearer selected states, pop-up labels and announcements, keyboard access, and
   enlarged-text support.
@@ -67,9 +75,9 @@ scheduler were deployed and verified on July 19, 2026.
   member screens, keeps numbered-unit occupancy expandable and secondary, presents
   My reservations as durable status cards, and expands Admin into a desktop
   queue-and-detail workspace.
-- The lobby TV uses the approved Signal Timetable treatment with all 12 units,
-  full-day positioning, pending request lanes, service bands, and a track-relative
-  current-time marker.
+- The lobby TV uses the refined Signal Timetable treatment with four study-room cards,
+  an approved-only four-room timeline, service bands, and a track-relative current-time
+  marker. It excludes pending-request, Whiteboard, and TV lanes.
 
 ## Important behavior
 
@@ -85,8 +93,9 @@ chooses an end. It must not expose private notes or Admin controls.
 
 The TV’s day picker is limited to eligible Tuesday/Saturday dates. It uses `?tv=1`,
 omits all Admin controls and private details, and preserves its last public schedule
-during a connection interruption. A browser-only demo populates both member and TV
-views with every key state without writing to Firestore.
+during a connection interruption. Its cards and timeline use approved Study Room data
+only. A browser-only demo populates both member and TV views with fixture data without
+writing to Firestore.
 
 ## Rollout checklist
 
@@ -97,12 +106,14 @@ views with every key state without writing to Firestore.
 - Verify Admin unlock, approve, decline, cancel, reassignment, direct-add, and lock.
 - Verify listed start-time and revealed End-time selection, Morning/Afternoon/Evening disclosures, date arrows,
   unavailable-range recovery, and the booking pop-up on desktop and phone.
-- Verify vertical start-time choices, 10:00 PM and 10:30 PM starts, the 11:00 PM final
-  boundary, Home-to-Reservations time handoff, and named pending/assignment details.
+- Verify compact connected 36px start/availability rows, 10:00 PM and 10:30 PM starts,
+  the 11:00 PM final boundary, Home daypart expansion and Home-to-Reservations handoff,
+  and named pending/assignment details.
 - Verify Tuesday instant approval, advance Saturday pending, and the Saturday 9:59 AM /
   10:00 AM Los Angeles boundary.
 - Verify simultaneous member, Admin, phone, and TV live updates, the TV eligible-day
-  picker, and filled member/TV demo data without Firestore writes.
+  picker, four study-room cards, approved-only timeline, and filled member/TV demo data
+  without Firestore writes.
 - Verify 320/375/390-pixel phone views and 720p/1080p TV views.
 - Verify the shared visual tokens load in both the member app and lobby TV after an
   installed copy updates.
