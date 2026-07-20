@@ -10,6 +10,10 @@ pending, next, and denied notices above the shared unit schedule. Axe reported z
 violations, the 320-pixel view had no horizontal overflow, and policy tests continued
 to pass. An independent review found no blocking implementation issue; its two missing
 regression checks for keyboard selection and stale-ending reset were added and passed.
+After the Hosting-only production release, the live mobile page was checked again at
+**https://lvrooms.web.app/?demo=1**. The deployed JavaScript matched the verified local
+file byte-for-byte; the visible start choices and revealed End-time menu worked without
+horizontal overflow or browser errors.
 
 The Home dashboard, date stepper, listed starts with a revealed End menu, compact open/pending
 summary, numbered-unit disclosure, and unavailable-range recovery were driven in a

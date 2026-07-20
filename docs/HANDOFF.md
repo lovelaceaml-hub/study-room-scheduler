@@ -3,11 +3,9 @@
 ## Current status
 
 **Live.** The secure backend, compact dashboard and exact-time scheduler, lobby TV,
-and shorter address were deployed and verified on July 19, 2026.
-
-The next member-interface update is verified locally and backed up in source, but has
-not yet been deployed: listed half-hour start buttons now reveal one End-time dropdown,
-and Home adds device-private pending, next, and denied reservation notifications.
+shorter address, listed-start picker, and personal Home notifications were deployed and
+verified on July 19, 2026. Listed half-hour starts reveal one End-time dropdown, while
+Home shows device-private pending, next, and denied reservation notifications.
 
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
