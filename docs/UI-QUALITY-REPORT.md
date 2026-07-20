@@ -11,6 +11,11 @@ Selecting 10:00 AM then 11:30 AM produced the required unavailable message and o
 repeated it. Home rendered all four rooms and the bounded live feed, and the date arrows
 moved between Tuesday and Saturday. The browser reported no page errors.
 
+After the protected function and `app` Hosting target were deployed on July 19, the
+same critical journey passed against **https://lvrooms.web.app/?demo=1** in a fresh
+browser context. The live **https://lvrooms.web.app/?tv=1** route also rendered its
+real-time timetable surface successfully. Demo verification made no booking writes.
+
 Phone and desktop screenshots were visually reviewed for hierarchy, overflow, fixed
 navigation, disclosure state, readable labels, and touch-target size. JavaScript syntax,
 policy tests, diff checks, narrow-screen overflow, keyboard focus, and the independent

@@ -12,7 +12,8 @@ assigns the exact unit and approves or declines the request.
 
 The primary member address is **https://lvrooms.web.app**. The former address,
 **https://lvz-rooms.web.app**, is a permanent redirect. Production deployment was
-verified on July 17, 2026.
+verified initially on July 17, 2026; the compact dashboard and exact-time release was
+deployed and verified on July 19, 2026.
 
 ## Applied visual redesign
 

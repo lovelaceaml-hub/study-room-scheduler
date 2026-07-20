@@ -2,8 +2,8 @@
 
 ## Current status
 
-**Live.** The secure backend, redesigned app, lobby TV, and shorter address were
-deployed and verified on July 17, 2026.
+**Live.** The secure backend, compact dashboard and exact-time scheduler, lobby TV,
+and shorter address were deployed and verified on July 19, 2026.
 
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
