@@ -36,6 +36,28 @@ function isoDateInLosAngeles(now = new Date()) {
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
+/* Kept beside the Los Angeles date helper so approval never accidentally
+   follows the server's host time zone. `hourCycle: h23` makes midnight 00,
+   rather than the locale-specific 24 sometimes returned by hour12: false. */
+function minutesInLosAngeles(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(now);
+  const get = type => Number(parts.find(part => part.type === type).value);
+  return get('hour') * 60 + get('minute');
+}
+
+/* Tuesday reservations remain instant for the selected upcoming Tuesday.
+   A Saturday reservation is instant only once that same Saturday has reached
+   10:00 AM in Los Angeles; advance Saturday requests remain in the Admin
+   queue. This is pure so the boundary can be covered without Firestore. */
+function shouldAutoApproveMemberBooking(date, now = new Date()) {
+  const weekday = isoWeekday(date);
+  if (weekday === 2) return true;
+  if (weekday !== 6) return false;
+  return date === isoDateInLosAngeles(now) && minutesInLosAngeles(now) >= 10 * 60;
+}
+
 function addDays(dateString, days) {
   const date = new Date(`${dateString}T12:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
@@ -62,8 +84,8 @@ function validateBookingTime(date, startValue, endValue, now = new Date(), requi
   const end = parseMinutes(endValue);
   if (!Number.isFinite(start) || !Number.isFinite(end)) return 'Times must use HH:MM format.';
   if (start % 30 !== 0 || end % 30 !== 0) return 'Times must use 30-minute boundaries.';
-  if (start < 10 * 60 || end > 22 * 60 || start >= end) {
-    return 'Bookings must be between 10:00 and 22:00.';
+  if (start < 10 * 60 || end > 23 * 60 || start >= end) {
+    return 'Bookings must be between 10:00 and 23:00.';
   }
   const weekday = isoWeekday(date);
   if (weekday !== 2 && weekday !== 6) return 'Bookings are available only on Tuesday or Saturday.';
@@ -260,6 +282,7 @@ module.exports = {
   rangesOverlap,
   sortBookingsByPriority,
   shorterAvailableEnd,
+  shouldAutoApproveMemberBooking,
   upcomingTuesdayAndSaturday,
   validateBookingTime,
   validateDirectBooking,

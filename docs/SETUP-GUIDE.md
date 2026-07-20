@@ -8,6 +8,9 @@ The shorter address and revised scheduler are **Live** at
 The previous address, **https://lvz-rooms.web.app**, remains available and sends
 visitors to the shorter address automatically.
 
+The next mobile, scheduling, TV, and demo update is prepared locally but is **not yet
+deployed** to this address.
+
 ## Open the member app
 
 1. Open Safari, Chrome, or another current web browser.
@@ -16,13 +19,14 @@ visitors to the shorter address automatically.
    member can manage only their own new requests.
 4. To make a request, open **Reservations**, use the arrows to choose Tuesday or
    Saturday, select Study room, Whiteboard, or TV, and open Morning, Afternoon, or
-   Evening. Tap a listed **Start time**, choose the exact ending from the **End time**
-   dropdown that appears, tap **Continue**, and
-   complete the short name-and-purpose form.
+   Evening. Tap a vertically listed **Start time**, answer **When should it end?** with
+   the exact ending, tap **Continue**, and complete the short name-and-purpose form.
 
 The member app has no separate **Sign up** screen. The time menus are divided around
 service periods, which cannot be selected. Home contains this device’s reservation
-notifications, the live unit schedule, and a scrollable update feed.
+notifications, a live day overview, and a scrollable update feed. In the next update,
+tapping an open Home slot takes the member straight to Reservations with that time ready
+for an end-time choice.
 
 ## Install it on an iPhone
 
@@ -52,11 +56,12 @@ The lobby screen does not require an Admin unlock.
 3. Go to **https://lvrooms.web.app/?tv=1**.
 4. Put the browser into full-screen mode if the TV device offers that option.
 5. Confirm that the upper-right status reads **Live**.
-6. Leave this page open. It updates automatically when requests are submitted,
-   approved, declined, or cancelled.
+6. Choose the Tuesday or Saturday to display with the TV day setting, then leave the
+   page open. It updates automatically when requests are submitted, approved, declined,
+   or cancelled.
 
-On Tuesday and Saturday, confirm that the screen shows today’s date and timeline. On
-other days, **No study-room schedule today** is the correct display.
+Confirm that the selected date and timeline agree. The current-time marker appears only
+when the TV is showing today.
 
 If the TV loses internet access, the last received schedule stays visible and the
 status changes to **Reconnecting**. It returns to **Live** after data reconnects.
@@ -69,6 +74,12 @@ status changes to **Reconnecting**. It returns to **Live** after data reconnects
 
 The TV link is meant for a public lobby screen. It abbreviates names and hides private
 request and Admin details.
+
+## Preview the filled mock schedule
+
+For a safe walkthrough before using a real reservation, add `?demo=1` to the member
+address. The next update also supplies a filled TV demo. Mock rooms, requests, service
+bands, and cancellations stay in that browser and are never written to the live schedule.
 
 ## Admin access
 

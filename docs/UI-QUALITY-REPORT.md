@@ -1,4 +1,27 @@
-# Study Rooms UI quality report — July 17, 2026
+# Study Rooms UI quality report — July 17–20, 2026
+
+## July 20 mobile, approval, TV, and mock-preview verification
+
+This release is **verified locally and is not deployed to production yet**. It adds the
+member Home day overview, vertically stacked reservation starts, the **When should it
+end?** sheet, assignment-and-pending availability details, 11:00 PM closing, the
+Saturday 10:00 AM Los Angeles approval boundary, the selectable TV day view, and
+fixture-only member, Admin, and TV previews.
+
+`npm test` passed all **13 of 13** policy tests. `npm run test:ui` passed at
+390×844 and 320×720, including axe checks with no violations, keyboard navigation,
+dialog focus restoration, Home date/resource controls and pending-request rendering,
+Home-to-Reservations handoff, and member demo isolation. `node test/tv-smoke.mjs`
+passed at 1280×720 and 1920×1080, covering the eligible-date selector and URL,
+selected-date cache/subscription behavior, future-day time-marker suppression,
+privacy-safe names, late-evening scale, and Firebase-free TV fixtures.
+
+An interactive Codex in-app-browser walkthrough of the phone and TV mock previews
+showed no console warnings or errors. The final independent review's Home-overview,
+fixture-isolation, and shared-day-map findings were corrected and rechecked.
+
+Firestore rules are unchanged. The Firestore rule emulator was not run because this
+Mac does not have the Java runtime required by Firebase Emulator.
 
 ## July 19 compact-dashboard verification
 
@@ -37,7 +60,7 @@ review evidence are recorded in the current release handoff.
 This report retains the original July 17 redesign evidence and adds the July 19
 dashboard, interaction, accessibility, and protected-capacity checks above.
 
-## Surfaces reviewed
+## Current surfaces reviewed
 
 - Member Reservations using Quiet Study and availability-first time rows.
 - My reservations using durable upcoming and previous-decision cards.
@@ -45,52 +68,56 @@ dashboard, interaction, accessibility, and protected-capacity checks above.
 - Lobby TV using the Signal Timetable presentation.
 - Light and dark system themes.
 
-## Browser evidence
+## Current browser evidence
 
-The real application was served locally and driven through its visible controls.
+The current release was served locally and driven through its visible controls. The
+July 17 and July 19 production evidence above is retained as historical evidence for
+those earlier releases; it does not claim that the July 20 changes are deployed.
 
 | View | Size | Result |
 |---|---:|---|
-| Member | 320 × 720 | No document-level sideways scrolling; 48px bottom tabs; keyboard tab navigation and focus passed. |
-| Member | 390 × 844 | Date arrows, resource switching, three time disclosures, exact endpoints, expanded units, conflict recovery, and sheet rendered correctly. |
-| Member | 1280 wide | Header, tabs, and member content share the same 880px alignment. |
-| Admin locked | 390 wide | PIN form reflows without horizontal overflow and preserves typed input across live refreshes. |
-| Admin unlocked | 1280 × 900 | Queue/detail grid rendered as two columns; selecting another request updated its detail and recommended assignment. |
-| Lobby TV | 1280 × 720 | Signal header, live state, closed-day message, and legend were distance-readable with no overflow. |
+| Member | 320 × 720 | No document-level sideways scrolling; keyboard tab navigation and dialog-focus restoration passed. |
+| Member | 390 × 844 | Home date/resource controls, pending-request visibility, vertical starts, exact endpoint sheet, availability details, conflict recovery, and axe checks passed. |
+| Admin demo | Browser preview | Admin was automatically unlocked as a clearly labeled, read-only sample; no Admin action could write data. |
+| Lobby TV | 1280 × 720 | Eligible-day controls, approved rows, pending lanes, service bands, and the full 11:00 PM scale fit without overflow. |
+| Lobby TV | 1920 × 1080 | The chosen-date view, privacy-safe names, and wide-screen layout rendered without horizontal overflow. |
 
-The TV was tested on a Friday, so **No study-room schedule today** was the correct
-live state. Code review separately verified that Tuesday/Saturday use all 12 unit
-rows, full-day positioning through 10:00 PM, service bands, pending lanes, and the
-track-relative current-time marker.
+The TV smoke test covers Today plus the upcoming Tuesday/Saturday choices. It verifies
+all 12 unit rows, full-day positioning through 11:00 PM, service bands, pending lanes,
+the track-relative current-time marker for Today only, and no marker for a chosen future
+day.
 
-## Interaction and state checks
+## Current interaction and state checks
 
-- Start and End selects use exact boundaries; 10:00 AM plus 11:30 AM means
-  10:00–11:30 AM with no hidden extra half-hour.
+- Vertically stacked start rows open a **When should it end?** sheet. Its choices use
+  exact boundaries; 10:00 AM plus 11:30 AM means 10:00–11:30 AM with no hidden extra
+  half-hour.
 - Whole-range capacity is calculated from a unit that remains open throughout the
   complete range, not independent half-hour counts.
-- Clear removed the selection; Continue opened the correct sheet and restored focus
-  when closed.
-- Saturday showed **Request this time / Send request**; Tuesday showed
-  **Reserve this time / Reserve now**.
+- An open Home slot carries its date, resource, and highlighted start into Reservations;
+  Clear and the end-time sheet both preserve understandable recovery paths.
+- Tuesday is instant when open. Saturday is instant only for a request submitted on that
+  Saturday at or after 10:00 AM Los Angeles time; advance and pre-10:00 AM Saturday
+  requests remain pending.
 - Name and Other-purpose validation remained required.
-- Demo mode hid Admin, used only fixed sample data, skipped Firebase startup, and
-  displayed a clear no-save message on submission.
-- Pending demand appeared only as an aggregate request count and never occupied a
-  numbered unit before approval.
+- Demo mode uses fixture-only data, skips Firebase startup, and provides an automatically
+  unlocked, clearly labeled read-only Admin preview; its controls do not write data.
+- Availability totals open named approved-unit assignments and named overlapping pending
+  requests. Pending demand remains unassigned and never occupies a numbered unit before
+  approval.
 - Admin queue selection changed the detail and assignment context without changing
   data. Approve/decline/direct-add controls have duplicate-submit guards.
 - Empty/loading, pending, approved, declined, cancelled, reconnecting, error, and
   closed-day presentations are all explicitly represented.
 
-## Keyboard and accessibility checks
+## Current keyboard and accessibility checks
 
 - Tabs expose correct tab roles, selected state, roving tab stops, selected-panel
   labels, and arrow-key navigation without swipe gestures.
-- Time selects preserve keyboard focus after rerender and the completed range is
-  announced through a polite status region.
-- The booking sheet traps Tab, supports Escape, makes background controls inert,
-  and restores focus to Continue when closed.
+- Start rows and end-time choices preserve keyboard focus after rerender, and the
+  completed range is announced through a polite status region.
+- End-time, availability-detail, and booking sheets trap Tab, support Escape, make
+  background controls inert, and restore focus to their invoking control when closed.
 - Admin text fields and the PIN retain value, caret, and focus during live-data
   rerenders; session expiry automatically clears private notes and relocks the UI.
 - Visible focus uses a high-contrast light-and-dark double ring, including on
@@ -104,22 +131,28 @@ track-relative current-time marker.
 - User-provided long strings use safe wrapping, and banner messages use text-only
   rendering to prevent stored HTML execution.
 
-## Automated checks
+## Current automated checks
 
 - `node --check` passed for `app.js`, `tv.js`, and `sw.js`.
-- All 12 scheduling-policy tests passed, including the full Saturday range and
-  shorter-ending calculation.
-- The Playwright critical journey and two automated axe scans passed with zero
-  violations on the tested Home and reservation-confirmation states.
+- All 13 scheduling-policy tests passed, including the 11:00 PM boundary, service
+  checks, and Los Angeles Saturday 9:59 AM / 10:00 AM approval cutoff.
+- The Playwright member critical journey and automated axe checks passed with zero
+  violations on the tested Home, reservation, and dialog states.
+- The TV smoke test passed at 1280×720 and 1920×1080, including eligible-date links,
+  future-day marker suppression, and Firebase-free demo fixtures.
 - `git diff --check` passed.
 - Firestore rules were not changed. Their emulator suite could not start because
   this Mac does not currently have the Java runtime required by Firebase Emulator.
 
+Automated and browser walkthrough evidence is not a substitute for a formal first-time
+user study. A 5–8-person study with first-time members was not performed for this
+release.
+
 ## Independent review
 
 Three separate reviewers challenged the implementation for scheduling accuracy,
-mobile/accessibility behavior, Admin security/privacy, and lobby-TV fidelity. Their
-material findings were corrected before deployment, including safe demo isolation,
-Admin session expiry, duplicate-action guards, TV cache privacy and midnight
-rollover, accurate 10:00 PM day boundaries, focus restoration, contrast, and PWA
-palette consistency.
+mobile/accessibility behavior, Admin security/privacy, and lobby-TV fidelity. The
+current review's Home date/pending visibility, fixture isolation, and shared-day-map
+findings were corrected and rechecked locally. Earlier July 17/19 findings remain
+historical evidence for those deployed releases; the July 20 release has not been
+deployed.

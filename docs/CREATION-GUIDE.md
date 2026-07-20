@@ -7,13 +7,16 @@ app later. For everyday instructions, use the [User Manual](USER-MANUAL.md).
 
 LV Zion Study Rooms is an installable web app for reserving study rooms and shared
 equipment on the upcoming Tuesday and Saturday. Members request a resource type and
-time; Tuesday is assigned and approved automatically when open, while Saturday Admin
-assigns the exact unit and approves or declines the request.
+time. Tuesday is assigned and approved automatically when open. Saturday is assigned
+and approved automatically only for a submission made on that Saturday at or after
+10:00 AM Los Angeles time; an advance Saturday request stays pending for Admin to assign
+or decline.
 
 The primary member address is **https://lvrooms.web.app**. The former address,
 **https://lvz-rooms.web.app**, is a permanent redirect. Production deployment was
 verified initially on July 17, 2026; the compact dashboard and exact-time release was
-deployed and verified on July 19, 2026.
+deployed and verified on July 19, 2026. The next mobile, scheduling, TV, and demo
+update is prepared locally but has not been deployed.
 
 ## Applied visual redesign
 
@@ -32,8 +35,9 @@ source of truth.
 On July 19, 2026, the same approved direction was refined into a more compact
 dashboard-and-disclosure flow. Home now opens first with current/upcoming unit use and
 a bounded live feed. Reservations uses a single-date arrow stepper and three daypart
-disclosures with explicit Start and End selects. This refinement keeps the established
-tokens and backend model while removing repeated half-hour cards.
+disclosures with explicit Start and End selects. The next update replaces the compact
+two-column start grid with a vertical phone list, opens an immediate **When should it
+end?** prompt after a start is chosen, and retains the exact end boundary.
 
 ## Architecture
 
@@ -73,7 +77,8 @@ up tab.
 ### Time range and services
 
 All reservable slots are 30 minutes. Booking begins at 10:00 AM and the final slot is
-9:30–10:00 PM.
+10:30–11:00 PM. The member and TV views must therefore include 10:00 PM and 10:30 PM
+start positions, while server validation rejects any end after 11:00 PM.
 
 Unavailable service periods are:
 
@@ -88,13 +93,13 @@ must reject ranges that overlap a service or begin before reservable time.
 The Reservations screen shows one Study room, Whiteboard, or TV at a time. The date
 stepper and resource picker sit directly above three native disclosures: Morning,
 Afternoon, and Evening. Each disclosure states its available start-time range and
-contains compact buttons for each listed start time. Tapping a start reveals one End
-time dropdown beneath the choices. The chosen ending is stored exactly;
+contains vertically stacked buttons for each listed start time. Tapping a start opens
+one **When should it end?** choice. The chosen ending is stored exactly;
 selecting 10:00 AM then 11:30 AM means 10:00–11:30 AM. After a complete range, the
-screen shows only the number open and number pending until the member expands the
-numbered-unit detail. The short sheet then asks
-only for name and purpose (Contact, New Member, Meeting, or Other). Pending requests
-are shown as an aggregate count and never occupy a numbered unit before approval.
+screen shows an open/pending button. Its detail lists approved occupants by numbered
+unit and every overlapping pending request separately. Pending requests never occupy a
+numbered unit before approval. The short sheet then asks only for name and purpose
+(Contact, New Member, Meeting, or Other).
 
 Service periods divide the daypart options but do not appear as selectable member
 times. They cannot be selected or crossed. The lobby timetable continues to show the
@@ -102,7 +107,10 @@ service bands explicitly. The same interaction works on phone and desktop layout
 
 Home derives **My notifications** only from reservation IDs saved by this browser. It
 surfaces pending requests, the nearest approved reservation, and denied requests before
-the shared unit schedule and live activity feed.
+the shared unit schedule and live activity feed. The next Home overview mirrors the
+member-safe part of the Admin day map. Its open slots are buttons that set the selected
+date, resource, and start time in Reservations, then focus the end-time choice; full and
+service slots are not booking actions.
 
 If no numbered unit is free for the complete selected range, the member interface
 uses an inline alert with the exact unavailable message. It computes the longest
@@ -125,15 +133,20 @@ retain the old identifier for records without making the room bookable again.
 ## Live booking behavior
 
 Tuesday requests are created through a protected callable function, which assigns the
-first free unit and approves the request in one transaction. Saturday requests stay
-pending. The Admin queue and assignment recommendations sort Saturday requests by
-Contact, New Member, Meeting, Other, then request time.
+first free unit and approves the request in one transaction. The same happens for a
+Saturday request made on its booking Saturday at or after 10:00 AM Los Angeles time.
+Advance Saturday requests stay pending even after Saturday begins, so the Admin queue
+and assignment recommendations sort them by Contact, New Member, Meeting, Other, then
+request time. The approval predicate is a pure policy helper and must use
+`America/Los_Angeles`, never the server host time zone.
 
 The activity feed derives Requested, Reserved, and Cancelled events from booking
 timestamps. Approved cancellations retain their last assigned unit in server-only
 write data so the feed can accurately say which room, whiteboard, or TV was cancelled.
-`?demo=1` overlays fixed sample records in the browser only; it never writes them to
-Firestore.
+`?demo=1` overlays complete sample records in the browser only; it never writes them to
+Firestore. The planned member and TV previews include both eligible dates, all resource
+types, assigned bookings, overlapping pending requests, a full range, a declined item,
+a cancellation, and visible service periods.
 
 Home is the opening screen. It shows Study Rooms by default and lets a member switch
 to Whiteboards or TVs. Each numbered unit shows the current occupant and ending time
@@ -151,8 +164,9 @@ live states based on the actual result rather than assuming a write succeeded.
 
 Members do not create accounts or see a login screen. Firebase silently creates an
 anonymous identity. New bookings store that owner identity along with update and
-schema information. Database rules permit members to create valid pending requests
-for the two allowed dates and cancel only their own eligible requests.
+schema information. Direct client creation is blocked; the protected callable function
+creates valid instant or pending bookings for the two allowed dates. Database rules let
+members cancel only their own eligible requests.
 
 Members cannot approve, assign, decline, delete, change app settings, or edit another
 member’s request. Legacy bookings without ownership remain readable and can be managed
@@ -172,11 +186,11 @@ PIN controls, and Admin actions.
 
 ## Lobby TV renderer
 
-The TV renderer shows only the current local calendar day:
+The TV renderer has a day setting limited to eligible Tuesday/Saturday dates:
 
-- Tuesday or Saturday: full timeline through 10:00 PM, service blocks, approved rows,
-  pending lanes, current-time marker, clock, and connection status.
-- Any other day: **No study-room schedule today**.
+- The selected day: full timeline through 11:00 PM, service blocks, approved rows,
+  pending lanes, clock, and connection status.
+- A current-time marker only when the selected day is today.
 
 Public names are reduced to first name plus last initial. The display keeps a narrow
 cache of only the information it needs. When Firestore disconnects, it preserves the
@@ -200,7 +214,10 @@ Production verification covers:
 
 - Upcoming-date calculation, including when today is Tuesday or Saturday.
 - Every service block and rejection of crossing ranges.
-- The final 9:30–10:00 PM slot.
+- The 10:00 PM and 10:30 PM starts, final 10:30–11:00 PM slot, and rejection after
+  11:00 PM.
+- Tuesday instant approval; advance Saturday pending; and the Los Angeles 9:59 AM /
+  10:00 AM Saturday boundary.
 - Four-room capacity and removal of every future Baptism Room path.
 - Pending-to-approved, decline, cancel, reconnect, and failed-save transitions.
 - Member ownership and rejection of unauthorized Admin or cross-member changes.
@@ -210,9 +227,11 @@ Production verification covers:
 - A range with no whole-range unit shows the unavailable alert and shorter-ending
   recovery; the backend independently refuses the stale/conflicting submission.
 - A member can choose a range only within the same non-service period.
+- Home’s open-slot handoff to Reservations, the named assignment/pending detail button,
+  vertical mobile start list, and immediate end-time prompt.
 - The calendar has no separate Sign up tab or "reservations unavailable" notice.
 - Phones at 320, 375, and 390 pixels.
-- TV mode at 1280×720 and 1920×1080.
+- TV mode at 1280×720 and 1920×1080, including its eligible-day selector and demo data.
 - Old-address redirect, new primary address, installation, and offline reopening.
 
 ## Deployment order

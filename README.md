@@ -3,9 +3,9 @@
 ## Quick links
 
 - **Website:** https://lvrooms.web.app — primary member address
-- **Lobby TV:** https://lvrooms.web.app/?tv=1 — current-day lobby schedule
+- **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule (the planned update adds a day picker)
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live
+- **Status:** Live — next mobile, scheduling, TV, and demo update is prepared locally and not deployed yet
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -19,22 +19,26 @@
   - [UI Quality Report](docs/UI-QUALITY-REPORT.md) — browser and accessibility verification
   - [All documents →](docs/)
 
-An installable study-room scheduling app for LV Zion. The opening Home dashboard shows
-this device’s pending, next, and denied reservation notices, current/upcoming numbered-unit
-use, and a bounded live update feed. Members choose Study room,
-Whiteboard, or TV, step between the upcoming Tuesday and Saturday with date arrows,
-then tap a listed start time and choose the exact ending from the dropdown that appears.
-Tuesday bookings auto-approve
-when a resource is open; Saturday requests are manually reviewed by priority.
-Members see only the open and pending counts first and can expand the numbered-unit detail.
-Unavailable ranges explain the conflict and offer a shorter available ending when possible.
-**My reservations** shows this device’s status.
+An installable study-room scheduling app for LV Zion. The Home dashboard shows this
+device’s reservation notices, current/upcoming numbered-unit use, and a bounded live
+update feed. Members choose Study room, Whiteboard, or TV, step between the upcoming
+Tuesday and Saturday, and reserve an explicit 30-minute range.
+
+The next update, prepared locally but not deployed yet, adds a member-visible day
+overview, vertically stacked start times, an immediate **When should it end?** prompt,
+and a button that reveals both numbered-unit assignments and unassigned pending requests.
+An open slot on Home will carry its date, resource, and start time into Reservations.
+It also extends booking through **11:00 PM**, including 10:00 PM and 10:30 PM starts,
+adds a TV day picker, and provides full browser-only mock information for member and TV
+previews. Tuesday bookings remain instantly approved when open. A Saturday submission
+is instantly approved only when it is made on that Saturday at or after 10:00 AM Los
+Angeles time; advance Saturday requests remain pending for Admin review.
 
 The app uses buildless vanilla JavaScript, Firebase Hosting, and Firestore live
 updates. It includes a phone-friendly booking experience and a dedicated lobby TV
 screen. Reservations use explicit 30-minute time boundaries, never add a hidden half-hour
-to the selected end, and remain separated by service periods through 10:00 PM. The lobby
-TV continues to show service bands in the day timetable.
+to the selected end, and remain separated by service periods. The lobby TV continues to
+show service bands in the day timetable.
 
-The primary address, lobby TV, secure Admin backend, and permanent redirect from
-the former address are live.
+The primary address, lobby TV, secure Admin backend, and permanent redirect from the
+former address are live. The locally prepared update has not been deployed.

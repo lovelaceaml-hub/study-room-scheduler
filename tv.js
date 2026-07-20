@@ -1,7 +1,7 @@
 'use strict';
 
 const FIREBASE_VERSION = '10.12.2';
-const CACHE_KEY = 'srs-tv-cache-v1';
+const CACHE_KEY = 'srs-tv-cache-v2';
 
 const RESOURCES = [
   {
@@ -30,17 +30,19 @@ const RESOURCES = [
   }
 ];
 
+// 10:30 PM is the final bookable start. The display includes the resulting
+// 10:30–11:00 PM assignment, so every schedule ends at 11:00 PM.
 const dayConfig = {
   2: {
     name: 'Tuesday',
     start: '10:00',
-    end: '22:00',
+    end: '23:00',
     services: [{ start: '20:00', end: '21:00', label: 'Service' }]
   },
   6: {
     name: 'Saturday',
     start: '09:00',
-    end: '22:00',
+    end: '23:00',
     services: [
       { start: '09:00', end: '10:00', label: 'Service' },
       { start: '15:00', end: '16:00', label: 'Service' },
@@ -51,9 +53,12 @@ const dayConfig = {
 
 let bookings = [];
 let lastUpdatedAt = 0;
+let selectedDate = '';
 let unsubscribe = null;
 let reconnectTimer = null;
 let reconnectDelay = 3000;
+let subscriptionGeneration = 0;
+let firebaseContextPromise = null;
 let renderedDate = '';
 
 function escapeHtml(value) {
@@ -71,6 +76,10 @@ function pad(value) {
 
 function localISO(date = new Date()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function dateFromISO(date) {
+  return new Date(`${date}T12:00:00`);
 }
 
 function minutes(time) {
@@ -93,14 +102,49 @@ function formatClock(date) {
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+function formatDate(date) {
+  return dateFromISO(date).toLocaleDateString([], {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+  });
+}
+
+function formatChoiceDate(date, isToday) {
+  if (isToday) return 'Today';
+  return dateFromISO(date).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function isDemoMode() {
+  return new URLSearchParams(window.location.search).get('demo') === '1';
+}
+
+function dateForWeekday(today, weekday) {
+  const date = dateFromISO(today);
+  date.setDate(date.getDate() + (weekday - date.getDay() + 7) % 7);
+  return localISO(date);
+}
+
+// The switcher deliberately includes Today even when no room schedule is
+// running, followed by the two bookable dates. Duplicate calendar dates are
+// removed when Today is Tuesday or Saturday.
+function offeredDates(today = localISO()) {
+  return [...new Set([today, dateForWeekday(today, 2), dateForWeekday(today, 6)])];
+}
+
+function isAllowedDate(date) {
+  return offeredDates().includes(date);
+}
+
+function selectedConfig() {
+  return dayConfig[dateFromISO(selectedDate).getDay()];
+}
+
 function publicName(name) {
   const parts = String(name || '')
     .trim()
     .split(/\s+/)
     .filter(Boolean)
     .filter(part => !/^(brother|sister|elder|missionary|deacon|deaconess|pastor)$/i.test(part));
-  // Member lists sometimes use a title initial (for example, "B. Anthony L").
-  // It is not the person's first name, so omit it from the public TV version.
+  // A title initial (for example, "B. Anthony L.") is not the first name.
   if (parts.length > 1 && /^[BSEMDP]\.$/i.test(parts[0])) parts.shift();
   if (!parts.length) return 'Reserved';
   if (parts.length === 1) return parts[0];
@@ -109,7 +153,7 @@ function publicName(name) {
 
 function isDisplayableBooking(booking) {
   return booking &&
-    booking.date === localISO() &&
+    booking.date === selectedDate &&
     (booking.status === 'approved' || booking.status === 'pending') &&
     typeof booking.needs === 'object' &&
     Number.isFinite(minutes(booking.start)) &&
@@ -117,8 +161,8 @@ function isDisplayableBooking(booking) {
     minutes(booking.start) < minutes(booking.end);
 }
 
-// Keep the lobby display's in-memory/cache model intentionally narrow. Private
-// request details (notes, purpose text, and room preference) are never retained.
+// Keep the lobby model intentionally narrow. Names are reduced before they
+// reach storage or rendering; private notes, owners, and purpose text never do.
 function toPublicBooking(id, booking) {
   return {
     id,
@@ -135,7 +179,7 @@ function toPublicBooking(id, booking) {
 }
 
 function bookingName(booking) {
-  return booking.blocked ? 'Reserved' : publicName(booking.name);
+  return booking.blocked ? 'Reserved' : booking.name || 'Reserved';
 }
 
 function positionStyle(start, end, config) {
@@ -158,6 +202,8 @@ function serviceBlocks(config) {
 }
 
 function currentTimeMarker(config) {
+  // A red "Now" line only makes sense on the actual calendar day.
+  if (selectedDate !== localISO()) return '';
   const now = new Date();
   const current = now.getHours() * 60 + now.getMinutes();
   if (current < minutes(config.start) || current > minutes(config.end)) return '';
@@ -199,7 +245,7 @@ function timeRuler(config) {
     return `<span class="tick${edgeClass}" style="left:${percentage.toFixed(4)}%">${escapeHtml(formatTime(hhmm))}</span>`;
   }).join('');
   return `<div class="time-ruler">
-    <div class="ruler-label">Today</div>
+    <div class="ruler-label">${escapeHtml(config.name)}</div>
     <div class="track ruler-track" style="--slot-width:${(30 / (end - start) * 100).toFixed(4)}%">${labels}${currentTimeMarker(config)}</div>
   </div>`;
 }
@@ -248,29 +294,36 @@ function resourceSection(resource, config) {
   </section>`;
 }
 
+function renderDayChooser() {
+  const today = localISO();
+  const choices = offeredDates(today);
+  document.getElementById('day-chooser').innerHTML = choices.map(date => {
+    const active = date === selectedDate;
+    const label = formatChoiceDate(date, date === today);
+    return `<button class="day-choice${active ? ' active' : ''}" type="button" data-tv-date="${date}" aria-pressed="${active}" aria-label="Show ${escapeHtml(formatDate(date))}">${escapeHtml(label)}</button>`;
+  }).join('');
+}
+
 function render() {
-  const now = new Date();
-  const date = localISO(now);
-  const config = dayConfig[now.getDay()];
+  const config = selectedConfig();
   const schedule = document.getElementById('schedule');
-  document.getElementById('today-label').textContent = now.toLocaleDateString([], {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-  });
+  document.getElementById('today-label').textContent = formatDate(selectedDate);
+  renderDayChooser();
 
   if (!config) {
     schedule.innerHTML = `<section class="closed-day">
-      <h2>No study-room schedule today</h2>
-      <p>The lobby schedule is shown on Tuesdays and Saturdays.</p>
+      <h2>No study-room schedule on this day</h2>
+      <p>Use Choose day to view the upcoming Tuesday or Saturday timetable.</p>
     </section>`;
-    renderedDate = date;
+    renderedDate = selectedDate;
     return;
   }
 
-  schedule.innerHTML = `<div class="board" aria-label="${escapeHtml(config.name)} study room schedule">
+  schedule.innerHTML = `<div class="board" aria-label="${escapeHtml(config.name)} study room schedule for ${escapeHtml(formatDate(selectedDate))}">
     ${timeRuler(config)}
     ${RESOURCES.map(resource => resourceSection(resource, config)).join('')}
   </div>`;
-  renderedDate = date;
+  renderedDate = selectedDate;
 }
 
 function setConnection(state, label) {
@@ -287,121 +340,215 @@ function updateLastUpdatedLabel() {
     : '';
 }
 
+function readCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if (cached && cached.dates && typeof cached.dates === 'object') return cached.dates;
+    // Gracefully accept the previous single-day cache while a screen updates.
+    if (cached && cached.date && Array.isArray(cached.bookings)) {
+      return { [cached.date]: { bookings: cached.bookings, updatedAt: cached.updatedAt } };
+    }
+  } catch (error) {
+    console.warn('Could not read the TV schedule cache.', error);
+  }
+  return {};
+}
+
+function loadCacheForDate(date) {
+  const entry = readCache()[date];
+  if (!entry || !Array.isArray(entry.bookings)) return { bookings: [], updatedAt: 0 };
+  return {
+    bookings: entry.bookings.map(booking => toPublicBooking(booking.id, booking)),
+    updatedAt: Number(entry.updatedAt) || 0
+  };
+}
+
 function saveCache() {
   try {
-    const todayBookings = bookings.filter(booking => booking && booking.date === localISO());
-    localStorage.setItem(CACHE_KEY, JSON.stringify({
-      date: localISO(),
-      bookings: todayBookings,
-      updatedAt: lastUpdatedAt
-    }));
+    const dates = readCache();
+    dates[selectedDate] = { bookings, updatedAt: lastUpdatedAt };
+    // The chooser reaches at most three dates. Retaining only these prevents a
+    // lobby device from accumulating stale schedules over months of uptime.
+    const allowed = new Set(offeredDates());
+    Object.keys(dates).forEach(date => { if (!allowed.has(date)) delete dates[date]; });
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ dates }));
   } catch (error) {
     console.warn('Could not save the TV schedule cache.', error);
   }
 }
 
-function loadCache() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
-    if (!cached || cached.date !== localISO() || !Array.isArray(cached.bookings)) return;
-    bookings = cached.bookings.map(booking => toPublicBooking(booking.id, booking));
-    lastUpdatedAt = Number(cached.updatedAt) || 0;
-  } catch (error) {
-    console.warn('Could not read the TV schedule cache.', error);
-  }
+function writeSelectedDateToUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.set('date', selectedDate);
+  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
-function scheduleReconnect(connect) {
+function setSelectedDate(date, { updateUrl = true, restart = true } = {}) {
+  const safeDate = isAllowedDate(date) ? date : localISO();
+  selectedDate = safeDate;
+  const cached = loadCacheForDate(selectedDate);
+  bookings = isDemoMode() ? demoBookingsFor(selectedDate) : cached.bookings;
+  lastUpdatedAt = isDemoMode() ? 0 : cached.updatedAt;
+  render();
+  updateLastUpdatedLabel();
+  if (updateUrl) writeSelectedDateToUrl();
+  if (restart && !isDemoMode()) startFirebase();
+}
+
+function scheduleReconnect(callback) {
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    connect();
+    callback();
   }, reconnectDelay);
   reconnectDelay = Math.min(reconnectDelay * 2, 60000);
 }
 
-async function initFirebase() {
-  if (!window.FIREBASE_CONFIG) {
-    setConnection('error', 'Schedule unavailable');
-    return;
+async function firebaseContext() {
+  if (!window.FIREBASE_CONFIG) throw new Error('Firebase configuration is unavailable.');
+  if (!firebaseContextPromise) {
+    firebaseContextPromise = Promise.all([
+      import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`),
+      import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`)
+    ]).then(([appMod, firestoreMod]) => {
+      const app = appMod.getApps().find(candidate => candidate.name === 'lobby-tv') ||
+        appMod.initializeApp(window.FIREBASE_CONFIG, 'lobby-tv');
+      return { firestoreMod, db: firestoreMod.getFirestore(app) };
+    });
   }
+  return firebaseContextPromise;
+}
 
-  const appMod = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`);
-  const firestoreMod = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`);
-  const app = appMod.getApps().find(candidate => candidate.name === 'lobby-tv') ||
-    appMod.initializeApp(window.FIREBASE_CONFIG, 'lobby-tv');
-  const db = firestoreMod.getFirestore(app);
-
-  const connect = () => {
-    if (unsubscribe) unsubscribe();
-    setConnection('reconnecting', bookings.length ? 'Reconnecting' : 'Connecting');
-    const todayQuery = firestoreMod.query(
-      firestoreMod.collection(db, 'bookings'),
-      firestoreMod.where('date', '==', localISO())
-    );
-    unsubscribe = firestoreMod.onSnapshot(
-      todayQuery,
-      { includeMetadataChanges: true },
-      snapshot => {
-        if (!(snapshot.metadata.fromCache && snapshot.empty && bookings.length)) {
-          bookings = snapshot.docs.map(doc => toPublicBooking(doc.id, doc.data()));
-          render();
-        }
-        if (snapshot.metadata.fromCache) {
-          setConnection('reconnecting', 'Reconnecting');
-        } else {
-          reconnectDelay = 3000;
-          lastUpdatedAt = Date.now();
-          saveCache();
-          setConnection('live', 'Live');
-        }
-      },
-      error => {
-        console.warn('Lobby schedule listener failed.', error);
-        setConnection('reconnecting', 'Reconnecting');
-        scheduleReconnect(connect);
+function subscribeForSelectedDate(context, date, generation) {
+  if (unsubscribe) {
+    unsubscribe();
+    unsubscribe = null;
+  }
+  if (generation !== subscriptionGeneration || date !== selectedDate) return;
+  const { firestoreMod, db } = context;
+  setConnection('reconnecting', bookings.length ? 'Reconnecting' : 'Connecting');
+  const dateQuery = firestoreMod.query(
+    firestoreMod.collection(db, 'bookings'),
+    firestoreMod.where('date', '==', date)
+  );
+  unsubscribe = firestoreMod.onSnapshot(
+    dateQuery,
+    { includeMetadataChanges: true },
+    snapshot => {
+      if (generation !== subscriptionGeneration || date !== selectedDate) return;
+      if (!(snapshot.metadata.fromCache && snapshot.empty && bookings.length)) {
+        bookings = snapshot.docs.map(doc => toPublicBooking(doc.id, doc.data()));
+        render();
       }
-    );
-  };
-
-  connect();
+      if (snapshot.metadata.fromCache) {
+        setConnection('reconnecting', 'Reconnecting');
+      } else {
+        reconnectDelay = 3000;
+        lastUpdatedAt = Date.now();
+        saveCache();
+        setConnection('live', 'Live');
+      }
+    },
+    error => {
+      if (generation !== subscriptionGeneration || date !== selectedDate) return;
+      console.warn('Lobby schedule listener failed.', error);
+      setConnection('reconnecting', 'Reconnecting');
+      scheduleReconnect(startFirebase);
+    }
+  );
 }
 
 function startFirebase() {
-  initFirebase().catch(error => {
+  if (isDemoMode()) return;
+  const date = selectedDate;
+  const generation = ++subscriptionGeneration;
+  firebaseContext().then(context => {
+    if (generation !== subscriptionGeneration || date !== selectedDate) return;
+    subscribeForSelectedDate(context, date, generation);
+  }).catch(error => {
+    if (generation !== subscriptionGeneration || date !== selectedDate) return;
     console.warn('Lobby schedule could not connect.', error);
     setConnection('reconnecting', bookings.length ? 'Reconnecting' : 'Schedule unavailable');
     scheduleReconnect(startFirebase);
   });
 }
 
+function demoBookingsFor(date) {
+  const created = Date.now() - 3600000;
+  const tuesday = dateForWeekday(localISO(), 2);
+  const saturday = dateForWeekday(localISO(), 6);
+  const fixtures = [
+    // Tuesday: filled room period, shared-equipment assignments, overlapping
+    // pending requests, and both late-evening starts.
+    { id: 'demo-tu-room-1', date: tuesday, start: '10:00', end: '12:00', name: 'Brother Anthony Lovelace', status: 'approved', needs: { room: true }, assignments: { room: 'room-1' } },
+    { id: 'demo-tu-room-2', date: tuesday, start: '10:30', end: '11:30', name: 'Sister Maria Rivera', status: 'approved', needs: { room: true }, assignments: { room: 'room-2' } },
+    { id: 'demo-tu-room-3', date: tuesday, start: '11:00', end: '11:30', name: 'Elder Daniel Kim', status: 'approved', needs: { room: true }, assignments: { room: 'room-3' } },
+    { id: 'demo-tu-room-4', date: tuesday, start: '11:00', end: '11:30', name: 'Sister Sofia Martinez', status: 'approved', needs: { room: true }, assignments: { room: 'room-4' } },
+    { id: 'demo-tu-wb', date: tuesday, start: '13:00', end: '15:00', name: 'Jordan Allen', status: 'approved', needs: { whiteboard: true }, assignments: { whiteboard: 'wb-2' } },
+    { id: 'demo-tu-tv', date: tuesday, start: '16:30', end: '18:30', name: 'Taylor Brooks', status: 'approved', needs: { tv: true }, assignments: { tv: 'tv-1' } },
+    { id: 'demo-tu-pending-1', date: tuesday, start: '13:30', end: '15:00', name: 'Naomi Carter', status: 'pending', needs: { room: true }, assignments: {}, createdAt: created },
+    { id: 'demo-tu-pending-2', date: tuesday, start: '14:00', end: '16:30', name: 'Isaiah Davis', status: 'pending', needs: { room: true, whiteboard: true }, assignments: {}, createdAt: created + 1 },
+    { id: 'demo-tu-pending-tv', date: tuesday, start: '18:30', end: '19:30', name: 'Elena Flores', status: 'pending', needs: { tv: true }, assignments: {}, createdAt: created + 2 },
+    { id: 'demo-tu-late-1', date: tuesday, start: '22:00', end: '22:30', name: 'Marcus Green', status: 'approved', needs: { room: true }, assignments: { room: 'room-3' } },
+    { id: 'demo-tu-late-2', date: tuesday, start: '22:30', end: '23:00', name: 'Olivia Harris', status: 'approved', needs: { tv: true }, assignments: { tv: 'tv-3' } },
+    // These non-display statuses prove the demo data is comprehensive without
+    // presenting cancelled or declined requests as active lobby reservations.
+    { id: 'demo-tu-declined', date: tuesday, start: '17:00', end: '18:00', name: 'Sample Declined', status: 'declined', needs: { room: true }, assignments: {} },
+    { id: 'demo-tu-cancelled', date: tuesday, start: '18:00', end: '19:00', name: 'Sample Cancelled', status: 'cancelled', needs: { tv: true }, assignments: {} },
+    // Saturday: every resource, service-boundary-adjacent reservations, and a
+    // late request so the other bookable day stays informative.
+    { id: 'demo-sa-room', date: saturday, start: '10:00', end: '12:30', name: 'Rachel Ingram', status: 'approved', needs: { room: true }, assignments: { room: 'room-1' } },
+    { id: 'demo-sa-wb', date: saturday, start: '14:00', end: '15:00', name: 'Brother Caleb Jones', status: 'approved', needs: { whiteboard: true }, assignments: { whiteboard: 'wb-4' } },
+    { id: 'demo-sa-tv', date: saturday, start: '16:00', end: '18:00', name: 'Sister Hannah Lee', status: 'approved', needs: { tv: true }, assignments: { tv: 'tv-2' } },
+    { id: 'demo-sa-pending-1', date: saturday, start: '18:30', end: '20:00', name: 'Noah Moore', status: 'pending', needs: { room: true }, assignments: {}, createdAt: created + 3 },
+    { id: 'demo-sa-pending-2', date: saturday, start: '21:00', end: '22:00', name: 'Ava Nelson', status: 'pending', needs: { whiteboard: true, tv: true }, assignments: {}, createdAt: created + 4 },
+    { id: 'demo-sa-late', date: saturday, start: '22:30', end: '23:00', name: 'Mia Ortiz', status: 'approved', needs: { room: true }, assignments: { room: 'room-4' } }
+  ];
+  return fixtures.filter(booking => booking.date === date).map(booking => toPublicBooking(booking.id, booking));
+}
+
 function updateClock() {
   const now = new Date();
   document.getElementById('clock').textContent = formatClock(now);
-  if (localISO(now) !== renderedDate) {
-    bookings = [];
-    lastUpdatedAt = 0;
-    loadCache();
-    render();
-    // The listener query is date-specific. Restart it at midnight so a lobby
-    // display left open overnight subscribes to the new day automatically.
-    startFirebase();
+  const today = localISO(now);
+  if (!isAllowedDate(selectedDate)) {
+    setSelectedDate(today, { updateUrl: true });
+    return;
   }
+  if (today !== renderedDate && selectedDate === today) {
+    setSelectedDate(today, { updateUrl: false });
+    return;
+  }
+  // Keep the date labels and the current-time marker fresh without changing
+  // a selected future schedule or reopening its Firestore listener.
+  if (selectedDate === today) render();
+}
+
+function initSelectedDate() {
+  const requested = new URLSearchParams(window.location.search).get('date');
+  selectedDate = isAllowedDate(requested) ? requested : localISO();
+  if (requested && requested !== selectedDate) writeSelectedDateToUrl();
 }
 
 function init() {
-  loadCache();
-  render();
+  initSelectedDate();
+  setSelectedDate(selectedDate, { updateUrl: false, restart: false });
+  if (isDemoMode()) {
+    setConnection('live', 'Sample preview');
+  } else {
+    startFirebase();
+  }
+
+  document.getElementById('day-chooser').addEventListener('click', event => {
+    const choice = event.target.closest('[data-tv-date]');
+    if (choice) setSelectedDate(choice.dataset.tvDate);
+  });
+  window.addEventListener('offline', () => { if (!isDemoMode()) setConnection('reconnecting', 'Reconnecting'); });
+  window.addEventListener('online', () => { if (!isDemoMode()) startFirebase(); });
+
   updateClock();
-  updateLastUpdatedLabel();
-
-  window.addEventListener('offline', () => setConnection('reconnecting', 'Reconnecting'));
-  window.addEventListener('online', () => setConnection('reconnecting', 'Reconnecting'));
-
   setInterval(updateClock, 1000);
   setInterval(render, 30000);
-
-  startFirebase();
 }
 
 init();

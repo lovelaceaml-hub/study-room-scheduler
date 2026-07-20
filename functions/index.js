@@ -16,6 +16,7 @@ const {
   priorityForPurpose,
   rangesOverlap,
   shorterAvailableEnd,
+  shouldAutoApproveMemberBooking,
   validateBookingTime,
   validateDirectBooking
 } = require('./lib/policy');
@@ -200,8 +201,6 @@ function memberRequestInput(input) {
   return { date, start: data.start, end: data.end, resourceType, name: requestText(data.name, 120, 'Name', true), purpose, purposeOther };
 }
 
-function isTuesday(date) { return isoWeekday(date) === 2; }
-
 async function memberSubmitBooking(input, uid) {
   let request;
   try { request = memberRequestInput(input); }
@@ -219,7 +218,7 @@ async function memberSubmitBooking(input, uid) {
     }
     const approved = await approvedBookingsForDate(transaction, request.date);
     const candidate = { ...request, date: request.date, assignments: { room: null, whiteboard: null, tv: null } };
-    const automatic = isTuesday(request.date);
+    const automatic = shouldAutoApproveMemberBooking(request.date, new Date());
     const availableUnitId = availableUnitForType(request.resourceType, candidate, approved);
     if (!availableUnitId) {
       const unavailableMessage = request.resourceType === 'room'

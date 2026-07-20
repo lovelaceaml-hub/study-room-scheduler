@@ -10,6 +10,7 @@ const {
   normalizeBookingIds,
   normalizeLegacyResourceMaps,
   priorityForPurpose,
+  shouldAutoApproveMemberBooking,
   sortBookingsByPriority,
   shorterAvailableEnd,
   upcomingTuesdayAndSaturday,
@@ -30,18 +31,38 @@ test('returns only the upcoming Tuesday and Saturday, including today', () => {
   );
 });
 
-test('ends the reservation window at 10:00 PM', () => {
+test('accepts the 10:00 PM and 10:30 PM starts, ending at 11:00 PM', () => {
   const now = new Date('2026-07-17T19:00:00Z');
-  assert.equal(validateBookingTime('2026-07-18', '21:30', '22:00', now), null);
-  assert.match(validateBookingTime('2026-07-18', '22:00', '22:30', now), /22:00/);
+  assert.equal(validateBookingTime('2026-07-18', '22:00', '22:30', now), null);
+  assert.equal(validateBookingTime('2026-07-18', '22:30', '23:00', now), null);
+  assert.match(validateBookingTime('2026-07-18', '23:00', '23:30', now), /23:00/);
 });
 
-test('rejects service overlaps and ranges crossing a service', () => {
+test('rejects service overlaps but accepts ranges ending or starting at a service boundary', () => {
   const now = new Date('2026-07-17T19:00:00Z');
   assert.match(validateBookingTime('2026-07-18', '14:30', '15:30', now), /service/);
   assert.match(validateBookingTime('2026-07-18', '19:30', '21:30', now), /service/);
   assert.match(validateBookingTime('2026-07-21', '19:30', '20:30', now), /service/);
-  assert.equal(validateBookingTime('2026-07-21', '21:00', '22:00', now), null);
+  assert.equal(validateBookingTime('2026-07-18', '14:30', '15:00', now), null);
+  assert.equal(validateBookingTime('2026-07-18', '16:00', '16:30', now), null);
+  assert.equal(validateBookingTime('2026-07-21', '19:30', '20:00', now), null);
+  assert.equal(validateBookingTime('2026-07-21', '21:00', '23:00', now), null);
+});
+
+test('uses Los Angeles time for automatic Tuesday and Saturday approvals', () => {
+  // Tuesday is instant even when it is reserved ahead of that Tuesday.
+  assert.equal(shouldAutoApproveMemberBooking('2026-07-21', new Date('2026-07-17T19:00:00Z')), true);
+
+  // An advance Saturday request remains pending for the Admin queue.
+  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-17T19:00:00Z')), false);
+
+  // The Saturday boundary is local Los Angeles time: 09:59 PDT is pending;
+  // 10:00 PDT is assigned and approved immediately.
+  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-18T16:59:00Z')), false);
+  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-18T17:00:00Z')), true);
+
+  // This is still Friday evening in Los Angeles even though UTC says Saturday.
+  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-18T00:30:00Z')), false);
 });
 
 test('orders Saturday recommendations by purpose priority, then request time', () => {

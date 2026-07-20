@@ -7,6 +7,11 @@ shorter address, listed-start picker, and personal Home notifications were deplo
 verified on July 19, 2026. Listed half-hour starts reveal one End-time dropdown, while
 Home shows device-private pending, next, and denied reservation notifications.
 
+**Next release — prepared locally, not deployed:** a mobile-first availability update
+adds vertical start-time slots, an immediate **When should it end?** prompt, a member
+Home day overview, named assignment/pending details, 11:00 PM closing, an eligible-day
+TV picker, and complete browser-only mock data.
+
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
 - **Previous address:** https://lvz-rooms.web.app — retained as a redirect
@@ -17,7 +22,7 @@ Home shows device-private pending, next, and denied reservation notifications.
 
 - Show only the upcoming Tuesday and upcoming Saturday, including today when
   applicable, in chronological order.
-- Use 30-minute booking slots through 10:00 PM.
+- Use 30-minute booking slots through 11:00 PM, including 10:00 PM and 10:30 PM starts.
 - Block Tuesday 8:00–9:00 PM and Saturday 9:00–10:00 AM, 3:00–4:00 PM, and
   8:00–9:00 PM for services.
 - Show Saturday from 9:00 AM so the morning service is visible; booking still begins
@@ -32,8 +37,8 @@ Home shows device-private pending, next, and denied reservation notifications.
 - Store the second selected time as the exact ending; never silently add another
   30 minutes. Keep member options divided around service periods while the TV retains
   visible service bands.
-- Show only open and pending counts for a complete range. Put numbered-unit occupants
-  behind a secondary disclosure.
+- Make the complete-range open/pending totals a button that shows numbered-unit
+  occupants and overlapping pending requests; pending requests remain unassigned.
 - Refuse a range that has no one unit open throughout. Offer the longest continuous
   shorter ending with Yes/No actions when possible, and repeat the check in the
   protected backend transaction for both Tuesday and Saturday.
@@ -41,8 +46,8 @@ Home shows device-private pending, next, and denied reservation notifications.
 - Move approved requests into Study Room 1–4, Whiteboard 1–5, or TV 1–3 rows.
 - Remove the Baptism Room from future scheduling and return active future assignments
   there to pending for reassignment.
-- Add the read-only current-day lobby TV presentation with first name plus last
-  initial, current time, live status, and cached reconnect behavior.
+- Add the read-only lobby TV presentation with an eligible-day picker, first name plus
+  last initial, current time when viewing today, live status, and cached reconnect behavior.
 - Improve the phone layout with a compact tappable calendar, larger touch targets,
   clearer selected states, pop-up labels and announcements, keyboard access, and
   enlarged-text support.
@@ -57,9 +62,10 @@ Home shows device-private pending, next, and denied reservation notifications.
   visible resource schedule; Reservations uses a single-date arrow stepper. Live
   updates are on Home, while My reservations focuses on this device’s requests.
   The header has no connection-status label, and left/right tab swiping is disabled.
-- Tuesday reservations auto-approve securely; Saturday remains manual with the Admin
-  queue and assignment recommendation ordered Contact, New Member, Study Member
-  Meeting, Other, then request time.
+- Tuesday reservations auto-approve securely. Saturday auto-approves only when the
+  submission is made on that Saturday at or after 10:00 AM Los Angeles time; advance
+  Saturday requests remain in the Admin queue, ordered Contact, New Member, Study
+  Member, Meeting, Other, then request time.
 - The approved Quiet Study production design leads with availability counts on
   member screens, keeps numbered-unit occupancy expandable and secondary, presents
   My reservations as durable status cards, and expands Admin into a desktop
@@ -76,9 +82,14 @@ fresh conflict check. Failed writes must visibly fail and roll back instead of l
 saved. New pending requests are accepted only when at least one numbered unit is still
 open for the entire requested range at submission time.
 
-The TV shows today only. On a day other than Tuesday or Saturday, **No study-room
-schedule today** is correct. It uses `?tv=1`, omits all Admin controls and private
-details, and preserves its last public schedule during a connection interruption.
+Home’s member-safe day overview must let a member tap an open half-hour slot and arrive
+at Reservations with the exact date, resource, and start highlighted; the member then
+chooses an end. It must not expose private notes or Admin controls.
+
+The TV’s day picker must be limited to eligible Tuesday/Saturday dates. It uses `?tv=1`,
+omits all Admin controls and private details, and preserves its last public schedule
+during a connection interruption. A browser-only demo must populate both member and TV
+views with every key state without writing to Firestore.
 
 ## Rollout checklist
 
@@ -89,7 +100,12 @@ details, and preserves its last public schedule during a connection interruption
 - Verify Admin unlock, approve, decline, cancel, reassignment, direct-add, and lock.
 - Verify listed start-time and revealed End-time selection, Morning/Afternoon/Evening disclosures, date arrows,
   unavailable-range recovery, and the booking pop-up on desktop and phone.
-- Verify simultaneous member, Admin, phone, and TV live updates.
+- Verify vertical start-time choices, 10:00 PM and 10:30 PM starts, the 11:00 PM final
+  boundary, Home-to-Reservations time handoff, and named pending/assignment details.
+- Verify Tuesday instant approval, advance Saturday pending, and the Saturday 9:59 AM /
+  10:00 AM Los Angeles boundary.
+- Verify simultaneous member, Admin, phone, and TV live updates, the TV eligible-day
+  picker, and filled member/TV demo data without Firestore writes.
 - Verify 320/375/390-pixel phone views and 720p/1080p TV views.
 - Verify the shared visual tokens load in both the member app and lobby TV after an
   installed copy updates.

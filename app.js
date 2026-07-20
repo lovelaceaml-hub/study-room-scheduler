@@ -79,10 +79,14 @@ let ui = {
   tab: 'home',
   selectedDate: null,   // shared by Reservations and Admin
   homeType: 'room',     // resource shown in the compact Home schedule
+  homeDate: null,       // independent date in the member Home day overview
+  homeOverviewType: 'room', // resource shown in the member Home day overview
   memberType: 'room',   // resource highlighted by the Reservations picker
   adminType: 'room',    // resource displayed in the matching Admin calendar
   adminSelectedId: null, // one pending request shown in the Admin detail pane
   memberSelection: null, // { date, type, start, end, windowIdx }
+  endPrompt: null, // { date, type, start, windowIdx }; shown after choosing a start
+  availabilityDetails: null, // { date, type, start, end }; read-only availability sheet
   availabilityConflict: null, // rejected range plus optional shorter ending
   pinError: '',
   submitting: false,
@@ -183,9 +187,40 @@ function selectedDate() {
   if (dates.indexOf(ui.selectedDate) === -1) ui.selectedDate = dates[0];
   return ui.selectedDate;
 }
+function selectedHomeDate() {
+  const dates = upcomingBookingDates();
+  if (dates.indexOf(ui.homeDate) === -1) ui.homeDate = dates.includes(todayISO()) ? todayISO() : dates[0];
+  return ui.homeDate;
+}
 function isSaturday(date) { return dateObj(date).getDay() === 6; }
 function isTuesday(date) { return dateObj(date).getDay() === 2; }
 function demoMode() { return new URLSearchParams(window.location.search).get('demo') === '1'; }
+
+/* Keep the member-facing approval promise aligned with the trusted backend.
+   The function accepts `now` so the 10:00 AM Saturday boundary is deterministic
+   in tests and never depends on the device's own time zone. */
+function losAngelesDateAndMinutes(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(now);
+  const get = type => parts.find(part => part.type === type).value;
+  return {
+    date: get('year') + '-' + get('month') + '-' + get('day'),
+    minutes: Number(get('hour')) * 60 + Number(get('minute'))
+  };
+}
+function shouldAutoApproveMemberBooking(date, now = new Date()) {
+  if (isTuesday(date)) return true;
+  if (!isSaturday(date)) return false;
+  const losAngeles = losAngelesDateAndMinutes(now);
+  return date === losAngeles.date && losAngeles.minutes >= 10 * 60;
+}
+// Keep the timestamp boundary directly verifiable in the browser smoke test
+// without exposing an application control in normal member or demo use.
+if (new URLSearchParams(location.search).get('test') === '1') {
+  window.__SRS_TEST_HELPERS__ = { shouldAutoApproveMemberBooking };
+}
 
 /* Every schedule segment is explicit so a selected range can never cross
    a service. Saturday begins at 9:00 AM to keep its morning service visible;
@@ -197,12 +232,12 @@ function scheduleSegments(date) {
     { start: '15:00', end: '16:00', label: 'Afternoon service', service: true },
     { start: '16:00', end: '20:00', label: 'Afternoon and evening' },
     { start: '20:00', end: '21:00', label: 'Evening service', service: true },
-    { start: '21:00', end: '22:00', label: 'Late evening' }
+    { start: '21:00', end: '23:00', label: 'Late evening' }
   ];
   return [
     { start: '10:00', end: '20:00', label: 'Daytime and evening' },
     { start: '20:00', end: '21:00', label: 'Evening service', service: true },
-    { start: '21:00', end: '22:00', label: 'Late evening' }
+    { start: '21:00', end: '23:00', label: 'Late evening' }
   ];
 }
 function bookingWindows(date) { return scheduleSegments(date).filter(w => !w.service); }
@@ -215,12 +250,12 @@ function reservationPeriods(date) {
   if (isSaturday(date)) return [
     { start: '10:00', end: '15:00', label: 'Morning' },
     { start: '16:00', end: '20:00', label: 'Afternoon' },
-    { start: '21:00', end: '22:00', label: 'Evening' }
+    { start: '21:00', end: '23:00', label: 'Evening' }
   ];
   return [
     { start: '10:00', end: '15:00', label: 'Morning' },
     { start: '15:00', end: '20:00', label: 'Afternoon' },
-    { start: '21:00', end: '22:00', label: 'Evening' }
+    { start: '21:00', end: '23:00', label: 'Evening' }
   ];
 }
 
@@ -287,6 +322,7 @@ function bookingsList() {
 }
 function bookingByIdSafe(id) {
   const sample = demoBookings().find(b => b.id === id);
+  if (demoMode()) return sample || null;
   if (sample) return sample;
   const b = state.bookings[id];
   return isValidBooking(b) ? Object.assign({ id: id }, b) : null;
@@ -294,17 +330,29 @@ function bookingByIdSafe(id) {
 
 function demoBookings() {
   if (!demoMode()) return [];
-  const date = upcomingBookingDates()[0];
+  const dates = upcomingBookingDates();
+  const tuesday = dates.find(isTuesday);
+  const saturday = dates.find(isSaturday);
   const created = Date.now() - 45 * 60 * 1000;
   return [
-    { id: 'demo-room-4', date, start: '10:00', end: '13:30', name: 'Anthony', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-4', whiteboard: null, tv: null }, createdAt: created, decidedAt: created + 1000 },
-    { id: 'demo-room-1-full', date, start: '11:00', end: '11:30', name: 'Jordan A.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2000, decidedAt: created - 1000 },
-    { id: 'demo-room-2-full', date, start: '11:00', end: '11:30', name: 'Taylor B.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 3000, decidedAt: created - 2000 },
-    { id: 'demo-room-3-full', date, start: '11:00', end: '11:30', name: 'Morgan C.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 4000, decidedAt: created - 3000 },
-    { id: 'demo-tv-2', date, start: '14:00', end: '15:00', name: 'Maria R.', purpose: 'new-member', purposeOther: '', status: 'cancelled', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: null }, lastAssignments: { room: null, whiteboard: null, tv: 'tv-2' }, createdAt: created - 600000, updatedAt: created - 300000 },
-    { id: 'demo-whiteboard-1', date, start: '16:00', end: '17:30', name: 'Daniel K.', purpose: 'meeting', purposeOther: '', status: 'pending', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1200000 },
-    { id: 'demo-room-denied', date, start: '17:00', end: '18:00', name: 'Anthony', purpose: 'meeting', purposeOther: '', status: 'declined', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1500000, updatedAt: created - 1400000 },
-    { id: 'demo-room-1', date, start: '18:00', end: '19:00', name: 'Sofia M.', purpose: 'other', purposeOther: 'Family Bible study', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 1800000, decidedAt: created - 1700000 }
+    // Tuesday: instant-approved examples, a full short interval, equipment, and late slots.
+    { id: 'demo-room-4', date: tuesday, start: '10:00', end: '13:30', name: 'Anthony', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-4', whiteboard: null, tv: null }, createdAt: created, decidedAt: created + 1000 },
+    { id: 'demo-room-1-full', date: tuesday, start: '11:00', end: '11:30', name: 'Jordan A.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2000, decidedAt: created - 1000 },
+    { id: 'demo-room-2-full', date: tuesday, start: '11:00', end: '11:30', name: 'Taylor B.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 3000, decidedAt: created - 2000 },
+    { id: 'demo-room-3-full', date: tuesday, start: '11:00', end: '11:30', name: 'Morgan C.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 4000, decidedAt: created - 3000 },
+    { id: 'demo-room-1', date: tuesday, start: '18:00', end: '19:00', name: 'Sofia M.', purpose: 'other', purposeOther: 'Family Bible study', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 1800000, decidedAt: created - 1700000 },
+    { id: 'demo-room-late', date: tuesday, start: '22:00', end: '22:30', name: 'Noah P.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 2000000, decidedAt: created - 1900000 },
+    { id: 'demo-whiteboard-1', date: tuesday, start: '16:00', end: '17:30', name: 'Daniel K.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: 'wb-1', tv: null }, createdAt: created - 1200000, decidedAt: created - 1100000 },
+    { id: 'demo-tv-1', date: tuesday, start: '14:00', end: '15:00', name: 'Maria R.', purpose: 'new-member', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: 'tv-1' }, createdAt: created - 1300000, decidedAt: created - 1200000 },
+    { id: 'demo-tv-2', date: tuesday, start: '14:00', end: '15:00', name: 'Maria R.', purpose: 'new-member', purposeOther: '', status: 'cancelled', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: null }, lastAssignments: { room: null, whiteboard: null, tv: 'tv-2' }, createdAt: created - 600000, updatedAt: created - 300000 },
+    { id: 'demo-room-denied', date: tuesday, start: '17:00', end: '18:00', name: 'Anthony', purpose: 'meeting', purposeOther: '', status: 'declined', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1500000, updatedAt: created - 1400000 },
+    // Saturday: requests stay pending until the approver assigns a numbered unit.
+    { id: 'demo-sat-room-1', date: saturday, start: '10:00', end: '12:00', name: 'Elena M.', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2400000, decidedAt: created - 2300000 },
+    { id: 'demo-sat-room-2', date: saturday, start: '10:30', end: '11:30', name: 'Isaac V.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 2500000, decidedAt: created - 2400000 },
+    { id: 'demo-sat-room-pending', date: saturday, start: '10:00', end: '11:30', name: 'Grace L.', purpose: 'new-member', purposeOther: '', status: 'pending', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 900000 },
+    { id: 'demo-sat-tv-pending', date: saturday, start: '16:30', end: '18:00', name: 'Micah S.', purpose: 'meeting', purposeOther: '', status: 'pending', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 850000 },
+    { id: 'demo-sat-wb-2', date: saturday, start: '18:00', end: '19:30', name: 'Hannah C.', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: 'wb-2', tv: null }, createdAt: created - 2600000, decidedAt: created - 2500000 },
+    { id: 'demo-sat-room-late', date: saturday, start: '22:30', end: '23:00', name: 'Samuel D.', purpose: 'other', purposeOther: 'Review meeting', status: 'pending', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 700000 }
   ];
 }
 function bookingsForDate(date) { return bookingsList().filter(b => b.date === date); }
@@ -334,6 +382,9 @@ function needsSummary(b) {
 /* ---- server-validated Admin session; sessionStorage clears when the
    browser session ends and the backend independently expires the token. ---- */
 function adminUnlocked() {
+  // Demo mode is intentionally a read-only Admin preview. It never creates a
+  // session, starts Firebase, or enables any protected action.
+  if (demoMode()) return true;
   try {
     const session = JSON.parse(sessionStorage.getItem(ADMIN_KEY) || 'null');
     return !!(session && session.token && session.expiresAt > Date.now());
@@ -355,6 +406,7 @@ function scheduleAdminExpiry(expiresAt) {
 
 /* ---- this device's own requests (localStorage) ---- */
 function myBookingIds() {
+  if (demoMode()) return ['demo-sat-room-pending', 'demo-room-4', 'demo-room-denied'];
   try { const raw = localStorage.getItem(MY_BOOKINGS_KEY); return raw ? JSON.parse(raw) : []; }
   catch (e) { return []; }
 }
@@ -638,7 +690,7 @@ function render() {
   // live updates never erase unsaved member details.
   const activeBeforeRender = document.activeElement;
   const adminPinDraft = activeBeforeRender && activeBeforeRender.id === 'admin-pin-input' ? activeBeforeRender.value : '';
-  const popupFocus = ui.signup && activeBeforeRender && activeBeforeRender.closest('.booking-dialog')
+  const popupFocus = (ui.signup || ui.endPrompt || ui.availabilityDetails) && activeBeforeRender && activeBeforeRender.closest('.booking-dialog')
     ? { id: activeBeforeRender.id || '', act: activeBeforeRender.dataset.act || '', item: activeBeforeRender.dataset.id || '' }
     : null;
   const actionNode = activeBeforeRender && !activeBeforeRender.closest('.booking-dialog') && !activeBeforeRender.closest('#tabs')
@@ -655,14 +707,14 @@ function render() {
   } : null;
   syncSignupDraft();
   syncAdminFormDraft();
-  document.body.classList.toggle('modal-open', !!ui.signup);
+  document.body.classList.toggle('modal-open', !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails);
   document.body.classList.toggle('admin-workspace-open', ui.tab === 'admin' && adminUnlocked());
 
   const date = selectedDate();
 
   const tabs = document.getElementById('tabs');
   if (tabs) {
-    const visibleTabs = demoMode() ? TABS.filter(t => t.id !== 'admin') : TABS;
+    const visibleTabs = TABS;
     if (!visibleTabs.some(t => t.id === ui.tab)) ui.tab = 'schedule';
     tabs.innerHTML = visibleTabs.map(t =>
       '<button id="tab-' + t.id + '" class="tab' + (ui.tab === t.id ? ' active' : '') + '" role="tab" aria-selected="' + (ui.tab === t.id ? 'true' : 'false') + '" tabindex="' + (ui.tab === t.id ? '0' : '-1') + '" aria-controls="app" data-act="tab" data-id="' + t.id + '">' + esc(t.label) + '</button>'
@@ -678,14 +730,15 @@ function render() {
 
   const masthead = document.getElementById('masthead-home');
   const primaryNav = document.querySelector('nav[aria-label="Primary"]');
-  if (masthead) masthead.inert = !!ui.signup;
-  if (primaryNav) primaryNav.inert = !!ui.signup;
+  const sheetOpen = !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails;
+  if (masthead) masthead.inert = sheetOpen;
+  if (primaryNav) primaryNav.inert = sheetOpen;
   const memberBackground = app.querySelector(':scope > .member-booking');
-  if (memberBackground) memberBackground.inert = !!ui.signup;
+  if (memberBackground) memberBackground.inert = sheetOpen;
   const freshPin = document.getElementById('admin-pin-input');
   if (freshPin && adminPinDraft) freshPin.value = adminPinDraft;
 
-  if (!ui.signup && (actionFocus || fieldFocus)) {
+  if (!sheetOpen && (actionFocus || fieldFocus)) {
     requestAnimationFrame(() => {
       const exactField = fieldFocus ? document.getElementById(fieldFocus.id) : null;
       const fresh = Array.from(document.querySelectorAll('[data-act]')).find(node =>
@@ -702,7 +755,7 @@ function render() {
     });
   }
 
-  if (ui.signup) {
+  if (sheetOpen) {
     requestAnimationFrame(() => {
       const modal = document.querySelector('.booking-dialog');
       const active = document.activeElement;
@@ -723,9 +776,10 @@ function dateSelectorHtml() {
   const dates = upcomingBookingDates();
   const date = selectedDate();
   const index = dates.indexOf(date);
+  const automatic = shouldAutoApproveMemberBooking(date);
   return '<div class="date-selector" role="group" aria-label="Choose reservation date">' +
     '<button type="button" class="date-arrow" data-act="date-step" data-id="-1" aria-label="Previous reservation date"' + (index <= 0 ? ' disabled' : '') + '><span aria-hidden="true">‹</span></button>' +
-    '<div class="date-current" aria-live="polite"><strong>' + (isTuesday(date) ? 'Tuesday' : 'Saturday') + ', ' + esc(fmtHeaderDate(date)) + '</strong><span>' + (isTuesday(date) ? 'Confirmed instantly when open' : 'Approval required') + '</span></div>' +
+    '<div class="date-current" aria-live="polite"><strong>' + (isTuesday(date) ? 'Tuesday' : 'Saturday') + ', ' + esc(fmtHeaderDate(date)) + '</strong><span>' + (automatic ? 'Confirmed instantly when open' : 'Approval required') + '</span></div>' +
     '<button type="button" class="date-arrow" data-act="date-step" data-id="1" aria-label="Next reservation date"' + (index >= dates.length - 1 ? ' disabled' : '') + '><span aria-hidden="true">›</span></button>' +
     '</div>';
 }
@@ -754,6 +808,56 @@ function homeUnitScheduleHtml(date, type) {
   return '<section class="home-schedule" aria-label="Current and upcoming ' + esc(needLabel(type).toLowerCase()) + ' schedule">' +
     '<div class="home-section-head"><div><div class="eyebrow">' + (today ? 'Today' : 'Next reservation day') + '</div><h2>' + esc(fmtDate(date)) + '</h2></div><a class="text-link" href="?tv=1">Open TV view</a></div>' +
     memberResourceToggleHtml(type, 'home-type') + '<div class="home-unit-list">' + rows + '</div></section>';
+}
+
+/* Shared read-only day map. Admin gets status styling; Home opts into open-cell
+   actions, which still start a general reservation rather than assigning that
+   specific unit. */
+function dayMapGridHtml(date, type, options = {}) {
+  const units = unitsForType(type);
+  let html = '<div class="member-calendar-grid">' +
+    '<div class="member-calendar-row unit-header"><div class="member-time"><small>Time</small></div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span>' + esc(String(unit.num)) + '</span>').join('') + '</div></div>';
+  scheduleSegments(date).forEach(window => {
+    if (window.service) {
+      html += '<div class="member-service"><span>' + esc(window.label) + '</span><span>' + esc(fmtTime(window.start)) + '–' + esc(fmtTime(window.end)) + '</span></div>';
+      return;
+    }
+    slotStarts(window).forEach(start => {
+      const end = hhmmOfMins(minsOfDay(start) + 30);
+      html += '<div class="member-calendar-row"><div class="member-time">' + esc(fmtTime(start)) + '</div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => {
+        const occupant = unitOccupant(type, unit.id, date, start, end, null);
+        const status = options.memberStatus ? memberSlotStatus(type, date, start, unit.id) : (occupant ? 'taken' : 'open');
+        if (options.clickOpen && !occupant) return '<button type="button" class="member-square open home-open-cell" data-act="home-reserve-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + start + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ' is open. Reserve this time.') + '">Open</button>';
+        return '<div class="member-square ' + status + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + (occupant ? 'reserved by ' + occupant.name : status)) + '">' + (occupant ? esc(occupant.name) : '') + '</div>';
+      }).join('') + '</div></div>';
+    });
+  });
+  return html + '</div>';
+}
+
+function homeDateControlsHtml(date) {
+  return '<div class="home-date-options" role="group" aria-label="Choose day overview date">' + upcomingBookingDates().map(option =>
+    '<button type="button" class="home-date-choice' + (option === date ? ' active' : '') + '" data-act="home-date" data-id="' + option + '" aria-pressed="' + (option === date ? 'true' : 'false') + '">' + esc((isTuesday(option) ? 'Tuesday' : 'Saturday') + ' · ' + fmtHeaderDate(option)) + '</button>'
+  ).join('') + '</div>';
+}
+
+function homePendingRequestsHtml(date, type) {
+  const pending = bookingsForDate(date).filter(b => b.status === 'pending' && needsOf(b)[type])
+    .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start) || timestampMillis(a.createdAt) - timestampMillis(b.createdAt));
+  return '<section class="home-pending-requests" aria-labelledby="home-pending-title"><h3 id="home-pending-title">Pending requests</h3>' + (pending.length
+    ? '<div class="pending-request-list">' + pending.map(b => '<div><strong>' + esc(b.name) + '</strong><span>Unassigned · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</span></div>').join('') + '</div>'
+    : '<p class="hint">No pending ' + esc(needLabel(type).toLowerCase()) + ' requests for this day.</p>') + '</section>';
+}
+
+/* The Admin day map is useful before a member starts a request too. This
+   member version deliberately exposes only names, times, status, and open
+   capacity already visible elsewhere in the public-by-link schedule. */
+function homeDayOverviewHtml(date, type) {
+  return '<section class="home-day-overview" aria-labelledby="home-day-overview-title">' +
+    '<div class="home-section-head"><div><div class="eyebrow">Plan a reservation</div><h2 id="home-day-overview-title">Day overview</h2><p class="section-note">Tap an open space to choose its start time, then choose when it should end.</p></div></div>' +
+    homeDateControlsHtml(date) + memberResourceToggleHtml(type, 'home-overview-type') +
+    '<div class="member-calendar-scroll home-day-map">' + dayMapGridHtml(date, type, { clickOpen: true }) + '</div>' +
+    homePendingRequestsHtml(date, type) + '</section>';
 }
 
 function myHomeNotificationsHtml() {
@@ -802,8 +906,9 @@ function renderHome() {
   }
   const dates = upcomingBookingDates();
   const date = dates.includes(todayISO()) ? todayISO() : dates[0];
+  const overviewDate = selectedHomeDate();
   return '<section class="home-dashboard"><div class="member-intro"><div class="eyebrow">Home</div><h1>Study room dashboard.</h1><p>See your reservation notices, what is happening now, and what is next.</p></div>' +
-    myHomeNotificationsHtml() + homeUnitScheduleHtml(date, ui.homeType) + activityFeedHtml(dates, true) + '</section>';
+    myHomeNotificationsHtml() + homeUnitScheduleHtml(date, ui.homeType) + homeDayOverviewHtml(overviewDate, ui.homeOverviewType) + activityFeedHtml(dates, true) + '</section>';
 }
 
 /* ---- Reservations tab ---- */
@@ -822,6 +927,8 @@ function renderSchedule() {
     memberCalendarHtml(date, ui.memberType, true, 'member') +
     '</div></section>';
   if (ui.signup) html += bookingModalHtml();
+  else if (ui.endPrompt) html += endTimePromptHtml();
+  else if (ui.availabilityDetails) html += availabilityDetailsHtml();
   return html;
 }
 
@@ -888,7 +995,6 @@ function memberConflictHtml(conflict) {
 
 function memberCalendarHtml(date, type, selectable, context) {
   if (context === 'admin') return adminUnitCalendarHtml(date, type);
-  const units = unitsForType(type);
   const selected = ui.memberSelection;
   let html = '<section class="member-calendar availability-calendar" aria-label="' + esc(needLabel(type)) + ' availability">' +
     '<div class="member-calendar-heading"><h2>Available times</h2></div>' +
@@ -897,27 +1003,55 @@ function memberCalendarHtml(date, type, selectable, context) {
     const points = periodTimePoints(period);
     const inPeriod = selected && selected.date === date && selected.type === type && selected.windowIdx === periodIdx;
     const startValue = inPeriod ? selected.start : '';
-    const endValue = inPeriod ? selected.end : '';
     html += '<details class="time-period" name="reservation-period"' + (inPeriod || (!selected && periodIdx === 0) ? ' open' : '') + '><summary><span><strong>' + esc(period.label) + '</strong><small>Start times ' + esc(fmtTime(period.start)) + '–' + esc(fmtTime(hhmmOfMins(minsOfDay(period.end) - 30))) + '</small></span><span class="period-summary">' + (inPeriod && selected.end ? esc(fmtTime(selected.start) + '–' + fmtTime(selected.end)) : 'Choose time') + '</span></summary>' +
-      '<div class="start-time-picker"><div class="start-time-grid" aria-label="Choose a start time">' + points.slice(0, -1).map(start => {
+      '<div class="start-time-picker"><div class="start-time-list" aria-label="Choose a start time">' + points.slice(0, -1).map(start => {
         const end = hhmmOfMins(minsOfDay(start) + 30);
         const open = freeUnitsForType(type, date, start, end, null).length;
-        return '<button type="button" class="start-time-choice' + (startValue === start ? ' selected' : '') + '" data-act="member-start-time" data-start="' + start + '" data-period="' + periodIdx + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '" aria-pressed="' + (startValue === start ? 'true' : 'false') + '"><strong>' + esc(fmtTime(start)) + '</strong><span>' + esc(open ? open + ' open' : 'Full') + '</span></button>';
-      }).join('') + '</div>' + (startValue ?
-        '<div class="end-time-panel"><label for="member-end-' + periodIdx + '"><span><strong>' + esc(fmtTime(startValue)) + ' start</strong><small>When should it end?</small></span><select id="member-end-' + periodIdx + '" data-chg="member-end" data-period="' + periodIdx + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '"><option value="">Choose end time</option>' + points.filter(end => minsOfDay(end) > minsOfDay(startValue)).map(end => '<option value="' + end + '"' + (endValue === end ? ' selected' : '') + '>' + esc('End at ' + fmtTime(end)) + '</option>').join('') + '</select></label></div>' : '') + '</div></details>';
+        const availability = open ? open + ' open' : 'Full';
+        return '<div class="start-time-row"><button type="button" class="start-time-choice' + (startValue === start ? ' selected' : '') + '" data-act="member-start-time" data-focus-key="member-start-' + start + '" data-start="' + start + '" data-period="' + periodIdx + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '" aria-pressed="' + (startValue === start ? 'true' : 'false') + '"><strong>' + esc(fmtTime(start)) + '</strong><span>Choose start</span></button><button type="button" class="slot-availability' + (!open ? ' full' : '') + '" data-act="member-slot-details" data-focus-key="member-availability-' + start + '" data-start="' + start + '" data-end="' + end + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '" aria-label="View availability for ' + esc(fmtTime(start)) + '"><strong>' + esc(availability) + '</strong><span>View details</span></button></div>';
+      }).join('') + '</div></div></details>';
   });
   html += '</div>' + memberConflictHtml(ui.availabilityConflict && ui.availabilityConflict.date === date && ui.availabilityConflict.type === type ? ui.availabilityConflict : null);
   if (selected && selected.type === type && selected.start && selected.end) {
     const wholeRangeOpen = freeUnitsForType(type, date, selected.start, selected.end, null).length;
     const pendingCount = bookingsForDate(date).filter(b => b.status === 'pending' && needsOf(b)[type] && rangesOverlap(b.start, b.end, selected.start, selected.end)).length;
-    html += '<div class="selected-availability"><div class="selected-counts" role="status" aria-live="polite"><span><strong>' + wholeRangeOpen + '</strong> open</span><span><strong>' + pendingCount + '</strong> pending</span></div><details class="selected-units"><summary>Who is in each numbered unit?</summary><div class="unit-detail-grid" style="--capacity:' + units.length + '">' + units.map(unit => {
-      const occupant = unitOccupant(type, unit.id, date, selected.start, selected.end, null);
-      const status = occupant ? 'taken' : 'open';
-      return '<div class="unit-detail ' + status + '"><strong>' + esc(unit.label) + '</strong><span>' + (occupant ? esc(occupant.name + ' · ' + fmtTime(occupant.start) + '–' + fmtTime(occupant.end)) : 'Open') + '</span></div>';
-    }).join('') + '</div></details></div>' +
+    html += '<div class="selected-availability"><button type="button" class="selected-counts" data-act="member-range-details" data-focus-key="member-range-details" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + selected.start + '" data-end="' + selected.end + '"><span><strong>' + wholeRangeOpen + '</strong> open</span><span><strong>' + pendingCount + '</strong> pending</span><small>View room and request details</small></button></div>' +
       '<div class="member-selection-summary"><span><strong>' + esc(fmtTime(selected.start)) + '–' + esc(fmtTime(selected.end)) + '</strong><small>' + esc(needLabel(type)) + ' · exact reservation time</small></span><button type="button" class="selection-clear" data-act="member-clear">Clear</button><button type="button" class="btn primary" data-act="member-continue" data-focus-key="member-continue">Continue</button></div>';
   }
   return html + '</section>';
+}
+
+function availabilityDetailsHtml() {
+  const d = ui.availabilityDetails;
+  if (!d) return '';
+  const units = unitsForType(d.type);
+  const pending = bookingsForDate(d.date)
+    .filter(b => b.status === 'pending' && needsOf(b)[d.type] && rangesOverlap(b.start, b.end, d.start, d.end))
+    .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start) || timestampMillis(a.createdAt) - timestampMillis(b.createdAt));
+  return '<div class="modal-backdrop availability-backdrop" role="presentation"><section class="booking-dialog availability-dialog" role="dialog" aria-modal="true" aria-labelledby="availability-dialog-title">' +
+    '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(d.date)) + '</div><h2 id="availability-dialog-title">Availability details</h2></div><button type="button" class="modal-close" data-act="member-close-sheet" aria-label="Close availability details">&times;</button></div>' +
+    '<p class="booking-time-summary"><strong>' + esc(needLabel(d.type)) + '</strong> · ' + esc(fmtTime(d.start)) + '–' + esc(fmtTime(d.end)) + '</p>' +
+    '<section class="availability-detail-section"><h3>Approved unit assignments</h3><div class="unit-detail-grid" style="--capacity:' + units.length + '">' + units.map(unit => {
+      const occupant = unitOccupant(d.type, unit.id, d.date, d.start, d.end, null);
+      return '<div class="unit-detail ' + (occupant ? 'taken' : 'open') + '"><strong>' + esc(unit.label) + '</strong><span>' + (occupant ? esc(occupant.name + ' · ' + fmtTime(occupant.start) + '–' + fmtTime(occupant.end)) : 'Open') + '</span></div>';
+    }).join('') + '</div></section>' +
+    '<section class="availability-detail-section"><h3>Pending requests</h3>' + (pending.length
+      ? '<div class="pending-request-list">' + pending.map(b => '<div><strong>' + esc(b.name) + '</strong><span>Requested · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</span></div>').join('') + '</div>'
+      : '<p class="hint">No pending requests overlap this time.</p>') + '</section>' +
+    '<div class="modal-actions"><button type="button" class="btn primary" data-act="member-close-sheet">Done</button></div></section></div>';
+}
+
+function endTimePromptHtml() {
+  const d = ui.endPrompt;
+  const period = d && reservationPeriods(d.date)[d.windowIdx];
+  if (!d || !period) return '';
+  const ends = periodTimePoints(period).filter(end => minsOfDay(end) > minsOfDay(d.start));
+  return '<div class="modal-backdrop end-time-backdrop" role="presentation"><section class="booking-dialog end-time-dialog" role="dialog" aria-modal="true" aria-labelledby="end-time-dialog-title">' +
+    '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(d.date)) + '</div><h2 id="end-time-dialog-title">When should it end?</h2></div><button type="button" class="modal-close" data-act="member-close-end-prompt" aria-label="Close end time choices">&times;</button></div>' +
+    '<p class="booking-time-summary"><strong>' + esc(fmtTime(d.start)) + ' start</strong> · choose an exact end time</p><div class="end-time-list" role="group" aria-label="Choose an end time">' + ends.map(end => {
+      const open = freeUnitsForType(d.type, d.date, d.start, end, null).length;
+      return '<button type="button" class="end-time-choice" data-act="member-end-time" data-date="' + esc(d.date) + '" data-type="' + esc(d.type) + '" data-period="' + d.windowIdx + '" data-end="' + end + '"><strong>End at ' + esc(fmtTime(end)) + '</strong><span>' + esc(open ? open + ' open for this range' : 'No units open for this range') + '</span></button>';
+    }).join('') + '</div><div class="modal-actions"><button type="button" class="btn" data-act="member-close-end-prompt">Cancel</button></div></section></div>';
 }
 
 function adminUnitCalendarHtml(date, type) {
@@ -925,20 +1059,8 @@ function adminUnitCalendarHtml(date, type) {
   let html = '<section class="member-calendar admin-unit-calendar" aria-label="' + esc(needLabel(type)) + ' schedule">' +
     '<div class="member-calendar-heading"><h2>' + esc(needLabel(type)) + ' day map</h2><span>' + units.length + ' units</span></div>' +
     memberResourceToggleHtml(type, 'admin-type') +
-    '<div class="member-calendar-scroll"><div class="member-calendar-grid">' +
-    '<div class="member-calendar-row unit-header"><div class="member-time"><small>Time</small></div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span>' + esc(String(unit.num)) + '</span>').join('') + '</div></div>';
-  scheduleSegments(date).forEach(window => {
-    if (window.service) { html += '<div class="member-service"><span>' + esc(window.label) + '</span><span>' + esc(fmtTime(window.start)) + '–' + esc(fmtTime(window.end)) + '</span></div>'; return; }
-    slotStarts(window).forEach(start => {
-      const end = hhmmOfMins(minsOfDay(start) + 30);
-      html += '<div class="member-calendar-row"><div class="member-time">' + esc(fmtTime(start)) + '</div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => {
-        const status = memberSlotStatus(type, date, start, unit.id);
-        const occupant = unitOccupant(type, unit.id, date, start, end, null);
-        return '<div class="member-square ' + status + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + status) + '">' + (occupant ? esc(occupant.name) : '') + '</div>';
-      }).join('') + '</div></div>';
-    });
-  });
-  return html + '</div></div></section>';
+    '<div class="member-calendar-scroll">' + dayMapGridHtml(date, type, { memberStatus: true }) + '</div>';
+  return html + '</section>';
 }
 
 function myApprovalHtml(date) {
@@ -1069,20 +1191,24 @@ function selectMemberStart(el) {
   ui.availabilityConflict = null;
   if (!period || !start || minsOfDay(start) < minsOfDay(period.start) || minsOfDay(start) >= minsOfDay(period.end)) {
     ui.memberSelection = null;
+    ui.endPrompt = null;
     render();
     return;
   }
   ui.memberSelection = { date, type, start, end: null, windowIdx: periodIdx };
+  ui.endPrompt = { date, type, start, windowIdx: periodIdx };
+  ui.returnFocusKey = 'member-start-' + start;
   render();
 }
 
 function selectMemberEnd(el) {
   const selection = ui.memberSelection;
-  const end = el.value;
+  const end = el.dataset.end || el.value;
   if (!selection || !end || selection.date !== el.dataset.date || selection.type !== el.dataset.type || selection.windowIdx !== Number(el.dataset.period)) return;
   const period = reservationPeriods(selection.date)[selection.windowIdx];
   if (!period || minsOfDay(end) <= minsOfDay(selection.start) || minsOfDay(end) > minsOfDay(period.end) || !isValidBookingRange(selection.date, selection.start, end)) {
     addBanner('Please choose an end time after the start time in the same reservation period.', true);
+    ui.endPrompt = null;
     render();
     return;
   }
@@ -1095,11 +1221,63 @@ function selectMemberEnd(el) {
       suggestedEnd: shorterAvailableEnd(selection.type, selection.date, selection.start, end)
     };
     selection.end = null;
+    ui.endPrompt = null;
     render();
     return;
   }
   selection.end = end;
+  ui.endPrompt = null;
   ui.availabilityConflict = null;
+  render();
+}
+
+function closeEndPrompt() {
+  const key = ui.returnFocusKey;
+  ui.endPrompt = null;
+  ui.returnFocusKey = null;
+  render();
+  restoreFocusKey(key);
+}
+
+function closeAvailabilityDetails() {
+  const key = ui.returnFocusKey;
+  ui.availabilityDetails = null;
+  ui.returnFocusKey = null;
+  render();
+  restoreFocusKey(key);
+}
+
+function restoreFocusKey(key) {
+  requestAnimationFrame(() => {
+    const target = key ? Array.from(document.querySelectorAll('[data-focus-key]')).find(node => node.dataset.focusKey === key) : null;
+    if (target) target.focus();
+  });
+}
+
+function showAvailabilityDetails(el) {
+  const date = el.dataset.date;
+  const type = el.dataset.type;
+  const start = el.dataset.start;
+  const end = el.dataset.end;
+  if (!upcomingBookingDates().includes(date) || !NEED_TYPES.some(item => item.id === type) || !start || !end) return;
+  ui.availabilityDetails = { date, type, start, end };
+  ui.returnFocusKey = el.dataset.focusKey || null;
+  render();
+}
+
+function reserveFromHomeOverview(el) {
+  const date = el.dataset.date;
+  const type = el.dataset.type;
+  const start = el.dataset.start;
+  const periodIdx = reservationPeriods(date).findIndex(period => start >= period.start && start < period.end);
+  if (!upcomingBookingDates().includes(date) || !NEED_TYPES.some(item => item.id === type) || periodIdx < 0) return;
+  ui.selectedDate = date;
+  ui.memberType = type;
+  ui.memberSelection = { date, type, start, end: null, windowIdx: periodIdx };
+  ui.availabilityConflict = null;
+  ui.endPrompt = { date, type, start, windowIdx: periodIdx };
+  ui.returnFocusKey = 'member-start-' + start;
+  ui.tab = 'schedule';
   render();
 }
 
@@ -1227,13 +1405,14 @@ function endTimeOptionsHtml(d, date) {
 function bookingModalHtml() {
   const d = ui.signup;
   const date = d.date || selectedDate();
+  const automatic = shouldAutoApproveMemberBooking(date);
 
   return '<div class="modal-backdrop" role="presentation"><section class="booking-dialog" role="dialog" aria-modal="true" aria-labelledby="booking-dialog-title" aria-describedby="booking-dialog-summary">' +
-    '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(date)) + '</div><h2 id="booking-dialog-title">' + (isTuesday(date) ? 'Reserve this time' : 'Request this time') + '</h2></div>' +
+    '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(date)) + '</div><h2 id="booking-dialog-title">' + (automatic ? 'Reserve this time' : 'Request this time') + '</h2></div>' +
     '<button type="button" class="modal-close" data-act="su-close" aria-label="Close reservation popup">&times;</button></div>' +
     '<p class="booking-time-summary" id="booking-dialog-summary"><strong>' + esc(needLabel(d.resourceType)) + '</strong> · ' + esc(fmtTime(d.start)) + '–' + esc(fmtTime(d.end)) + '</p>' +
-    '<p class="hint booking-approval-hint">' + (isTuesday(date)
-      ? 'Tuesday reservations are confirmed right away while space is open.'
+    '<p class="hint booking-approval-hint">' + (automatic
+      ? (isSaturday(date) ? 'Saturday reservations are confirmed right away after 10:00 AM while space is open.' : 'Tuesday reservations are confirmed right away while space is open.')
       : 'Saturday requests go to the approver first — check My reservations for the decision.') + '</p>' +
     '<form data-act="su-submit">' +
     '<label class="fld" for="su-name">Your name</label>' +
@@ -1242,7 +1421,7 @@ function bookingModalHtml() {
 
     '<div class="modal-actions"><button type="button" class="btn" data-act="su-close">Cancel</button>' +
     '<button class="btn primary" type="submit"' + (ui.submitting ? ' disabled' : '') + '>' +
-    (ui.submitting ? 'Submitting…' : (isTuesday(date) ? 'Reserve now' : 'Send request')) + '</button></div>' +
+    (ui.submitting ? 'Submitting…' : (automatic ? 'Reserve now' : 'Send request')) + '</button></div>' +
     '</form></section></div>';
 }
 
@@ -1326,13 +1505,13 @@ function renderAdmin() {
     return '<section class="admin-workspace"><div class="card admin-header-card"><div class="eyebrow">Admin workspace</div><h1>Confirming the shared schedule.</h1><p class="section-note">Approval controls will appear after current bookings and availability are verified.</p></div><div class="schedule-loading" role="status" aria-live="polite"><span aria-hidden="true"></span>Loading protected Admin workspace</div></section>';
   }
   const date = selectedDate();
-  loadAdminNotes(date);
+  if (!demoMode()) loadAdminNotes(date);
   const queue = pendingQueue(date);
   if (!queue.some(b => b.id === ui.adminSelectedId)) ui.adminSelectedId = queue.length ? queue[0].id : null;
-  return '<section class="admin-workspace">' + renderAdminHeader(date) +
+  return '<section class="admin-workspace">' + (demoMode() ? '<div class="demo-notice">Sample Admin preview — scheduling and approval controls are read-only here.</div>' : '') + renderAdminHeader(date) +
     '<div class="admin-command"><aside class="admin-queue-panel">' + renderAdminQueue(date, queue) + '</aside>' +
     '<section class="admin-context-panel">' + renderAdminSelectedRequest(date) + renderAdminDayOverview(date) + activityFeedHtml(date) + '</section></div>' +
-    '<div class="admin-tools-grid">' + renderAdminAddForm(date) + renderAdminHousekeeping() + '</div></section>';
+    (demoMode() ? '' : '<div class="admin-tools-grid">' + renderAdminAddForm(date) + renderAdminHousekeeping() + '</div>') + '</section>';
 }
 
 /* ---- PIN gate ---- */
@@ -1356,7 +1535,7 @@ function renderAdminHeader(date) {
   return '<div class="card admin-header-card">' +
     '<div class="admin-header-main"><div><div class="eyebrow">Admin workspace</div><h1>Study Rooms Admin</h1><p>' + esc(fmtDate(date)) + (isSaturday(date) ? ' · Approval required' : ' · Instant reservations') + '</p></div>' +
     '<div class="admin-counts"><span><strong>' + pending + '</strong> Pending</span><span><strong>' + approved + '</strong> Approved</span><span><strong>' + waiting + '</strong> In line</span></div>' +
-    '<button class="btn small danger" data-act="admin-lock">Lock admin</button>' +
+    (demoMode() ? '<span class="hint">Read-only sample</span>' : '<button class="btn small danger" data-act="admin-lock">Lock admin</button>') +
     '</div><div class="admin-header-date">' + dateSelectorHtml() + '</div></div>';
 }
 
@@ -1472,6 +1651,7 @@ function assignPillRowHtml(booking, type, date, assign) {
 }
 
 function assignmentUiHtml(booking, date) {
+  if (demoMode()) return '<p class="hint">Sample preview only — this request cannot be approved or changed.</p>';
   // Build the draft on first render; also rebuild it if it's entirely empty
   // (drafted while everything was full) so a cancellation that just freed a
   // unit pre-selects the recommendation instead of waiting for a manual tap.
@@ -1594,12 +1774,12 @@ function adminDayRowHtml(b, date) {
       '</div>';
   }
   let actions = '';
-  if (b.status === 'pending') {
+  if (!demoMode() && b.status === 'pending') {
     actions = '<button class="btn small ok" data-act="admin-approve" data-id="' + esc(b.id) + '">Approve</button>' +
       '<button class="btn small danger" data-act="admin-decline" data-id="' + esc(b.id) + '">Decline</button>';
-  } else if (b.status === 'approved') {
+  } else if (!demoMode() && b.status === 'approved') {
     actions = '<button class="btn small danger" data-act="admin-cancel" data-id="' + esc(b.id) + '">Cancel</button>';
-  } else if (b.status === 'declined' || b.status === 'cancelled') {
+  } else if (!demoMode() && (b.status === 'declined' || b.status === 'cancelled')) {
     actions = '<button class="btn small ok" data-act="admin-reapprove-start" data-id="' + esc(b.id) + '">Re-approve</button>';
   }
   const assignSummary = b.status === 'approved'
@@ -1949,6 +2129,8 @@ function handleAction(act, el) {
     ui.adminForm = null;
     ui.selectedDate = date;
     ui.memberSelection = null;
+    ui.endPrompt = null;
+    ui.availabilityDetails = null;
     ui.availabilityConflict = null;
     ui.adminSelectedId = null;
     ui.adminAssign = {};
@@ -1964,22 +2146,41 @@ function handleAction(act, el) {
     render();
     return;
   }
+  if (act === 'home-date') {
+    if (!upcomingBookingDates().includes(el.dataset.id)) return;
+    ui.homeDate = el.dataset.id;
+    render();
+    return;
+  }
+  if (act === 'home-overview-type') {
+    if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
+    ui.homeOverviewType = el.dataset.id;
+    render();
+    return;
+  }
+  if (act === 'home-reserve-slot') { reserveFromHomeOverview(el); return; }
   if (act === 'member-type') {
     if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
     ui.memberType = el.dataset.id;
     ui.memberSelection = null;
+    ui.endPrompt = null;
+    ui.availabilityDetails = null;
     ui.availabilityConflict = null;
     render();
     return;
   }
   if (act === 'member-start-time') { selectMemberStart(el); return; }
+  if (act === 'member-end-time') { selectMemberEnd(el); return; }
+  if (act === 'member-close-end-prompt') { closeEndPrompt(); return; }
+  if (act === 'member-slot-details' || act === 'member-range-details') { showAvailabilityDetails(el); return; }
+  if (act === 'member-close-sheet') { closeAvailabilityDetails(); return; }
   if (act === 'admin-type') {
     if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
     ui.adminType = el.dataset.id;
     render();
     return;
   }
-  if (act === 'member-clear') { ui.memberSelection = null; ui.availabilityConflict = null; render(); return; }
+  if (act === 'member-clear') { ui.memberSelection = null; ui.endPrompt = null; ui.availabilityConflict = null; render(); return; }
   if (act === 'conflict-yes') {
     const conflict = ui.availabilityConflict;
     if (!conflict || !conflict.suggestedEnd) return;
@@ -2137,10 +2338,12 @@ document.addEventListener('change', e => {
   }
 });
 document.addEventListener('keydown', e => {
-  if (!ui.signup) return;
+  if (!ui.signup && !ui.endPrompt && !ui.availabilityDetails) return;
   if (e.key === 'Escape') {
     e.preventDefault();
-    closeBookingModal(false);
+    if (ui.signup) closeBookingModal(false);
+    else if (ui.endPrompt) closeEndPrompt();
+    else closeAvailabilityDetails();
     return;
   }
   if (e.key !== 'Tab') return;
@@ -2167,7 +2370,9 @@ function init() {
   const cacheMatchesDates = !!(cachedState && Array.isArray(cachedState.queryDates) && cachedState.queryDates.join('|') === upcomingBookingDates().join('|'));
   // Never carry bookings from an expired date pair into the new schedule. The
   // realtime snapshot is the only code path allowed to stamp a new pair.
-  state = (demoMode() || cacheMatchesDates) && cachedState ? cachedState : { bookings: {} };
+  // Demo is fixture-only: it must not read a prior live schedule from this
+  // browser, even if the cache happens to match the upcoming dates.
+  state = !demoMode() && cacheMatchesDates && cachedState ? cachedState : { bookings: {} };
   scheduleReady = demoMode() || cacheMatchesDates;
   render();
   if (adminUnlocked()) {

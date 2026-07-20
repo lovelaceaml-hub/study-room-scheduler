@@ -78,6 +78,57 @@ h1 {
   font-weight: 700;
 }
 
+/* The selected day is deliberately a first-class control rather than a hidden
+   query-string feature. Large, high-contrast buttons stay readable from the
+   lobby while also working with a keyboard during setup. */
+.day-picker {
+  align-self: center;
+  display: grid;
+  gap: 7px;
+  min-width: min(31vw, 420px);
+}
+
+.day-picker-label {
+  color: var(--signal-soft);
+  font-size: clamp(10px, .68vw, 13px);
+  font-weight: 850;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.day-picker-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.day-choice {
+  min-height: 42px;
+  padding: 8px clamp(11px, .9vw, 18px);
+  border: 1px solid var(--signal-rule);
+  border-radius: 2px;
+  background: var(--signal-mat);
+  color: var(--signal-ink);
+  font: inherit;
+  font-size: clamp(11px, .78vw, 16px);
+  font-weight: 850;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.day-choice:hover { background: var(--signal-pine-tint); }
+
+.day-choice.active {
+  border-color: var(--signal-pine);
+  background: var(--signal-pine);
+  color: #fff;
+}
+
+.day-choice:focus-visible {
+  outline: 3px solid var(--signal-brass);
+  outline-offset: 3px;
+}
+
 .header-status {
   flex: 0 0 auto;
   padding-top: clamp(10px, .85vw, 16px);
@@ -439,6 +490,10 @@ h1 {
   .eyebrow { margin: 6px 0 2px; font-size: 9px; }
   h1 { font-size: 31px; }
   .today { margin-top: 3px; font-size: 12px; }
+  .day-picker { gap: 4px; min-width: 290px; }
+  .day-picker-label { font-size: 8px; }
+  .day-picker-options { gap: 4px; }
+  .day-choice { min-height: 27px; padding: 5px 8px; font-size: 9px; }
   .header-status { padding-top: 7px; }
   .clock { font-size: 34px; }
   .connection { gap: 6px; margin-top: 4px; font-size: 9px; }
@@ -465,6 +520,12 @@ h1 {
 
 @media (max-width: 1050px) {
   .tick:not(.edge-start):not(.edge-end):nth-of-type(even) { display: none; }
+}
+
+@media (max-width: 760px) {
+  .tv-header { flex-wrap: wrap; }
+  .day-picker { order: 3; width: 100%; min-width: 0; }
+  .header-status { margin-left: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
