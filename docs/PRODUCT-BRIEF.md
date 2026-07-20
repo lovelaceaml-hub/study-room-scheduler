@@ -25,13 +25,13 @@
 
 - **Likely confusion or failure points:** Mistaking a clicked time for a hidden extra 30 minutes, selecting a range that has no single unit open throughout, unclear Saturday instant/pending status, and scanning too many half-hour rows.
 - **Out of scope for this version:** New resource types, additional reservable weekdays, or changes to the existing Admin authentication model.
-- **What must not change:** Tuesday/Saturday eligibility, 30-minute boundaries, service-time blocking, numbered-unit capacity, booking privacy, or lobby-TV service bands. The planned approval policy is Tuesday instant; Saturday instant only for a submission made on that Saturday at or after 10:00 AM Los Angeles time; advance Saturday requests remain pending.
+- **What must not change:** Tuesday/Saturday eligibility, 30-minute boundaries, service-time blocking, numbered-unit capacity, booking privacy, or lobby-TV service bands. The current approval policy is Tuesday instant; Saturday instant only for a submission made on that Saturday at or after 10:00 AM Los Angeles time; advance Saturday requests remain pending.
 
-## Planned release scope
+## July 20 release scope
 
-The locally prepared, not-yet-deployed update extends closing to 11:00 PM, including
-10:00 PM and 10:30 PM starts. It makes member start times vertical on phones, uses an
-immediate end-time prompt, puts the Admin-style day overview on Home for every member,
-and makes the open/pending count a detail button for named assignments and unassigned
-pending requests. It also adds an eligible-day setting and full browser-only mock data
-to the lobby TV.
+The July 20, 2026 release was deployed and live-verified. It extends closing to 11:00
+PM, including 10:00 PM and 10:30 PM starts. It makes member start times vertical on
+phones, uses an immediate end-time prompt, puts the Admin-style day overview on Home
+for every member, and makes the open/pending count a detail button for named assignments
+and unassigned pending requests. It also adds an eligible-day setting and full
+browser-only mock data to the lobby TV.

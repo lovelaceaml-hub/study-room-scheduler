@@ -3,9 +3,9 @@
 ## Quick links
 
 - **Website:** https://lvrooms.web.app — primary member address
-- **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule (the planned update adds a day picker)
+- **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — next mobile, scheduling, TV, and demo update is prepared locally and not deployed yet
+- **Status:** Live — the mobile, scheduling, TV, and demo update was deployed and live-verified on July 20, 2026
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -24,7 +24,7 @@ device’s reservation notices, current/upcoming numbered-unit use, and a bounde
 update feed. Members choose Study room, Whiteboard, or TV, step between the upcoming
 Tuesday and Saturday, and reserve an explicit 30-minute range.
 
-The next update, prepared locally but not deployed yet, adds a member-visible day
+The July 20 update adds a member-visible day
 overview, vertically stacked start times, an immediate **When should it end?** prompt,
 and a button that reveals both numbered-unit assignments and unassigned pending requests.
 An open slot on Home will carry its date, resource, and start time into Reservations.
@@ -41,4 +41,5 @@ to the selected end, and remain separated by service periods. The lobby TV conti
 show service bands in the day timetable.
 
 The primary address, lobby TV, secure Admin backend, and permanent redirect from the
-former address are live. The locally prepared update has not been deployed.
+former address are live. The July 20 update was deployed and live-verified at the
+primary address.

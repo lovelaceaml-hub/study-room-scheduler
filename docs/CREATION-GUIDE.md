@@ -15,8 +15,8 @@ or decline.
 The primary member address is **https://lvrooms.web.app**. The former address,
 **https://lvz-rooms.web.app**, is a permanent redirect. Production deployment was
 verified initially on July 17, 2026; the compact dashboard and exact-time release was
-deployed and verified on July 19, 2026. The next mobile, scheduling, TV, and demo
-update is prepared locally but has not been deployed.
+deployed and verified on July 19, 2026; and the mobile, scheduling, TV, and demo update
+was deployed and live-verified on July 20, 2026.
 
 ## Applied visual redesign
 
@@ -35,9 +35,9 @@ source of truth.
 On July 19, 2026, the same approved direction was refined into a more compact
 dashboard-and-disclosure flow. Home now opens first with current/upcoming unit use and
 a bounded live feed. Reservations uses a single-date arrow stepper and three daypart
-disclosures with explicit Start and End selects. The next update replaces the compact
-two-column start grid with a vertical phone list, opens an immediate **When should it
-end?** prompt after a start is chosen, and retains the exact end boundary.
+disclosures. On July 20, the compact two-column start grid was replaced with a vertical
+phone list that opens an immediate **When should it end?** prompt after a start is
+chosen, while retaining the exact end boundary.
 
 ## Architecture
 
@@ -107,7 +107,7 @@ service bands explicitly. The same interaction works on phone and desktop layout
 
 Home derives **My notifications** only from reservation IDs saved by this browser. It
 surfaces pending requests, the nearest approved reservation, and denied requests before
-the shared unit schedule and live activity feed. The next Home overview mirrors the
+the shared unit schedule and live activity feed. The Home overview mirrors the
 member-safe part of the Admin day map. Its open slots are buttons that set the selected
 date, resource, and start time in Reservations, then focus the end-time choice; full and
 service slots are not booking actions.

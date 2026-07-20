@@ -8,8 +8,8 @@ The shorter address and revised scheduler are **Live** at
 The previous address, **https://lvz-rooms.web.app**, remains available and sends
 visitors to the shorter address automatically.
 
-The next mobile, scheduling, TV, and demo update is prepared locally but is **not yet
-deployed** to this address.
+The mobile, scheduling, TV, and demo update was deployed and live-verified on July 20,
+2026.
 
 ## Open the member app
 
@@ -24,9 +24,9 @@ deployed** to this address.
 
 The member app has no separate **Sign up** screen. The time menus are divided around
 service periods, which cannot be selected. Home contains this device’s reservation
-notifications, a live day overview, and a scrollable update feed. In the next update,
-tapping an open Home slot takes the member straight to Reservations with that time ready
-for an end-time choice.
+notifications, a live day overview, and a scrollable update feed. Tapping an open Home
+slot takes the member straight to Reservations with that time ready for an end-time
+choice.
 
 ## Install it on an iPhone
 
@@ -78,8 +78,9 @@ request and Admin details.
 ## Preview the filled mock schedule
 
 For a safe walkthrough before using a real reservation, add `?demo=1` to the member
-address. The next update also supplies a filled TV demo. Mock rooms, requests, service
-bands, and cancellations stay in that browser and are never written to the live schedule.
+address. The filled TV demo is available at `?tv=1&demo=1`. Mock rooms, requests,
+service bands, and cancellations stay in that browser and are never written to the live
+schedule.
 
 ## Admin access
 

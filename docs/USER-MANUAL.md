@@ -7,7 +7,7 @@ The app is live at **https://lvrooms.web.app**. (The older address,
 https://lvz-rooms.web.app, forwards there automatically.)
 
 > Release note: the mobile, approval, TV-day-picker, and expanded mock-data changes
-> below are prepared for the next release. They are not deployed to the live address yet.
+> below were deployed and live-verified on July 20, 2026.
 
 ## For members
 
@@ -16,9 +16,9 @@ https://lvz-rooms.web.app, forwards there automatically.)
 The app opens on **Home**. Its day overview shows Study Rooms 1–4 by default. On a
 Tuesday or Saturday it shows who is using each room now and when the reservation ends;
 otherwise it shows the next reservation day and each unit’s next booking. Choose
-**Whiteboard** or **TV** when you want those unit details. In the next release, an open
-time in this overview is a button: it opens **Reservations** with that day, resource,
-and start time highlighted, ready for the member to choose an ending.
+**Whiteboard** or **TV** when you want those unit details. An open time in this overview
+is a button: it opens **Reservations** with that day, resource, and start time
+highlighted, ready for the member to choose an ending.
 
 **My notifications** shows updates for reservations made from this device. It calls out
 pending requests, the next approved reservation, and denied requests without exposing
@@ -155,9 +155,9 @@ can change the recommended unit before approving or declining.
 ## Preview sample information
 
 To inspect the layout without changing the real schedule, add `?demo=1` to the end of
-the app address. The next release fills the browser-only preview with sample room,
-whiteboard, and TV assignments; pending requests; a full period; declined and cancelled
-requests; and both eligible days. It never writes mock information to Firestore.
+the app address. The browser-only preview includes sample room, whiteboard, and TV
+assignments; pending requests; a full period; declined and cancelled requests; and both
+eligible days. It never writes mock information to Firestore.
 
 Approval moves the booking live from the amber request lane into its assigned green
 row. Declining or cancelling removes it from the active public schedule. Protected

@@ -2,11 +2,11 @@
 
 ## July 20 mobile, approval, TV, and mock-preview verification
 
-This release is **verified locally and is not deployed to production yet**. It adds the
-member Home day overview, vertically stacked reservation starts, the **When should it
-end?** sheet, assignment-and-pending availability details, 11:00 PM closing, the
-Saturday 10:00 AM Los Angeles approval boundary, the selectable TV day view, and
-fixture-only member, Admin, and TV previews.
+This release was deployed to **https://lvrooms.web.app** and live-verified on July 20,
+2026. It adds the member Home day overview, vertically stacked reservation starts, the
+**When should it end?** sheet, assignment-and-pending availability details, 11:00 PM
+closing, the Saturday 10:00 AM Los Angeles approval boundary, the selectable TV day
+view, and fixture-only member, Admin, and TV previews.
 
 `npm test` passed all **13 of 13** policy tests. `npm run test:ui` passed at
 390×844 and 320×720, including axe checks with no violations, keyboard navigation,
@@ -16,7 +16,7 @@ passed at 1280×720 and 1920×1080, covering the eligible-date selector and URL,
 selected-date cache/subscription behavior, future-day time-marker suppression,
 privacy-safe names, late-evening scale, and Firebase-free TV fixtures.
 
-An interactive Codex in-app-browser walkthrough of the phone and TV mock previews
+An interactive Codex in-app-browser walkthrough and live phone/TV demo verification
 showed no console warnings or errors. The final independent review's Home-overview,
 fixture-isolation, and shared-day-map findings were corrected and rechecked.
 
@@ -70,9 +70,9 @@ dashboard, interaction, accessibility, and protected-capacity checks above.
 
 ## Current browser evidence
 
-The current release was served locally and driven through its visible controls. The
-July 17 and July 19 production evidence above is retained as historical evidence for
-those earlier releases; it does not claim that the July 20 changes are deployed.
+The current release was served locally and then live-verified through its visible
+controls. The July 17 and July 19 production evidence above is retained as historical
+evidence for those earlier releases.
 
 | View | Size | Result |
 |---|---:|---|
@@ -153,6 +153,5 @@ release.
 Three separate reviewers challenged the implementation for scheduling accuracy,
 mobile/accessibility behavior, Admin security/privacy, and lobby-TV fidelity. The
 current review's Home date/pending visibility, fixture isolation, and shared-day-map
-findings were corrected and rechecked locally. Earlier July 17/19 findings remain
-historical evidence for those deployed releases; the July 20 release has not been
-deployed.
+findings were corrected and rechecked before the July 20 deployment. Earlier July 17/19
+findings remain historical evidence for those earlier deployed releases.

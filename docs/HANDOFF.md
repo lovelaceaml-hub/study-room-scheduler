@@ -2,15 +2,12 @@
 
 ## Current status
 
-**Live.** The secure backend, compact dashboard and exact-time scheduler, lobby TV,
-shorter address, listed-start picker, and personal Home notifications were deployed and
-verified on July 19, 2026. Listed half-hour starts reveal one End-time dropdown, while
-Home shows device-private pending, next, and denied reservation notifications.
-
-**Next release — prepared locally, not deployed:** a mobile-first availability update
-adds vertical start-time slots, an immediate **When should it end?** prompt, a member
-Home day overview, named assignment/pending details, 11:00 PM closing, an eligible-day
-TV picker, and complete browser-only mock data.
+**Live.** The July 20, 2026 mobile-first availability release was deployed to
+https://lvrooms.web.app and live-verified with phone and TV demos. It adds vertical
+start-time slots, an immediate **When should it end?** prompt, a member Home day
+overview, named assignment/pending details, 11:00 PM closing, an eligible-day TV picker,
+and complete browser-only mock data. The earlier compact dashboard and exact-time
+scheduler were deployed and verified on July 19, 2026.
 
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
@@ -32,8 +29,8 @@ TV picker, and complete browser-only mock data.
   default; Whiteboard and TV schedules are optional.
 - Make Reservations the only member booking screen: members step between the two
   eligible dates, open Morning/Afternoon/Evening, tap a listed start time, choose the
-  exact ending from the dropdown that appears, then complete the remaining details in
-  a pop-up.
+  exact ending in the **When should it end?** sheet, then complete the remaining details
+  in a pop-up.
 - Store the second selected time as the exact ending; never silently add another
   30 minutes. Keep member options divided around service periods while the TV retains
   visible service bands.
@@ -82,13 +79,13 @@ fresh conflict check. Failed writes must visibly fail and roll back instead of l
 saved. New pending requests are accepted only when at least one numbered unit is still
 open for the entire requested range at submission time.
 
-Home’s member-safe day overview must let a member tap an open half-hour slot and arrive
+Home’s member-safe day overview lets a member tap an open half-hour slot and arrive
 at Reservations with the exact date, resource, and start highlighted; the member then
 chooses an end. It must not expose private notes or Admin controls.
 
-The TV’s day picker must be limited to eligible Tuesday/Saturday dates. It uses `?tv=1`,
+The TV’s day picker is limited to eligible Tuesday/Saturday dates. It uses `?tv=1`,
 omits all Admin controls and private details, and preserves its last public schedule
-during a connection interruption. A browser-only demo must populate both member and TV
+during a connection interruption. A browser-only demo populates both member and TV
 views with every key state without writing to Firestore.
 
 ## Rollout checklist
