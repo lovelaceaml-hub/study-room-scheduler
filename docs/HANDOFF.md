@@ -20,11 +20,19 @@ deployed and verified on July 17, 2026.
   8:00–9:00 PM for services.
 - Show Saturday from 9:00 AM so the morning service is visible; booking still begins
   at 10:00 AM.
-- Make Reservations the only member booking screen: members tap an open 30-minute
-  calendar period, then complete the remaining details in a pop-up. Remove the
-  separate Sign up tab.
-- Use compact calendar rows with visible 30-minute dividers. Show service periods as
-  blocked calendar areas, without separate "Reservations unavailable" notices.
+- Open on Home with current/upcoming numbered-unit use and a bounded, scrollable live
+  update feed. Study Rooms are the default; Whiteboard and TV schedules are optional.
+- Make Reservations the only member booking screen: members step between the two
+  eligible dates, open Morning/Afternoon/Evening, choose exact Start and End values,
+  then complete the remaining details in a pop-up.
+- Store the second selected time as the exact ending; never silently add another
+  30 minutes. Keep member options divided around service periods while the TV retains
+  visible service bands.
+- Show only open and pending counts for a complete range. Put numbered-unit occupants
+  behind a secondary disclosure.
+- Refuse a range that has no one unit open throughout. Offer the longest continuous
+  shorter ending with Yes/No actions when possible, and repeat the check in the
+  protected backend transaction for both Tuesday and Saturday.
 - Show every pending request live in amber resource-type lanes before approval.
 - Move approved requests into Study Room 1–4, Whiteboard 1–5, or TV 1–3 rows.
 - Remove the Baptism Room from future scheduling and return active future assignments
@@ -41,9 +49,9 @@ deployed and verified on July 17, 2026.
   TV), a compact scrollable calendar, and a name-and-purpose-only confirmation sheet.
 - The visual redesign uses shared, accessible light/dark design tokens across the
   member app and lobby TV. It preserves every scheduling and security behavior.
-- Reservations now begins directly with the selected-day calendar. The Study room,
-  Whiteboard, and TV picker switches the one visible resource schedule; the date buttons
-  sit directly above it. Schedule updates live in My reservations.
+- Home now opens first. The Study room, Whiteboard, and TV picker switches the one
+  visible resource schedule; Reservations uses a single-date arrow stepper. Live
+  updates are on Home, while My reservations focuses on this device’s requests.
   The header has no connection-status label, and left/right tab swiping is disabled.
 - Tuesday reservations auto-approve securely; Saturday remains manual with the Admin
   queue and assignment recommendation ordered Contact, New Member, Study Member
@@ -61,7 +69,8 @@ deployed and verified on July 17, 2026.
 Pending requests reserve no specific unit. Their amber position means only that a
 member asked for that resource type and time. Approval performs the assignment and a
 fresh conflict check. Failed writes must visibly fail and roll back instead of looking
-saved.
+saved. New pending requests are accepted only when at least one numbered unit is still
+open for the entire requested range at submission time.
 
 The TV shows today only. On a day other than Tuesday or Saturday, **No study-room
 schedule today** is correct. It uses `?tv=1`, omits all Admin controls and private
@@ -74,8 +83,8 @@ details, and preserves its last public schedule during a connection interruption
 - Confirm future Baptism Room bookings were safely returned to pending.
 - Verify anonymous request creation and owner-only cancellation.
 - Verify Admin unlock, approve, decline, cancel, reassignment, direct-add, and lock.
-- Verify open 30-minute calendar periods launch the booking pop-up on desktop and
-  phone; verify service areas and unavailable periods cannot be selected.
+- Verify exact Start/End selection, Morning/Afternoon/Evening disclosures, date arrows,
+  unavailable-range recovery, and the booking pop-up on desktop and phone.
 - Verify simultaneous member, Admin, phone, and TV live updates.
 - Verify 320/375/390-pixel phone views and 720p/1080p TV views.
 - Verify the shared visual tokens load in both the member app and lobby TV after an

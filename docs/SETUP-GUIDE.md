@@ -14,12 +14,14 @@ visitors to the shorter address automatically.
 2. Go to **https://lvrooms.web.app**.
 3. The app opens without an account screen. It quietly identifies the device so each
    member can manage only their own new requests.
-4. To make a request, choose Tuesday or Saturday, select Study room, Whiteboard, or
-   TV, then tap an available time row. Tap a later row in the same section to extend the time, then tap
-   **Continue**, and complete the short name-and-purpose form.
+4. To make a request, open **Reservations**, use the arrows to choose Tuesday or
+   Saturday, select Study room, Whiteboard, or TV, and open Morning, Afternoon, or
+   Evening. Choose the exact **Start time** and **End time**, tap **Continue**, and
+   complete the short name-and-purpose form.
 
-The member app has no separate **Sign up** screen. Service times appear as blocked
-areas in the calendar and cannot be selected.
+The member app has no separate **Sign up** screen. The time menus are divided around
+service periods, which cannot be selected. Home contains the live unit schedule and a
+scrollable update feed.
 
 ## Install it on an iPhone
 

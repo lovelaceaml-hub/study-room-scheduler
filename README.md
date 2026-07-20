@@ -11,22 +11,29 @@
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
   - [Creation Guide](docs/CREATION-GUIDE.md) — how it was built
   - [Handoff](docs/HANDOFF.md) — current implementation and rollout notes
-  - [Design Prototype](docs/design-prototype.html) — the approved reference used for the live redesign
+  - [Product Brief](docs/PRODUCT-BRIEF.md) — audience, goals, constraints, and risks
+  - [User Journeys](docs/USER-JOURNEYS.md) — critical member, approver, and lobby flows
+  - [Design Direction](docs/DESIGN.md) — approved compact dashboard direction
+  - [Design Prototype](docs/design-prototype.html) — the original visual reference for the live design system
   - [Design Research](docs/DESIGN-RESEARCH.md) — evidence and decisions behind the redesign
   - [UI Quality Report](docs/UI-QUALITY-REPORT.md) — browser and accessibility verification
   - [All documents →](docs/)
 
-An installable study-room scheduling app for LV Zion. Members choose Study room,
-Whiteboard, or TV, select their time directly in the compact Tuesday or Saturday
-availability list, then provide only their name and purpose. Tuesday bookings auto-approve
+An installable study-room scheduling app for LV Zion. The opening Home dashboard shows
+current/upcoming numbered-unit use and a bounded live update feed. Members choose Study room,
+Whiteboard, or TV, step between the upcoming Tuesday and Saturday with date arrows,
+then choose an exact start and end inside compact Morning, Afternoon, or Evening menus.
+Tuesday bookings auto-approve
 when a resource is open; Saturday requests are manually reviewed by priority.
-Members see open capacity first and can expand a time to inspect numbered units. A live update feed summarizes
-requests/reservations/cancellations, and **My reservations** shows this device’s status.
+Members see only the open and pending counts first and can expand the numbered-unit detail.
+Unavailable ranges explain the conflict and offer a shorter available ending when possible.
+**My reservations** shows this device’s status.
 
 The app uses buildless vanilla JavaScript, Firebase Hosting, and Firestore live
 updates. It includes a phone-friendly booking experience and a dedicated lobby TV
-screen. Reservations use clickable 30-minute slots, show service periods as blocked
-calendar areas, and run through 10:00 PM.
+screen. Reservations use explicit 30-minute time boundaries, never add a hidden half-hour
+to the selected end, and remain separated by service periods through 10:00 PM. The lobby
+TV continues to show service bands in the day timetable.
 
 The primary address, lobby TV, secure Admin backend, and permanent redirect from
 the former address are live.

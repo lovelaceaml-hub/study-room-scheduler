@@ -177,6 +177,27 @@ function rangesOverlap(first, second) {
     && parseMinutes(second.start) < parseMinutes(first.end);
 }
 
+function availableUnitForType(type, candidate, approvedBookings) {
+  const units = ALLOWED_UNITS[type] || [];
+  return units.find(unitId => !approvedBookings.some(existing =>
+    existing.status === 'approved' &&
+    existing.assignments && existing.assignments[type] === unitId &&
+    rangesOverlap(candidate, existing)
+  )) || null;
+}
+
+function shorterAvailableEnd(type, candidate, approvedBookings) {
+  const start = parseMinutes(candidate.start);
+  const attemptedEnd = parseMinutes(candidate.end);
+  let suggestion = null;
+  for (let end = start + 30; end < attemptedEnd; end += 30) {
+    const value = `${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+    if (availableUnitForType(type, { ...candidate, end: value }, approvedBookings)) suggestion = value;
+    else break;
+  }
+  return suggestion;
+}
+
 function conflictingBooking(candidate, approvedBookings, excludeId = null) {
   return approvedBookings.find(existing => {
     if (existing.id === excludeId || existing.status !== 'approved' || !rangesOverlap(candidate, existing)) return false;
@@ -226,6 +247,7 @@ function validateDirectBooking(input, now = new Date()) {
 module.exports = {
   ALLOWED_UNITS,
   addDays,
+  availableUnitForType,
   canonicalAssignments,
   conflictingBooking,
   isoDateInLosAngeles,
@@ -237,6 +259,7 @@ module.exports = {
   priorityForPurpose,
   rangesOverlap,
   sortBookingsByPriority,
+  shorterAvailableEnd,
   upcomingTuesdayAndSaturday,
   validateBookingTime,
   validateDirectBooking,

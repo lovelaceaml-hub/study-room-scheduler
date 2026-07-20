@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  availableUnitForType,
   canonicalAssignments,
   conflictingBooking,
   migrationResourceUpdate,
@@ -10,6 +11,7 @@ const {
   normalizeLegacyResourceMaps,
   priorityForPurpose,
   sortBookingsByPriority,
+  shorterAvailableEnd,
   upcomingTuesdayAndSaturday,
   validateBookingTime,
   validateDirectBooking
@@ -85,6 +87,19 @@ test('detects overlapping approved assignments but ignores different units', () 
   assert.equal(conflictingBooking(candidate, existing).id, 'old');
   candidate.assignments.room = 'room-2';
   assert.equal(conflictingBooking(candidate, existing), null);
+});
+
+test('rejects a full Saturday range and finds the longest shorter ending', () => {
+  const candidate = { date: '2026-07-18', start: '10:00', end: '11:30' };
+  const approved = [
+    { status: 'approved', date: candidate.date, start: '10:00', end: '13:30', assignments: { room: 'room-4' } },
+    ...[1, 2, 3].map(number => ({
+      status: 'approved', date: candidate.date, start: '11:00', end: '11:30', assignments: { room: `room-${number}` }
+    }))
+  ];
+  assert.equal(availableUnitForType('room', candidate, approved), null);
+  assert.equal(shorterAvailableEnd('room', candidate, approved), '11:00');
+  assert.equal(availableUnitForType('whiteboard', candidate, approved), 'wb-1');
 });
 
 test('sanitizes a valid direct Admin booking', () => {

@@ -6,6 +6,7 @@ const { FieldPath, FieldValue, Timestamp, getFirestore } = require('firebase-adm
 const { defineSecret } = require('firebase-functions/params');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
 const {
+  availableUnitForType,
   conflictingBooking,
   isoDateInLosAngeles,
   isoWeekday,
@@ -14,6 +15,7 @@ const {
   normalizeLegacyResourceMaps,
   priorityForPurpose,
   rangesOverlap,
+  shorterAvailableEnd,
   validateBookingTime,
   validateDirectBooking
 } = require('./lib/policy');
@@ -200,14 +202,6 @@ function memberRequestInput(input) {
 
 function isTuesday(date) { return isoWeekday(date) === 2; }
 
-function assignmentFor(type, candidate, approved) {
-  return UNITS_BY_TYPE[type].find(unitId => !approved.some(existing =>
-    existing.status === 'approved'
-      && existing.assignments && existing.assignments[type] === unitId
-      && rangesOverlap(candidate, existing)
-  )) || null;
-}
-
 async function memberSubmitBooking(input, uid) {
   let request;
   try { request = memberRequestInput(input); }
@@ -226,10 +220,18 @@ async function memberSubmitBooking(input, uid) {
     const approved = await approvedBookingsForDate(transaction, request.date);
     const candidate = { ...request, date: request.date, assignments: { room: null, whiteboard: null, tv: null } };
     const automatic = isTuesday(request.date);
-    const unitId = automatic ? assignmentFor(request.resourceType, candidate, approved) : null;
-    if (automatic && !unitId) {
-      throw new HttpsError('already-exists', 'That resource is fully booked for the selected time. Please choose another time.');
+    const availableUnitId = availableUnitForType(request.resourceType, candidate, approved);
+    if (!availableUnitId) {
+      const unavailableMessage = request.resourceType === 'room'
+        ? 'There are no rooms available in the time slot that was selected.'
+        : request.resourceType === 'whiteboard'
+          ? 'There are no whiteboards available in the time slot that was selected.'
+          : 'There are no TVs available in the time slot that was selected.';
+      throw new HttpsError('already-exists', unavailableMessage, {
+        suggestedEnd: shorterAvailableEnd(request.resourceType, candidate, approved)
+      });
     }
+    const unitId = automatic ? availableUnitId : null;
     candidate.assignments[request.resourceType] = unitId;
     const now = FieldValue.serverTimestamp();
     transaction.create(bookingRef, {

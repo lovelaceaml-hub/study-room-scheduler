@@ -28,6 +28,12 @@ reference and continues to use sample information only.
 The scheduling, security, privacy, and approval rules documented below remain the
 source of truth.
 
+On July 19, 2026, the same approved direction was refined into a more compact
+dashboard-and-disclosure flow. Home now opens first with current/upcoming unit use and
+a bounded live feed. Reservations uses a single-date arrow stepper and three daypart
+disclosures with explicit Start and End selects. This refinement keeps the established
+tokens and backend model while removing repeated half-hour cards.
+
 ## Architecture
 
 The app remains deliberately simple:
@@ -58,9 +64,10 @@ serves CSS without a long-lived cache so a new design reaches installed copies p
 ### Dates
 
 Only two dates are offered: the upcoming Tuesday and upcoming Saturday. Today counts
-when today is one of those weekdays. The dates are displayed chronologically and the
-selected date is shared across Reservations and Admin. Reservations is the only
-member booking screen; there is no separate Sign up tab.
+through the end of the day when it is one of those weekdays. A compact left/right
+stepper moves between the dates, and the selected date is shared across Reservations
+and Admin. Reservations is the only member booking screen; there is no separate Sign
+up tab.
 
 ### Time range and services
 
@@ -77,19 +84,26 @@ must reject ranges that overlap a service or begin before reservable time.
 
 ### Member booking flow
 
-The Reservations screen shows one Study room, Whiteboard, or TV availability list at a time.
-The Tuesday/Saturday choice and resource picker sit directly above it. Each row leads
-with the time and the number of units open; numbered-unit occupancy is expandable
-secondary detail. The member selects a
-30-minute start and optionally extends the range before tapping
-Continue. The short sheet then asks
+The Reservations screen shows one Study room, Whiteboard, or TV at a time. The date
+stepper and resource picker sit directly above three native disclosures: Morning,
+Afternoon, and Evening. Each disclosure states its available start-time range and
+contains explicit Start time and End time selects. The chosen ending is stored exactly;
+selecting 10:00 AM then 11:30 AM means 10:00–11:30 AM. After a complete range, the
+screen shows only the number open and number pending until the member expands the
+numbered-unit detail. The short sheet then asks
 only for name and purpose (Contact, New Member, Meeting, or Other). Pending requests
 are shown as an aggregate count and never occupy a numbered unit before approval.
 
-Service periods remain visible as blocked calendar areas rather than separate notices
-that say reservations are unavailable. They cannot be selected or crossed when a
-member adjusts a booking length. The same interaction must work on phone layouts,
-not only the desktop calendar.
+Service periods divide the daypart options but do not appear as selectable member
+times. They cannot be selected or crossed. The lobby timetable continues to show the
+service bands explicitly. The same interaction works on phone and desktop layouts.
+
+If no numbered unit is free for the complete selected range, the member interface
+uses an inline alert with the exact unavailable message. It computes the longest
+continuous shorter ending from the same start and offers Yes/No recovery when one
+exists. The protected submission transaction repeats the whole-range capacity check
+for both Tuesday and Saturday, preventing a stale browser from saving an impossible
+request.
 
 ### Resources
 
@@ -114,6 +128,11 @@ timestamps. Approved cancellations retain their last assigned unit in server-onl
 write data so the feed can accurately say which room, whiteboard, or TV was cancelled.
 `?demo=1` overlays fixed sample records in the browser only; it never writes them to
 Firestore.
+
+Home is the opening screen. It shows Study Rooms by default and lets a member switch
+to Whiteboards or TVs. Each numbered unit shows the current occupant and ending time
+on an eligible day, or its next reservation. The live update feed is capped in the DOM
+and scrolls inside a fixed-height region so ongoing activity does not lengthen the page.
 
 Approval performs a fresh conflict check, records the chosen assignment, and moves the
 booking from the pending lane into the assigned row. Decline or cancellation removes
@@ -160,8 +179,8 @@ for 1920×1080 and 1280×720 lobby screens.
 
 ## Phone and accessibility design
 
-The phone layout uses a compact two-column date selector and a compact, tappable
-two-column time list. It opens the same short booking pop-up as the desktop view.
+The phone layout uses a compact single-date arrow stepper and native time selects
+inside three disclosures. It opens the same short booking pop-up as the desktop view.
 Main controls use at least 44×44-pixel touch targets.
 
 Tabs and selected controls expose their state to assistive technology. Inputs have
@@ -180,10 +199,11 @@ Production verification covers:
 - Pending-to-approved, decline, cancel, reconnect, and failed-save transitions.
 - Member ownership and rejection of unauthorized Admin or cross-member changes.
 - Two simultaneous devices receiving live changes without refresh.
-- Selecting an open calendar slot on desktop and phone opens a pop-up with the
-  correct date and initial 30-minute range.
-- A member can extend a request only within the same non-service period; blocked
-  service areas cannot be selected.
+- Selecting 10:00 AM as Start and 11:30 AM as End produces exactly 10:00–11:30 AM
+  on desktop and phone.
+- A range with no whole-range unit shows the unavailable alert and shorter-ending
+  recovery; the backend independently refuses the stale/conflicting submission.
+- A member can choose a range only within the same non-service period.
 - The calendar has no separate Sign up tab or "reservations unavailable" notice.
 - Phones at 320, 375, and 390 pixels.
 - TV mode at 1280×720 and 1920×1080.

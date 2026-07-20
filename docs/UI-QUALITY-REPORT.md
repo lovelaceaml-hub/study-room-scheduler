@@ -1,8 +1,23 @@
 # Study Rooms UI quality report — July 17, 2026
 
-This report records the production-redesign checks completed before deployment.
-The live scheduling rules and protected Firebase actions were not changed by the
-visual work.
+## July 19 compact-dashboard verification
+
+The Home dashboard, date stepper, explicit Start/End menus, compact open/pending
+summary, numbered-unit disclosure, and unavailable-range recovery were driven in a
+real headless Chromium browser at 390×844 and 1280×900. The sample conflict used three
+rooms occupied from 11:00–11:30 AM plus one room occupied from 10:00 AM onward.
+Selecting 10:00 AM then 11:30 AM produced the required unavailable message and offered
+10:00–11:00 AM instead; Yes produced exactly that range and the confirmation sheet
+repeated it. Home rendered all four rooms and the bounded live feed, and the date arrows
+moved between Tuesday and Saturday. The browser reported no page errors.
+
+Phone and desktop screenshots were visually reviewed for hierarchy, overflow, fixed
+navigation, disclosure state, readable labels, and touch-target size. JavaScript syntax,
+policy tests, diff checks, narrow-screen overflow, keyboard focus, and the independent
+review evidence are recorded in the current release handoff.
+
+This report retains the original July 17 redesign evidence and adds the July 19
+dashboard, interaction, accessibility, and protected-capacity checks above.
 
 ## Surfaces reviewed
 
@@ -18,8 +33,8 @@ The real application was served locally and driven through its visible controls.
 
 | View | Size | Result |
 |---|---:|---|
-| Member | 320 × 720 | No document-level sideways scrolling; 56px bottom tabs; 44px details and Clear controls. |
-| Member | 390 × 844 | Date/resource switching, availability rows, full service bands, expanded units, selection tray, and sheet rendered correctly. |
+| Member | 320 × 720 | No document-level sideways scrolling; 48px bottom tabs; keyboard tab navigation and focus passed. |
+| Member | 390 × 844 | Date arrows, resource switching, three time disclosures, exact endpoints, expanded units, conflict recovery, and sheet rendered correctly. |
 | Member | 1280 wide | Header, tabs, and member content share the same 880px alignment. |
 | Admin locked | 390 wide | PIN form reflows without horizontal overflow and preserves typed input across live refreshes. |
 | Admin unlocked | 1280 × 900 | Queue/detail grid rendered as two columns; selecting another request updated its detail and recommended assignment. |
@@ -32,7 +47,8 @@ track-relative current-time marker.
 
 ## Interaction and state checks
 
-- One time tap selected 30 minutes; a later tap extended the range.
+- Start and End selects use exact boundaries; 10:00 AM plus 11:30 AM means
+  10:00–11:30 AM with no hidden extra half-hour.
 - Whole-range capacity is calculated from a unit that remains open throughout the
   complete range, not independent half-hour counts.
 - Clear removed the selection; Continue opened the correct sheet and restored focus
@@ -53,8 +69,8 @@ track-relative current-time marker.
 
 - Tabs expose correct tab roles, selected state, roving tab stops, selected-panel
   labels, and arrow-key navigation without swipe gestures.
-- Selected time rows preserve keyboard focus after rerender and announce the range
-  through a polite status region.
+- Time selects preserve keyboard focus after rerender and the completed range is
+  announced through a polite status region.
 - The booking sheet traps Tab, supports Escape, makes background controls inert,
   and restores focus to Continue when closed.
 - Admin text fields and the PIN retain value, caret, and focus during live-data
@@ -73,7 +89,10 @@ track-relative current-time marker.
 ## Automated checks
 
 - `node --check` passed for `app.js`, `tv.js`, and `sw.js`.
-- All 11 scheduling-policy tests passed.
+- All 12 scheduling-policy tests passed, including the full Saturday range and
+  shorter-ending calculation.
+- The Playwright critical journey and two automated axe scans passed with zero
+  violations on the tested Home and reservation-confirmation states.
 - `git diff --check` passed.
 - Firestore rules were not changed. Their emulator suite could not start because
   this Mac does not currently have the Java runtime required by Firebase Emulator.

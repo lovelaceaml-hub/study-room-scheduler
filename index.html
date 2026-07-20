@@ -16,19 +16,21 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header id="masthead" role="button" tabindex="0" aria-label="Return to Reservations">
-  <div class="head-in">
-    <div class="head-brand">
-      <div class="head-title"><span>LV Zion</span>Study Rooms</div>
+<header id="masthead">
+  <button type="button" id="masthead-home" class="masthead-home" aria-label="Return to Home">
+    <div class="head-in">
+      <div class="head-brand">
+        <div class="head-title"><span>LV Zion</span>Study Rooms</div>
+      </div>
     </div>
-  </div>
+  </button>
 </header>
 <nav aria-label="Primary">
   <div class="tabs" id="tabs" role="tablist"></div>
 </nav>
 <div class="wrap">
   <div id="banners" role="status" aria-live="polite" aria-atomic="true"></div>
-  <main id="app" role="tabpanel"></main>
+  <main><div id="app" role="tabpanel"></div></main>
 </div>
 <script src="firebase-config.js"></script>
 <script type="module" src="app.js"></script>

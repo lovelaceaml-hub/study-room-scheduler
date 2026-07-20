@@ -21,8 +21,8 @@ button { font: inherit; color: inherit; }
   z-index: 30;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
-  cursor: pointer;
 }
+.masthead-home { width: 100%; margin: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .head-in {
   max-width: 760px;
   margin: 0 auto;
@@ -91,7 +91,7 @@ h2 { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.01em; margin:
 /* ---------- buttons ---------- */
 .btn {
   min-height: var(--tap);
-  padding: 10px 18px;
+  padding: 7px 14px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-md);
   background: var(--surface);
@@ -121,30 +121,29 @@ h2 { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.01em; margin:
 .badge-cert.tentative { color: var(--info); }
 
 /* ---------- date selector ---------- */
-.date-selector { display: flex; gap: 8px; }
-.date-choice {
-  flex: 1 1 0;
-  min-height: var(--tap);
+.date-selector { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; align-items: stretch; gap: 7px; }
+.date-arrow {
+  min-width: 44px;
+  min-height: 44px;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surface);
-  padding: 8px 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
+  color: var(--primary);
+  font-size: 28px;
+  line-height: 1;
   cursor: pointer;
 }
-.date-choice-day { font-weight: 700; font-size: var(--fs-sm); }
-.date-choice-date { font-size: var(--fs-xs); color: var(--ink-faint); }
-.date-choice.active { border-color: var(--primary); background: var(--primary-tint); }
-.date-choice.active .date-choice-day { color: var(--primary); }
+.date-arrow[disabled] { opacity: .35; cursor: default; }
+.date-current { min-height: 44px; display: grid; place-content: center; padding: 4px 10px; border: 1px solid var(--primary); border-radius: var(--r-md); background: var(--primary-tint); text-align: center; }
+.date-current strong, .date-current span { display: block; }
+.date-current strong { color: var(--primary); font-size: var(--fs-sm); }
+.date-current span { color: var(--ink-soft); font-size: 11px; }
 
 /* ---------- resource toggle ---------- */
-.member-resource-toggle { display: flex; gap: 8px; margin: 10px 0; }
+.member-resource-toggle { display: flex; gap: 7px; margin: 8px 0; }
 .member-resource {
   flex: 1 1 0;
-  min-height: 40px;
+  min-height: 44px;
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
   background: var(--surface);
@@ -227,7 +226,7 @@ h2 { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.01em; margin:
   justify-content: space-between;
   gap: 10px;
   margin-top: 10px;
-  padding: 10px 12px;
+  padding: 7px 10px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -235,7 +234,7 @@ h2 { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.01em; margin:
 }
 
 /* ---------- activity feed ---------- */
-.activity-feed { margin: 14px 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-card); padding: 14px 16px; }
+.activity-feed { margin: 12px 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-card); padding: 12px 14px; }
 .activity-title { font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 8px; }
 .activity-table { overflow-x: auto; }
 .activity-row {
@@ -252,6 +251,7 @@ h2 { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.01em; margin:
 .activity-row.approved strong { color: var(--ok); }
 .activity-row.pending strong { color: var(--warn); }
 .activity-row.cancelled strong { color: var(--danger); }
+.dashboard-feed .activity-list { max-height: 270px; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
 
 /* ---------- requests / my reservations ---------- */
 .req-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -397,15 +397,33 @@ nav[aria-label="Primary"] {
   border-bottom: 1px solid var(--line);
 }
 nav[aria-label="Primary"] .tabs { padding: 8px 14px; }
-#masthead { position: static; cursor: pointer; }
+#masthead { position: static; }
 
-.member-booking { margin: 4px 0 18px; }
-.member-intro h1 { margin-top: 16px; }
-.calendar-date-wrap { margin: 12px 0; }
-.member-calendars { display: grid; gap: 18px; }
+.member-booking { margin: 2px 0 12px; }
+.member-intro h1 { margin-top: 10px; }
+.calendar-date-wrap { margin: 8px 0; }
+.member-calendars { display: grid; gap: 10px; }
 .member-calendars .calendar-date-wrap { margin: 0; }
 .member-calendars .calendar-help { margin: 0; }
 .member-calendars .member-calendar { margin: 0; }
+
+/* Home keeps live information useful without turning the opening screen into
+   an all-day calendar. */
+.home-dashboard { display: grid; gap: 10px; }
+.home-schedule { padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-card); }
+.home-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.home-section-head h2 { margin: 1px 0 0; }
+.text-link { min-height: 44px; display: inline-flex; align-items: center; color: var(--primary); font-size: var(--fs-sm); font-weight: 750; }
+.home-unit-list { display: grid; border-top: 1px solid var(--line); }
+.home-unit-row { min-height: 52px; display: grid; grid-template-columns: minmax(115px,.8fr) minmax(0,1.2fr); align-items: center; gap: 12px; padding: 7px 2px; border-bottom: 1px solid var(--line); }
+.home-unit-row:last-child { border-bottom: 0; }
+.home-unit-name { font-weight: 750; }
+.home-unit-status { min-width: 0; }
+.home-unit-status strong, .home-unit-status span, .home-unit-status em { display: block; overflow-wrap: anywhere; }
+.home-unit-status strong { color: var(--ok); }
+.home-unit-status.current strong { color: var(--primary); }
+.home-unit-status span { color: var(--ink-soft); font-size: 12px; }
+.home-unit-status em { margin-top: 2px; color: var(--ink-faint); font-size: 11px; font-style: normal; }
 
 /* time-strip picker (admin add form + popup time editing) */
 .strip-wrap { margin-top: 10px; }
@@ -427,6 +445,35 @@ nav[aria-label="Primary"] .tabs { padding: 8px 14px; }
 .slot.sel.end { border-top-right-radius: var(--r-md); border-bottom-right-radius: var(--r-md); }
 .slot.blocked { opacity: 0.4; cursor: default; text-decoration: line-through; }
 .selection-summary { font-size: var(--fs-sm); font-weight: 700; color: var(--primary); margin: 8px 0 0; }
+
+/* Compact member time picker: three native disclosure menus instead of a
+   full page of repeated half-hour cards. */
+.time-period-list { display: grid; gap: 7px; }
+.time-period { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
+.time-period[open] { border-color: var(--primary); }
+.time-period > summary { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 11px; cursor: pointer; list-style: none; }
+.time-period > summary::-webkit-details-marker { display: none; }
+.time-period > summary::after { content: "+" / ""; order: 3; color: var(--accent); font-size: 19px; }
+.time-period[open] > summary::after { content: "−" / ""; }
+.time-period summary span:first-child { min-width: 0; }
+.time-period summary strong, .time-period summary small { display: block; }
+.time-period summary small { color: var(--ink-soft); font-size: 11px; font-weight: 600; }
+.period-summary { margin-left: auto; color: var(--primary); font-size: 11px; font-weight: 750; text-align: right; }
+.time-range-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; padding: 9px 11px 11px; border-top: 1px solid var(--line); background: var(--surface-sunken); }
+.time-range-controls label { color: var(--ink-soft); font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.time-range-controls select { min-height: 44px; margin-top: 4px; padding: 7px 9px; font-size: 14px; letter-spacing: normal; text-transform: none; }
+.availability-conflict { margin-top: 9px; padding: 11px 12px; border: 1px solid var(--danger); border-radius: var(--r-md); background: var(--danger-tint); color: var(--danger); }
+.availability-conflict p { margin: 5px 0 9px; color: var(--ink); font-size: var(--fs-sm); }
+.conflict-actions { display: flex; gap: 7px; }
+.selected-availability { margin-top: 9px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
+.selected-counts { display: flex; gap: 16px; padding: 9px 11px; }
+.selected-counts span { color: var(--ink-soft); font-size: 12px; }
+.selected-counts strong { color: var(--ok); font-size: 16px; }
+.selected-units { border-top: 1px solid var(--line); }
+.selected-units summary { min-height: 44px; display: flex; align-items: center; padding: 6px 11px; color: var(--ink-soft); font-size: 12px; font-weight: 750; cursor: pointer; }
+.selected-units summary::after { content: "+" / ""; margin-left: auto; color: var(--accent); font-size: 18px; }
+.selected-units[open] summary::after { content: "−" / ""; }
+.selected-units .unit-detail-grid { padding: 0 10px 10px; }
 
 /* popup needs / equipment rows */
 .included-room { font-size: var(--fs-sm); font-weight: 700; color: var(--ok); margin-bottom: 6px; }
@@ -591,7 +638,7 @@ button.availability-select { cursor: pointer; }
 .admin-queue-panel { position: sticky; top: 72px; }
 .admin-queue-card > .req-row { margin-top: 9px; padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .admin-queue-card > .req-row:first-of-type { border-color: var(--primary); box-shadow: inset 4px 0 var(--primary); background: var(--primary-tint); }
-.admin-queue-item { width: 100%; min-height: 84px; display: block; margin-top: 9px; padding: 12px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); text-align: left; cursor: pointer; }
+.admin-queue-item { width: 100%; min-height: 68px; display: block; margin-top: 7px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); text-align: left; cursor: pointer; }
 .admin-queue-item.selected { border-color: var(--primary); box-shadow: inset 4px 0 var(--primary); background: var(--primary-tint); }
 .admin-priority { display: block; color: var(--accent); font-size: 10px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
 .admin-queue-name { display: flex; justify-content: space-between; gap: 10px; margin-top: 3px; }
@@ -626,9 +673,9 @@ button.availability-select { cursor: pointer; }
 @media (max-width: 680px) {
   nav[aria-label="Primary"] { position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 45; background: color-mix(in srgb,var(--surface) 96%,transparent); box-shadow: 0 -10px 30px rgba(28,42,35,.08); }
   nav[aria-label="Primary"] .tabs { padding: 6px 8px max(9px,env(safe-area-inset-bottom)); }
-  .tab { min-height: 56px; padding: 5px 4px; border: 0; background: transparent; font-size: 11px; line-height: 1.1; white-space: normal; overflow-wrap: anywhere; }
+  .tab { min-height: 48px; padding: 3px 3px; border: 0; background: transparent; font-size: 10px; line-height: 1.05; white-space: normal; overflow-wrap: anywhere; }
   .tab::before { display: block; margin: 0 auto 2px; color: currentColor; font-size: 17px; line-height: 18px; }
-  .tab[data-id="schedule"]::before { content: "▦" / ""; }.tab[data-id="mine"]::before { content: "≡" / ""; }.tab[data-id="admin"]::before { content: "◇" / ""; }
+  .tab[data-id="home"]::before { content: "⌂" / ""; }.tab[data-id="schedule"]::before { content: "▦" / ""; }.tab[data-id="mine"]::before { content: "≡" / ""; }.tab[data-id="admin"]::before { content: "◇" / ""; }
   .tab.active { background: transparent; color: var(--primary); box-shadow: none; }
   .wrap { padding: 12px 12px 112px; }
   #banners { bottom: 84px; }
@@ -637,6 +684,7 @@ button.availability-select { cursor: pointer; }
   .member-selection-summary { bottom: 72px; }
   .member-selection-summary .btn { padding-inline: 13px; }
   .unit-detail-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .time-range-controls { grid-template-columns: minmax(0,1fr); }
   .admin-header-card { padding: 15px; }
   .admin-counts { gap: 5px; }
   .admin-counts span { min-width: 0; padding: 7px 4px; }

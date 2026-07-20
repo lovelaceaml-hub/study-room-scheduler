@@ -8,15 +8,26 @@ https://lvz-rooms.web.app, forwards there automatically.)
 
 ## For members
 
+### Home dashboard
+
+The app opens on **Home**. Its unit schedule shows Study Rooms 1–4 by default. On a
+Tuesday or Saturday it shows who is using each room now and when the reservation ends;
+otherwise it shows the next reservation day and each unit’s next booking. Choose
+**Whiteboard** or **TV** only when you want those unit details.
+
+**Live updates** is a scrollable box containing the latest Requested, Reserved, and
+Cancelled activity. It updates automatically without making the page grow indefinitely.
+
 ### Choose a day
 
-The app shows only two dates:
+Reservations offers only two dates:
 
 - The upcoming Tuesday.
 - The upcoming Saturday.
 
 If today is Tuesday or Saturday, today counts as the upcoming date. The two dates
-are shown in calendar order and have distinct Tuesday and Saturday styling.
+remain available through the end of that day. Use the left and right arrows to step
+between them. The selected date controls every availability and time shown below it.
 
 ### Choose a time
 
@@ -31,37 +42,43 @@ Choose one of these resource types:
 
 The Baptism Room is no longer part of scheduling and will not appear as an option.
 
-Use the **Study room**, **Whiteboard**, or **TV** picker above the calendar to choose
-which availability list to show. Each time row says how many units remain open.
-Tap **View numbered units** when you need the secondary unit-by-unit detail. Pending
-requests appear only in the request count because they do not own a numbered unit
-until Admin approves and assigns one.
+Use the **Study room**, **Whiteboard**, or **TV** picker above the time menus. Open
+**Morning**, **Afternoon**, or **Evening**, then choose a **Start time** and the exact
+**End time**. After both are chosen, the app shows only how many units are open and
+how many reservations are pending. Expand **Who is in each numbered unit?** only when
+you need the room-by-room or item-by-item detail. Pending requests do not own a numbered
+unit until Admin approves and assigns one.
 
-Open **My reservations** to see the status of every request made from this device and
-recent **Schedule updates**, including Requested, Reserved, and Cancelled activity.
+Open **My reservations** to see the status of every request made from this device.
 
 ### Service periods and available times
 
 Slots are 30 minutes long. The final reservable period is **9:30–10:00 PM**.
 
-The schedule marks these service periods as blocked areas:
+The reservation menus are divided around these service periods:
 
 - **Tuesday:** 8:00–9:00 PM.
 - **Saturday:** 9:00–10:00 AM, 3:00–4:00 PM, and 8:00–9:00 PM.
 
-Saturday’s schedule begins at 9:00 AM so the morning service is visible, but
-reservable time begins at 10:00 AM. Blocked service areas cannot be selected, and a
-reservation cannot overlap or cross through one.
+Service time does not appear as a selectable member slot. A reservation cannot overlap
+or cross through one. The lobby TV still shows each service as a labeled timetable band.
 
 ### Request a room or equipment
 
-1. Open the app, choose Tuesday or Saturday, and choose the resource type.
-2. Tap an open time on the left for the start time. Tap a later time in the same section to
-   extend the reservation.
-3. Tap **Continue**.
-4. Enter your full name and choose Contact, New Member, Meeting, or Other.
+1. Open **Reservations**, use the arrows to choose Tuesday or Saturday, and choose the resource type.
+2. Open Morning, Afternoon, or Evening.
+3. Choose the **Start time**, then choose the exact **End time**. Choosing 10:00 AM and
+   11:30 AM creates a 10:00–11:30 AM reservation—not 10:00 AM–12:00 PM.
+4. Check the open and pending counts. Expand the numbered units only if needed.
+5. Tap **Continue**.
+6. Enter your full name and choose Contact, New Member, Meeting, or Other.
    For Other, briefly explain the purpose.
-5. Tap **Reserve now** on Tuesday or **Send request** on Saturday.
+7. Tap **Reserve now** on Tuesday or **Send request** on Saturday.
+
+If no single unit remains open for the entire range, the app says that none are
+available in the selected time slot. When the same start has a shorter open range, it
+asks whether you want that shorter ending instead. Choose **Yes** to use it or **No**
+to choose another time.
 
 There is no separate **Sign up** screen. Starting with the calendar makes the time
 you are requesting clear before you fill in the rest of the information.
@@ -77,7 +94,9 @@ requests but cannot change another member’s request or perform approval action
 ### Tuesday and Saturday approval
 
 Tuesday reservations from 10:00 AM through 10:00 PM are approved automatically when
-a resource is free. Saturday reservations remain pending for manual approval. Saturday
+a resource is free. Saturday reservations remain pending for manual approval, but a
+request cannot be submitted when every numbered unit is already occupied for part of
+the selected range. Saturday
 requests are reviewed in this order: Contact, New Member, Meeting, Other;
 the earlier request wins when two have the same purpose.
 

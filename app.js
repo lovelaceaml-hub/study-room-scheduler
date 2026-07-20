@@ -64,6 +64,7 @@ const CAPACITY = { room: ROOMS.length, whiteboard: WHITEBOARDS.length, tv: TVS.l
 const PREFERRED_ROOM_CHOICES = [null, 'room-1', 'room-2', 'room-3', 'room-4'];
 
 const TABS = [
+  { id: 'home', label: 'Home' },
   { id: 'schedule', label: 'Reservations' },
   { id: 'mine', label: 'My reservations' },
   { id: 'admin', label: 'Admin' }
@@ -75,12 +76,14 @@ let state = {
   bookings: {}    // id -> booking (see spec shape); may contain stale/invalid docs, always filter via bookingsList()
 };
 let ui = {
-  tab: 'schedule',
+  tab: 'home',
   selectedDate: null,   // shared by Reservations and Admin
+  homeType: 'room',     // resource shown in the compact Home schedule
   memberType: 'room',   // resource highlighted by the Reservations picker
   adminType: 'room',    // resource displayed in the matching Admin calendar
   adminSelectedId: null, // one pending request shown in the Admin detail pane
   memberSelection: null, // { date, type, start, end, windowIdx }
+  availabilityConflict: null, // rejected range plus optional shorter ending
   pinError: '',
   submitting: false,
   signup: null,         // reservation-popup draft, created from a calendar cell
@@ -204,6 +207,28 @@ function scheduleSegments(date) {
 }
 function bookingWindows(date) { return scheduleSegments(date).filter(w => !w.service); }
 function serviceWindows(date) { return scheduleSegments(date).filter(w => w.service); }
+
+/* Member-facing disclosures stay compact and use familiar dayparts. Tuesday
+   has no afternoon service, so its daytime booking window is presented as two
+   sections without changing the underlying range validation. */
+function reservationPeriods(date) {
+  if (isSaturday(date)) return [
+    { start: '10:00', end: '15:00', label: 'Morning' },
+    { start: '16:00', end: '20:00', label: 'Afternoon' },
+    { start: '21:00', end: '22:00', label: 'Evening' }
+  ];
+  return [
+    { start: '10:00', end: '15:00', label: 'Morning' },
+    { start: '15:00', end: '20:00', label: 'Afternoon' },
+    { start: '21:00', end: '22:00', label: 'Evening' }
+  ];
+}
+
+function periodTimePoints(period) {
+  const points = [];
+  for (let m = minsOfDay(period.start); m <= minsOfDay(period.end); m += 30) points.push(hhmmOfMins(m));
+  return points;
+}
 /* Every valid 30-min slot start inside a window. */
 function slotStarts(window) {
   const startMin = minsOfDay(window.start);
@@ -273,6 +298,9 @@ function demoBookings() {
   const created = Date.now() - 45 * 60 * 1000;
   return [
     { id: 'demo-room-4', date, start: '10:00', end: '13:30', name: 'Anthony', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-4', whiteboard: null, tv: null }, createdAt: created, decidedAt: created + 1000 },
+    { id: 'demo-room-1-full', date, start: '11:00', end: '11:30', name: 'Jordan A.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2000, decidedAt: created - 1000 },
+    { id: 'demo-room-2-full', date, start: '11:00', end: '11:30', name: 'Taylor B.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 3000, decidedAt: created - 2000 },
+    { id: 'demo-room-3-full', date, start: '11:00', end: '11:30', name: 'Morgan C.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 4000, decidedAt: created - 3000 },
     { id: 'demo-tv-2', date, start: '14:00', end: '15:00', name: 'Maria R.', purpose: 'new-member', purposeOther: '', status: 'cancelled', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: null }, lastAssignments: { room: null, whiteboard: null, tv: 'tv-2' }, createdAt: created - 600000, updatedAt: created - 300000 },
     { id: 'demo-whiteboard-1', date, start: '16:00', end: '17:30', name: 'Daniel K.', purpose: 'meeting', purposeOther: '', status: 'pending', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1200000 },
     { id: 'demo-room-1', date, start: '18:00', end: '19:00', name: 'Sofia M.', purpose: 'other', purposeOther: 'Family Bible study', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 1800000, decidedAt: created - 1700000 }
@@ -612,8 +640,9 @@ function render() {
   const popupFocus = ui.signup && activeBeforeRender && activeBeforeRender.closest('.booking-dialog')
     ? { id: activeBeforeRender.id || '', act: activeBeforeRender.dataset.act || '', item: activeBeforeRender.dataset.id || '' }
     : null;
-  const actionNode = activeBeforeRender && !activeBeforeRender.closest('.booking-dialog') ? activeBeforeRender.closest('[data-act]') : null;
-  const fieldFocus = activeBeforeRender && !activeBeforeRender.closest('.booking-dialog') && activeBeforeRender.id ? {
+  const actionNode = activeBeforeRender && !activeBeforeRender.closest('.booking-dialog') && !activeBeforeRender.closest('#tabs')
+    ? activeBeforeRender.closest('[data-act]') : null;
+  const fieldFocus = activeBeforeRender && !activeBeforeRender.closest('.booking-dialog') && !activeBeforeRender.closest('#tabs') && activeBeforeRender.id ? {
     id: activeBeforeRender.id,
     start: typeof activeBeforeRender.selectionStart === 'number' ? activeBeforeRender.selectionStart : null,
     end: typeof activeBeforeRender.selectionEnd === 'number' ? activeBeforeRender.selectionEnd : null
@@ -642,9 +671,10 @@ function render() {
 
   if (ui.tab === 'admin') app.innerHTML = renderAdmin();
   else if (ui.tab === 'mine') app.innerHTML = renderMyReservations();
-  else app.innerHTML = renderSchedule();
+  else if (ui.tab === 'schedule') app.innerHTML = renderSchedule();
+  else app.innerHTML = renderHome();
 
-  const masthead = document.getElementById('masthead');
+  const masthead = document.getElementById('masthead-home');
   const primaryNav = document.querySelector('nav[aria-label="Primary"]');
   if (masthead) masthead.inert = !!ui.signup;
   if (primaryNav) primaryNav.inert = !!ui.signup;
@@ -687,14 +717,50 @@ function render() {
 }
 
 function dateSelectorHtml() {
+  const dates = upcomingBookingDates();
+  const date = selectedDate();
+  const index = dates.indexOf(date);
   return '<div class="date-selector" role="group" aria-label="Choose reservation date">' +
-    upcomingBookingDates().map(date => {
-      const selected = date === selectedDate();
-      const dayClass = isTuesday(date) ? ' tuesday' : ' saturday';
-      return '<button type="button" class="date-choice' + dayClass + (selected ? ' active' : '') + '" data-act="select-date" data-id="' + date + '" aria-pressed="' + (selected ? 'true' : 'false') + '">' +
-        '<span class="date-choice-day">' + (isTuesday(date) ? 'Tuesday' : 'Saturday') + '</span>' +
-        '<span class="date-choice-date">' + esc(fmtHeaderDate(date)) + ' · ' + (isTuesday(date) ? 'Instant if open' : 'Approval required') + '</span></button>';
-    }).join('') + '</div>';
+    '<button type="button" class="date-arrow" data-act="date-step" data-id="-1" aria-label="Previous reservation date"' + (index <= 0 ? ' disabled' : '') + '><span aria-hidden="true">‹</span></button>' +
+    '<div class="date-current" aria-live="polite"><strong>' + (isTuesday(date) ? 'Tuesday' : 'Saturday') + ', ' + esc(fmtHeaderDate(date)) + '</strong><span>' + (isTuesday(date) ? 'Confirmed instantly when open' : 'Approval required') + '</span></div>' +
+    '<button type="button" class="date-arrow" data-act="date-step" data-id="1" aria-label="Next reservation date"' + (index >= dates.length - 1 ? ' disabled' : '') + '><span aria-hidden="true">›</span></button>' +
+    '</div>';
+}
+
+/* ---- Home dashboard ---- */
+
+function currentMinutes() {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function homeUnitScheduleHtml(date, type) {
+  const today = date === todayISO();
+  const now = currentMinutes();
+  const rows = unitsForType(type).map(unit => {
+    const assigned = bookingsForDate(date)
+      .filter(b => b.status === 'approved' && assignmentsOf(b)[type] === unit.id)
+      .sort((a, b) => minsOfDay(a.start) - minsOfDay(b.start));
+    const current = today ? assigned.find(b => minsOfDay(b.start) <= now && now < minsOfDay(b.end)) : null;
+    const next = assigned.find(b => today ? minsOfDay(b.start) > now : true);
+    let status = '<strong>Open</strong><span>No upcoming reservation</span>';
+    if (current) status = '<strong>' + esc(current.name) + '</strong><span>Now · until ' + esc(fmtTime(current.end)) + '</span>' + (next ? '<em>Next: ' + esc(next.name) + ' · ' + esc(fmtTime(next.start)) + '–' + esc(fmtTime(next.end)) + '</em>' : '<em>No later reservation</em>');
+    else if (next) status = '<strong>' + esc(next.name) + '</strong><span>Next · ' + esc(fmtTime(next.start)) + '–' + esc(fmtTime(next.end)) + '</span>';
+    return '<div class="home-unit-row"><div class="home-unit-name">' + esc(unit.label) + '</div><div class="home-unit-status' + (current ? ' current' : '') + '">' + status + '</div></div>';
+  }).join('');
+  return '<section class="home-schedule" aria-label="Current and upcoming ' + esc(needLabel(type).toLowerCase()) + ' schedule">' +
+    '<div class="home-section-head"><div><div class="eyebrow">' + (today ? 'Today' : 'Next reservation day') + '</div><h2>' + esc(fmtDate(date)) + '</h2></div><a class="text-link" href="?tv=1">Open TV view</a></div>' +
+    memberResourceToggleHtml(type, 'home-type') + '<div class="home-unit-list">' + rows + '</div></section>';
+}
+
+function renderHome() {
+  if (!scheduleReady && !demoMode()) {
+    return '<section class="member-booking"><div class="member-intro"><div class="eyebrow">Home</div><h1>Loading today’s room activity.</h1><p>The dashboard will appear as soon as the shared schedule is verified.</p></div><div class="schedule-loading" role="status" aria-live="polite"><span aria-hidden="true"></span>Connecting to the shared schedule</div></section>';
+  }
+  const dates = upcomingBookingDates();
+  const date = dates.includes(todayISO()) ? todayISO() : dates[0];
+  return '<section class="home-dashboard"><div class="member-intro"><div class="eyebrow">Home</div><h1>Study room dashboard.</h1><p>See what is happening now, what is next, and the latest reservation updates.</p></div>' +
+    homeUnitScheduleHtml(date, ui.homeType) + activityFeedHtml(dates, true) + '</section>';
 }
 
 /* ---- Reservations tab ---- */
@@ -709,7 +775,7 @@ function renderSchedule() {
     '<div class="member-intro"><div class="eyebrow">Reservations</div><h1>Find an open time.</h1><p>Choose a resource and a time. Admin assigns the exact numbered unit when approval is needed.</p></div>' +
     '<div class="member-calendars"><div class="calendar-date-wrap">' + dateSelectorHtml() + '</div>' +
     memberResourceToggleHtml(ui.memberType, 'member-type') +
-    '<p class="calendar-help">One tap selects 30 minutes. Tap a later available time in the same section to extend the reservation.</p>' +
+    '<p class="calendar-help">Open Morning, Afternoon, or Evening. Choose the exact start time, then the exact end time.</p>' +
     memberCalendarHtml(date, ui.memberType, true, 'member') +
     '</div></section>';
   if (ui.signup) html += bookingModalHtml();
@@ -739,55 +805,74 @@ function resourceLabelFor(b) {
   return id ? unitLabel(type, id) : needLabel(type);
 }
 
-function activityFeedHtml(dateOrDates) {
+function activityFeedHtml(dateOrDates, dashboard) {
   const dates = Array.isArray(dateOrDates) ? dateOrDates : [dateOrDates];
   const events = bookingsList().filter(b => dates.includes(b.date) && ['pending', 'approved', 'cancelled'].includes(b.status)).map(b => {
     const status = b.status === 'approved' ? 'Reserved' : b.status === 'cancelled' ? 'Cancelled' : 'Requested';
     const when = b.status === 'approved' ? (b.decidedAt || b.updatedAt || b.createdAt) : (b.updatedAt || b.createdAt);
     return { b, status, when: timestampMillis(when) };
-  }).sort((a, b) => b.when - a.when).slice(0, 6);
-  if (!events.length) return '<section class="activity-feed"><div class="activity-title">Recent updates</div><p>No updates yet.</p></section>';
-  return '<section class="activity-feed"><div class="activity-title">Recent updates</div><div class="activity-list">' + events.map(event =>
+  }).sort((a, b) => b.when - a.when).slice(0, dashboard ? 20 : 6);
+  const title = dashboard ? 'Live updates' : 'Recent updates';
+  if (!events.length) return '<section class="activity-feed' + (dashboard ? ' dashboard-feed' : '') + '"><div class="activity-title">' + title + '</div><p>No updates yet.</p></section>';
+  return '<section class="activity-feed' + (dashboard ? ' dashboard-feed' : '') + '"><div class="activity-title">' + title + '</div><div class="activity-list"' + (dashboard ? ' tabindex="0" role="region" aria-label="Scrollable live reservation updates"' : '') + '>' + events.map(event =>
     '<div class="activity-row ' + esc(event.b.status) + '"><div><strong>' + esc(event.status + ' ' + resourceLabelFor(event.b)) + '</strong><span>' + esc(event.b.name) + ' · ' + esc(bookingPurposeText(event.b)) + '</span></div><time>' + esc(fmtDate(event.b.date)) + '<br>' + esc(fmtTime(event.b.start)) + '–' + esc(fmtTime(event.b.end)) + '</time></div>'
   ).join('') + '</div></section>';
+}
+
+function unavailableRangeMessage(type) {
+  if (type === 'room') return 'There are no rooms available in the time slot that was selected.';
+  if (type === 'whiteboard') return 'There are no whiteboards available in the time slot that was selected.';
+  return 'There are no TVs available in the time slot that was selected.';
+}
+
+function shorterAvailableEnd(type, date, start, attemptedEnd) {
+  let suggestion = null;
+  for (let end = minsOfDay(start) + 30; end < minsOfDay(attemptedEnd); end += 30) {
+    const value = hhmmOfMins(end);
+    if (freeUnitsForType(type, date, start, value, null).length) suggestion = value;
+    else break;
+  }
+  return suggestion;
+}
+
+function memberConflictHtml(conflict) {
+  if (!conflict) return '';
+  const suggestion = conflict.suggestedEnd;
+  return '<div class="availability-conflict" role="alert"><strong>' + esc(unavailableRangeMessage(conflict.type)) + '</strong>' +
+    (suggestion ? '<p>Would you like to schedule from ' + esc(fmtTime(conflict.start)) + ' to ' + esc(fmtTime(suggestion)) + ' instead?</p><div class="conflict-actions"><button type="button" class="btn primary small" data-act="conflict-yes">Yes</button><button type="button" class="btn small" data-act="conflict-no">No</button></div>' : '<p>Please choose a different end time.</p><div class="conflict-actions"><button type="button" class="btn small" data-act="conflict-no">Choose another time</button></div>') +
+    '</div>';
 }
 
 function memberCalendarHtml(date, type, selectable, context) {
   if (context === 'admin') return adminUnitCalendarHtml(date, type);
   const units = unitsForType(type);
   const selected = ui.memberSelection;
-  const firstOpen = allSlotStarts(date).find(start => freeUnitsForType(type, date, start, hhmmOfMins(minsOfDay(start) + 30), null).length > 0);
-  const firstCount = firstOpen ? freeUnitsForType(type, date, firstOpen, hhmmOfMins(minsOfDay(firstOpen) + 30), null).length : 0;
   let html = '<section class="member-calendar availability-calendar" aria-label="' + esc(needLabel(type)) + ' availability">' +
-    '<div class="member-calendar-heading"><h2>Available times</h2><span>' + units.length + ' total</span></div>' +
-    '<div class="first-opening"><span>First opening</span><strong>' + (firstOpen ? esc(fmtTime(firstOpen) + ' · ' + firstCount + ' of ' + units.length + ' open') : 'No openings') + '</strong></div>' +
-    '<div class="availability-list">';
-  scheduleSegments(date).forEach(window => {
-    if (window.service) {
-      html += '<div class="member-service"><span>' + esc(window.label) + '</span><span>' + esc(fmtTime(window.start)) + '–' + esc(fmtTime(window.end)) + '</span></div>';
-      return;
-    }
-    const windowIdx = windowIndexFor(date, window.start);
-    slotStarts(window).forEach(start => {
-      const selectedHere = selected && selected.date === date && selected.type === type && selected.windowIdx === windowIdx && minsOfDay(start) >= minsOfDay(selected.start) && minsOfDay(start) < minsOfDay(selected.end);
-      const end = hhmmOfMins(minsOfDay(start) + 30);
-      const free = freeUnitsForType(type, date, start, end, null);
-      const hasOpenUnit = free.length > 0;
-      const pendingCount = bookingsForDate(date).filter(b => b.status === 'pending' && needsOf(b)[type] && rangesOverlap(b.start, b.end, start, end)).length;
-      const approvedCount = units.length - free.length;
-      const selectTag = selectable && hasOpenUnit ? 'button' : 'div';
-      html += '<div class="availability-item' + (selectedHere ? ' selected' : '') + (!hasOpenUnit ? ' full' : '') + '"><' + selectTag + (selectTag === 'button' ? ' type="button" data-act="member-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-win="' + windowIdx + '" data-id="' + esc(start) + '" aria-pressed="' + (selectedHere ? 'true' : 'false') + '"' : ' aria-disabled="true"') + ' class="availability-select"><span class="availability-time">' + esc(fmtTime(start)) + '</span><span class="availability-copy"><strong>' + (hasOpenUnit ? free.length + ' of ' + units.length + ' open' : 'Full') + '</strong><small>' + approvedCount + ' approved' + (pendingCount ? ' · ' + pendingCount + ' requested' : '') + '</small></span><span class="availability-arrow" aria-hidden="true">' + (hasOpenUnit ? '›' : '—') + '</span></' + selectTag + '><details class="availability-details"><summary>View numbered units</summary><div class="unit-detail-grid" style="--capacity:' + units.length + '">' + units.map(unit => {
-        const status = memberSlotStatus(type, date, start, unit.id);
-        const occupant = unitOccupant(type, unit.id, date, start, end, null);
-        const shortLabel = type === 'room' ? 'R' + unit.num : type === 'whiteboard' ? 'W' + unit.num : 'TV' + unit.num;
-        return '<div class="unit-detail ' + status + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + status) + '"><strong>' + esc(shortLabel) + '</strong><span>' + (occupant ? esc(occupant.name) : 'Open') + '</span></div>';
-      }).join('') + '</div></details></div>';
-    });
+    '<div class="member-calendar-heading"><h2>Available times</h2></div>' +
+    '<div class="time-period-list">';
+  reservationPeriods(date).forEach((period, periodIdx) => {
+    const points = periodTimePoints(period);
+    const inPeriod = selected && selected.date === date && selected.type === type && selected.windowIdx === periodIdx;
+    const startValue = inPeriod ? selected.start : '';
+    const endValue = inPeriod ? selected.end : '';
+    html += '<details class="time-period" name="reservation-period"' + (inPeriod || (!selected && periodIdx === 0) ? ' open' : '') + '><summary><span><strong>' + esc(period.label) + '</strong><small>Start times ' + esc(fmtTime(period.start)) + '–' + esc(fmtTime(hhmmOfMins(minsOfDay(period.end) - 30))) + '</small></span><span class="period-summary">' + (inPeriod && selected.end ? esc(fmtTime(selected.start) + '–' + fmtTime(selected.end)) : 'Choose time') + '</span></summary>' +
+      '<div class="time-range-controls"><label for="member-start-' + periodIdx + '">Start time<select id="member-start-' + periodIdx + '" data-chg="member-start" data-period="' + periodIdx + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '"><option value="">Choose start</option>' + points.slice(0, -1).map(start => {
+        const end = hhmmOfMins(minsOfDay(start) + 30);
+        const open = freeUnitsForType(type, date, start, end, null).length;
+        return '<option value="' + start + '"' + (startValue === start ? ' selected' : '') + '>' + esc(fmtTime(start) + ' — ' + (open ? open + ' open until ' + fmtTime(end) : 'Full')) + '</option>';
+      }).join('') + '</select></label>' +
+      '<label for="member-end-' + periodIdx + '">End time<select id="member-end-' + periodIdx + '" data-chg="member-end" data-period="' + periodIdx + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '"' + (!startValue ? ' disabled' : '') + '><option value="">Choose end</option>' + points.slice(1).map(end => '<option value="' + end + '"' + (endValue === end ? ' selected' : '') + (startValue && minsOfDay(end) <= minsOfDay(startValue) ? ' disabled' : '') + '>' + esc('End at ' + fmtTime(end)) + '</option>').join('') + '</select></label></div></details>';
   });
-  html += '</div>';
-  if (selected && selected.type === type) {
+  html += '</div>' + memberConflictHtml(ui.availabilityConflict && ui.availabilityConflict.date === date && ui.availabilityConflict.type === type ? ui.availabilityConflict : null);
+  if (selected && selected.type === type && selected.start && selected.end) {
     const wholeRangeOpen = freeUnitsForType(type, date, selected.start, selected.end, null).length;
-    html += '<div class="member-selection-summary" role="status" aria-live="polite"><span><strong>' + esc(fmtTime(selected.start)) + '–' + esc(fmtTime(selected.end)) + '</strong><small>' + esc(needLabel(type)) + ' · ' + wholeRangeOpen + ' open for the entire range</small></span><button type="button" class="selection-clear" data-act="member-clear">Clear</button><button type="button" class="btn primary" data-act="member-continue" data-focus-key="member-continue">Continue</button></div>';
+    const pendingCount = bookingsForDate(date).filter(b => b.status === 'pending' && needsOf(b)[type] && rangesOverlap(b.start, b.end, selected.start, selected.end)).length;
+    html += '<div class="selected-availability"><div class="selected-counts" role="status" aria-live="polite"><span><strong>' + wholeRangeOpen + '</strong> open</span><span><strong>' + pendingCount + '</strong> pending</span></div><details class="selected-units"><summary>Who is in each numbered unit?</summary><div class="unit-detail-grid" style="--capacity:' + units.length + '">' + units.map(unit => {
+      const occupant = unitOccupant(type, unit.id, date, selected.start, selected.end, null);
+      const status = occupant ? 'taken' : 'open';
+      return '<div class="unit-detail ' + status + '"><strong>' + esc(unit.label) + '</strong><span>' + (occupant ? esc(occupant.name + ' · ' + fmtTime(occupant.start) + '–' + fmtTime(occupant.end)) : 'Open') + '</span></div>';
+    }).join('') + '</div></details></div>' +
+      '<div class="member-selection-summary"><span><strong>' + esc(fmtTime(selected.start)) + '–' + esc(fmtTime(selected.end)) + '</strong><small>' + esc(needLabel(type)) + ' · exact reservation time</small></span><button type="button" class="selection-clear" data-act="member-clear">Clear</button><button type="button" class="btn primary" data-act="member-continue" data-focus-key="member-continue">Continue</button></div>';
   }
   return html + '</section>';
 }
@@ -932,28 +1017,47 @@ function signupComparable(d) {
   });
 }
 
-function selectMemberSlot(el) {
+function selectMemberStart(el) {
   const date = el.dataset.date;
   const type = el.dataset.type;
-  const windowIdx = +el.dataset.win;
-  if (!date || !NEED_TYPES.some(need => need.id === type) || !isValidBookingRange(date, el.dataset.id, hhmmOfMins(minsOfDay(el.dataset.id) + 30))) return;
-  // Work on a copy: if the tapped range turns out to be invalid we bail out
-  // below, and the saved selection must stay untouched in that case.
-  const selection = ui.memberSelection && ui.memberSelection.date === date && ui.memberSelection.type === type
-    ? { ...ui.memberSelection }
-    : { date, type, start: null, end: null, windowIdx: null };
-  tapSlot(selection, windowIdx, el.dataset.id);
-  const openForWholeRange = freeUnitsForType(type, date, selection.start, selection.end, null);
-  if (!openForWholeRange.length) {
-    addBanner('No single ' + needLabel(type).toLowerCase() + ' is open for that entire range. Please choose a shorter time.', true);
+  const periodIdx = Number(el.dataset.period);
+  const period = reservationPeriods(date)[periodIdx];
+  const start = el.value;
+  ui.availabilityConflict = null;
+  if (!period || !start || minsOfDay(start) < minsOfDay(period.start) || minsOfDay(start) >= minsOfDay(period.end)) {
+    ui.memberSelection = null;
+    render();
     return;
   }
-  ui.memberSelection = selection;
+  ui.memberSelection = { date, type, start, end: null, windowIdx: periodIdx };
   render();
-  requestAnimationFrame(() => {
-    const fresh = document.querySelector('[data-act="member-slot"][data-date="' + date + '"][data-type="' + type + '"][data-id="' + el.dataset.id + '"]');
-    if (fresh) fresh.focus();
-  });
+}
+
+function selectMemberEnd(el) {
+  const selection = ui.memberSelection;
+  const end = el.value;
+  if (!selection || !end || selection.date !== el.dataset.date || selection.type !== el.dataset.type || selection.windowIdx !== Number(el.dataset.period)) return;
+  const period = reservationPeriods(selection.date)[selection.windowIdx];
+  if (!period || minsOfDay(end) <= minsOfDay(selection.start) || minsOfDay(end) > minsOfDay(period.end) || !isValidBookingRange(selection.date, selection.start, end)) {
+    addBanner('Please choose an end time after the start time in the same reservation period.', true);
+    render();
+    return;
+  }
+  if (!freeUnitsForType(selection.type, selection.date, selection.start, end, null).length) {
+    ui.availabilityConflict = {
+      date: selection.date,
+      type: selection.type,
+      start: selection.start,
+      attemptedEnd: end,
+      suggestedEnd: shorterAvailableEnd(selection.type, selection.date, selection.start, end)
+    };
+    selection.end = null;
+    render();
+    return;
+  }
+  selection.end = end;
+  ui.availabilityConflict = null;
+  render();
 }
 
 function openMemberDetails() {
@@ -1009,33 +1113,6 @@ function preferredRoomHtml(d) {
       const sel = d.preferredRoom === rid;
       return '<button type="button" class="pref-chip' + (sel ? ' active' : '') + '" data-act="su-pref" data-id="' + (rid === null ? '' : rid) + '" aria-pressed="' + (sel ? 'true' : 'false') + '">' + esc(label) + '</button>';
     }).join('') + '</div>';
-}
-
-/* ---- time picker ---- */
-function timePickerHtml(d, date) {
-  const needTypes = currentNeedTypes(d);
-  let html = '<div class="fld" id="su-time-label">Time — tap a start time for 30 minutes; tap a later time in the same section to make it longer</div>';
-  bookingWindows(date).forEach((w, wi) => {
-    const slots = slotStarts(w);
-    html += '<div class="strip-wrap">' +
-      '<div class="strip-window-label">' + esc(w.label) + ' · ' + esc(fmtTime(w.start)) + ' – ' + esc(fmtTime(w.end)) + '</div>' +
-      '<div class="time-strip" role="group" aria-label="' + esc(w.label) + '">' + slots.map(s => {
-        const blocked = needTypes.length ? isSlotBlockedForNeeds(needTypes, date, s, null) : false;
-        const inStart = d.start === s;
-        const endSlotStart = d.end ? hhmmOfMins(minsOfDay(d.end) - 30) : null;
-        const inEnd = d.end !== null && endSlotStart === s;
-        const inRange = d.start !== null && d.windowIdx === wi &&
-          minsOfDay(s) >= minsOfDay(d.start) && (d.end === null ? s === d.start : minsOfDay(s) < minsOfDay(d.end));
-        let cls = 'slot';
-        if (blocked) cls += ' blocked';
-        else if (inRange) { cls += ' sel'; if (inStart) cls += ' start'; if (inEnd) cls += ' end'; }
-        return '<button type="button" class="' + cls + '" aria-label="' + esc(fmtTime(s)) + '" aria-pressed="' + (inRange ? 'true' : 'false') + '"' + (blocked ? ' disabled' : ' data-act="su-slot" data-win="' + wi + '" data-id="' + s + '"') + '>' + esc(fmtTimeTight(s)) + '</button>';
-      }).join('') + '</div></div>';
-  });
-  if (d.start && d.end) {
-    html += '<p class="selection-summary" aria-live="polite">Selected: ' + esc(fmtTime(d.start)) + ' – ' + esc(fmtTime(d.end)) + '</p>';
-  }
-  return html;
 }
 
 /* ---- "who already has / wants this" panel on the Sign Up form ----
@@ -1174,7 +1251,23 @@ async function submitSignup(form) {
     addBanner(result.status === 'approved' ? 'You’re approved. Your reservation is now on the schedule.' : 'Request sent. Saturday reservations are reviewed before approval.');
     setSyncPill(true, 'Saved');
   } catch (error) {
-    addBanner(friendlyFirebaseError(error), true);
+    const code = String(error && error.code || '').replace(/^functions\//, '');
+    if (code === 'already-exists' && d && d.resourceType) {
+      const periodIdx = reservationPeriods(date).findIndex(period => d.start >= period.start && d.start < period.end);
+      ui.signup = null;
+      ui.signupBaseline = null;
+      ui.returnFocusKey = null;
+      ui.memberSelection = { date, type: d.resourceType, start: d.start, end: null, windowIdx: periodIdx };
+      ui.availabilityConflict = {
+        date,
+        type: d.resourceType,
+        start: d.start,
+        attemptedEnd: d.end,
+        suggestedEnd: error && error.details && error.details.suggestedEnd
+          ? error.details.suggestedEnd
+          : shorterAvailableEnd(d.resourceType, date, d.start, d.end)
+      };
+    } else addBanner(friendlyFirebaseError(error), true);
     setSyncPill(false, 'Save failed');
   } finally {
     ui.submitting = false;
@@ -1546,23 +1639,17 @@ function afPreferredRoomHtml(d) {
 }
 function afTimePickerHtml(d) {
   let html = '<div class="fld">Time</div>';
-  bookingWindows(d.date).forEach((w, wi) => {
-    const slots = slotStarts(w);
-    html += '<div class="strip-wrap">' +
-      '<div class="strip-window-label">' + esc(w.label) + ' · ' + esc(fmtTime(w.start)) + ' – ' + esc(fmtTime(w.end)) + '</div>' +
-      '<div class="time-strip" role="group" aria-label="' + esc(w.label) + '">' + slots.map(s => {
-        const inStart = d.start === s;
-        const endSlotStart = d.end ? hhmmOfMins(minsOfDay(d.end) - 30) : null;
-        const inEnd = d.end !== null && endSlotStart === s;
-        const inRange = d.start !== null && d.windowIdx === wi &&
-          minsOfDay(s) >= minsOfDay(d.start) && (d.end === null ? s === d.start : minsOfDay(s) < minsOfDay(d.end));
-        let cls = 'slot';
-        if (inRange) { cls += ' sel'; if (inStart) cls += ' start'; if (inEnd) cls += ' end'; }
-        return '<button type="button" class="' + cls + '" data-act="af-slot" data-win="' + wi + '" data-id="' + s + '" aria-label="' + esc(fmtTime(s)) + '" aria-pressed="' + (inRange ? 'true' : 'false') + '">' + esc(fmtTimeTight(s)) + '</button>';
-      }).join('') + '</div></div>';
+  html += '<div class="time-period-list admin-time-periods">';
+  reservationPeriods(d.date).forEach((period, periodIdx) => {
+    const points = periodTimePoints(period);
+    const inPeriod = d.windowIdx === periodIdx;
+    const startValue = inPeriod ? d.start : '';
+    const endValue = inPeriod ? d.end : '';
+    html += '<details class="time-period" name="admin-reservation-period"' + (inPeriod || (!d.start && periodIdx === 0) ? ' open' : '') + '><summary><span><strong>' + esc(period.label) + '</strong><small>Start times ' + esc(fmtTime(period.start)) + '–' + esc(fmtTime(hhmmOfMins(minsOfDay(period.end) - 30))) + '</small></span><span class="period-summary">' + (inPeriod && d.end ? esc(fmtTime(d.start) + '–' + fmtTime(d.end)) : 'Choose time') + '</span></summary>' +
+      '<div class="time-range-controls"><label for="af-start-' + periodIdx + '">Start time<select id="af-start-' + periodIdx + '" data-chg="af-start" data-period="' + periodIdx + '"><option value="">Choose start</option>' + points.slice(0, -1).map(start => '<option value="' + start + '"' + (startValue === start ? ' selected' : '') + '>' + esc(fmtTime(start)) + '</option>').join('') + '</select></label>' +
+      '<label for="af-end-' + periodIdx + '">End time<select id="af-end-' + periodIdx + '" data-chg="af-end" data-period="' + periodIdx + '"' + (!startValue ? ' disabled' : '') + '><option value="">Choose end</option>' + points.slice(1).map(end => '<option value="' + end + '"' + (endValue === end ? ' selected' : '') + (startValue && minsOfDay(end) <= minsOfDay(startValue) ? ' disabled' : '') + '>' + esc('End at ' + fmtTime(end)) + '</option>').join('') + '</select></label></div></details>';
   });
-  if (d.start && d.end) html += '<p class="selection-summary" aria-live="polite">Selected: ' + esc(fmtTime(d.start)) + ' – ' + esc(fmtTime(d.end)) + '</p>';
-  return html;
+  return html + '</div>' + (d.start && d.end ? '<p class="selection-summary" aria-live="polite">Selected: ' + esc(fmtTime(d.start)) + ' – ' + esc(fmtTime(d.end)) + '</p>' : '');
 }
 function afAssignPillRowHtml(d, type) {
   if (!d.start || !d.end) return '';
@@ -1791,7 +1878,24 @@ async function cleanupOldRecords() {
 /* ================= actions ================= */
 
 function handleAction(act, el) {
-  if (act === 'tab') { ui.tab = el.dataset.id; ui.pinError = ''; render(); return; }
+  if (act === 'tab') {
+    ui.tab = el.dataset.id;
+    ui.pinError = '';
+    render();
+    requestAnimationFrame(() => {
+      const activeTab = document.querySelector('.tab[data-id="' + ui.tab + '"]');
+      if (activeTab) activeTab.focus();
+    });
+    return;
+  }
+
+  if (act === 'date-step') {
+    const dates = upcomingBookingDates();
+    const nextIndex = dates.indexOf(selectedDate()) + Number(el.dataset.id || 0);
+    if (nextIndex < 0 || nextIndex >= dates.length) return;
+    handleAction('select-date', { dataset: { id: dates[nextIndex] } });
+    return;
+  }
 
   if (act === 'select-date') {
     const date = el.dataset.id;
@@ -1802,6 +1906,7 @@ function handleAction(act, el) {
     ui.adminForm = null;
     ui.selectedDate = date;
     ui.memberSelection = null;
+    ui.availabilityConflict = null;
     ui.adminSelectedId = null;
     ui.adminAssign = {};
     ui.adminReapproveId = null;
@@ -1810,10 +1915,17 @@ function handleAction(act, el) {
   }
 
   /* ---- Reservations tab ---- */
+  if (act === 'home-type') {
+    if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
+    ui.homeType = el.dataset.id;
+    render();
+    return;
+  }
   if (act === 'member-type') {
     if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
     ui.memberType = el.dataset.id;
     ui.memberSelection = null;
+    ui.availabilityConflict = null;
     render();
     return;
   }
@@ -1823,8 +1935,16 @@ function handleAction(act, el) {
     render();
     return;
   }
-  if (act === 'member-slot') { selectMemberSlot(el); return; }
-  if (act === 'member-clear') { ui.memberSelection = null; render(); return; }
+  if (act === 'member-clear') { ui.memberSelection = null; ui.availabilityConflict = null; render(); return; }
+  if (act === 'conflict-yes') {
+    const conflict = ui.availabilityConflict;
+    if (!conflict || !conflict.suggestedEnd) return;
+    ui.memberSelection = { date: conflict.date, type: conflict.type, start: conflict.start, end: conflict.suggestedEnd, windowIdx: reservationPeriods(conflict.date).findIndex(period => conflict.start >= period.start && conflict.start < period.end) };
+    ui.availabilityConflict = null;
+    render();
+    return;
+  }
+  if (act === 'conflict-no') { ui.availabilityConflict = null; render(); return; }
   if (act === 'member-continue') { openMemberDetails(); return; }
   if (act === 'su-close') { closeBookingModal(false); return; }
   if (act === 'my-cancel') {
@@ -1841,12 +1961,6 @@ function handleAction(act, el) {
     return;
   }
   if (act === 'su-pref') { syncSignupDraft(); ensureSignupDraft(); ui.signup.preferredRoom = el.dataset.id || null; render(); return; }
-  if (act === 'su-slot') {
-    syncSignupDraft(); ensureSignupDraft();
-    tapSlot(ui.signup, +el.dataset.win, el.dataset.id);
-    render();
-    return;
-  }
   if (act === 'su-purpose') { syncSignupDraft(); ensureSignupDraft(); ui.signup.purpose = el.dataset.id; render(); return; }
   if (act === 'su-certainty') { syncSignupDraft(); ensureSignupDraft(); ui.signup.certainty = el.dataset.id; render(); return; }
   if (act === 'su-submit') { submitSignup(el); return; }
@@ -1907,13 +2021,6 @@ function handleAction(act, el) {
     return;
   }
   if (act === 'af-pref') { syncAdminFormDraft(); ensureAdminFormDraft(selectedDate()); ui.adminForm.preferredRoom = el.dataset.id || null; render(); return; }
-  if (act === 'af-slot') {
-    syncAdminFormDraft(); ensureAdminFormDraft(selectedDate());
-    tapSlot(ui.adminForm, +el.dataset.win, el.dataset.id);
-    ui.adminForm.assign = { room: null, whiteboard: null, tv: null };
-    render();
-    return;
-  }
   if (act === 'af-assign') {
     syncAdminFormDraft(); ensureAdminFormDraft(selectedDate());
     const d = ui.adminForm;
@@ -1933,33 +2040,6 @@ function handleAction(act, el) {
   }
 }
 
-/* Shared tap-to-pick-a-range logic for both the Sign Up draft and the
-   admin Add-a-booking draft: first tap sets the start, second tap (in
-   the same window) sets the end (inclusive); tapping before the current
-   start restarts the selection; a tap after a completed range starts a
-   fresh one. */
-/* Tapping a slot always leaves a complete [start,end) block selected — a
-   single tap gives that one 30-min block (e.g. 2:00 -> 2:00–2:30). Tapping
-   a later slot in the same block extends the end through it; tapping a new
-   block (earlier slot, a different window, or after a multi-slot range was
-   finished) starts a fresh single block. */
-function tapSlot(draft, windowIdx, slotStart) {
-  const slotEnd = hhmmOfMins(minsOfDay(slotStart) + 30);
-  const haveSingle = draft.start !== null && draft.end !== null &&
-    draft.windowIdx === windowIdx &&
-    minsOfDay(draft.end) - minsOfDay(draft.start) === 30;
-  if (!haveSingle) {
-    // nothing yet, other window, or a finished multi-slot range -> new single block
-    draft.start = slotStart; draft.end = slotEnd; draft.windowIdx = windowIdx;
-  } else if (minsOfDay(slotStart) <= minsOfDay(draft.start)) {
-    // earlier (or the same) slot -> move the single block there
-    draft.start = slotStart; draft.end = slotEnd;
-  } else {
-    // later slot -> extend the block's end through it
-    draft.end = slotEnd;
-  }
-}
-
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
@@ -1976,7 +2056,36 @@ document.addEventListener('submit', e => {
 });
 document.addEventListener('change', e => {
   const el = e.target.closest('[data-chg]');
-  if (!el || !ui.signup) return;
+  if (!el) return;
+  if (el.dataset.chg === 'member-start') { selectMemberStart(el); return; }
+  if (el.dataset.chg === 'member-end') { selectMemberEnd(el); return; }
+  if (el.dataset.chg === 'af-start') {
+    syncAdminFormDraft(); ensureAdminFormDraft(selectedDate());
+    const periodIdx = Number(el.dataset.period);
+    const period = reservationPeriods(ui.adminForm.date)[periodIdx];
+    ui.adminForm.start = period && el.value ? el.value : null;
+    ui.adminForm.end = null;
+    ui.adminForm.windowIdx = ui.adminForm.start ? periodIdx : null;
+    ui.adminForm.assign = { room: null, whiteboard: null, tv: null };
+    render();
+    return;
+  }
+  if (el.dataset.chg === 'af-end') {
+    syncAdminFormDraft(); ensureAdminFormDraft(selectedDate());
+    const d = ui.adminForm;
+    const periodIdx = Number(el.dataset.period);
+    const period = reservationPeriods(d.date)[periodIdx];
+    if (!period || d.windowIdx !== periodIdx || !d.start || !el.value || minsOfDay(el.value) <= minsOfDay(d.start) || minsOfDay(el.value) > minsOfDay(period.end)) {
+      addBanner('Choose an end time after the start time in the same reservation period.', true);
+      render();
+      return;
+    }
+    d.end = el.value;
+    d.assign = { room: null, whiteboard: null, tv: null };
+    render();
+    return;
+  }
+  if (!ui.signup) return;
   if (el.dataset.chg === 'su-end') {
     syncSignupDraft();
     ui.signup.end = el.value;
@@ -2044,8 +2153,8 @@ function init() {
     });
   }
 
-  const masthead = document.getElementById('masthead');
-  const goHome = () => { ui.tab = 'schedule'; render(); };
+  const masthead = document.getElementById('masthead-home');
+  const goHome = () => { ui.tab = 'home'; render(); };
   if (masthead) {
     masthead.addEventListener('click', goHome);
     masthead.addEventListener('keydown', e => {

@@ -1,0 +1,12 @@
+{
+  "name": "lv-zion-study-rooms",
+  "private": true,
+  "scripts": {
+    "test": "node --check app.js && node --check tv.js && node --check sw.js && node --test functions/test/policy.test.js",
+    "test:ui": "node test/ui-smoke.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "playwright": "^1.54.1"
+  }
+}
