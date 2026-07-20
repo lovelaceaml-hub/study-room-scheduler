@@ -5,11 +5,11 @@
 - **Name:** LV Zion Study Rooms
 - **Audience:** LV Zion members reserving study rooms and shared equipment, approvers, and people viewing the lobby TV.
 - **Problem it solves:** Makes it quick to see what is open, reserve an exact time range, and understand live room use without relying on a spreadsheet relay.
-- **First successful moment:** A member succeeds when they can choose the next Tuesday or Saturday, see an open resource, select an exact start and end time, and send a valid reservation without wondering what the selected times mean.
+- **First successful moment:** A member succeeds when they can choose the next Tuesday or Saturday, tap a listed start time, choose an exact ending, and send a valid reservation without wondering what the selected times mean.
 
 ## Main tasks
 
-1. Check current room activity and recent schedule updates.
+1. Check personal reservation notifications, current room activity, and recent schedule updates.
 2. Reserve a study room, whiteboard, or TV for an exact available range.
 3. Review, assign, approve, decline, or cancel reservations.
 

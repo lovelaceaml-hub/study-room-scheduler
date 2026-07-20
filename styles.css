@@ -410,6 +410,21 @@ nav[aria-label="Primary"] .tabs { padding: 8px 14px; }
 /* Home keeps live information useful without turning the opening screen into
    an all-day calendar. */
 .home-dashboard { display: grid; gap: 10px; }
+.home-notifications { padding: 13px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-card); }
+.home-notifications .home-section-head { margin-bottom: 8px; }
+.home-notifications .home-section-head h2 { font-size: var(--fs-lg); }
+.home-notifications-empty { margin: 0; color: var(--ink-soft); font-size: var(--fs-sm); }
+.home-notification-list { display: grid; }
+.home-notification { min-height: 54px; display: grid; grid-template-columns: 10px minmax(0,1fr); align-items: start; gap: 9px; padding: 8px 1px; border-top: 1px solid var(--line); }
+.home-notification:first-child { border-top: 0; }
+.notification-dot { width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--ink-faint); }
+.home-notification.pending .notification-dot { background: var(--warning); }
+.home-notification.approved .notification-dot { background: var(--ok); }
+.home-notification.declined .notification-dot { background: var(--danger); }
+.home-notification strong, .home-notification span, .home-notification small { display: block; }
+.home-notification strong { font-size: var(--fs-sm); }
+.home-notification span { margin-top: 1px; color: var(--ink-soft); font-size: 12px; }
+.home-notification small { margin-top: 1px; color: var(--ink-faint); font-size: 11px; }
 .home-schedule { padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-card); }
 .home-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .home-section-head h2 { margin: 1px 0 0; }
@@ -459,6 +474,20 @@ nav[aria-label="Primary"] .tabs { padding: 8px 14px; }
 .time-period summary strong, .time-period summary small { display: block; }
 .time-period summary small { color: var(--ink-soft); font-size: 11px; font-weight: 600; }
 .period-summary { margin-left: auto; color: var(--primary); font-size: 11px; font-weight: 750; text-align: right; }
+.start-time-picker { padding: 9px 11px 11px; border-top: 1px solid var(--line); background: var(--surface-sunken); }
+.start-time-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+.start-time-choice { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 7px; padding: 6px 9px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); text-align: left; cursor: pointer; }
+.start-time-choice strong { font-size: 13px; }
+.start-time-choice span { color: var(--ink-soft); font-size: 10px; white-space: nowrap; }
+.start-time-choice:hover { border-color: var(--primary); }
+.start-time-choice.selected { border-color: var(--primary); background: var(--primary-tint); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.start-time-choice.selected span { color: var(--primary); }
+.end-time-panel { margin-top: 8px; padding: 9px; border: 1px solid var(--primary); border-radius: var(--r-sm); background: var(--surface); }
+.end-time-panel label { display: grid; grid-template-columns: minmax(0,.8fr) minmax(140px,1.2fr); align-items: center; gap: 9px; }
+.end-time-panel label > span strong, .end-time-panel label > span small { display: block; }
+.end-time-panel label > span strong { color: var(--primary); font-size: 13px; }
+.end-time-panel label > span small { color: var(--ink-soft); font-size: 11px; }
+.end-time-panel select { min-height: 44px; padding: 7px 9px; font-size: 14px; }
 .time-range-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; padding: 9px 11px 11px; border-top: 1px solid var(--line); background: var(--surface-sunken); }
 .time-range-controls label { color: var(--ink-soft); font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .time-range-controls select { min-height: 44px; margin-top: 4px; padding: 7px 9px; font-size: 14px; letter-spacing: normal; text-transform: none; }
@@ -684,6 +713,7 @@ button.availability-select { cursor: pointer; }
   .member-selection-summary { bottom: 72px; }
   .member-selection-summary .btn { padding-inline: 13px; }
   .unit-detail-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .end-time-panel label { grid-template-columns: minmax(0,1fr); }
   .time-range-controls { grid-template-columns: minmax(0,1fr); }
   .admin-header-card { padding: 15px; }
   .admin-counts { gap: 5px; }

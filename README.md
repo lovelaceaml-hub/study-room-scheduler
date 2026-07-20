@@ -20,9 +20,10 @@
   - [All documents →](docs/)
 
 An installable study-room scheduling app for LV Zion. The opening Home dashboard shows
-current/upcoming numbered-unit use and a bounded live update feed. Members choose Study room,
+this device’s pending, next, and denied reservation notices, current/upcoming numbered-unit
+use, and a bounded live update feed. Members choose Study room,
 Whiteboard, or TV, step between the upcoming Tuesday and Saturday with date arrows,
-then choose an exact start and end inside compact Morning, Afternoon, or Evening menus.
+then tap a listed start time and choose the exact ending from the dropdown that appears.
 Tuesday bookings auto-approve
 when a resource is open; Saturday requests are manually reviewed by priority.
 Members see only the open and pending counts first and can expand the numbered-unit detail.

@@ -27,6 +27,9 @@ await mkdir(join(root, 'test-results'), { recursive: true });
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+await context.addInitScript(() => {
+  localStorage.setItem('srs-my-bookings', JSON.stringify(['demo-whiteboard-1', 'demo-room-4', 'demo-room-denied']));
+});
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
@@ -35,6 +38,9 @@ try {
   await page.goto(`http://127.0.0.1:${port}/?demo=1`, { waitUntil: 'networkidle' });
   assert.equal(await page.getByRole('tab', { name: 'Home' }).getAttribute('aria-selected'), 'true');
   assert.equal(await page.locator('.home-unit-row').count(), 4);
+  assert.match(await page.locator('.home-notifications').innerText(), /Reservation pending/);
+  assert.match(await page.locator('.home-notifications').innerText(), /Your next reservation/);
+  assert.match(await page.locator('.home-notifications').innerText(), /Reservation denied/);
   assert.ok(await page.locator('.dashboard-feed').isVisible());
   assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations, []);
   await page.screenshot({ path: join(root, 'test-results/home-phone.png'), fullPage: true });
@@ -49,7 +55,17 @@ try {
   assert.notEqual(await page.locator('.date-current strong').innerText(), firstDate);
   await page.getByRole('button', { name: 'Previous reservation date' }).click();
 
-  await page.locator('#member-start-0').selectOption('10:00');
+  assert.equal(await page.locator('#member-end-0').count(), 0);
+  await page.locator('.start-time-choice[data-start="10:30"]').focus();
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.activeElement?.dataset.start === '10:30');
+  assert.equal(await page.locator('.start-time-choice[data-start="10:30"]').getAttribute('aria-pressed'), 'true');
+  await page.locator('#member-end-0').selectOption('11:00');
+  await page.locator('.start-time-choice[data-start="10:00"]').click();
+  assert.equal(await page.locator('#member-end-0').count(), 1);
+  assert.equal(await page.locator('#member-end-0').inputValue(), '');
+  assert.equal(await page.locator('#member-end-0 option[value="10:00"]').count(), 0);
+  assert.equal(await page.locator('#member-end-0 option[value="10:30"]').count(), 1);
   await page.locator('#member-end-0').selectOption('11:30');
   assert.match(await page.locator('.availability-conflict').innerText(), /There are no rooms available in the time slot that was selected\./);
   assert.match(await page.locator('.availability-conflict').innerText(), /10:00 AM to 11:00 AM instead/);

@@ -2,7 +2,16 @@
 
 ## July 19 compact-dashboard verification
 
-The Home dashboard, date stepper, explicit Start/End menus, compact open/pending
+The follow-up member picker was also driven at phone and desktop sizes before release:
+half-hour start choices remain directly visible, keyboard Enter selects a start, the
+chosen button keeps focus after rendering, and only then does the exact End-time menu
+appear. Choosing a different start clears the old ending. Home displayed device-private
+pending, next, and denied notices above the shared unit schedule. Axe reported zero
+violations, the 320-pixel view had no horizontal overflow, and policy tests continued
+to pass. An independent review found no blocking implementation issue; its two missing
+regression checks for keyboard selection and stale-ending reset were added and passed.
+
+The Home dashboard, date stepper, listed starts with a revealed End menu, compact open/pending
 summary, numbered-unit disclosure, and unavailable-range recovery were driven in a
 real headless Chromium browser at 390×844 and 1280×900. The sample conflict used three
 rooms occupied from 11:00–11:30 AM plus one room occupied from 10:00 AM onward.

@@ -5,6 +5,10 @@
 **Live.** The secure backend, compact dashboard and exact-time scheduler, lobby TV,
 and shorter address were deployed and verified on July 19, 2026.
 
+The next member-interface update is verified locally and backed up in source, but has
+not yet been deployed: listed half-hour start buttons now reveal one End-time dropdown,
+and Home adds device-private pending, next, and denied reservation notifications.
+
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
 - **Previous address:** https://lvz-rooms.web.app — retained as a redirect
@@ -20,11 +24,13 @@ and shorter address were deployed and verified on July 19, 2026.
   8:00–9:00 PM for services.
 - Show Saturday from 9:00 AM so the morning service is visible; booking still begins
   at 10:00 AM.
-- Open on Home with current/upcoming numbered-unit use and a bounded, scrollable live
-  update feed. Study Rooms are the default; Whiteboard and TV schedules are optional.
+- Open on Home with device-private reservation notifications, current/upcoming
+  numbered-unit use, and a bounded, scrollable live update feed. Study Rooms are the
+  default; Whiteboard and TV schedules are optional.
 - Make Reservations the only member booking screen: members step between the two
-  eligible dates, open Morning/Afternoon/Evening, choose exact Start and End values,
-  then complete the remaining details in a pop-up.
+  eligible dates, open Morning/Afternoon/Evening, tap a listed start time, choose the
+  exact ending from the dropdown that appears, then complete the remaining details in
+  a pop-up.
 - Store the second selected time as the exact ending; never silently add another
   30 minutes. Keep member options divided around service periods while the TV retains
   visible service bands.
@@ -83,7 +89,7 @@ details, and preserves its last public schedule during a connection interruption
 - Confirm future Baptism Room bookings were safely returned to pending.
 - Verify anonymous request creation and owner-only cancellation.
 - Verify Admin unlock, approve, decline, cancel, reassignment, direct-add, and lock.
-- Verify exact Start/End selection, Morning/Afternoon/Evening disclosures, date arrows,
+- Verify listed start-time and revealed End-time selection, Morning/Afternoon/Evening disclosures, date arrows,
   unavailable-range recovery, and the booking pop-up on desktop and phone.
 - Verify simultaneous member, Admin, phone, and TV live updates.
 - Verify 320/375/390-pixel phone views and 720p/1080p TV views.

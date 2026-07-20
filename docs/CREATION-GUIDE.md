@@ -88,7 +88,8 @@ must reject ranges that overlap a service or begin before reservable time.
 The Reservations screen shows one Study room, Whiteboard, or TV at a time. The date
 stepper and resource picker sit directly above three native disclosures: Morning,
 Afternoon, and Evening. Each disclosure states its available start-time range and
-contains explicit Start time and End time selects. The chosen ending is stored exactly;
+contains compact buttons for each listed start time. Tapping a start reveals one End
+time dropdown beneath the choices. The chosen ending is stored exactly;
 selecting 10:00 AM then 11:30 AM means 10:00–11:30 AM. After a complete range, the
 screen shows only the number open and number pending until the member expands the
 numbered-unit detail. The short sheet then asks
@@ -98,6 +99,10 @@ are shown as an aggregate count and never occupy a numbered unit before approval
 Service periods divide the daypart options but do not appear as selectable member
 times. They cannot be selected or crossed. The lobby timetable continues to show the
 service bands explicitly. The same interaction works on phone and desktop layouts.
+
+Home derives **My notifications** only from reservation IDs saved by this browser. It
+surfaces pending requests, the nearest approved reservation, and denied requests before
+the shared unit schedule and live activity feed.
 
 If no numbered unit is free for the complete selected range, the member interface
 uses an inline alert with the exact unavailable message. It computes the longest

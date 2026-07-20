@@ -5,10 +5,10 @@
 - **User:** Member arriving on Tuesday or Saturday.
 - **Starting situation:** Opens the app without needing to create a reservation yet.
 - **Goal:** See current and next room use plus recent updates.
-- **Success is observable when:** Home shows a live, scrollable update feed and a unit-by-unit current/upcoming schedule; Study room is the default and Whiteboard or TV can be chosen.
+- **Success is observable when:** Home shows this device’s pending, next, and denied reservation notices, a live scrollable update feed, and a unit-by-unit current/upcoming schedule; Study room is the default and Whiteboard or TV can be chosen.
 - **Steps the product must make clear:**
   1. Open Home.
-  2. Read current/upcoming Study room use.
+  2. Read personal reservation notifications and current/upcoming Study room use.
   3. Choose Whiteboard or TV only when that detail is wanted.
 - **Empty / loading / error / success behavior:** Connecting is explicit; an empty feed says there are no updates; an unused unit says Open; connection errors preserve the last safe view.
 - **Recovery or Undo:** The member can return Home by tapping the header or Home tab.

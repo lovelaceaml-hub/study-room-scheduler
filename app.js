@@ -303,6 +303,7 @@ function demoBookings() {
     { id: 'demo-room-3-full', date, start: '11:00', end: '11:30', name: 'Morgan C.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 4000, decidedAt: created - 3000 },
     { id: 'demo-tv-2', date, start: '14:00', end: '15:00', name: 'Maria R.', purpose: 'new-member', purposeOther: '', status: 'cancelled', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: null }, lastAssignments: { room: null, whiteboard: null, tv: 'tv-2' }, createdAt: created - 600000, updatedAt: created - 300000 },
     { id: 'demo-whiteboard-1', date, start: '16:00', end: '17:30', name: 'Daniel K.', purpose: 'meeting', purposeOther: '', status: 'pending', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1200000 },
+    { id: 'demo-room-denied', date, start: '17:00', end: '18:00', name: 'Anthony', purpose: 'meeting', purposeOther: '', status: 'declined', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1500000, updatedAt: created - 1400000 },
     { id: 'demo-room-1', date, start: '18:00', end: '19:00', name: 'Sofia M.', purpose: 'other', purposeOther: 'Family Bible study', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 1800000, decidedAt: created - 1700000 }
   ];
 }
@@ -649,7 +650,8 @@ function render() {
   } : null;
   const actionFocus = actionNode ? {
     act: actionNode.dataset.act || '', id: actionNode.dataset.id || '', date: actionNode.dataset.date || '',
-    type: actionNode.dataset.type || '', win: actionNode.dataset.win || '', booking: actionNode.dataset.booking || ''
+    type: actionNode.dataset.type || '', win: actionNode.dataset.win || '', booking: actionNode.dataset.booking || '',
+    start: actionNode.dataset.start || '', period: actionNode.dataset.period || ''
   } : null;
   syncSignupDraft();
   syncAdminFormDraft();
@@ -690,7 +692,8 @@ function render() {
         actionFocus &&
         (node.dataset.act || '') === actionFocus.act && (node.dataset.id || '') === actionFocus.id &&
         (node.dataset.date || '') === actionFocus.date && (node.dataset.type || '') === actionFocus.type &&
-        (node.dataset.win || '') === actionFocus.win && (node.dataset.booking || '') === actionFocus.booking);
+        (node.dataset.win || '') === actionFocus.win && (node.dataset.booking || '') === actionFocus.booking &&
+        (node.dataset.start || '') === actionFocus.start && (node.dataset.period || '') === actionFocus.period);
       const fallback = document.querySelector('.admin-queue-item.selected, .admin-queue-item');
       if (exactField) {
         exactField.focus();
@@ -753,14 +756,54 @@ function homeUnitScheduleHtml(date, type) {
     memberResourceToggleHtml(type, 'home-type') + '<div class="home-unit-list">' + rows + '</div></section>';
 }
 
+function myHomeNotificationsHtml() {
+  const mine = myBookingIds().map(bookingByIdSafe).filter(Boolean);
+  if (!mine.length) {
+    return '<section class="home-notifications" aria-labelledby="home-notifications-title"><div class="home-section-head"><div><div class="eyebrow">For this device</div><h2 id="home-notifications-title">My notifications</h2></div></div><p class="home-notifications-empty">No reservation notifications yet.</p></section>';
+  }
+
+  const today = todayISO();
+  const nowMinutes = currentMinutes();
+  const chronological = mine.slice().sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+  const current = chronological.find(b => b.status === 'approved' && b.date === today && minsOfDay(b.start) <= nowMinutes && nowMinutes < minsOfDay(b.end));
+  const next = current || chronological.find(b => b.status === 'approved' && (b.date > today || (b.date === today && minsOfDay(b.end) > nowMinutes)));
+  const pending = chronological.filter(b => b.status === 'pending').slice(0, 2);
+  const denied = mine.filter(b => b.status === 'declined').sort((a, b) => timestampMillis(b.updatedAt || b.createdAt) - timestampMillis(a.updatedAt || a.createdAt)).slice(0, 2);
+  const notices = [];
+
+  pending.forEach(b => notices.push({
+    booking: b,
+    kind: 'pending',
+    title: 'Reservation pending',
+    detail: resourceLabelFor(b) + ' · awaiting review'
+  }));
+  if (next) notices.push({
+    booking: next,
+    kind: 'approved',
+    title: current ? 'Your reservation is happening now' : 'Your next reservation',
+    detail: resourceLabelFor(next) + (current ? ' · reserved until ' + fmtTime(next.end) : '')
+  });
+  denied.forEach(b => notices.push({
+    booking: b,
+    kind: 'declined',
+    title: 'Reservation denied',
+    detail: resourceLabelFor(b) + ' · choose another open time'
+  }));
+
+  return '<section class="home-notifications" aria-labelledby="home-notifications-title"><div class="home-section-head"><div><div class="eyebrow">For this device</div><h2 id="home-notifications-title">My notifications</h2></div><a class="text-link" href="#" data-act="tab" data-id="mine">View all</a></div><div class="home-notification-list">' + notices.slice(0, 5).map(notice => {
+    const b = notice.booking;
+    return '<div class="home-notification ' + notice.kind + '"><span class="notification-dot" aria-hidden="true"></span><div><strong>' + esc(notice.title) + '</strong><span>' + esc(fmtDate(b.date) + ' · ' + fmtTime(b.start) + '–' + fmtTime(b.end)) + '</span><small>' + esc(notice.detail) + '</small></div></div>';
+  }).join('') + '</div></section>';
+}
+
 function renderHome() {
   if (!scheduleReady && !demoMode()) {
     return '<section class="member-booking"><div class="member-intro"><div class="eyebrow">Home</div><h1>Loading today’s room activity.</h1><p>The dashboard will appear as soon as the shared schedule is verified.</p></div><div class="schedule-loading" role="status" aria-live="polite"><span aria-hidden="true"></span>Connecting to the shared schedule</div></section>';
   }
   const dates = upcomingBookingDates();
   const date = dates.includes(todayISO()) ? todayISO() : dates[0];
-  return '<section class="home-dashboard"><div class="member-intro"><div class="eyebrow">Home</div><h1>Study room dashboard.</h1><p>See what is happening now, what is next, and the latest reservation updates.</p></div>' +
-    homeUnitScheduleHtml(date, ui.homeType) + activityFeedHtml(dates, true) + '</section>';
+  return '<section class="home-dashboard"><div class="member-intro"><div class="eyebrow">Home</div><h1>Study room dashboard.</h1><p>See your reservation notices, what is happening now, and what is next.</p></div>' +
+    myHomeNotificationsHtml() + homeUnitScheduleHtml(date, ui.homeType) + activityFeedHtml(dates, true) + '</section>';
 }
 
 /* ---- Reservations tab ---- */
@@ -775,7 +818,7 @@ function renderSchedule() {
     '<div class="member-intro"><div class="eyebrow">Reservations</div><h1>Find an open time.</h1><p>Choose a resource and a time. Admin assigns the exact numbered unit when approval is needed.</p></div>' +
     '<div class="member-calendars"><div class="calendar-date-wrap">' + dateSelectorHtml() + '</div>' +
     memberResourceToggleHtml(ui.memberType, 'member-type') +
-    '<p class="calendar-help">Open Morning, Afternoon, or Evening. Choose the exact start time, then the exact end time.</p>' +
+    '<p class="calendar-help">Open Morning, Afternoon, or Evening. Tap when you want to start, then choose the exact end time.</p>' +
     memberCalendarHtml(date, ui.memberType, true, 'member') +
     '</div></section>';
   if (ui.signup) html += bookingModalHtml();
@@ -856,12 +899,12 @@ function memberCalendarHtml(date, type, selectable, context) {
     const startValue = inPeriod ? selected.start : '';
     const endValue = inPeriod ? selected.end : '';
     html += '<details class="time-period" name="reservation-period"' + (inPeriod || (!selected && periodIdx === 0) ? ' open' : '') + '><summary><span><strong>' + esc(period.label) + '</strong><small>Start times ' + esc(fmtTime(period.start)) + '–' + esc(fmtTime(hhmmOfMins(minsOfDay(period.end) - 30))) + '</small></span><span class="period-summary">' + (inPeriod && selected.end ? esc(fmtTime(selected.start) + '–' + fmtTime(selected.end)) : 'Choose time') + '</span></summary>' +
-      '<div class="time-range-controls"><label for="member-start-' + periodIdx + '">Start time<select id="member-start-' + periodIdx + '" data-chg="member-start" data-period="' + periodIdx + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '"><option value="">Choose start</option>' + points.slice(0, -1).map(start => {
+      '<div class="start-time-picker"><div class="start-time-grid" aria-label="Choose a start time">' + points.slice(0, -1).map(start => {
         const end = hhmmOfMins(minsOfDay(start) + 30);
         const open = freeUnitsForType(type, date, start, end, null).length;
-        return '<option value="' + start + '"' + (startValue === start ? ' selected' : '') + '>' + esc(fmtTime(start) + ' — ' + (open ? open + ' open until ' + fmtTime(end) : 'Full')) + '</option>';
-      }).join('') + '</select></label>' +
-      '<label for="member-end-' + periodIdx + '">End time<select id="member-end-' + periodIdx + '" data-chg="member-end" data-period="' + periodIdx + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '"' + (!startValue ? ' disabled' : '') + '><option value="">Choose end</option>' + points.slice(1).map(end => '<option value="' + end + '"' + (endValue === end ? ' selected' : '') + (startValue && minsOfDay(end) <= minsOfDay(startValue) ? ' disabled' : '') + '>' + esc('End at ' + fmtTime(end)) + '</option>').join('') + '</select></label></div></details>';
+        return '<button type="button" class="start-time-choice' + (startValue === start ? ' selected' : '') + '" data-act="member-start-time" data-start="' + start + '" data-period="' + periodIdx + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '" aria-pressed="' + (startValue === start ? 'true' : 'false') + '"><strong>' + esc(fmtTime(start)) + '</strong><span>' + esc(open ? open + ' open' : 'Full') + '</span></button>';
+      }).join('') + '</div>' + (startValue ?
+        '<div class="end-time-panel"><label for="member-end-' + periodIdx + '"><span><strong>' + esc(fmtTime(startValue)) + ' start</strong><small>When should it end?</small></span><select id="member-end-' + periodIdx + '" data-chg="member-end" data-period="' + periodIdx + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '"><option value="">Choose end time</option>' + points.filter(end => minsOfDay(end) > minsOfDay(startValue)).map(end => '<option value="' + end + '"' + (endValue === end ? ' selected' : '') + '>' + esc('End at ' + fmtTime(end)) + '</option>').join('') + '</select></label></div>' : '') + '</div></details>';
   });
   html += '</div>' + memberConflictHtml(ui.availabilityConflict && ui.availabilityConflict.date === date && ui.availabilityConflict.type === type ? ui.availabilityConflict : null);
   if (selected && selected.type === type && selected.start && selected.end) {
@@ -1022,7 +1065,7 @@ function selectMemberStart(el) {
   const type = el.dataset.type;
   const periodIdx = Number(el.dataset.period);
   const period = reservationPeriods(date)[periodIdx];
-  const start = el.value;
+  const start = el.dataset.start || el.value;
   ui.availabilityConflict = null;
   if (!period || !start || minsOfDay(start) < minsOfDay(period.start) || minsOfDay(start) >= minsOfDay(period.end)) {
     ui.memberSelection = null;
@@ -1929,6 +1972,7 @@ function handleAction(act, el) {
     render();
     return;
   }
+  if (act === 'member-start-time') { selectMemberStart(el); return; }
   if (act === 'admin-type') {
     if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
     ui.adminType = el.dataset.id;

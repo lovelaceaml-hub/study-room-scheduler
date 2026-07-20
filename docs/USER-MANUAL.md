@@ -15,6 +15,10 @@ Tuesday or Saturday it shows who is using each room now and when the reservation
 otherwise it shows the next reservation day and each unit’s next booking. Choose
 **Whiteboard** or **TV** only when you want those unit details.
 
+**My notifications** shows updates for reservations made from this device. It calls out
+pending requests, the next approved reservation, and denied requests without exposing
+another member’s private reservation status.
+
 **Live updates** is a scrollable box containing the latest Requested, Reserved, and
 Cancelled activity. It updates automatically without making the page grow indefinitely.
 
@@ -43,8 +47,9 @@ Choose one of these resource types:
 The Baptism Room is no longer part of scheduling and will not appear as an option.
 
 Use the **Study room**, **Whiteboard**, or **TV** picker above the time menus. Open
-**Morning**, **Afternoon**, or **Evening**, then choose a **Start time** and the exact
-**End time**. After both are chosen, the app shows only how many units are open and
+**Morning**, **Afternoon**, or **Evening**, then tap one of the listed start times, such
+as **10:00 AM**, **10:30 AM**, or **11:00 AM**. An **End time** dropdown appears after
+the start is tapped. Choose the exact ending. The app then shows only how many units are open and
 how many reservations are pending. Expand **Who is in each numbered unit?** only when
 you need the room-by-room or item-by-item detail. Pending requests do not own a numbered
 unit until Admin approves and assigns one.
@@ -67,7 +72,8 @@ or cross through one. The lobby TV still shows each service as a labeled timetab
 
 1. Open **Reservations**, use the arrows to choose Tuesday or Saturday, and choose the resource type.
 2. Open Morning, Afternoon, or Evening.
-3. Choose the **Start time**, then choose the exact **End time**. Choosing 10:00 AM and
+3. Tap the listed **Start time**, then use the dropdown that appears to choose the exact
+   **End time**. Choosing 10:00 AM and
    11:30 AM creates a 10:00–11:30 AM reservation—not 10:00 AM–12:00 PM.
 4. Check the open and pending counts. Expand the numbered units only if needed.
 5. Tap **Continue**.

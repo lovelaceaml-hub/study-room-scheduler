@@ -16,12 +16,13 @@ visitors to the shorter address automatically.
    member can manage only their own new requests.
 4. To make a request, open **Reservations**, use the arrows to choose Tuesday or
    Saturday, select Study room, Whiteboard, or TV, and open Morning, Afternoon, or
-   Evening. Choose the exact **Start time** and **End time**, tap **Continue**, and
+   Evening. Tap a listed **Start time**, choose the exact ending from the **End time**
+   dropdown that appears, tap **Continue**, and
    complete the short name-and-purpose form.
 
 The member app has no separate **Sign up** screen. The time menus are divided around
-service periods, which cannot be selected. Home contains the live unit schedule and a
-scrollable update feed.
+service periods, which cannot be selected. Home contains this device’s reservation
+notifications, the live unit schedule, and a scrollable update feed.
 
 ## Install it on an iPhone
 
