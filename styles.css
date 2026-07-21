@@ -138,6 +138,9 @@ h2 { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.01em; margin:
 .date-current strong, .date-current span { display: block; }
 .date-current strong { color: var(--primary); font-size: var(--fs-sm); }
 .date-current span { color: var(--ink-soft); font-size: 11px; }
+.home-date-selector .date-current { padding: 4px 6px; }
+.home-date-selector .date-current strong { font-size: var(--fs-sm); }
+.home-date-selector .date-current span { font-size: 10px; }
 
 /* ---------- resource toggle ---------- */
 .member-resource-toggle { display: flex; gap: 7px; margin: 8px 0; }
@@ -430,9 +433,6 @@ nav[aria-label="Primary"] .tabs { padding: 8px 14px; }
 .home-daypart summary small, .home-daypart-summary { color: var(--ink-soft); font-size: 11px; font-weight: 600; }
 .home-daypart-summary { margin-left: auto; color: var(--primary); font-weight: 750; }
 .home-daypart .home-day-map { max-height: 330px; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
-.home-date-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 8px 0; }
-.home-date-choice { min-height: 44px; padding: 7px 9px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); color: var(--ink-soft); font-size: 12px; font-weight: 750; cursor: pointer; }
-.home-date-choice.active { border-color: var(--primary); background: var(--primary-tint); color: var(--primary); }
 .home-pending-requests { margin-top: 12px; }
 .home-pending-requests h3 { margin: 0 0 8px; font-size: var(--fs-sm); }
 .home-pending-requests .hint { margin: 0; }

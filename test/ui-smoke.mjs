@@ -56,8 +56,12 @@ try {
   assert.equal(await page.locator('.home-daypart').count(), 3);
   assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null);
   assert.equal(await page.locator('.home-daypart').nth(1).getAttribute('open'), null);
-  assert.equal(await page.locator('.home-date-choice').count(), 2);
-  await page.locator('.home-date-choice').filter({ hasText: 'Saturday' }).click();
+  assert.equal(await page.locator('.home-date-selector').count(), 1);
+  const homeDateFirst = await page.locator('.home-date-selector .date-current strong').innerText();
+  assert.equal(await page.locator('.home-date-selector .date-arrow').first().isDisabled(), true);
+  await page.locator('.home-date-selector .date-arrow').nth(1).click();
+  const homeDateSecond = await page.locator('.home-date-selector .date-current strong').innerText();
+  assert.notEqual(homeDateSecond, homeDateFirst);
   assert.match(await page.locator('.home-day-overview').innerText(), /Saturday/);
   assert.match(await page.locator('.home-pending-requests').innerText(), /Grace L\./);
   assert.match(await page.locator('.home-daypart').nth(0).innerText(), /Morning service/);
@@ -71,19 +75,22 @@ try {
   await page.locator('.home-day-overview .member-resource[data-id="tv"]').click();
   assert.match(await page.locator('.home-pending-requests').innerText(), /Micah S\./);
   await page.locator('.home-day-overview .member-resource[data-id="room"]').click();
-  await page.locator('.home-date-choice').filter({ hasText: 'Tuesday' }).click();
+  await page.locator('.home-date-selector .date-arrow').first().click();
+  assert.equal(await page.locator('.home-date-selector .date-current strong').innerText(), homeDateFirst);
   assert.ok(await page.locator('.home-open-cell').count() > 0);
   assert.ok(await page.locator('.dashboard-feed').isVisible());
   assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations, []);
   await page.screenshot({ path: join(root, 'test-results/home-phone.png'), fullPage: true });
 
   await page.locator('.home-open-cell').first().click();
-  assert.equal(await page.locator('#tab-schedule').getAttribute('aria-selected'), 'true');
+  assert.equal(await page.locator('#tab-schedule').count(), 0);
+  assert.equal(await page.locator('#tab-home').getAttribute('aria-selected'), 'true');
   assert.ok(await page.locator('.end-time-dialog').isVisible());
   assert.match(await page.locator('.end-time-dialog').innerText(), /When should it end\?/);
   await page.getByRole('button', { name: 'Close end time choices' }).click();
   await page.waitForFunction(() => document.activeElement?.dataset.focusKey === 'member-start-10:00');
 
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole('tab', { name: 'Reservations', exact: true }).click();
   assert.equal(await page.locator('.time-period').count(), 3);
   for (const [index, label] of ['Morning', 'Afternoon', 'Evening'].entries()) {
@@ -146,18 +153,16 @@ try {
 
   await page.setViewportSize({ width: 320, height: 720 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
-  await page.locator('#tab-schedule').focus();
+  assert.equal(await page.locator('#tab-schedule').count(), 0);
+  assert.equal(await page.locator('#tabs .tab').count(), 3);
+  await page.locator('#tab-admin').focus();
   await page.keyboard.press('ArrowLeft');
   await page.waitForTimeout(50);
-  assert.equal(await page.locator('#tab-home').getAttribute('aria-selected'), 'true');
-  assert.equal(await page.evaluate(() => document.activeElement?.id), 'tab-home');
-  await page.locator('#tab-schedule').focus();
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'tab-mine');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(50);
-  assert.equal(await page.locator('#tab-schedule').getAttribute('aria-selected'), 'true');
-  assert.equal(await page.evaluate(() => document.activeElement?.id), 'tab-schedule');
+  assert.equal(await page.locator('#tab-mine').getAttribute('aria-selected'), 'true');
 
-  await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole('tab', { name: 'Home' }).click();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: join(root, 'test-results/home-desktop.png'), fullPage: true });
@@ -167,7 +172,7 @@ try {
   await fullTabsPage.route('https://www.gstatic.com/**', route => route.abort());
   await fullTabsPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
   await fullTabsPage.getByRole('tab', { name: 'Admin' }).waitFor();
-  assert.equal(await fullTabsPage.getByRole('tab').count(), 4);
+  assert.equal(await fullTabsPage.getByRole('tab').count(), 3);
   assert.equal(await fullTabsPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
   await fullTabsPage.close();
 

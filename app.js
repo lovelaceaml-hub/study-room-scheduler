@@ -191,6 +191,11 @@ function selectedHomeDate() {
   if (dates.indexOf(ui.homeDate) === -1) ui.homeDate = dates.includes(todayISO()) ? todayISO() : dates[0];
   return ui.homeDate;
 }
+function isMobileTabLayout() {
+  if (!window.matchMedia) return false;
+  return window.matchMedia('(max-width: 680px)').matches;
+}
+function getVisibleTabs() { return isMobileTabLayout() ? TABS.filter(t => t.id !== 'schedule') : TABS; }
 function isSaturday(date) { return dateObj(date).getDay() === 6; }
 function isTuesday(date) { return dateObj(date).getDay() === 2; }
 function demoMode() { return new URLSearchParams(window.location.search).get('demo') === '1'; }
@@ -713,8 +718,8 @@ function render() {
 
   const tabs = document.getElementById('tabs');
   if (tabs) {
-    const visibleTabs = TABS;
-    if (!visibleTabs.some(t => t.id === ui.tab)) ui.tab = 'schedule';
+    const visibleTabs = getVisibleTabs();
+    if (!visibleTabs.some(t => t.id === ui.tab)) ui.tab = 'home';
     tabs.innerHTML = visibleTabs.map(t =>
       '<button id="tab-' + t.id + '" class="tab' + (ui.tab === t.id ? ' active' : '') + '" role="tab" aria-selected="' + (ui.tab === t.id ? 'true' : 'false') + '" tabindex="' + (ui.tab === t.id ? '0' : '-1') + '" aria-controls="app" data-act="tab" data-id="' + t.id + '">' + esc(t.label) + '</button>'
     ).join('');
@@ -834,9 +839,14 @@ function homeDaypartSegments(date, daypart) {
 }
 
 function homeDateControlsHtml(date) {
-  return '<div class="home-date-options" role="group" aria-label="Choose day overview date">' + upcomingBookingDates().map(option =>
-    '<button type="button" class="home-date-choice' + (option === date ? ' active' : '') + '" data-act="home-date" data-id="' + option + '" aria-pressed="' + (option === date ? 'true' : 'false') + '">' + esc((isTuesday(option) ? 'Tuesday' : 'Saturday') + ' · ' + fmtHeaderDate(option)) + '</button>'
-  ).join('') + '</div>';
+  const dates = upcomingBookingDates();
+  const index = dates.indexOf(date);
+  const automatic = shouldAutoApproveMemberBooking(date);
+  return '<div class="date-selector home-date-selector" role="group" aria-label="Choose home overview date">' +
+    '<button type="button" class="date-arrow" data-act="home-date-step" data-id="-1" aria-label="Previous overview date"' + (index <= 0 ? ' disabled' : '') + '><span aria-hidden="true">‹</span></button>' +
+    '<div class="date-current" aria-live="polite"><strong>' + (isTuesday(date) ? 'Tuesday' : 'Saturday') + ', ' + esc(fmtHeaderDate(date)) + '</strong><span>' + (automatic ? 'Confirmed instantly when open' : 'Approval required') + '</span></div>' +
+    '<button type="button" class="date-arrow" data-act="home-date-step" data-id="1" aria-label="Next overview date"' + (index >= dates.length - 1 ? ' disabled' : '') + '><span aria-hidden="true">›</span></button>' +
+    '</div>';
 }
 
 function homePendingRequestsHtml(date, type) {
@@ -867,8 +877,12 @@ function renderHome() {
   }
   const dates = upcomingBookingDates();
   const overviewDate = selectedHomeDate();
-  return '<section class="home-dashboard"><div class="member-intro"><div class="eyebrow">Home</div><h1>Find your study room time.</h1><p>Choose an open space in the day overview, then choose when it should end.</p></div>' +
+  let html = '<section class="home-dashboard"><div class="member-intro"><div class="eyebrow">Home</div><h1>Find your study room time.</h1><p>Choose an open space in the day overview, then choose when it should end.</p></div>' +
     homeDayOverviewHtml(overviewDate, ui.homeOverviewType) + activityFeedHtml(dates, true) + '</section>';
+  if (ui.signup) html += bookingModalHtml();
+  else if (ui.endPrompt) html += endTimePromptHtml();
+  else if (ui.availabilityDetails) html += availabilityDetailsHtml();
+  return html;
 }
 
 /* ---- Reservations tab ---- */
@@ -1237,7 +1251,7 @@ function reserveFromHomeOverview(el) {
   ui.availabilityConflict = null;
   ui.endPrompt = { date, type, start, windowIdx: periodIdx };
   ui.returnFocusKey = 'member-start-' + start;
-  ui.tab = 'schedule';
+  ui.tab = 'home';
   render();
 }
 
@@ -2062,7 +2076,8 @@ async function cleanupOldRecords() {
 
 function handleAction(act, el) {
   if (act === 'tab') {
-    ui.tab = el.dataset.id;
+    const nextTab = el.dataset.id;
+    ui.tab = isMobileTabLayout() && nextTab === 'schedule' ? 'home' : nextTab;
     ui.pinError = '';
     render();
     requestAnimationFrame(() => {
@@ -2103,6 +2118,14 @@ function handleAction(act, el) {
   if (act === 'home-date') {
     if (!upcomingBookingDates().includes(el.dataset.id)) return;
     ui.homeDate = el.dataset.id;
+    render();
+    return;
+  }
+  if (act === 'home-date-step') {
+    const dates = upcomingBookingDates();
+    const nextIndex = dates.indexOf(selectedHomeDate()) + Number(el.dataset.id || 0);
+    if (nextIndex < 0 || nextIndex >= dates.length) return;
+    ui.homeDate = dates[nextIndex];
     render();
     return;
   }
@@ -2365,6 +2388,15 @@ function init() {
       e.preventDefault();
       goHome();
     });
+  }
+  const mobileTabsMq = window.matchMedia ? window.matchMedia('(max-width: 680px)') : null;
+  const syncTabsForLayout = () => {
+    if (mobileTabsMq && mobileTabsMq.matches && ui.tab === 'schedule') ui.tab = 'home';
+    render();
+  };
+  if (mobileTabsMq) {
+    if (typeof mobileTabsMq.addEventListener === 'function') mobileTabsMq.addEventListener('change', syncTabsForLayout);
+    else if (typeof mobileTabsMq.addListener === 'function') mobileTabsMq.addListener(syncTabsForLayout);
   }
 
   if (demoMode()) return;
