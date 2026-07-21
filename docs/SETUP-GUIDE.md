@@ -9,9 +9,9 @@ The previous address, **https://lvz-rooms.web.app**, remains available and sends
 visitors to the shorter address automatically.
 
 The mobile, scheduling, TV, demo, and layout-refinement updates were deployed and
-live-verified on July 20, 2026. The current Home-first booking refinement—two-row Live
-updates, the one-date Home stepper, and no separate member Reservations tab—awaits its
-own verification and deployment.
+live-verified on July 20, 2026. The Home-first booking update—two-row Live updates, the
+one-date Home stepper, and no separate member Reservations tab—was deployed and
+live-verified on July 21, 2026.
 
 ## Open the member app
 
@@ -26,10 +26,9 @@ own verification and deployment.
    **Continue**, and complete the short name-and-purpose form.
 
 The member app has no separate **Sign up** screen. The time menus are divided around
-service periods, which cannot be selected. On the current branch, Home begins with two
-compact Live updates, then a Day overview split into expandable Morning, Afternoon, and
-Evening sections. Tapping an open Home slot starts the end-time choice without changing
-tabs.
+service periods, which cannot be selected. Home begins with two compact Live updates,
+then a Day overview split into expandable Morning, Afternoon, and Evening sections.
+Tapping an open Home slot starts the end-time choice without changing tabs.
 
 ## Install it on an iPhone
 

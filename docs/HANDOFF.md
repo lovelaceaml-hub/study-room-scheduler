@@ -16,12 +16,19 @@ availability controls into compact connected rows, and made the lobby TV study-r
 The deployed assets were checked at the primary address after release; Functions, Firestore rules,
 indexes, and the legacy redirect were unchanged.
 
-**Current branch, not deployed.** The Home-first redesign removes the member
-Reservations tab on every width. Home starts with two compact Live updates, then owns
+**July 21 Home-first release.** The Home-first redesign removes the member Reservations
+tab on every width. Home starts with two compact Live updates, then owns
 the one-date stepper, resource choice, daypart grids, start/end/availability/Continue
 flow, purpose-under-name cells, and explicit vertical-scroll cues. My reservations,
-Admin, policy, privacy, and the lobby TV stay unchanged. Verify and deploy this work
-separately before calling it live.
+Admin, policy, privacy, and the lobby TV stay unchanged. It was deployed and live-
+verified on July 21, 2026.
+
+Verification completed: `npm test` passed 13/13; `npm run test:ui`, the TV smoke test,
+and `git diff --check` passed; an independent re-review found no P0/P1 issues. The live
+member app was checked at 393×852 for three tabs, two Live-update rows, purpose in booked
+cells, Reserved privacy, the scroll cue, the end-time sheet, and no page overflow. Only
+the primary Hosting `app` target was deployed. Functions, Firestore rules, indexes,
+Authentication, and the legacy redirect were unchanged.
 
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1

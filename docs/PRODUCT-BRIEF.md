@@ -36,12 +36,12 @@ for every member, and makes the open/pending count a detail button for named ass
 and unassigned pending requests. It also adds an eligible-day setting and full
 browser-only mock data to the lobby TV.
 
-## Pending Home-first refinement
+## July 21 Home-first release
 
-The current branch makes Home the sole member booking surface at every width. It puts
+The July 21 release makes Home the sole member booking surface at every width. It puts
 two compact Live updates before the overview; uses a one-date arrow stepper; shows the
 public booking purpose beneath each occupied member/Admin map cell; and gives each
 daypart an explicit vertical-scroll cue. An open Home cell follows the complete
 start-to-end-to-availability-to-Continue path without a Reservations tab. My
 reservations, Admin, all approval policy, privacy boundaries, and the TV are unchanged.
-This refinement awaits verification and deployment.
+It was deployed and live-verified on July 21, 2026.

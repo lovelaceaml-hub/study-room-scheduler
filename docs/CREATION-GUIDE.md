@@ -18,7 +18,9 @@ verified initially on July 17, 2026; the compact dashboard and exact-time releas
 deployed and verified on July 19, 2026; and the mobile, scheduling, TV, and demo update
 was deployed and live-verified on July 20, 2026. The same day's Hosting-only layout
 refinement was also deployed and live-verified. The newer Home-first member-booking
-refinement is current-branch work and is not yet deployed.
+refinement was deployed and live-verified on July 21, 2026. That release deployed the
+primary Hosting `app` target only; Functions, Firestore rules, indexes, Authentication,
+and the legacy redirect were unchanged.
 
 ## Applied visual redesign
 
@@ -41,7 +43,7 @@ stepper and three daypart disclosures. On July 20, the compact two-column start 
 replaced with a vertical phone list that opens an immediate **When should it end?** prompt after a start is
 chosen, while retaining the exact end boundary. The deployed July 20 refinement makes
 that list compact connected time/availability rows, starts Home with a three-daypart Day
-overview, and narrows the lobby display to study-room availability. The current branch
+overview, and narrows the lobby display to study-room availability. The July 21 release
 moves member booking entirely into Home and removes that separate time-list surface.
 
 ## Architecture

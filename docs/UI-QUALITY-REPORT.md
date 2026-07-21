@@ -1,4 +1,4 @@
-# Study Rooms UI quality report — July 17–20, 2026
+# Study Rooms UI quality report — July 17–21, 2026
 
 ## July 20 mobile, approval, TV, and mock-preview verification
 
@@ -38,22 +38,24 @@ deployed `tv.js` contains the four study-room availability cards. Retain the exi
 limitation: the Firestore rule emulator cannot run on this Mac without Java, and
 automated/browser checks do not replace a first-time-member user study.
 
-## Pending Home-first booking verification
+## July 21 Home-first booking verification
 
-The current branch's Home-first redesign has not yet been verified or deployed. It
-removes the member Reservations tab at every width, places exactly two compact Live
+The Home-first redesign was deployed to **https://lvrooms.web.app** and live-verified
+on July 21, 2026. It removes the member Reservations tab at every width, places exactly two compact Live
 updates above Home's Day overview, uses a one-date arrow stepper, shows purpose beneath
 name in member/Admin booking cells, and adds visible vertical-scroll cues to expandable
 dayparts. An open Home cell must carry the member through exact start, end,
 availability-detail, and Continue states without changing tabs. My reservations, Admin,
 the booking policy, privacy boundaries, and the lobby TV are unchanged.
 
-Before deployment, verify this Home-only flow at 320×720, 390×844, and desktop widths;
-the absence of the Reservations tab; two-row feed limiting; date stepping; scroll cues;
-focus restoration to the originating cell; purpose rendering without private notes; and
-the existing conflict, service, policy, demo-isolation, accessibility, and TV suites.
-The Firestore rule emulator remains unavailable on this Mac without Java, and no formal
-first-time-member user study has been performed.
+`npm test` passed all **13 of 13** policy tests; `npm run test:ui`, the TV smoke test,
+and `git diff --check` passed. An independent re-review found no P0/P1 issues. The live
+member page was verified at **393×852** with exactly three tabs, two Live-update rows,
+purpose beneath the booked name, privacy-safe **Reserved** content, the daypart scroll
+cue, the end-time sheet, and no document-level overflow. Only the primary Hosting
+`app` target was deployed; Functions, Firestore rules, indexes, Authentication, and the
+legacy redirect were unchanged. The Firestore rule emulator remains unavailable on this
+Mac without Java, and no formal first-time-member user study has been performed.
 
 ## July 19 compact-dashboard verification
 

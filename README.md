@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — the July 20 mobile, scheduling, TV, demo, and layout-refinement updates are deployed; the Home-first member-booking refinement below awaits verification and deployment
+- **Status:** Live — the Home-first member-booking refinement was deployed and live-verified on July 21, 2026
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -19,8 +19,8 @@
   - [UI Quality Report](docs/UI-QUALITY-REPORT.md) — browser and accessibility verification
   - [All documents →](docs/)
 
-An installable study-room scheduling app for LV Zion. On the current Home-first branch,
-Home is the sole member booking surface on every screen size. It starts with two compact
+An installable study-room scheduling app for LV Zion. The July 21 Home-first update makes
+Home the sole member booking surface on every screen size. It starts with two compact
 Live updates, then offers a member-safe Day overview divided into expandable Morning,
 Afternoon, and Evening sections. Members use its one-date arrow stepper, choose Study
 room, Whiteboard, or TV, tap an open cell, choose an exact ending, inspect availability,
@@ -34,7 +34,7 @@ end-time sheet; after the ending is chosen, Home shows the range, availability d
 and **Continue** action.
 It also extends booking through **11:00 PM**, including 10:00 PM and 10:30 PM starts,
 adds a TV day picker, and provides full browser-only mock information for member and TV
-previews. The current branch removes the separate member Reservations tab, makes Live
+previews. The July 21 update removes the separate member Reservations tab, makes Live
 updates two compact rows above the Home overview, adds purpose beneath each occupied
 Home cell's name, and makes the daypart map's vertical scrolling explicit. My
 reservations, Admin, booking policy, privacy rules, and the study-room-only lobby TV
@@ -50,5 +50,6 @@ half-hour to the selected end, and remain separated by service periods. The refi
 lobby TV continues to show service bands in its study-room timetable.
 
 The primary address, lobby TV, secure Admin backend, and permanent redirect from the
-former address are live. The Home-first member-booking refinement is not yet part of the
-deployed release.
+former address are live. The July 21 release passed its policy, member UI, TV-smoke, and
+diff checks; it deployed the primary Hosting `app` target only. Functions, Firestore
+rules, indexes, Authentication, and the legacy redirect were unchanged.
