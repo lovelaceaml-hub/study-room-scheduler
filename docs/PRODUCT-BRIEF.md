@@ -9,7 +9,7 @@
 
 ## Main tasks
 
-1. Check personal reservation notifications, current room activity, a member-safe day overview, and recent schedule updates.
+1. Check two recent schedule updates, then see current room activity in a member-safe Home day overview.
 2. Reserve a study room, whiteboard, or TV for an exact available range.
 3. Review assignments and pending requests, then assign, approve, decline, or cancel reservations when needed.
 4. Choose the day shown on the lobby TV and inspect a full mock schedule safely.
@@ -35,3 +35,13 @@ phones, uses an immediate end-time prompt, puts the Admin-style day overview on 
 for every member, and makes the open/pending count a detail button for named assignments
 and unassigned pending requests. It also adds an eligible-day setting and full
 browser-only mock data to the lobby TV.
+
+## Pending Home-first refinement
+
+The current branch makes Home the sole member booking surface at every width. It puts
+two compact Live updates before the overview; uses a one-date arrow stepper; shows the
+public booking purpose beneath each occupied member/Admin map cell; and gives each
+daypart an explicit vertical-scroll cue. An open Home cell follows the complete
+start-to-end-to-availability-to-Continue path without a Reservations tab. My
+reservations, Admin, all approval policy, privacy boundaries, and the TV are unchanged.
+This refinement awaits verification and deployment.

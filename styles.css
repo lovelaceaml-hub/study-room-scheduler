@@ -257,7 +257,7 @@ button.member-square { cursor: pointer; font: inherit; }
 .activity-row.approved strong { color: var(--ok); }
 .activity-row.pending strong { color: var(--warn); }
 .activity-row.cancelled strong { color: var(--danger); }
-.dashboard-feed .activity-list { max-height: 270px; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.dashboard-feed .activity-list { max-height: none; overflow: visible; padding-right: 0; }
 
 /* ---------- requests / my reservations ---------- */
 .req-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -420,11 +420,10 @@ nav[aria-label="Primary"] .tabs { padding: 8px 14px; }
 .home-section-head h2 { margin: 1px 0 0; }
 .home-day-overview { padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-card); }
 .home-day-overview .home-section-head { align-items: flex-start; }
-.home-day-overview .section-note { max-width: 46ch; margin: 5px 0 10px; }
 .home-daypart-list { display: grid; gap: 7px; margin-top: 10px; }
 .home-daypart { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
 .home-daypart[open] { border-color: var(--primary); }
-.home-daypart > summary { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; cursor: pointer; list-style: none; }
+.home-daypart > summary { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; cursor: pointer; list-style: none; }
 .home-daypart > summary::-webkit-details-marker { display: none; }
 .home-daypart > summary::after { content: "+" / ""; color: var(--accent); font-size: 18px; }
 .home-daypart[open] > summary::after { content: "−" / ""; }
@@ -432,7 +431,37 @@ nav[aria-label="Primary"] .tabs { padding: 8px 14px; }
 .home-daypart summary strong { color: var(--ink); font-size: var(--fs-sm); }
 .home-daypart summary small, .home-daypart-summary { color: var(--ink-soft); font-size: 11px; font-weight: 600; }
 .home-daypart-summary { margin-left: auto; color: var(--primary); font-weight: 750; }
-.home-daypart .home-day-map { max-height: 330px; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+.home-day-map-wrap { position: relative; }
+.home-daypart .home-day-map {
+  max-height: 330px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+.home-scroll-cue {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  max-width: calc(100% - 16px);
+  padding: 4px 7px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  pointer-events: none;
+}
+.home-scroll-cue[hidden] { display: none; }
+.home-range-controls { margin-top: 10px; }
+.home-day-map .member-square { min-height: 52px; }
+.home-occupied-cell { align-content: center; gap: 1px; }
+.home-cell-name, .home-cell-purpose { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-cell-name { font-size: 10px; font-weight: 800; }
+.home-cell-purpose { color: var(--ink-faint); font-size: 8px; font-weight: 700; }
 .home-pending-requests { margin-top: 12px; }
 .home-pending-requests h3 { margin: 0 0 8px; font-size: var(--fs-sm); }
 .home-pending-requests .hint { margin: 0; }
@@ -668,6 +697,11 @@ button.availability-select { cursor: pointer; }
 .reservation-kicker { color: var(--accent); font-size: 11px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
 .reservation-time { margin: 4px 0 7px; font-size: 23px; font-weight: 750; line-height: 1.12; }
 .activity-list { display: grid; }
+.dashboard-feed { margin: 0 0 2px; padding: 10px 14px; }
+.dashboard-feed .activity-title { margin-bottom: 3px; }
+.dashboard-feed .activity-row { padding: 7px 0; gap: 8px; }
+.dashboard-feed .activity-row strong { font-size: 12px; }
+.dashboard-feed .activity-row span, .dashboard-feed .activity-row time { font-size: 10px; }
 .activity-row { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 0; }
 .activity-row > div { min-width: 0; }
 .activity-row strong, .activity-row span { display: block; }
@@ -727,7 +761,7 @@ button.availability-select { cursor: pointer; }
   nav[aria-label="Primary"] .tabs { padding: 6px 8px max(9px,env(safe-area-inset-bottom)); }
   .tab { min-height: 48px; padding: 3px 3px; border: 0; background: transparent; font-size: 10px; line-height: 1.05; white-space: normal; overflow-wrap: anywhere; }
   .tab::before { display: block; margin: 0 auto 2px; color: currentColor; font-size: 17px; line-height: 18px; }
-  .tab[data-id="home"]::before { content: "⌂" / ""; }.tab[data-id="schedule"]::before { content: "▦" / ""; }.tab[data-id="mine"]::before { content: "≡" / ""; }.tab[data-id="admin"]::before { content: "◇" / ""; }
+  .tab[data-id="home"]::before { content: "⌂" / ""; }.tab[data-id="mine"]::before { content: "≡" / ""; }.tab[data-id="admin"]::before { content: "◇" / ""; }
   .tab.active { background: transparent; color: var(--primary); box-shadow: none; }
   .wrap { padding: 12px 12px 112px; }
   #banners { bottom: 84px; }
@@ -750,6 +784,10 @@ button.availability-select { cursor: pointer; }
   .date-choice { padding-inline: 8px; }
   .member-resource { font-size: 12px; }
   .member-selection-summary { gap: 5px; padding-inline: 8px; }
+  .home-day-map .member-calendar-grid { min-width: 258px; }
+  .home-day-map .member-calendar-row { grid-template-columns: 64px minmax(194px, 1fr); }
+  .home-day-map .member-time { padding-inline: 4px; font-size: 12px; }
+  .home-day-map .member-square { min-width: 44px; }
 }
 
 @media (max-width: 250px) {

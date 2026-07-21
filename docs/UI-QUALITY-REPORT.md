@@ -11,7 +11,7 @@ view, and fixture-only member, Admin, and TV previews.
 `npm test` passed all **13 of 13** policy tests. `npm run test:ui` passed at
 390×844 and 320×720, including axe checks with no violations, keyboard navigation,
 dialog focus restoration, Home date/resource controls and pending-request rendering,
-Home-to-Reservations handoff, and member demo isolation. `node test/tv-smoke.mjs`
+Home open-slot handoff, and member demo isolation. `node test/tv-smoke.mjs`
 passed at 1280×720 and 1920×1080, covering the eligible-date selector and URL,
 selected-date cache/subscription behavior, future-day time-marker suppression,
 privacy-safe names, late-evening scale, and Firebase-free TV fixtures.
@@ -37,6 +37,23 @@ The release check confirmed the deployed `app.js` contains the Daypart overview 
 deployed `tv.js` contains the four study-room availability cards. Retain the existing
 limitation: the Firestore rule emulator cannot run on this Mac without Java, and
 automated/browser checks do not replace a first-time-member user study.
+
+## Pending Home-first booking verification
+
+The current branch's Home-first redesign has not yet been verified or deployed. It
+removes the member Reservations tab at every width, places exactly two compact Live
+updates above Home's Day overview, uses a one-date arrow stepper, shows purpose beneath
+name in member/Admin booking cells, and adds visible vertical-scroll cues to expandable
+dayparts. An open Home cell must carry the member through exact start, end,
+availability-detail, and Continue states without changing tabs. My reservations, Admin,
+the booking policy, privacy boundaries, and the lobby TV are unchanged.
+
+Before deployment, verify this Home-only flow at 320×720, 390×844, and desktop widths;
+the absence of the Reservations tab; two-row feed limiting; date stepping; scroll cues;
+focus restoration to the originating cell; purpose rendering without private notes; and
+the existing conflict, service, policy, demo-isolation, accessibility, and TV suites.
+The Firestore rule emulator remains unavailable on this Mac without Java, and no formal
+first-time-member user study has been performed.
 
 ## July 19 compact-dashboard verification
 
@@ -109,8 +126,9 @@ day.
   half-hour.
 - Whole-range capacity is calculated from a unit that remains open throughout the
   complete range, not independent half-hour counts.
-- An open Home slot carries its date, resource, and highlighted start into Reservations;
-  Clear and the end-time sheet both preserve understandable recovery paths.
+- An open Home slot carries its date, resource, and highlighted start into the exact
+  end-time flow; Clear and the end-time sheet both preserve understandable recovery
+  paths.
 - Tuesday is instant when open. Saturday is instant only for a request submitted on that
   Saturday at or after 10:00 AM Los Angeles time; advance and pre-10:00 AM Saturday
   requests remain pending.

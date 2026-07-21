@@ -8,25 +8,30 @@ https://lvz-rooms.web.app, forwards there automatically.)
 
 > Release note: the mobile, approval, TV-day-picker, expanded mock-data, simplified
 > Home, compact reservation rows, and study-room-focused TV changes below were deployed
-> and live-verified on July 20, 2026.
+> and live-verified on July 20, 2026. The Home-first booking changes described below
+> are current-branch work awaiting verification and deployment.
 
 ## For members
 
 ### Home dashboard
 
-The app opens on **Home**. Its Day overview is the first feature, showing Study Rooms
-1–4 by default. Choose **Whiteboard** or **TV** when you want those unit details. Open
-the expandable **Morning**, **Afternoon**, or **Evening** section to see the applicable
-service band and half-hour room grid. An open time is a button: it opens
-**Reservations** with that day, resource, and start time highlighted, ready for the
-member to choose an ending. Occupied and service cells remain informational.
+The app opens on **Home**, which is the only member booking screen on phone and desktop.
+It begins with two compact **Live updates** rows showing the newest Requested, Reserved,
+or Cancelled activity. Below them is the Day overview, showing Study Rooms 1–4 by
+default. Choose **Whiteboard** or **TV** when you want those unit details, use the
+single-date arrows to choose Tuesday or Saturday, then open **Morning**, **Afternoon**,
+or **Evening**. Each section shows its service band and half-hour grid, with a visible
+scroll cue when more times are below. Occupied cells show the member name and purpose;
+service cells remain informational.
 
-**Live updates** is a scrollable box containing the latest Requested, Reserved, and
-Cancelled activity. It updates automatically without making the page grow indefinitely.
+Tap an open cell to choose its start. Answer **When should it end?**, review the exact
+range and availability, then tap **Continue** for the name-and-purpose form. The
+availability details keep pending requests explicitly unassigned until Admin approves
+one.
 
 ### Choose a day
 
-Reservations offers only two dates:
+Home's one-date arrow stepper offers only two dates:
 
 - The upcoming Tuesday.
 - The upcoming Saturday.
@@ -37,8 +42,8 @@ between them. The selected date controls every availability and time shown below
 
 ### Choose a time
 
-Open **Reservations**, then choose Tuesday or Saturday. Reservations is the member
-booking screen. The selected date also stays the same when you move to Admin.
+Choose Tuesday or Saturday on Home, then choose the resource type you need. The selected
+Home date is independent of the date Admin is reviewing.
 
 Choose one of these resource types:
 
@@ -48,10 +53,9 @@ Choose one of these resource types:
 
 The Baptism Room is no longer part of scheduling and will not appear as an option.
 
-Use the **Study room**, **Whiteboard**, or **TV** picker above the time menus. Open
-**Morning**, **Afternoon**, or **Evening**, then use one compact, visually connected
-row for each start time. Tap the time portion to start, or the attached availability
-portion to inspect the open/full details. A small prompt asks **When should it end?**
+Use the **Study room**, **Whiteboard**, or **TV** picker above the Day overview. Open
+**Morning**, **Afternoon**, or **Evening**, scroll within that section when its cue says
+there are more times, and tap an open cell. A small prompt asks **When should it end?**
 Choose the exact ending.
 
 The availability result includes a button with the open and pending totals. Tap it to
@@ -67,7 +71,7 @@ Slots are 30 minutes long. Booking begins at **10:00 AM** and the final reservab
 is **10:30–11:00 PM**. The evening list therefore includes **10:00 PM** and **10:30 PM**
 as start times.
 
-The reservation menus are divided around these service periods:
+The Home overview is divided around these service periods:
 
 - **Tuesday:** 8:00–9:00 PM.
 - **Saturday:** 9:00–10:00 AM, 3:00–4:00 PM, and 8:00–9:00 PM.
@@ -77,9 +81,9 @@ or cross through one. The lobby TV still shows each service as a labeled timetab
 
 ### Request a room or equipment
 
-1. Open **Reservations**, use the arrows to choose Tuesday or Saturday, and choose the resource type.
-2. Open Morning, Afternoon, or Evening.
-3. Tap the listed **Start time**, then answer **When should it end?** with the exact
+1. On **Home**, use the arrows to choose Tuesday or Saturday and choose the resource type.
+2. Open Morning, Afternoon, or Evening; use the scroll cue when more times are below.
+3. Tap an open **Start time**, then answer **When should it end?** with the exact
    **End time**. Choosing 10:00 AM and
    11:30 AM creates a 10:00–11:30 AM reservation—not 10:00 AM–12:00 PM.
 4. Tap the open/pending totals if you need to see numbered assignments and unassigned
@@ -95,8 +99,9 @@ available in the selected time slot. When the same start has a shorter open rang
 asks whether you want that shorter ending instead. Choose **Yes** to use it or **No**
 to choose another time.
 
-There is no separate **Sign up** screen. Starting with the calendar makes the time
-you are requesting clear before you fill in the rest of the information.
+There is no separate **Reservations** or **Sign up** screen. Starting from Home's day
+map makes the time you are requesting clear before you fill in the rest of the
+information.
 
 The app shows a real saving message. When the online database confirms the request,
 the app says it was saved. If saving fails, it explains that the request was not

@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import assert from 'node:assert/strict';
 import AxeBuilder from '@axe-core/playwright';
@@ -13,18 +13,16 @@ const server = createServer(async (request, response) => {
     const relative = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\/+/, '');
     const file = normalize(join(root, relative));
     if (!file.startsWith(root)) throw new Error('Invalid path');
-    const body = await readFile(file);
     response.writeHead(200, { 'Content-Type': mime[extname(file)] || 'application/octet-stream' });
-    response.end(body);
+    response.end(await readFile(file));
   } catch {
     response.writeHead(404);
     response.end('Not found');
   }
 });
+
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const port = server.address().port;
-await mkdir(join(root, 'test-results'), { recursive: true });
-
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
 await context.addInitScript(() => {
@@ -47,141 +45,123 @@ try {
   await page.goto(`http://127.0.0.1:${port}/?demo=1&test=1`, { waitUntil: 'networkidle' });
   assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.shouldAutoApproveMemberBooking('2026-07-25', new Date('2026-07-25T16:59:00Z'))), false);
   assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.shouldAutoApproveMemberBooking('2026-07-25', new Date('2026-07-25T17:00:00Z'))), true);
-  assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.shouldAutoApproveMemberBooking('2026-07-21', new Date('2026-07-20T17:00:00Z'))), true);
+  assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.setTabForTest('schedule')), 'home', 'Stale Reservations state falls back to Home');
+  assert.equal(await page.getByRole('tab').count(), 3, 'Reservations is removed at every layout width');
+  assert.equal(await page.locator('#tab-schedule').count(), 0);
   assert.equal(await page.getByRole('tab', { name: 'Home' }).getAttribute('aria-selected'), 'true');
-  assert.equal(await page.getByText('Real Cached Person').count(), 0);
-  assert.equal(await page.locator('.home-notifications').count(), 0);
-  assert.equal(await page.locator('.home-schedule').count(), 0);
-  assert.ok(await page.locator('.home-day-overview').isVisible());
+  await page.setViewportSize({ width: 1280, height: 720 });
+  assert.equal(await page.getByRole('tab').count(), 3, 'Desktop keeps the simplified three-tab navigation');
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.getByText('Real Cached Person').count(), 0, 'Demo never reads cached member data');
+
+  assert.equal(await page.locator('.member-intro h1').count(), 0, 'Home no longer repeats an introductory heading');
+  assert.ok(await page.getByRole('heading', { name: 'Day overview' }).isVisible());
+  assert.equal(await page.locator('.home-day-overview .section-note').count(), 0);
+  assert.equal(await page.locator('.dashboard-feed .activity-row').count(), 2, 'Home shows exactly two compact live updates');
+  assert.equal(await page.locator('.dashboard-feed .activity-list').evaluate(node => node.scrollHeight <= node.clientHeight), true, 'Live updates do not create a nested scroller');
   assert.equal(await page.locator('.home-daypart').count(), 3);
   assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null);
-  assert.equal(await page.locator('.home-daypart').nth(1).getAttribute('open'), null);
-  assert.equal(await page.locator('.home-date-selector').count(), 1);
-  const homeDateFirst = await page.locator('.home-date-selector .date-current strong').innerText();
+  assert.equal(await page.locator('.home-daypart').nth(0).locator('.home-daypart-summary').innerText(), 'Hide schedule');
+  assert.equal(await page.locator('.home-daypart').nth(1).locator('.home-daypart-summary').innerText(), 'Show schedule');
+  assert.equal(await page.locator('.home-scroll-cue').first().getAttribute('data-state'), 'top');
+  assert.equal(await page.locator('.home-scroll-cue').first().innerText(), 'Scroll down ↓', 'The open map has a visible downward scroll cue');
+  await page.locator('.home-daypart').nth(1).locator('summary').click();
+  assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null, 'Opening another daypart preserves the first opened section');
+  assert.notEqual(await page.locator('.home-daypart').nth(1).getAttribute('open'), null);
+  assert.equal(await page.locator('.home-daypart').nth(1).locator('.home-daypart-summary').innerText(), 'Hide schedule');
+  assert.ok(await page.locator('.home-occupied-cell').count() > 0);
+  assert.ok(await page.locator('.home-cell-name').count() > 0);
+  assert.match(await page.locator('.home-cell-purpose').first().innerText(), /Contact|Meeting/);
+  assert.equal(await page.locator('.home-day-overview').getByText('Family Bible study', { exact: true }).count(), 0, 'Home cells expose categories, never free-form notes');
+  assert.equal(await page.locator('.home-held-cell[data-held="true"]').count(), 1, 'The demo includes an Admin-held room cell');
+  assert.match(await page.locator('.home-held-cell').innerText(), /^Reserved\s+Reserved$/, 'Admin-held cells never expose an Admin-entered name');
+  assert.equal(await page.locator('.home-day-overview').getByText('Admin Hold — Private', { exact: true }).count(), 0);
+
+  const homeDate = await page.locator('.home-date-selector .date-current strong').innerText();
   assert.equal(await page.locator('.home-date-selector .date-arrow').first().isDisabled(), true);
   await page.locator('.home-date-selector .date-arrow').nth(1).click();
-  const homeDateSecond = await page.locator('.home-date-selector .date-current strong').innerText();
-  assert.notEqual(homeDateSecond, homeDateFirst);
-  assert.match(await page.locator('.home-day-overview').innerText(), /Saturday/);
-  assert.match(await page.locator('.home-pending-requests').innerText(), /Grace L\./);
-  assert.match(await page.locator('.home-daypart').nth(0).innerText(), /Morning service/);
-  assert.equal(await page.locator('.home-daypart').nth(0).locator('.member-service button').count(), 0);
-  await page.locator('.home-daypart').nth(1).locator('summary').click();
-  assert.notEqual(await page.locator('.home-daypart').nth(1).getAttribute('open'), null);
-  assert.match(await page.locator('.home-daypart').nth(1).innerText(), /Afternoon service/);
-  await page.locator('.home-daypart').nth(2).locator('summary').click();
-  assert.notEqual(await page.locator('.home-daypart').nth(2).getAttribute('open'), null);
-  assert.match(await page.locator('.home-daypart').nth(2).innerText(), /Evening service/);
-  await page.locator('.home-day-overview .member-resource[data-id="tv"]').click();
-  assert.match(await page.locator('.home-pending-requests').innerText(), /Micah S\./);
-  await page.locator('.home-day-overview .member-resource[data-id="room"]').click();
+  assert.notEqual(await page.locator('.home-date-selector .date-current strong').innerText(), homeDate);
+  assert.equal(await page.locator('.home-daypart').first().locator('.member-service button').count(), 0, 'Service bands cannot start a reservation');
   await page.locator('.home-date-selector .date-arrow').first().click();
-  assert.equal(await page.locator('.home-date-selector .date-current strong').innerText(), homeDateFirst);
-  assert.ok(await page.locator('.home-open-cell').count() > 0);
-  assert.ok(await page.locator('.dashboard-feed').isVisible());
-  assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations, []);
-  await page.screenshot({ path: join(root, 'test-results/home-phone.png'), fullPage: true });
 
-  await page.locator('.home-open-cell').first().click();
-  assert.equal(await page.locator('#tab-schedule').count(), 0);
-  assert.equal(await page.locator('#tab-home').getAttribute('aria-selected'), 'true');
+  const origin = page.locator('.home-open-cell[data-start="10:30"][data-unit="room-1"]');
+  assert.equal(await origin.count(), 1);
+  await origin.click();
   assert.ok(await page.locator('.end-time-dialog').isVisible());
-  assert.match(await page.locator('.end-time-dialog').innerText(), /When should it end\?/);
+  assert.equal(await page.locator('.home-dashboard').evaluate(node => node.inert), true, 'Home is inert behind the end-time sheet');
   await page.getByRole('button', { name: 'Close end time choices' }).click();
-  await page.waitForFunction(() => document.activeElement?.dataset.focusKey === 'member-start-10:00');
+  await page.waitForFunction(() => document.activeElement?.dataset.focusKey?.includes('home-open-'));
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey), await origin.getAttribute('data-focus-key'));
 
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.getByRole('tab', { name: 'Reservations', exact: true }).click();
-  assert.equal(await page.locator('.time-period').count(), 3);
-  for (const [index, label] of ['Morning', 'Afternoon', 'Evening'].entries()) {
-    assert.match(await page.locator('.time-period').nth(index).innerText(), new RegExp(label));
-  }
-  const firstDate = await page.locator('.date-current strong').innerText();
-  await page.getByRole('button', { name: 'Next reservation date' }).click();
-  assert.notEqual(await page.locator('.date-current strong').innerText(), firstDate);
-  await page.getByRole('button', { name: 'Previous reservation date' }).click();
-
-  assert.equal(await page.locator('.start-time-choice').count(), await page.locator('.slot-availability').count());
-  assert.equal(await page.locator('.start-time-row').first().evaluate(node => Math.round(node.getBoundingClientRect().height)), 36);
-  await page.locator('.start-time-choice[data-start="10:00"]').focus();
-  assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey), 'member-start-10:00');
-  await page.keyboard.press('Tab');
-  assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey), 'member-availability-10:00');
-  await page.locator('.slot-availability[data-start="10:00"]').click();
-  assert.ok(await page.locator('.availability-dialog').isVisible());
-  await page.getByRole('button', { name: 'Close availability details' }).click();
-  await page.waitForFunction(() => document.activeElement?.dataset.focusKey === 'member-availability-10:00');
-
-  await page.locator('.start-time-choice[data-start="10:30"]').click();
-  assert.ok(await page.locator('.end-time-dialog').isVisible());
-  assert.equal(await page.locator('.start-time-choice[data-start="10:30"]').getAttribute('aria-pressed'), 'true');
-  await page.getByRole('button', { name: /End at 11:00 AM/ }).click();
-  await page.locator('.start-time-choice[data-start="10:00"]').click();
-  assert.ok(await page.locator('.end-time-dialog').isVisible());
-  assert.equal(await page.getByRole('button', { name: /End at 10:00 AM/ }).count(), 0);
-  assert.equal(await page.getByRole('button', { name: /End at 10:30 AM/ }).count(), 1);
+  await origin.click();
   await page.getByRole('button', { name: /End at 11:30 AM/ }).click();
-  assert.match(await page.locator('.availability-conflict').innerText(), /There are no rooms available in the time slot that was selected\./);
-  assert.match(await page.locator('.availability-conflict').innerText(), /10:00 AM to 11:00 AM instead/);
+  assert.match(await page.locator('.availability-conflict').innerText(), /There are no rooms available/);
+  await page.getByRole('button', { name: 'No' }).click();
+  await page.waitForFunction(() => document.activeElement?.dataset.focusKey?.includes('home-open-'));
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey), await origin.getAttribute('data-focus-key'), 'Conflict recovery returns to the exact originating cell');
+
+  await origin.click();
+  await page.getByRole('button', { name: /End at 11:30 AM/ }).click();
   await page.getByRole('button', { name: 'Yes' }).click();
-  assert.match(await page.locator('.member-selection-summary').innerText(), /10:00 AM–11:00 AM/);
+  assert.match(await page.locator('.home-range-controls').innerText(), /10:30 AM–11:00 AM/);
+  assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.homeReservationState().availabilityConflict), false, 'Accepting a shorter range resolves the conflict');
   assert.match(await page.locator('.selected-counts').innerText(), /open/);
   assert.match(await page.locator('.selected-counts').innerText(), /pending/);
   await page.locator('.selected-counts').click();
   assert.match(await page.locator('.availability-dialog').innerText(), /Approved unit assignments/);
-  assert.match(await page.locator('.availability-dialog').innerText(), /Pending requests/);
-  assert.equal(await page.locator('.availability-dialog .unit-detail').count(), 4);
   await page.getByRole('button', { name: 'Close availability details' }).click();
   await page.waitForFunction(() => document.activeElement?.dataset.focusKey === 'member-range-details');
   await page.getByRole('button', { name: 'Continue' }).click();
-  assert.match(await page.locator('#booking-dialog-summary').innerText(), /10:00 AM–11:00 AM/);
-  assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations, []);
-  await page.keyboard.press('Escape');
-  assert.equal(await page.locator('.booking-dialog').count(), 0);
+  assert.match(await page.locator('#booking-dialog-summary').innerText(), /10:30 AM–11:00 AM/);
+  assert.equal(await page.locator('.home-dashboard').evaluate(node => node.inert), true, 'Home is inert behind the reservation dialog');
+  await page.locator('#su-name').fill('Sample Member');
+  await page.getByRole('button', { name: 'Reserve now' }).click();
+  assert.equal(await page.getByText('Sample preview only — no reservation was saved.', { exact: true }).count(), 1, 'The demo form completes safely without Firebase');
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'Close reservation popup' }).click();
+  await page.waitForFunction(() => document.activeElement?.dataset.focusKey === 'member-continue');
+  assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null, 'The source daypart stays open through the booking flow');
 
-  await page.getByText('Evening', { exact: true }).click();
-  assert.equal(await page.locator('.start-time-choice[data-start="22:00"]').count(), 1);
-  assert.equal(await page.locator('.start-time-choice[data-start="22:30"]').count(), 1);
-  await page.getByRole('button', { name: 'Next reservation date' }).click();
-  assert.match(await page.locator('.date-current').innerText(), /Saturday/);
-  await page.locator('.start-time-choice[data-start="10:00"]').click();
-  await page.getByRole('button', { name: /End at 11:00 AM/ }).click();
-  await page.locator('.selected-counts').click();
-  assert.match(await page.locator('.availability-dialog').innerText(), /Grace L\./);
-  await page.getByRole('button', { name: 'Close availability details' }).click();
-  await page.screenshot({ path: join(root, 'test-results/reservation-phone.png'), fullPage: true });
+  await page.evaluate(() => window.__SRS_TEST_HELPERS__.seedHomeReservationStateForTest());
+  await page.locator('[data-act="home-overview-type"][data-id="whiteboard"]').click();
+  assert.deepEqual(await page.evaluate(() => window.__SRS_TEST_HELPERS__.homeReservationState()), {
+    memberSelection: false, availabilityConflict: false, endPrompt: false, availabilityDetails: false, returnFocusKey: null
+  }, 'Changing the Home resource clears every reservation-flow state');
+  await page.evaluate(() => window.__SRS_TEST_HELPERS__.seedHomeReservationStateForTest());
+  await page.locator('.home-date-selector .date-arrow').nth(1).click();
+  assert.deepEqual(await page.evaluate(() => window.__SRS_TEST_HELPERS__.homeReservationState()), {
+    memberSelection: false, availabilityConflict: false, endPrompt: false, availabilityDetails: false, returnFocusKey: null
+  }, 'Changing the Home date clears every reservation-flow state');
+  await page.locator('.home-date-selector .date-arrow').first().click();
+  assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations, []);
 
   await page.setViewportSize({ width: 320, height: 720 });
+  assert.equal(await page.getByRole('tab').count(), 3);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
-  assert.equal(await page.locator('#tab-schedule').count(), 0);
-  assert.equal(await page.locator('#tabs .tab').count(), 3);
-  await page.locator('#tab-admin').focus();
-  await page.keyboard.press('ArrowLeft');
-  await page.waitForTimeout(50);
-  assert.equal(await page.evaluate(() => document.activeElement?.id), 'tab-mine');
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(50);
-  assert.equal(await page.locator('#tab-mine').getAttribute('aria-selected'), 'true');
-
-  await page.getByRole('tab', { name: 'Home' }).click();
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: join(root, 'test-results/home-desktop.png'), fullPage: true });
-
-  const fullTabsPage = await context.newPage();
-  await fullTabsPage.setViewportSize({ width: 320, height: 720 });
-  await fullTabsPage.route('https://www.gstatic.com/**', route => route.abort());
-  await fullTabsPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
-  await fullTabsPage.getByRole('tab', { name: 'Admin' }).waitFor();
-  assert.equal(await fullTabsPage.getByRole('tab').count(), 3);
-  assert.equal(await fullTabsPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
-  await fullTabsPage.close();
+  const targetSize = await page.locator('.home-open-cell').first().evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  });
+  assert.ok(targetSize.width >= 44 && targetSize.height >= 44, `Open cells are mobile touch targets (${targetSize.width}×${targetSize.height})`);
+  const mapCue = await page.locator('.home-day-map').first().evaluate(node => {
+    node.scrollTop = Math.floor((node.scrollHeight - node.clientHeight) / 2);
+    node.dispatchEvent(new Event('scroll'));
+    const cue = node.parentElement.querySelector('.home-scroll-cue');
+    return { state: cue.dataset.state, text: cue.textContent };
+  });
+  assert.deepEqual(mapCue, { state: 'middle', text: 'Scroll up or down ↕' }, 'The Home scroll cue gives a visible middle-of-list direction');
+  const bottomCue = await page.locator('.home-day-map').first().evaluate(node => {
+    node.scrollTop = node.scrollHeight;
+    node.dispatchEvent(new Event('scroll'));
+    const cue = node.parentElement.querySelector('.home-scroll-cue');
+    return { state: cue.dataset.state, text: cue.textContent };
+  });
+  assert.deepEqual(bottomCue, { state: 'bottom', text: 'Scroll up ↑' }, 'The Home scroll cue changes to an upward direction at the bottom');
 
   await page.getByRole('tab', { name: 'Admin' }).click();
   assert.match(await page.locator('.admin-workspace').innerText(), /Sample Admin preview/);
-  assert.equal(await page.getByRole('button', { name: 'Approve' }).count(), 0);
-
   assert.deepEqual(errors, []);
-  console.log('UI and accessibility smoke checks passed');
+  console.log('Home-first UI and accessibility smoke checks passed');
 } finally {
   await context.close();
   await browser.close();

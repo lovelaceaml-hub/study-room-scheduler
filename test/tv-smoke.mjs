@@ -23,6 +23,15 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const port = server.address().port;
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+await page.addInitScript(() => {
+  const RealDate = Date;
+  const fixedTime = '2026-07-20T12:00:00-07:00';
+  class FixedDate extends RealDate {
+    constructor(...args) { super(...(args.length ? args : [fixedTime])); }
+    static now() { return new RealDate(fixedTime).valueOf(); }
+  }
+  window.Date = FixedDate;
+});
 const blockedFirebaseRequests = [];
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));

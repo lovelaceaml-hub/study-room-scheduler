@@ -9,8 +9,9 @@ The previous address, **https://lvz-rooms.web.app**, remains available and sends
 visitors to the shorter address automatically.
 
 The mobile, scheduling, TV, demo, and layout-refinement updates were deployed and
-live-verified on July 20, 2026. Home now starts with the simplified day overview,
-Reservations uses compact connected rows, and the lobby TV is study-room-focused.
+live-verified on July 20, 2026. The current Home-first booking refinement—two-row Live
+updates, the one-date Home stepper, and no separate member Reservations tab—awaits its
+own verification and deployment.
 
 ## Open the member app
 
@@ -18,18 +19,17 @@ Reservations uses compact connected rows, and the lobby TV is study-room-focused
 2. Go to **https://lvrooms.web.app**.
 3. The app opens without an account screen. It quietly identifies the device so each
    member can manage only their own new requests.
-4. To make a request, open **Reservations**, use the arrows to choose Tuesday or
-   Saturday, select Study room, Whiteboard, or TV, and open Morning, Afternoon, or
-Evening. Tap the time side of a compact connected row, answer **When should it end?**
-with the exact ending, tap **Continue**, and complete the short name-and-purpose form.
-Tap the attached availability side instead when you want to inspect who has rooms or
-which requests are pending.
+4. To make a request, stay on **Home**, use its arrows to choose Tuesday or Saturday,
+   select Study room, Whiteboard, or TV, and open Morning, Afternoon, or Evening. Use
+   the visible scroll cue when more times are below, tap an open cell, answer **When
+   should it end?** with the exact ending, inspect availability if needed, tap
+   **Continue**, and complete the short name-and-purpose form.
 
 The member app has no separate **Sign up** screen. The time menus are divided around
-service periods, which cannot be selected. On the current branch, Home begins with a
-live Day overview split into expandable Morning, Afternoon, and Evening sections, then
-shows the scrollable update feed. Tapping an open Home slot takes the member straight to
-Reservations with that time ready for an end-time choice.
+service periods, which cannot be selected. On the current branch, Home begins with two
+compact Live updates, then a Day overview split into expandable Morning, Afternoon, and
+Evening sections. Tapping an open Home slot starts the end-time choice without changing
+tabs.
 
 ## Install it on an iPhone
 

@@ -11,10 +11,17 @@ scheduler were deployed and verified on July 19, 2026.
 
 **Live layout refinement.** The July 20 Hosting-only release also removed Home's
 device-specific notification and current/next-summary cards, made its Day overview
-expandable by Morning/Afternoon/Evening, combined the Reservations time and availability
-controls into compact connected rows, and made the lobby TV study-room-only. The deployed
-assets were checked at the primary address after release; Functions, Firestore rules,
+expandable by Morning/Afternoon/Evening, combined the then-separate member time and
+availability controls into compact connected rows, and made the lobby TV study-room-only.
+The deployed assets were checked at the primary address after release; Functions, Firestore rules,
 indexes, and the legacy redirect were unchanged.
+
+**Current branch, not deployed.** The Home-first redesign removes the member
+Reservations tab on every width. Home starts with two compact Live updates, then owns
+the one-date stepper, resource choice, daypart grids, start/end/availability/Continue
+flow, purpose-under-name cells, and explicit vertical-scroll cues. My reservations,
+Admin, policy, privacy, and the lobby TV stay unchanged. Verify and deploy this work
+separately before calling it live.
 
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
@@ -31,13 +38,12 @@ indexes, and the legacy redirect were unchanged.
   8:00–9:00 PM for services.
 - Show Saturday from 9:00 AM so the morning service is visible; booking still begins
   at 10:00 AM.
-- Open on Home with the member-safe Day overview first, separated into expandable
-  Morning, Afternoon, and Evening grids, followed by a bounded, scrollable live update
-  feed. Study Rooms are the default; Whiteboard and TV schedules remain selectable.
-- Make Reservations the only member booking screen: members step between the two
-  eligible dates, open Morning/Afternoon/Evening, use a compact connected row to tap a
-  listed start or inspect availability, choose the exact ending in the **When should it
-  end?** sheet, then complete the remaining details in a pop-up.
+- Open on Home with two compact Live updates first, followed by the member-safe Day
+  overview. Study Rooms are the default; Whiteboard and TV schedules remain selectable.
+- Make Home the only member booking screen at every width: members step between the two
+  eligible dates with its one-date arrows, open Morning/Afternoon/Evening, follow the
+  scroll cue where needed, tap an open cell, choose the exact ending in the **When
+  should it end?** sheet, inspect availability, and continue to the remaining details.
 - Store the second selected time as the exact ending; never silently add another
   30 minutes. Keep member options divided around service periods while the TV retains
   visible service bands.
@@ -64,9 +70,10 @@ indexes, and the legacy redirect were unchanged.
   TV), a compact scrollable calendar, and a name-and-purpose-only confirmation sheet.
 - The visual redesign uses shared, accessible light/dark design tokens across the
   member app and lobby TV. It preserves every scheduling and security behavior.
-- Home now opens first. The Study room, Whiteboard, and TV picker switches the one
-  visible resource schedule; Reservations uses a single-date arrow stepper. Live
-  updates are on Home, while My reservations focuses on this device’s requests.
+- Home now opens first and owns all member booking. The Study room, Whiteboard, and TV
+  picker switches the visible resource schedule; Home uses a single-date arrow stepper
+  and shows two Live updates before its overview, while My reservations focuses on this
+  device’s requests.
   The header has no connection-status label, and left/right tab swiping is disabled.
 - Tuesday reservations auto-approve securely. Saturday auto-approves only when the
   submission is made on that Saturday at or after 10:00 AM Los Angeles time; advance
@@ -88,9 +95,9 @@ fresh conflict check. Failed writes must visibly fail and roll back instead of l
 saved. New pending requests are accepted only when at least one numbered unit is still
 open for the entire requested range at submission time.
 
-Home’s member-safe day overview lets a member tap an open half-hour slot and arrive
-at Reservations with the exact date, resource, and start highlighted; the member then
-chooses an end. It must not expose private notes or Admin controls.
+Home’s member-safe day overview lets a member tap an open half-hour slot, choose an end,
+inspect availability, and continue without changing tabs. Its booked cells show only
+the public member name and purpose; it must not expose private notes or Admin controls.
 
 The TV’s day picker is limited to eligible Tuesday/Saturday dates. It uses `?tv=1`,
 omits all Admin controls and private details, and preserves its last public schedule
@@ -107,9 +114,10 @@ writing to Firestore.
 - Verify Admin unlock, approve, decline, cancel, reassignment, direct-add, and lock.
 - Verify listed start-time and revealed End-time selection, Morning/Afternoon/Evening disclosures, date arrows,
   unavailable-range recovery, and the booking pop-up on desktop and phone.
-- Verify compact connected 36px start/availability rows, 10:00 PM and 10:30 PM starts,
-  the 11:00 PM final boundary, Home daypart expansion and Home-to-Reservations handoff,
-  and named pending/assignment details.
+- Verify no member Reservations tab at phone or desktop widths; two compact Live-update
+  rows; Home's one-date stepper; visible daypart scrolling; public name-and-purpose
+  cells; 10:00 PM and 10:30 PM starts; the 11:00 PM final boundary; and Home's direct
+  start/end/availability/Continue flow with named pending/assignment details.
 - Verify Tuesday instant approval, advance Saturday pending, and the Saturday 9:59 AM /
   10:00 AM Los Angeles boundary.
 - Verify simultaneous member, Admin, phone, and TV live updates, the TV eligible-day

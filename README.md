@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — the July 20 mobile, scheduling, TV, demo, and layout-refinement updates are deployed and live-verified
+- **Status:** Live — the July 20 mobile, scheduling, TV, demo, and layout-refinement updates are deployed; the Home-first member-booking refinement below awaits verification and deployment
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -19,21 +19,26 @@
   - [UI Quality Report](docs/UI-QUALITY-REPORT.md) — browser and accessibility verification
   - [All documents →](docs/)
 
-An installable study-room scheduling app for LV Zion. On the current refinement branch,
-Home leads with its member-safe Day overview, divided into expandable Morning,
-Afternoon, and Evening sections, followed by a bounded live update feed. Members choose
-Study room, Whiteboard, or TV, step between the upcoming Tuesday and Saturday, and
-reserve an explicit 30-minute range.
+An installable study-room scheduling app for LV Zion. On the current Home-first branch,
+Home is the sole member booking surface on every screen size. It starts with two compact
+Live updates, then offers a member-safe Day overview divided into expandable Morning,
+Afternoon, and Evening sections. Members use its one-date arrow stepper, choose Study
+room, Whiteboard, or TV, tap an open cell, choose an exact ending, inspect availability,
+and continue to the request form.
 
 The deployed July 20 update adds a member-visible day
 overview, vertically stacked start times, an immediate **When should it end?** prompt,
 and a button that reveals both numbered-unit assignments and unassigned pending requests.
-An open slot on Home will carry its date, resource, and start time into Reservations.
+An open slot on Home carries its date, resource, and start time directly into the
+end-time sheet; after the ending is chosen, Home shows the range, availability details,
+and **Continue** action.
 It also extends booking through **11:00 PM**, including 10:00 PM and 10:30 PM starts,
 adds a TV day picker, and provides full browser-only mock information for member and TV
-previews. The current branch further simplifies Home, visually joins each reservation
-time and availability action into a compact row, and makes the lobby TV study-room-only
-with four availability cards and an approved-only supporting timeline. Tuesday bookings
+previews. The current branch removes the separate member Reservations tab, makes Live
+updates two compact rows above the Home overview, adds purpose beneath each occupied
+Home cell's name, and makes the daypart map's vertical scrolling explicit. My
+reservations, Admin, booking policy, privacy rules, and the study-room-only lobby TV
+remain unchanged. Tuesday bookings
 remain instantly approved when open. A Saturday submission
 is instantly approved only when it is made on that Saturday at or after 10:00 AM Los
 Angeles time; advance Saturday requests remain pending for Admin review.
@@ -45,5 +50,5 @@ half-hour to the selected end, and remain separated by service periods. The refi
 lobby TV continues to show service bands in its study-room timetable.
 
 The primary address, lobby TV, secure Admin backend, and permanent redirect from the
-former address are live. The July 20 update, including the layout refinement, was
-deployed and live-verified at the primary address.
+former address are live. The Home-first member-booking refinement is not yet part of the
+deployed release.

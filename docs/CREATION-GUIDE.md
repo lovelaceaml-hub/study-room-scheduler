@@ -17,7 +17,8 @@ The primary member address is **https://lvrooms.web.app**. The former address,
 verified initially on July 17, 2026; the compact dashboard and exact-time release was
 deployed and verified on July 19, 2026; and the mobile, scheduling, TV, and demo update
 was deployed and live-verified on July 20, 2026. The same day's Hosting-only layout
-refinement was also deployed and live-verified.
+refinement was also deployed and live-verified. The newer Home-first member-booking
+refinement is current-branch work and is not yet deployed.
 
 ## Applied visual redesign
 
@@ -35,12 +36,13 @@ source of truth.
 
 On July 19, 2026, the same approved direction was refined into a more compact
 dashboard-and-disclosure flow. Home now opens first with current/upcoming unit use and
-a bounded live feed. Reservations uses a single-date arrow stepper and three daypart
-disclosures. On July 20, the compact two-column start grid was replaced with a vertical
-phone list that opens an immediate **When should it end?** prompt after a start is
+a bounded live feed. The then-separate member booking surface used a single-date arrow
+stepper and three daypart disclosures. On July 20, the compact two-column start grid was
+replaced with a vertical phone list that opens an immediate **When should it end?** prompt after a start is
 chosen, while retaining the exact end boundary. The deployed July 20 refinement makes
 that list compact connected time/availability rows, starts Home with a three-daypart Day
-overview, and narrows the lobby display to study-room availability.
+overview, and narrows the lobby display to study-room availability. The current branch
+moves member booking entirely into Home and removes that separate time-list surface.
 
 ## Architecture
 
@@ -72,10 +74,10 @@ serves CSS without a long-lived cache so a new design reaches installed copies p
 ### Dates
 
 Only two dates are offered: the upcoming Tuesday and upcoming Saturday. Today counts
-through the end of the day when it is one of those weekdays. A compact left/right
-stepper moves between the dates, and the selected date is shared across Reservations
-and Admin. Reservations is the only member booking screen; there is no separate Sign
-up tab.
+through the end of the day when it is one of those weekdays. A compact one-date
+left/right stepper on Home moves between the dates. Home's selection is independent
+from Admin's selected date, and Home is the only member booking screen; there is no
+separate Reservations or Sign up tab.
 
 ### Time range and services
 
@@ -93,13 +95,12 @@ must reject ranges that overlap a service or begin before reservable time.
 
 ### Member booking flow
 
-The Reservations screen shows one Study room, Whiteboard, or TV at a time. The date
-stepper and resource picker sit directly above three native disclosures: Morning,
-Afternoon, and Evening. Each disclosure states its available start-time range and
-contains compact, visually connected 36px rows for each listed start time. The time
-action starts a reservation; the separate attached availability action opens details
-without starting one. Tapping a start opens one **When should it end?** choice. The
-chosen ending is stored exactly;
+Home shows one Study room, Whiteboard, or TV at a time. Its one-date stepper and
+resource picker sit above three native disclosures: Morning, Afternoon, and Evening.
+Each disclosure presents the applicable service band and half-hour room grid, with an
+explicit vertical-scroll cue when more rows are available. Approved cells show a name
+and purpose beneath it; open cells start a reservation. Tapping an open cell opens one
+**When should it end?** choice. The chosen ending is stored exactly;
 selecting 10:00 AM then 11:30 AM means 10:00–11:30 AM. After a complete range, the
 screen shows an open/pending button. Its detail lists approved occupants by numbered
 unit and every overlapping pending request separately. Pending requests never occupy a
@@ -110,13 +111,15 @@ Service periods divide the daypart options but do not appear as selectable membe
 times. They cannot be selected or crossed. The lobby timetable continues to show the
 service bands explicitly. The same interaction works on phone and desktop layouts.
 
-Home’s Day overview mirrors the member-safe part of the Admin day map and is the first
-Home feature. It separates the schedule into expandable Morning, Afternoon, and Evening
-sections, each with the applicable service band and half-hour grid. Its open slots are
-buttons that set the selected date, resource, and start time in Reservations, then focus
-the end-time choice; full and service slots are not booking actions. The former
+Home’s Day overview mirrors the member-safe part of the Admin day map, but it follows
+two compact Live updates and is the sole member booking surface. It separates the
+schedule into expandable Morning, Afternoon, and Evening sections, each with the
+applicable service band, scroll cue, and half-hour grid. Its open slots are buttons that
+set the Home date, resource, and start, then focus the end-time choice; full and service
+slots are not booking actions. After an end is chosen, the same Home page renders the
+range, assignment/pending details, Clear, and Continue actions. The former
 device-specific notification and current/next-summary cards are not part of this
-refinement; the bounded live activity feed follows the overview.
+refinement.
 
 If no numbered unit is free for the complete selected range, the member interface
 uses an inline alert with the exact unavailable message. It computes the longest
@@ -236,9 +239,9 @@ Production verification covers:
 - A range with no whole-range unit shows the unavailable alert and shorter-ending
   recovery; the backend independently refuses the stale/conflicting submission.
 - A member can choose a range only within the same non-service period.
-- Home’s open-slot handoff to Reservations, expandable Morning/Afternoon/Evening
-  overview, named assignment/pending detail button, compact connected mobile start
-  rows, and immediate end-time prompt.
+- Home's two-row Live updates, one-date stepper, expandable Morning/Afternoon/Evening
+  overview, visible daypart scrolling, name-and-purpose cells, direct open-slot
+  start/end/availability/Continue flow, and immediate end-time prompt.
 - The calendar has no separate Sign up tab or "reservations unavailable" notice.
 - Phones at 320, 375, and 390 pixels.
 - TV mode at narrow width, 1280×720, and 1920×1080, including its eligible-day selector,

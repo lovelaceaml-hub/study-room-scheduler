@@ -15,8 +15,11 @@
 
 ## Hierarchy and content
 
-- **Dominant action on each key screen:** Home shows live status; Reservations leads to Continue after an exact range; My reservations leads to status/cancel; Admin leads to review and approve.
-- **Navigation model:** Home opens first; Reservations, My reservations, and Admin remain peer tabs; tapping the masthead returns Home.
+- **Dominant action on each key screen:** Home shows two live updates and leads through
+  an exact booking range to Continue; My reservations leads to status/cancel; Admin leads
+  to review and approve.
+- **Navigation model:** Home opens first and is the sole member booking surface; My
+  reservations and Admin remain peer tabs; tapping the masthead returns Home.
 - **Content tone and real-content examples:** Direct language such as “3 open,” “2 pending,” “10:00 AM–11:30 AM,” and “There are no rooms available in the time slot that was selected.”
 - **Imagery / illustration purpose:** None; schedule comprehension does not benefit from imagery.
 - **Motion purpose:** Only brief state transitions when they help connect a selection to its result, with reduced-motion support.
@@ -35,7 +38,9 @@
 ## Components and responsive behavior
 
 - **Use / avoid:** Use native details/summary, buttons, live regions, and explicit time endpoints; avoid long always-open slot lists and icon-only meaning.
-- **Phone behavior:** Bounded live feed, stacked unit schedule, compact bottom navigation, and one open time disclosure at a time.
-- **Desktop behavior:** Same journey in a centered column; Admin retains its wider two-panel workspace.
+- **Phone behavior:** Two-row live feed, independently expandable dayparts with scroll
+  cues, stacked unit schedule, and compact bottom navigation.
+- **Desktop behavior:** The same Home-owned booking journey in a centered column; Admin
+  retains its wider two-panel workspace.
 - **Empty, loading, error, success states:** Each has visible text and a safe next action.
 - **Accessibility decisions:** 44-pixel targets remain even where visible padding is reduced; arrows have labels; disclosure text includes its time range; color never carries status alone.
