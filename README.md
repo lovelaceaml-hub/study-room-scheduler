@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — the July 21 Home-first release is live; a small annotation-refinement update is currently on the branch and awaiting deployment
+- **Status:** Live — the July 21 Home-first and annotation-refinement releases are deployed and live-verified
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -43,9 +43,9 @@ remain instantly approved when open. A Saturday submission
 is instantly approved only when it is made on that Saturday at or after 10:00 AM Los
 Angeles time; advance Saturday requests remain pending for Admin review.
 
-The current branch contains a small, not-yet-deployed annotation refinement: the two
-visible Live-update rows scroll their activity independently; the resource controls use
-count-free 44px labels; the masthead **Schedule** link opens the public TV view; My
+The July 21 annotation refinement keeps two visible Live-update rows and lets their
+activity scroll independently; the resource controls use count-free 44px labels; the
+masthead **Schedule** link opens the public TV view; My
 reservations uses compact cards with a visibly destructive cancellation action; and
 Admin no longer repeats a Recent updates feed. Booking policy, privacy, dates, mock
 data, and the study-room-only TV remain unchanged.
@@ -57,8 +57,9 @@ half-hour to the selected end, and remain separated by service periods. The refi
 lobby TV continues to show service bands in its study-room timetable.
 
 The primary address, lobby TV, secure Admin backend, and permanent redirect from the
-former address are live. The July 21 release passed its policy, member UI, TV-smoke, and
-diff checks; it deployed the primary Hosting `app` target only. The annotation
-refinement above is pre-deployment and still needs its focused member, TV, accessibility,
-and diff checks before the same Hosting-only release path. Functions, Firestore rules,
-indexes, Authentication, and the legacy redirect remain out of scope.
+former address are live. Commit `29bc9d4` passed 13/13 policy tests, UI and TV smoke
+checks, and an independent re-review with no P0/P1 findings. A read-only Playwright
+check at `https://lvrooms.web.app/?demo=1` confirmed Schedule keeps demo mode, compact
+cards and cancellation, count-free controls, the scrollable update feed, and the absent
+Admin feed. Only the primary Hosting `app` target was deployed; Functions, Firestore
+rules, indexes, Authentication, and the legacy redirect were unchanged.

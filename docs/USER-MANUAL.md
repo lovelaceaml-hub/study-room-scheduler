@@ -9,8 +9,9 @@ https://lvz-rooms.web.app, forwards there automatically.)
 > Release note: the mobile, approval, TV-day-picker, expanded mock-data, simplified
 > Home, compact reservation rows, and study-room-focused TV changes below were deployed
 > and live-verified on July 20, 2026. The Home-first booking update below was deployed
-> and live-verified on July 21, 2026. A small visual refinement described here is still
-> on the current branch and is not live until the next Hosting release.
+> and live-verified on July 21, 2026. The same day's annotation refinement—independently
+> scrolling Live updates, count-free resource controls, the masthead Schedule link,
+> compact reservation cards, and no Admin Recent updates feed—is also live.
 
 ## For members
 

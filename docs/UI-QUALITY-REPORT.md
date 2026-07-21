@@ -1,23 +1,27 @@
 # Study Rooms UI quality report — July 17–21, 2026
 
-## Pending annotation-refinement verification
+## July 21 annotation-refinement verification
 
-The current branch contains a small visual refinement that is **not deployed and has
-not yet been verified**. It retains two visible Home Live-update rows while the activity
-inside them scrolls independently; removes counts from the 44px compact resource
+Commit `29bc9d4` was deployed to **https://lvrooms.web.app** on July 21, 2026. It retains
+two visible Home Live-update rows while the activity inside them scrolls independently;
+removes counts from the 44px compact resource
 controls; makes the masthead **Schedule** link open the public TV view; condenses My
 reservations into compact cards with a separately focused destructive cancellation
 button; and removes the Admin Recent updates activity feed. It does not change the
 booking policy, demo isolation, privacy model, dates, or TV schedule data.
 
-Before a Hosting release, verify this branch at 320×720 and 390×844 for two visible
-scrolling update rows, no document-level overflow, the 44px resource controls, separate
-keyboard focus for the cancellation action, and the Schedule-to-TV route. Also verify
-that the Admin feed is absent without losing its queue/day overview, then rerun syntax,
-policy, member UI/axe, TV-smoke, demo-isolation, and `git diff --check` checks. The
-historical results below apply to prior releases only. The existing limitation remains:
-the Firestore-rule emulator cannot run on this Mac until Java is installed, and browser
-checks do not replace a first-time-member user study.
+`npm test` passed all **13 of 13** policy tests. UI smoke passed, including the
+**393×852** no-overlap check and zero-Firebase demo **Schedule** navigation. TV smoke
+passed, and an independent re-review found no remaining P0/P1 issues. A read-only
+Playwright check at **https://lvrooms.web.app/?demo=1** confirmed that Schedule retains
+`demo=1`, My reservations keeps compact cards and cancellation, the resource controls
+have no counts, the Live-update area scrolls, and the Admin feed is absent while its
+queue/day overview remains. Only `hosting:app` deployed; Functions, Firestore,
+Authentication, and the legacy redirect were unchanged.
+
+The existing limitation remains: the Firestore-rule emulator cannot run on this Mac
+until Java is installed, and browser checks do not replace a formal first-time-member
+user study. The historical results below remain evidence for earlier releases.
 
 ## July 20 mobile, approval, TV, and mock-preview verification
 

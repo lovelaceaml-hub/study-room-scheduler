@@ -22,14 +22,18 @@ refinement was deployed and live-verified on July 21, 2026. That release deploye
 primary Hosting `app` target only; Functions, Firestore rules, indexes, Authentication,
 and the legacy redirect were unchanged.
 
-The current branch also contains a small annotation-refinement update that is **not
-deployed** as of this guide's update. It keeps two visible Home Live-update rows while
-their contents scroll independently, makes resource labels count-free with 44px compact
+The July 21 annotation-refinement release (commit `29bc9d4`) is also live. It keeps two
+visible Home Live-update rows while their contents scroll independently, makes resource
+labels count-free with 44px compact
 controls, sends the masthead Schedule link to the public TV view, condenses My
 reservations into compact cards with a separate destructive cancellation action, and
 removes the Admin Recent updates feed. It changes no booking policy, date, demo, privacy,
-or backend behavior and should follow the same primary-Hosting-only release path after
-focused checks pass.
+or backend behavior. `npm test` passed 13/13; UI and TV smoke checks passed; an
+independent re-review found no remaining P0/P1 issues; and a read-only production
+Playwright check confirmed the demo Schedule route, compact cards/cancellation,
+count-free controls, scrolling feed, and absent Admin feed. The deployment was again
+limited to Hosting `app`; Functions, Firestore, Authentication, and the legacy redirect
+were unchanged.
 
 ## Applied visual redesign
 

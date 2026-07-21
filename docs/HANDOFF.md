@@ -30,14 +30,19 @@ cells, Reserved privacy, the scroll cue, the end-time sheet, and no page overflo
 the primary Hosting `app` target was deployed. Functions, Firestore rules, indexes,
 Authentication, and the legacy redirect were unchanged.
 
-**Current annotation refinement — pre-deployment.** The working branch keeps two
+**July 21 annotation refinement — live.** Commit `29bc9d4` keeps two
 visible Live-update rows on Home but lets their activity scroll independently; resource
 controls now omit counts and remain 44px compact buttons; the masthead **Schedule**
 link opens the public TV page; My reservations uses compact cards with a distinct
 destructive cancellation action; and the Admin Recent updates feed is removed. This
 change does not alter booking policy, eligible dates, fixture data, TV content, security,
-or backend code. It has not been deployed or represented by the historical verification
-above.
+or backend code. `npm test` passed 13/13; UI smoke passed, including the 393×852
+no-overlap check and zero-Firebase demo Schedule navigation; TV smoke passed; and an
+independent re-review found no remaining P0/P1 issues. A read-only Playwright check at
+`https://lvrooms.web.app/?demo=1` confirmed Schedule retains `demo=1`, compact cards and
+the cancellation action, count-free resource controls, the scrolling Live-update feed,
+and the absent Admin feed. Deployment was only `hosting:app`; Functions, Firestore,
+Authentication, and the legacy redirect were unchanged.
 
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
@@ -140,10 +145,10 @@ writing to Firestore.
   rows; Home's one-date stepper; visible daypart scrolling; public name-and-purpose
   cells; 10:00 PM and 10:30 PM starts; the 11:00 PM final boundary; and Home's direct
   start/end/availability/Continue flow with named pending/assignment details.
-- Before releasing the current annotation refinement, verify that only two Home update
-  rows remain visible while activity scrolls independently; each count-free resource
-  control is at least 44px; masthead Schedule opens the TV route; compact My cards have
-  a separately focused destructive cancel button; and Admin has no Recent updates feed.
+- The July 21 annotation-refinement release verified two visible Home update rows with
+  independent activity scrolling; 44px count-free resource controls; the masthead
+  Schedule-to-TV route; compact My cards with a separately focused destructive cancel
+  button; and no Admin Recent updates feed. Repeat these checks for later changes.
 - Verify Tuesday instant approval, advance Saturday pending, and the Saturday 9:59 AM /
   10:00 AM Los Angeles boundary.
 - Verify simultaneous member, Admin, phone, and TV live updates, the TV eligible-day

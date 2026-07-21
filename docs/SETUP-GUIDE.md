@@ -13,8 +13,10 @@ live-verified on July 20, 2026. The Home-first booking update—two-row Live upd
 one-date Home stepper, and no separate member Reservations tab—was deployed and
 live-verified on July 21, 2026.
 
-The small annotation-refinement update currently in the branch has **not** been deployed
-yet. It does not change the booking, date, approval, or demo rules.
+The July 21 annotation refinement is also live. It adds independently scrolling Home
+Live updates, count-free compact resource controls, the masthead Schedule link, compact
+My-reservation cards, and no Admin Recent updates feed. It does not change the booking,
+date, approval, or demo rules.
 
 ## Open the member app
 
