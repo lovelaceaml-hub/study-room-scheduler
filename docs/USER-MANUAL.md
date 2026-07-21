@@ -9,20 +9,27 @@ https://lvz-rooms.web.app, forwards there automatically.)
 > Release note: the mobile, approval, TV-day-picker, expanded mock-data, simplified
 > Home, compact reservation rows, and study-room-focused TV changes below were deployed
 > and live-verified on July 20, 2026. The Home-first booking update below was deployed
-> and live-verified on July 21, 2026.
+> and live-verified on July 21, 2026. A small visual refinement described here is still
+> on the current branch and is not live until the next Hosting release.
 
 ## For members
 
 ### Home dashboard
 
 The app opens on **Home**, which is the only member booking screen on phone and desktop.
-It begins with two compact **Live updates** rows showing the newest Requested, Reserved,
-or Cancelled activity. Below them is the Day overview, showing Study Rooms 1–4 by
+It begins with two compact **Live updates** rows showing Requested, Reserved, or
+Cancelled activity. When there are more updates, the two-row area scrolls independently
+instead of making Home longer. Below it is the Day overview, showing Study Rooms 1–4 by
 default. Choose **Whiteboard** or **TV** when you want those unit details, use the
 single-date arrows to choose Tuesday or Saturday, then open **Morning**, **Afternoon**,
 or **Evening**. Each section shows its service band and half-hour grid, with a visible
 scroll cue when more times are below. Occupied cells show the member name and purpose;
 service cells remain informational.
+
+The resource buttons use the simple labels **Study room**, **Whiteboard**, and **TV**;
+they do not show a count. The compact controls still have a 44px minimum touch target.
+Select **Schedule** in the masthead to open the read-only public lobby-TV schedule. It
+does not start or change a reservation.
 
 Tap an open cell to choose its start. Answer **When should it end?**, review the exact
 range and availability, then tap **Continue** for the name-and-purpose form. The
@@ -132,9 +139,10 @@ Possible statuses include:
 - **Declined:** not approved.
 - **Cancelled:** withdrawn by the member or Admin.
 
-Use **Cancel request** or **Cancel reservation** when your plans change. Cancelling removes the active request from the
-live schedule. Older requests created before secure ownership was added may require
-Admin to make changes.
+Each request uses a compact card with its date, time, status, resource, and purpose.
+Use the separate destructive **Cancel request** or **Cancel reservation** button when
+your plans change. Cancelling removes the active request from the live schedule. Older
+requests created before secure ownership was added may require Admin to make changes.
 
 ## For the approver
 
@@ -153,7 +161,9 @@ a short-lived Admin session, and repeated incorrect attempts are limited.
 Advance Saturday requests that remain pending are listed by priority: Contact, New
 Member, Meeting, then Other. Select a request in the priority queue to see its details,
 whole-range availability, recommended numbered assignment, and day map together. You
-can change the recommended unit before approving or declining.
+can change the recommended unit before approving or declining. The Admin workspace does
+not include a separate Recent updates feed; the queue and day overview provide the
+operational context.
 
 ## Preview sample information
 

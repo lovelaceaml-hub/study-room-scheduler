@@ -30,6 +30,15 @@ cells, Reserved privacy, the scroll cue, the end-time sheet, and no page overflo
 the primary Hosting `app` target was deployed. Functions, Firestore rules, indexes,
 Authentication, and the legacy redirect were unchanged.
 
+**Current annotation refinement — pre-deployment.** The working branch keeps two
+visible Live-update rows on Home but lets their activity scroll independently; resource
+controls now omit counts and remain 44px compact buttons; the masthead **Schedule**
+link opens the public TV page; My reservations uses compact cards with a distinct
+destructive cancellation action; and the Admin Recent updates feed is removed. This
+change does not alter booking policy, eligible dates, fixture data, TV content, security,
+or backend code. It has not been deployed or represented by the historical verification
+above.
+
 - **Primary address:** https://lvrooms.web.app
 - **Lobby TV:** https://lvrooms.web.app/?tv=1
 - **Previous address:** https://lvz-rooms.web.app — retained as a redirect
@@ -45,8 +54,10 @@ Authentication, and the legacy redirect were unchanged.
   8:00–9:00 PM for services.
 - Show Saturday from 9:00 AM so the morning service is visible; booking still begins
   at 10:00 AM.
-- Open on Home with two compact Live updates first, followed by the member-safe Day
-  overview. Study Rooms are the default; Whiteboard and TV schedules remain selectable.
+- Open on Home with two visible compact Live-update rows first, followed by the
+  member-safe Day overview. The update area scrolls independently when activity exceeds
+  those rows. Study Rooms are the default; count-free 44px Study room, Whiteboard, and
+  TV controls remain selectable.
 - Make Home the only member booking screen at every width: members step between the two
   eligible dates with its one-date arrows, open Morning/Afternoon/Evening, follow the
   scroll cue where needed, tap an open cell, choose the exact ending in the **When
@@ -82,6 +93,10 @@ Authentication, and the legacy redirect were unchanged.
   and shows two Live updates before its overview, while My reservations focuses on this
   device’s requests.
   The header has no connection-status label, and left/right tab swiping is disabled.
+- The masthead **Schedule** link opens the read-only public TV route. My reservations
+  uses compact status cards and keeps its owner-only cancellation control visibly
+  destructive. Admin removes the redundant Recent updates feed while retaining queue,
+  selected-request, and day-overview context.
 - Tuesday reservations auto-approve securely. Saturday auto-approves only when the
   submission is made on that Saturday at or after 10:00 AM Los Angeles time; advance
   Saturday requests remain in the Admin queue, ordered Contact, New Member, Study
@@ -125,6 +140,10 @@ writing to Firestore.
   rows; Home's one-date stepper; visible daypart scrolling; public name-and-purpose
   cells; 10:00 PM and 10:30 PM starts; the 11:00 PM final boundary; and Home's direct
   start/end/availability/Continue flow with named pending/assignment details.
+- Before releasing the current annotation refinement, verify that only two Home update
+  rows remain visible while activity scrolls independently; each count-free resource
+  control is at least 44px; masthead Schedule opens the TV route; compact My cards have
+  a separately focused destructive cancel button; and Admin has no Recent updates feed.
 - Verify Tuesday instant approval, advance Saturday pending, and the Saturday 9:59 AM /
   10:00 AM Los Angeles boundary.
 - Verify simultaneous member, Admin, phone, and TV live updates, the TV eligible-day

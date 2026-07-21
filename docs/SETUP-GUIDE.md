@@ -13,6 +13,9 @@ live-verified on July 20, 2026. The Home-first booking update—two-row Live upd
 one-date Home stepper, and no separate member Reservations tab—was deployed and
 live-verified on July 21, 2026.
 
+The small annotation-refinement update currently in the branch has **not** been deployed
+yet. It does not change the booking, date, approval, or demo rules.
+
 ## Open the member app
 
 1. Open Safari, Chrome, or another current web browser.
@@ -26,9 +29,12 @@ live-verified on July 21, 2026.
    **Continue**, and complete the short name-and-purpose form.
 
 The member app has no separate **Sign up** screen. The time menus are divided around
-service periods, which cannot be selected. Home begins with two compact Live updates,
-then a Day overview split into expandable Morning, Afternoon, and Evening sections.
-Tapping an open Home slot starts the end-time choice without changing tabs.
+service periods, which cannot be selected. Home begins with two compact Live-update
+rows that scroll independently when there is more activity, then a Day overview split
+into expandable Morning, Afternoon, and Evening sections. The count-free **Study room**,
+**Whiteboard**, and **TV** resource buttons remain 44px touch controls. Tapping an open
+Home slot starts the end-time choice without changing tabs. The masthead **Schedule**
+control opens the read-only public TV view.
 
 ## Install it on an iPhone
 
@@ -89,7 +95,8 @@ written to the live schedule.
 
 The Admin PIN remains **0000**. Enter it on the Admin tab only on a trusted device.
 The app verifies it through a protected backend service and grants a short-lived
-Admin session. Tap **Lock admin** when the work is finished.
+Admin session. The Admin workspace intentionally has no Recent updates activity feed;
+use its queue and day overview instead. Tap **Lock admin** when the work is finished.
 
 ## If something looks out of date
 

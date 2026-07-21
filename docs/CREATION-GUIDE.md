@@ -22,6 +22,15 @@ refinement was deployed and live-verified on July 21, 2026. That release deploye
 primary Hosting `app` target only; Functions, Firestore rules, indexes, Authentication,
 and the legacy redirect were unchanged.
 
+The current branch also contains a small annotation-refinement update that is **not
+deployed** as of this guide's update. It keeps two visible Home Live-update rows while
+their contents scroll independently, makes resource labels count-free with 44px compact
+controls, sends the masthead Schedule link to the public TV view, condenses My
+reservations into compact cards with a separate destructive cancellation action, and
+removes the Admin Recent updates feed. It changes no booking policy, date, demo, privacy,
+or backend behavior and should follow the same primary-Hosting-only release path after
+focused checks pass.
+
 ## Applied visual redesign
 
 An isolated, interactive redesign preview was added on July 17, 2026 and approved
@@ -98,7 +107,8 @@ must reject ranges that overlap a service or begin before reservable time.
 ### Member booking flow
 
 Home shows one Study room, Whiteboard, or TV at a time. Its one-date stepper and
-resource picker sit above three native disclosures: Morning, Afternoon, and Evening.
+count-free, 44px resource picker sit above three native disclosures: Morning, Afternoon,
+and Evening.
 Each disclosure presents the applicable service band and half-hour room grid, with an
 explicit vertical-scroll cue when more rows are available. Approved cells show a name
 and purpose beneath it; open cells start a reservation. Tapping an open cell opens one
@@ -114,9 +124,10 @@ times. They cannot be selected or crossed. The lobby timetable continues to show
 service bands explicitly. The same interaction works on phone and desktop layouts.
 
 Home’s Day overview mirrors the member-safe part of the Admin day map, but it follows
-two compact Live updates and is the sole member booking surface. It separates the
-schedule into expandable Morning, Afternoon, and Evening sections, each with the
-applicable service band, scroll cue, and half-hour grid. Its open slots are buttons that
+two visible Live-update rows in a fixed, independently scrollable region and is the sole
+member booking surface. It separates the schedule into expandable Morning, Afternoon,
+and Evening sections, each with the applicable service band, scroll cue, and half-hour
+grid. Its open slots are buttons that
 set the Home date, resource, and start, then focus the end-time choice; full and service
 slots are not booking actions. After an end is chosen, the same Home page renders the
 range, assignment/pending details, Clear, and Continue actions. The former
@@ -160,9 +171,10 @@ types, assigned bookings, overlapping pending requests, a full range, a declined
 a cancellation, and visible service periods.
 
 Home is the opening screen. It shows Study Rooms by default and lets a member switch to
-Whiteboards or TVs. The overview's daypart grid shows approved use and open cells; the
-live update feed is capped in the DOM and scrolls inside a fixed-height region so ongoing
-activity does not lengthen the page.
+Whiteboards or TVs. The overview's daypart grid shows approved use and open cells; two
+visible Live-update row slots scroll activity inside a fixed-height region so ongoing
+activity does not lengthen the page. The masthead Schedule link is a normal anchor to
+the read-only public TV route (`tv.html?tv=1`), not a booking action.
 
 Approval performs a fresh conflict check, records the chosen assignment, and moves the
 booking from the pending lane into the assigned row. Decline or cancellation removes
@@ -190,6 +202,9 @@ A protected Firebase backend verifies it, limits repeated attempts, and creates 
 short-lived Admin session. Approval, decline, cancellation, reassignment, direct-add,
 and cleanup actions run through protected backend operations with server-side conflict
 checks.
+
+The Admin workspace intentionally omits a Recent updates activity feed. Its queue,
+selected-request context, and day overview remain the Admin work surface.
 
 Optional request notes live in an Admin-only location. Public schedule documents and
 the TV cache do not contain those notes. The TV also excludes purposes, preferences,
@@ -245,6 +260,11 @@ Production verification covers:
   overview, visible daypart scrolling, name-and-purpose cells, direct open-slot
   start/end/availability/Continue flow, and immediate end-time prompt.
 - The calendar has no separate Sign up tab or "reservations unavailable" notice.
+- Two visible Home update rows scroll independently without document-level overflow;
+  resource labels have no counts and meet the 44px compact-control target; masthead
+  Schedule opens the public TV route.
+- My reservation cards remain compact and expose a distinct destructive cancellation
+  control only for eligible owned requests; Admin has no Recent updates feed.
 - Phones at 320, 375, and 390 pixels.
 - TV mode at narrow width, 1280×720, and 1920×1080, including its eligible-day selector,
   four room cards, approved-only study-room timeline, and demo data.

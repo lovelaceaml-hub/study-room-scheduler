@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — the Home-first member-booking refinement was deployed and live-verified on July 21, 2026
+- **Status:** Live — the July 21 Home-first release is live; a small annotation-refinement update is currently on the branch and awaiting deployment
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -43,6 +43,13 @@ remain instantly approved when open. A Saturday submission
 is instantly approved only when it is made on that Saturday at or after 10:00 AM Los
 Angeles time; advance Saturday requests remain pending for Admin review.
 
+The current branch contains a small, not-yet-deployed annotation refinement: the two
+visible Live-update rows scroll their activity independently; the resource controls use
+count-free 44px labels; the masthead **Schedule** link opens the public TV view; My
+reservations uses compact cards with a visibly destructive cancellation action; and
+Admin no longer repeats a Recent updates feed. Booking policy, privacy, dates, mock
+data, and the study-room-only TV remain unchanged.
+
 The app uses buildless vanilla JavaScript, Firebase Hosting, and Firestore live
 updates. It includes a phone-friendly booking experience and a dedicated lobby TV
 screen. Reservations use explicit 30-minute time boundaries, never add a hidden
@@ -51,5 +58,7 @@ lobby TV continues to show service bands in its study-room timetable.
 
 The primary address, lobby TV, secure Admin backend, and permanent redirect from the
 former address are live. The July 21 release passed its policy, member UI, TV-smoke, and
-diff checks; it deployed the primary Hosting `app` target only. Functions, Firestore
-rules, indexes, Authentication, and the legacy redirect were unchanged.
+diff checks; it deployed the primary Hosting `app` target only. The annotation
+refinement above is pre-deployment and still needs its focused member, TV, accessibility,
+and diff checks before the same Hosting-only release path. Functions, Firestore rules,
+indexes, Authentication, and the legacy redirect remain out of scope.

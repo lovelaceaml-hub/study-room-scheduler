@@ -1,5 +1,24 @@
 # Study Rooms UI quality report — July 17–21, 2026
 
+## Pending annotation-refinement verification
+
+The current branch contains a small visual refinement that is **not deployed and has
+not yet been verified**. It retains two visible Home Live-update rows while the activity
+inside them scrolls independently; removes counts from the 44px compact resource
+controls; makes the masthead **Schedule** link open the public TV view; condenses My
+reservations into compact cards with a separately focused destructive cancellation
+button; and removes the Admin Recent updates activity feed. It does not change the
+booking policy, demo isolation, privacy model, dates, or TV schedule data.
+
+Before a Hosting release, verify this branch at 320×720 and 390×844 for two visible
+scrolling update rows, no document-level overflow, the 44px resource controls, separate
+keyboard focus for the cancellation action, and the Schedule-to-TV route. Also verify
+that the Admin feed is absent without losing its queue/day overview, then rerun syntax,
+policy, member UI/axe, TV-smoke, demo-isolation, and `git diff --check` checks. The
+historical results below apply to prior releases only. The existing limitation remains:
+the Firestore-rule emulator cannot run on this Mac until Java is installed, and browser
+checks do not replace a first-time-member user study.
+
 ## July 20 mobile, approval, TV, and mock-preview verification
 
 This release was deployed to **https://lvrooms.web.app** and live-verified on July 20,

@@ -724,6 +724,7 @@ function render() {
     type: actionNode.dataset.type || '', win: actionNode.dataset.win || '', booking: actionNode.dataset.booking || '',
     start: actionNode.dataset.start || '', period: actionNode.dataset.period || ''
   } : null;
+  syncMastheadScheduleLink();
   syncSignupDraft();
   syncAdminFormDraft();
   document.body.classList.toggle('modal-open', !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails);
@@ -747,8 +748,9 @@ function render() {
   else if (ui.tab === 'mine') app.innerHTML = renderMyReservations();
   else app.innerHTML = renderHome();
   hydrateHomeDayOverview();
+  hydrateDashboardActivityFeed();
 
-  const masthead = document.getElementById('masthead-home');
+  const masthead = document.querySelector('#masthead .head-in');
   const primaryNav = document.querySelector('nav[aria-label="Primary"]');
   const sheetOpen = !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails;
   if (masthead) masthead.inert = sheetOpen;
@@ -790,6 +792,12 @@ function render() {
       }
     });
   }
+}
+
+function syncMastheadScheduleLink() {
+  const scheduleLink = document.getElementById('masthead-schedule');
+  if (!scheduleLink) return;
+  scheduleLink.setAttribute('href', demoMode() ? 'tv.html?tv=1&demo=1' : 'tv.html?tv=1');
 }
 
 function dateSelectorHtml() {
@@ -838,6 +846,27 @@ function hydrateHomeDayOverview() {
   document.querySelectorAll('.home-day-map').forEach(map => {
     map.addEventListener('scroll', () => updateHomeScrollCue(map), { passive: true });
     updateHomeScrollCue(map);
+  });
+}
+
+function updateDashboardActivityCue(list) {
+  const canScroll = list.scrollHeight > list.clientHeight + 1;
+  const atTop = list.scrollTop <= 1;
+  const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1;
+  const state = !canScroll ? 'none' : (atTop ? 'top' : (atBottom ? 'bottom' : 'middle'));
+  const cue = list.parentElement?.querySelector('.activity-scroll-cue');
+  list.dataset.scrollState = state;
+  if (cue) {
+    cue.hidden = !canScroll;
+    cue.dataset.state = state;
+    cue.textContent = state === 'top' ? 'More updates below ↓' : (state === 'bottom' ? 'Earlier updates above ↑' : 'More updates above and below ↕');
+  }
+}
+
+function hydrateDashboardActivityFeed() {
+  document.querySelectorAll('.dashboard-feed .activity-list').forEach(list => {
+    list.addEventListener('scroll', () => updateDashboardActivityCue(list), { passive: true });
+    updateDashboardActivityCue(list);
   });
 }
 
@@ -966,7 +995,7 @@ function memberResourceToggleHtml(type, action) {
   const currentType = type;
   const actionName = action;
   return '<div class="member-resource-toggle" role="group" aria-label="Choose reservation type">' + NEED_TYPES.map(type =>
-    '<button type="button" class="member-resource' + (currentType === type.id ? ' active' : '') + '" data-act="' + esc(actionName) + '" data-id="' + esc(type.id) + '" aria-pressed="' + (currentType === type.id ? 'true' : 'false') + '">' + esc(type.label) + ' · ' + unitsForType(type.id).length + '</button>'
+    '<button type="button" class="member-resource' + (currentType === type.id ? ' active' : '') + '" data-act="' + esc(actionName) + '" data-id="' + esc(type.id) + '" aria-pressed="' + (currentType === type.id ? 'true' : 'false') + '">' + esc(type.label) + '</button>'
   ).join('') + '</div>';
 }
 
@@ -987,16 +1016,19 @@ function resourceLabelFor(b) {
 
 function activityFeedHtml(dateOrDates, dashboard, limit) {
   const dates = Array.isArray(dateOrDates) ? dateOrDates : [dateOrDates];
-  const events = bookingsList().filter(b => dates.includes(b.date) && ['pending', 'approved', 'cancelled'].includes(b.status)).map(b => {
+  const allEvents = bookingsList().filter(b => dates.includes(b.date) && ['pending', 'approved', 'cancelled'].includes(b.status)).map(b => {
     const status = b.status === 'approved' ? 'Reserved' : b.status === 'cancelled' ? 'Cancelled' : 'Requested';
     const when = b.status === 'approved' ? (b.decidedAt || b.updatedAt || b.createdAt) : (b.updatedAt || b.createdAt);
     return { b, status, when: timestampMillis(when) };
-  }).sort((a, b) => b.when - a.when).slice(0, limit || (dashboard ? 20 : 6));
+  }).sort((a, b) => b.when - a.when);
+  const events = dashboard ? allEvents : allEvents.slice(0, limit || 6);
   const title = dashboard ? 'Live updates' : 'Recent updates';
   if (!events.length) return '<section class="activity-feed' + (dashboard ? ' dashboard-feed' : '') + '"><div class="activity-title">' + title + '</div><p>No updates yet.</p></section>';
-  return '<section class="activity-feed' + (dashboard ? ' dashboard-feed' : '') + '"><div class="activity-title">' + title + '</div><div class="activity-list"' + (dashboard ? ' role="region" aria-label="Live reservation updates"' : '') + '>' + events.map(event =>
+  const rows = events.map(event =>
     '<div class="activity-row ' + esc(event.b.status) + '"><div><strong>' + esc(event.status + ' ' + resourceLabelFor(event.b)) + '</strong><span>' + esc(event.b.name) + ' · ' + esc(bookingPurposeText(event.b)) + '</span></div><time>' + esc(fmtDate(event.b.date)) + '<br>' + esc(fmtTime(event.b.start)) + '–' + esc(fmtTime(event.b.end)) + '</time></div>'
-  ).join('') + '</div></section>';
+  ).join('');
+  if (dashboard) return '<section class="activity-feed dashboard-feed"><div class="activity-title">' + title + '</div><div class="activity-list-wrap"><div class="activity-list" role="region" tabindex="0" aria-label="Live reservation updates" aria-describedby="live-updates-scroll-cue">' + rows + '</div><span id="live-updates-scroll-cue" class="activity-scroll-cue" aria-live="polite" aria-atomic="true"></span></div></section>';
+  return '<section class="activity-feed"><div class="activity-title">' + title + '</div><div class="activity-list">' + rows + '</div></section>';
 }
 
 function unavailableRangeMessage(type) {
@@ -1131,13 +1163,10 @@ function myRequestStatusHtml(b, date) {
 function myRequestRowHtml(b, date, featured) {
   const active = b.status === 'pending' || b.status === 'approved';
   const featureClass = featured ? (b.status === 'approved' ? ' featured-approved' : b.status === 'pending' ? ' featured-pending' : '') : '';
-  const kicker = featured ? (b.status === 'approved' ? 'Next reservation' : b.status === 'pending' ? 'Next request' : 'Latest request') : (STATUS_LABEL[b.status] || 'Reservation');
   return '<article class="req-row reservation-card' + featureClass + '">' +
-    '<div class="reservation-kicker">' + esc(kicker) + '</div>' +
-    '<div class="reservation-time">' + esc(fmtDate(b.date)) + ' · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</div>' +
-    '<div class="req-head">' + esc(needsSummary(b)) + ' ' + myRequestStatusHtml(b, date) + '</div>' +
-    '<div class="req-sub">' + esc(bookingPurposeText(b)) + '</div>' +
-    (active ? '<div class="req-actions"><a href="#" class="cancel-link" data-act="my-cancel" data-id="' + esc(b.id) + '">' + (b.status === 'approved' ? 'Cancel reservation' : 'Cancel request') + '</a></div>' : '') +
+    '<div class="reservation-card-head"><time class="reservation-time">' + esc(fmtDate(b.date)) + ' · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</time>' + myRequestStatusHtml(b, date) + '</div>' +
+    '<div class="reservation-meta"><span>' + esc(needsSummary(b)) + '</span><span aria-hidden="true">·</span><span>' + esc(bookingPurposeText(b)) + '</span></div>' +
+    (active ? '<div class="req-actions"><button type="button" class="cancel-request-btn" data-act="my-cancel" data-id="' + esc(b.id) + '">' + (b.status === 'approved' ? 'Cancel reservation' : 'Cancel request') + '</button></div>' : '') +
     '</article>';
 }
 
@@ -1500,7 +1529,7 @@ function renderAdmin() {
   if (!queue.some(b => b.id === ui.adminSelectedId)) ui.adminSelectedId = queue.length ? queue[0].id : null;
   return '<section class="admin-workspace">' + (demoMode() ? '<div class="demo-notice">Sample Admin preview — scheduling and approval controls are read-only here.</div>' : '') + renderAdminHeader(date) +
     '<div class="admin-command"><aside class="admin-queue-panel">' + renderAdminQueue(date, queue) + '</aside>' +
-    '<section class="admin-context-panel">' + renderAdminSelectedRequest(date) + renderAdminDayOverview(date) + activityFeedHtml(date) + '</section></div>' +
+    '<section class="admin-context-panel">' + renderAdminSelectedRequest(date) + renderAdminDayOverview(date) + '</section></div>' +
     (demoMode() ? '' : '<div class="admin-tools-grid">' + renderAdminAddForm(date) + renderAdminHousekeeping() + '</div>') + '</section>';
 }
 

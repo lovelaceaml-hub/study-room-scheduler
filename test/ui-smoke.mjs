@@ -49,6 +49,17 @@ try {
   assert.equal(await page.getByRole('tab').count(), 3, 'Reservations is removed at every layout width');
   assert.equal(await page.locator('#tab-schedule').count(), 0);
   assert.equal(await page.getByRole('tab', { name: 'Home' }).getAttribute('aria-selected'), 'true');
+  const demoScheduleHref = await page.getByRole('link', { name: 'Schedule' }).getAttribute('href');
+  assert.equal(demoScheduleHref, 'tv.html?tv=1&demo=1', 'The demo Schedule action retains fixture-only TV mode');
+  const tvPreview = await context.newPage();
+  const tvFirebaseRequests = [];
+  tvPreview.on('request', request => {
+    if (request.url().includes('gstatic.com/firebasejs')) tvFirebaseRequests.push(request.url());
+  });
+  await tvPreview.goto(`http://127.0.0.1:${port}/${demoScheduleHref}`, { waitUntil: 'networkidle' });
+  assert.match(tvPreview.url(), /tv=1&demo=1/, 'Opening the demo Schedule action keeps demo mode in the TV URL');
+  assert.equal(tvFirebaseRequests.length, 0, 'Demo Schedule TV view does not load Firebase');
+  await tvPreview.close();
   await page.setViewportSize({ width: 1280, height: 720 });
   assert.equal(await page.getByRole('tab').count(), 3, 'Desktop keeps the simplified three-tab navigation');
   await page.setViewportSize({ width: 390, height: 844 });
@@ -57,8 +68,36 @@ try {
   assert.equal(await page.locator('.member-intro h1').count(), 0, 'Home no longer repeats an introductory heading');
   assert.ok(await page.getByRole('heading', { name: 'Day overview' }).isVisible());
   assert.equal(await page.locator('.home-day-overview .section-note').count(), 0);
-  assert.equal(await page.locator('.dashboard-feed .activity-row').count(), 2, 'Home shows exactly two compact live updates');
-  assert.equal(await page.locator('.dashboard-feed .activity-list').evaluate(node => node.scrollHeight <= node.clientHeight), true, 'Live updates do not create a nested scroller');
+  assert.ok(await page.locator('.dashboard-feed .activity-row').count() > 2, 'Home keeps every live update in the scrollable feed');
+  assert.equal(await page.locator('.dashboard-feed .activity-list').evaluate(node => node.scrollHeight > node.clientHeight), true, 'Live updates has an independent vertical scroller');
+  const fullyVisibleUpdates = await page.locator('.dashboard-feed .activity-list').evaluate(node => {
+    const bounds = node.getBoundingClientRect();
+    return [...node.querySelectorAll('.activity-row')].filter(row => {
+      const rect = row.getBoundingClientRect();
+      return rect.top >= bounds.top && rect.bottom <= bounds.bottom;
+    }).length;
+  });
+  assert.equal(fullyVisibleUpdates, 2, 'The compact Live updates viewport shows two complete rows at a time');
+  assert.equal(await page.locator('.activity-scroll-cue').getAttribute('data-state'), 'top');
+  assert.equal(await page.locator('.activity-scroll-cue').innerText(), 'More updates below ↓', 'The live feed gives an obvious downward scroll affordance');
+  assert.equal(await page.locator('.dashboard-feed .activity-list').getAttribute('aria-describedby'), 'live-updates-scroll-cue');
+  const cueDoesNotOverlapUpdates = await page.locator('.dashboard-feed').evaluate(feed => {
+    const cue = feed.querySelector('.activity-scroll-cue').getBoundingClientRect();
+    const list = feed.querySelector('.activity-list').getBoundingClientRect();
+    return [...feed.querySelectorAll('.activity-row')]
+      .filter(row => {
+        const rect = row.getBoundingClientRect();
+        return rect.bottom > list.top && rect.top < list.bottom;
+      })
+      .every(row => {
+        const rect = row.getBoundingClientRect();
+        return cue.right <= rect.left || cue.left >= rect.right || cue.bottom <= rect.top || cue.top >= rect.bottom;
+      });
+  });
+  assert.equal(cueDoesNotOverlapUpdates, true, 'The Live updates cue does not overlap a visible update row');
+  assert.deepEqual(await page.locator('.home-day-overview .member-resource').allInnerTexts(), ['Study room', 'Whiteboard', 'TV'], 'Home resource controls omit capacity counts');
+  const resourceTarget = await page.locator('.home-day-overview .member-resource').first().evaluate(node => node.getBoundingClientRect().height);
+  assert.ok(resourceTarget >= 44 && resourceTarget <= 46, `Home resource controls are compact 44px touch targets (${resourceTarget}px)`);
   assert.equal(await page.locator('.home-daypart').count(), 3);
   assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null);
   assert.equal(await page.locator('.home-daypart').nth(0).locator('.home-daypart-summary').innerText(), 'Hide schedule');
@@ -89,6 +128,7 @@ try {
   await origin.click();
   assert.ok(await page.locator('.end-time-dialog').isVisible());
   assert.equal(await page.locator('.home-dashboard').evaluate(node => node.inert), true, 'Home is inert behind the end-time sheet');
+  assert.equal(await page.locator('#masthead .head-in').evaluate(node => node.inert), true, 'Every masthead action is inert behind the end-time sheet');
   await page.getByRole('button', { name: 'Close end time choices' }).click();
   await page.waitForFunction(() => document.activeElement?.dataset.focusKey?.includes('home-open-'));
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey), await origin.getAttribute('data-focus-key'));
@@ -158,8 +198,31 @@ try {
   });
   assert.deepEqual(bottomCue, { state: 'bottom', text: 'Scroll up ↑' }, 'The Home scroll cue changes to an upward direction at the bottom');
 
+  const updatesBottomCue = await page.locator('.dashboard-feed .activity-list').evaluate(node => {
+    node.scrollTop = node.scrollHeight;
+    node.dispatchEvent(new Event('scroll'));
+    const cue = node.parentElement.querySelector('.activity-scroll-cue');
+    return { state: cue.dataset.state, text: cue.textContent };
+  });
+  assert.deepEqual(updatesBottomCue, { state: 'bottom', text: 'Earlier updates above ↑' }, 'The live updates cue changes direction at the bottom');
+
+  await page.setViewportSize({ width: 393, height: 852 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'The annotation viewport has no horizontal overflow');
+  assert.equal(await page.locator('.home-day-overview .member-resource').first().evaluate(node => node.getBoundingClientRect().height), 44, 'The annotation viewport keeps compact resource controls');
+  assert.equal(await page.locator('.dashboard-feed .activity-list').evaluate(node => node.scrollHeight > node.clientHeight), true, 'The annotation viewport retains the compact scrollable Live updates feed');
+
+  await page.getByRole('tab', { name: 'My reservations' }).click();
+  assert.ok(await page.locator('.reservation-card').count() > 0, 'My reservations keeps compact cards');
+  assert.equal(await page.locator('.reservation-card .req-sub').count(), 0, 'Card details are condensed into one concise metadata row');
+  assert.ok(await page.locator('.reservation-card .reservation-meta').count() > 0);
+  assert.ok(await page.getByRole('button', { name: /Cancel (reservation|request)/ }).count() > 0, 'Active items have a clear cancel action');
+  assert.equal(await page.locator('.cancel-request-btn').first().evaluate(node => node.tagName), 'BUTTON');
+  const cancelTarget = await page.locator('.cancel-request-btn').first().evaluate(node => node.getBoundingClientRect().height);
+  assert.ok(cancelTarget >= 44, `Cancel is an adequate destructive touch target (${cancelTarget}px)`);
+
   await page.getByRole('tab', { name: 'Admin' }).click();
   assert.match(await page.locator('.admin-workspace').innerText(), /Sample Admin preview/);
+  assert.equal(await page.locator('.admin-workspace .activity-feed').count(), 0, 'Admin no longer shows a Recent updates feed');
   assert.deepEqual(errors, []);
   console.log('Home-first UI and accessibility smoke checks passed');
 } finally {
