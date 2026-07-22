@@ -18,8 +18,8 @@ Live updates, count-free compact resource controls, the masthead Schedule link, 
 My-reservation cards, and no Admin Recent updates feed. It does not change the booking,
 date, approval, or demo rules.
 
-A separate two-item follow-up is currently **pre-deployment**: narrow-phone Home grids
-use a compact no-wrap time column, and Live updates sort newest status changes first.
+The July 21 two-item follow-up is also **live**: narrow-phone Home grids use a compact
+no-wrap time column, and Live updates sort newest status changes first.
 
 ## Open the member app
 

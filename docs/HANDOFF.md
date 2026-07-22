@@ -30,13 +30,17 @@ cells, Reserved privacy, the scroll cue, the end-time sheet, and no page overflo
 the primary Hosting `app` target was deployed. Functions, Firestore rules, indexes,
 Authentication, and the legacy redirect were unchanged.
 
-**Current two-item follow-up — pre-deployment.** The uncommitted branch narrows the
-Home day map’s mobile time column and prevents its labels from wrapping, preserving room
-tile width. It also orders Live updates newest-first from the latest created, updated,
-or decision timestamp, including normalizing browser, ISO, and Firestore timestamp
-forms. It changes no policy, date, demo, privacy, TV, Function, Firestore, or
-Authentication behavior. Do not represent this follow-up as live until its focused
-mobile, feed-order, UI-smoke, and diff checks pass and Hosting is deployed.
+**July 21 two-item follow-up — live.** Commit `880afcb` narrows the Home day map’s
+mobile time column and prevents its labels from wrapping, preserving room-tile width. It
+also orders Live updates newest-first from the latest created, updated, or decision
+timestamp, including normalizing browser, ISO, and Firestore timestamp forms. It changes
+no policy, date, demo, privacy, TV, Function, Firestore, or Authentication behavior.
+All 13 policy tests, UI smoke plus axe (including geometry, ISO, and latest-first), and
+TV smoke passed. An independent re-review found no P0/P1 issues. Read-only Playwright at
+`https://lvrooms.web.app/?demo=1` verified Jordan as the latest update, the one-line
+58px time column, 66.5px room tiles, and no overflow at 393×852. Deployment was
+`hosting:app` only; Functions, Firestore, Authentication, and the legacy redirect were
+unchanged.
 
 **July 21 annotation refinement — live.** Commit `29bc9d4` keeps two
 visible Live-update rows on Home but lets their activity scroll independently; resource
@@ -157,11 +161,11 @@ writing to Firestore.
   independent activity scrolling; 44px count-free resource controls; the masthead
   Schedule-to-TV route; compact My cards with a separately focused destructive cancel
   button; and no Admin Recent updates feed. Repeat these checks for later changes.
-- Before releasing the current two-item follow-up, verify the 320×720 and 393×852 Home
-  grid has a compact no-wrap time column, readable room tiles, and no document-level
-  overflow; verify Live updates place the newest status change first across number,
-  browser-date, ISO, and Firestore timestamp values; then rerun UI smoke and the
-  existing policy, TV, demo-isolation, accessibility, and diff checks.
+- The July 21 two-item follow-up verified the 320×720 and 393×852 Home grid has a
+  compact no-wrap time column, readable room tiles, and no document-level overflow;
+  Live updates place the newest status change first across number, browser-date, ISO,
+  and Firestore timestamp values. Repeat UI smoke, policy, TV, demo-isolation,
+  accessibility, and diff checks for later changes.
 - Verify Tuesday instant approval, advance Saturday pending, and the Saturday 9:59 AM /
   10:00 AM Los Angeles boundary.
 - Verify simultaneous member, Admin, phone, and TV live updates, the TV eligible-day

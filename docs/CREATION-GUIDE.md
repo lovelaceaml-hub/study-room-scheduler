@@ -35,11 +35,15 @@ count-free controls, scrolling feed, and absent Admin feed. The deployment was a
 limited to Hosting `app`; Functions, Firestore, Authentication, and the legacy redirect
 were unchanged.
 
-A separate, uncommitted two-item follow-up is **pre-deployment**. It makes the narrow
-Home day map use a compact no-wrap time column so four room tiles retain usable width,
-and makes Live updates newest-first using the latest available created, updated, or
-decision timestamp. It does not change booking policy, dates, fixtures, privacy, TV
-rendering, or backend behavior.
+The July 21 two-item follow-up (commit `880afcb`) is also live. It makes the narrow Home
+day map use a compact no-wrap time column so four room tiles retain usable width, and
+makes Live updates newest-first using the latest available created, updated, or decision
+timestamp. It does not change booking policy, dates, fixtures, privacy, TV rendering, or
+backend behavior. All 13 policy tests, UI smoke plus axe (including geometry, ISO, and
+latest-first cases), and TV smoke passed. An independent re-review found no P0/P1 issues;
+read-only production Playwright verified Jordan as latest, a 58px one-line time column,
+66.5px room tiles, and no overflow at 393×852. Deployment was `hosting:app` only;
+Functions, Firestore, Authentication, and the legacy redirect were unchanged.
 
 ## Applied visual redesign
 
@@ -282,10 +286,11 @@ Production verification covers:
   Schedule opens the public TV route.
 - My reservation cards remain compact and expose a distinct destructive cancellation
   control only for eligible owned requests; Admin has no Recent updates feed.
-- Before releasing the current follow-up, verify at 320×720 and 393×852 that Home time
-  labels stay on one line in the compact column, room tiles retain usable width, and
-  there is no document-level overflow; verify the first Live-update row is the latest
-  status change for number, browser-date, ISO, and Firestore timestamp inputs.
+- The July 21 follow-up verified at 320×720 and 393×852 that Home time labels stay on
+  one line in the compact column, room tiles retain usable width, and there is no
+  document-level overflow. It also verified that the first Live-update row is the latest
+  status change for number, browser-date, ISO, and Firestore timestamp inputs. Repeat
+  these checks for later changes.
 - Phones at 320, 375, and 390 pixels.
 - TV mode at narrow width, 1280×720, and 1920×1080, including its eligible-day selector,
   four room cards, approved-only study-room timeline, and demo data.

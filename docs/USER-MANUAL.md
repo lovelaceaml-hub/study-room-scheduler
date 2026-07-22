@@ -12,7 +12,8 @@ https://lvz-rooms.web.app, forwards there automatically.)
 > and live-verified on July 21, 2026. The same day's annotation refinement—independently
 > scrolling Live updates, count-free resource controls, the masthead Schedule link,
 > compact reservation cards, and no Admin Recent updates feed—is also live. A separate
-> two-item mobile display/feed-order follow-up is still pre-deployment.
+> mobile display/feed-order follow-up is also live: it keeps narrow-phone time labels
+> on one line and puts the newest Live update first.
 
 ## For members
 
