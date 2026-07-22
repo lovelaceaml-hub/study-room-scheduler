@@ -1,16 +1,21 @@
 # Study Rooms UI quality report — July 17–21, 2026
 
-## Pending mobile Home grid-density follow-up
+## July 21 mobile Home grid-density follow-up verification
 
-The current uncommitted branch is **not deployed or verified yet**. At phone widths, it
-keeps Home tiles compact and evenly spaced with 44px minimum dimensions, retains the
-58px single-line time column, and uses 10px occupant names with 8.5px purpose labels
-that ellipsize rather than wrap. Booking policy, capacity, dates, demo isolation,
-privacy, TV output, and backend behavior remain unchanged.
+Commit `e940438` was deployed to **https://lvrooms.web.app** on July 21, 2026. At phone
+widths, it keeps Home tiles compact and evenly spaced with 44px minimum dimensions,
+retains the 58px single-line time column, and uses 10px occupant names with 8.5px
+purpose labels that ellipsize rather than wrap. Booking policy, capacity, dates, demo
+isolation, privacy, TV output, and backend behavior remain unchanged.
 
-Before Hosting release, verify the 320×720 and 393×852 Home grids for even 44px tiles,
-the no-wrap 58px time column, name fit, safe purpose ellipsis, no document-level
-overflow, keyboard focus, and axe results. Then rerun UI smoke and `git diff --check`.
+All **13 of 13** policy tests, UI/axe, TV smoke, and `git diff --check` passed. An
+independent review first found a P1 tiny-text regression at **8.5px/7.5px**; it was
+resolved, and the final review found no remaining P0/P1/P2 issues. Read-only Playwright
+at **https://lvrooms.web.app/?demo=1** reported a fitting **58px** time column,
+**65.75×44px** tiles, **10px** names, **8.5px** purposes, and no overflow. Only
+`hosting:app` deployed; Functions, Firestore, Authentication, and the legacy redirect
+were unchanged.
+
 The existing limitations remain: the Firestore-rule emulator cannot run on this Mac
 until Java is installed, and browser checks do not replace a formal first-time-member
 user study.

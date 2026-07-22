@@ -45,11 +45,17 @@ read-only production Playwright verified Jordan as latest, a 58px one-line time 
 66.5px room tiles, and no overflow at 393×852. Deployment was `hosting:app` only;
 Functions, Firestore, Authentication, and the legacy redirect were unchanged.
 
-The current uncommitted mobile grid-density follow-up is **pre-deployment**. At phone
+The July 21 mobile grid-density follow-up (commit `e940438`) is also live. At phone
 widths, it gives Home booking tiles a 44px minimum width and height with even spacing,
 keeps the time column at 58px and single-line, and fits occupied cells with 10px names
 and 8.5px ellipsized purpose labels. This is a Home-only presentation change; it does
 not alter booking policy, capacity, data, privacy, TV rendering, or backend behavior.
+All 13 policy tests, UI/axe, TV smoke, and diff checks passed. Independent review first
+flagged a P1 tiny-text regression at 8.5px/7.5px; the fix was re-reviewed with no
+remaining P0/P1/P2 issues. Read-only production Playwright measured a fitting 58px time
+column, 65.75×44px tiles, 10px names, 8.5px purposes, and no overflow. Deployment was
+`hosting:app` only; Functions, Firestore, Authentication, and the legacy redirect were
+unchanged.
 
 ## Applied visual redesign
 
@@ -158,11 +164,10 @@ At the narrow-phone breakpoint, the Home grid replaces its wider time area with 
 compact no-wrap time column and keeps four room tiles at usable width. This is confined
 to the Home grid; it does not reduce the tap target of an open room tile.
 
-The pending density follow-up preserves that 58px time column, but makes the four
+The live density follow-up preserves that 58px time column, but makes the four
 study-room tiles evenly spaced with 44px minimum dimensions. At phone widths, occupant
 names target 10px readable text; secondary purpose text targets 8.5px and ellipsizes
-instead of wrapping and growing a schedule row. Verify no content is clipped before
-releasing this visual tightening.
+instead of wrapping and growing a schedule row.
 
 If no numbered unit is free for the complete selected range, the member interface
 uses an inline alert with the exact unavailable message. It computes the longest
@@ -303,10 +308,10 @@ Production verification covers:
   document-level overflow. It also verified that the first Live-update row is the latest
   status change for number, browser-date, ISO, and Firestore timestamp inputs. Repeat
   these checks for later changes.
-- Before releasing the current grid-density follow-up, verify at 320×720 and 393×852
-  that Home tiles are evenly spaced and at least 44px high/wide, the 58px time labels
-  remain single-line, 10px names fit, 8.5px purpose labels ellipsize safely, and there
-  is no document-level overflow; then rerun UI smoke, axe, and `git diff --check`.
+- The July 21 grid-density follow-up verified at 320×720 and 393×852 that Home tiles are
+  evenly spaced and at least 44px high/wide, the 58px time labels remain single-line,
+  10px names fit, 8.5px purpose labels ellipsize safely, and no document-level overflow
+  occurs. Repeat UI smoke, axe, and `git diff --check` for later changes.
 - Phones at 320, 375, and 390 pixels.
 - TV mode at narrow width, 1280×720, and 1920×1080, including its eligible-day selector,
   four room cards, approved-only study-room timeline, and demo data.

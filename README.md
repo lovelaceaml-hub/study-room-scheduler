@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — all July 21 Home-first, annotation, mobile-grid, and feed-order refinements are deployed and live-verified; a mobile grid-density follow-up is pre-deployment
+- **Status:** Live — all July 21 Home-first, annotation, mobile-grid, feed-order, and grid-density refinements are deployed and live-verified
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -55,7 +55,7 @@ phones with a compact, no-wrap time column that leaves room for room tiles. It a
 orders Live updates newest-first from the latest booking status timestamp. It does not
 change booking policy, date choices, demo isolation, privacy, or TV behavior.
 
-The current uncommitted mobile grid-density follow-up is **pre-deployment**. On phone
+The July 21 mobile grid-density follow-up (commit `e940438`) is also live. On phone
 widths, it keeps Home tiles at a compact, evenly spaced 44px minimum; retains the 58px
 single-line time column; and uses readable 10px names with 8.5px ellipsized purpose
 labels. It is a visual-density change only and does not alter scheduling behavior.
@@ -79,3 +79,9 @@ mobile geometry, ISO timestamps, and newest-first ordering), and TV smoke; its
 independent re-review found no P0/P1 issues. Read-only production Playwright verified
 Jordan as the newest update, a one-line 58px time column, 66.5px room tiles, and no
 overflow at 393×852. This was another `hosting:app`-only deployment.
+
+Commit `e940438` passed all 13 policy tests, UI/axe, TV smoke, and diff checks. Its
+independent reviewer initially found a P1 tiny-text regression (8.5px/7.5px), which was
+corrected; the final review found no P0/P1/P2 issues. Read-only production Playwright
+confirmed a fitting 58px time column, 65.75×44px tiles, 10px names, 8.5px purposes, and
+no overflow. Only `hosting:app` deployed.

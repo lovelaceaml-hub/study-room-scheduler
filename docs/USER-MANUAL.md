@@ -14,7 +14,8 @@ https://lvz-rooms.web.app, forwards there automatically.)
 > compact reservation cards, and no Admin Recent updates feed—is also live. A separate
 > mobile display/feed-order follow-up is also live: it keeps narrow-phone time labels
 > on one line and puts the newest Live update first. A further mobile grid-density
-> follow-up is currently pre-deployment.
+> follow-up is also live: it keeps Home tiles compact and evenly spaced while preserving
+> readable names and short purpose labels.
 
 ## For members
 
@@ -40,10 +41,10 @@ On a narrow phone, each Day overview time stays on one line in a compact time co
 the room tiles remain usable. This is only a layout adjustment; the same open-cell,
 end-time, and availability flow applies.
 
-The next mobile-density refinement is not live yet. It keeps Home tiles evenly spaced
-with a 44px minimum touch target, retains the 58px single-line time column, and fits
-occupied cells with 10px names plus 8.5px purpose labels that shorten with an ellipsis
-when needed. It does not change what a reservation means or how members start one.
+The mobile-density refinement keeps Home tiles evenly spaced with a 44px minimum touch
+target, retains the 58px single-line time column, and fits occupied cells with 10px
+names plus 8.5px purpose labels that shorten with an ellipsis when needed. It does not
+change what a reservation means or how members start one.
 
 Tap an open cell to choose its start. Answer **When should it end?**, review the exact
 range and availability, then tap **Continue** for the name-and-purpose form. The
