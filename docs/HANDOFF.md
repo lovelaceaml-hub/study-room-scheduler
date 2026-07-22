@@ -30,6 +30,19 @@ cells, Reserved privacy, the scroll cue, the end-time sheet, and no page overflo
 the primary Hosting `app` target was deployed. Functions, Firestore rules, indexes,
 Authentication, and the legacy redirect were unchanged.
 
+**July 22 selection-bar update — live.** After a member chooses an exact end time,
+Home keeps the selected range, **Clear**, and **Continue** in a viewport-fixed bar. On
+phones it sits above the fixed navigation; on larger screens it is centered near the
+bottom of the viewport. This is a presentation-only change and does not alter booking
+policy, capacity, dates, privacy, demo data, TV output, or backend behavior.
+
+Verification completed: `npm test` passed 13/13; `npm run test:ui` passed; the focused
+`npm run test:selection-bar` passed; `git diff --check` passed; and a read-only live
+Playwright check at `https://lvrooms.web.app/?demo=1&test=1` measured the bar as fixed
+and fully inside the 390×844 viewport both before and after scrolling. Only Hosting
+target `app` was deployed. Functions, Firestore rules, indexes, Authentication, and
+the legacy redirect were unchanged.
+
 **July 21 mobile grid-density follow-up — live.** Commit `e940438` keeps phone-width
 Home tiles evenly spaced with 44px minimum dimensions, retains the 58px single-line time
 column, and uses 10px occupant names with 8.5px ellipsized purpose labels. It is a
@@ -164,7 +177,8 @@ writing to Firestore.
 - Verify anonymous request creation and owner-only cancellation.
 - Verify Admin unlock, approve, decline, cancel, reassignment, direct-add, and lock.
 - Verify listed start-time and revealed End-time selection, Morning/Afternoon/Evening disclosures, date arrows,
-  unavailable-range recovery, and the booking pop-up on desktop and phone.
+  unavailable-range recovery, the viewport-fixed Clear/Continue bar while scrolling,
+  and the booking pop-up on desktop and phone.
 - Verify no member Reservations tab at phone or desktop widths; two compact Live-update
   rows; Home's one-date stepper; visible daypart scrolling; public name-and-purpose
   cells; 10:00 PM and 10:30 PM starts; the 11:00 PM final boundary; and Home's direct

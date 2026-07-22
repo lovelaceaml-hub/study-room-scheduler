@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — all July 21 Home-first, annotation, mobile-grid, feed-order, and grid-density refinements are deployed and live-verified
+- **Status:** Live — the July 22 fixed Clear/Continue selection bar and earlier Home-first, annotation, mobile-grid, feed-order, and grid-density refinements are deployed and live-verified
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -59,6 +59,12 @@ The July 21 mobile grid-density follow-up (commit `e940438`) is also live. On ph
 widths, it keeps Home tiles at a compact, evenly spaced 44px minimum; retains the 58px
 single-line time column; and uses readable 10px names with 8.5px ellipsized purpose
 labels. It is a visual-density change only and does not alter scheduling behavior.
+
+The July 22 selection-bar update is also live. After a member chooses an exact end
+time, the Home range summary keeps **Clear** and **Continue** fixed inside the viewing
+screen, above the phone navigation when needed. Members can scroll the schedule without
+losing the actions. This is a presentation-only change; booking behavior, privacy, and
+the backend are unchanged.
 
 The app uses buildless vanilla JavaScript, Firebase Hosting, and Firestore live
 updates. It includes a phone-friendly booking experience and a dedicated lobby TV

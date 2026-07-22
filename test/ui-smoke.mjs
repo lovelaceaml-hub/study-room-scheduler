@@ -156,9 +156,15 @@ try {
   assert.ok(await page.locator('.home-cell-name').count() > 0);
   assert.match(await page.locator('.home-cell-purpose').first().innerText(), /Contact|Meeting/);
   assert.equal(await page.locator('.home-day-overview').getByText('Family Bible study', { exact: true }).count(), 0, 'Home cells expose categories, never free-form notes');
+  let movedToTuesdayForFixture = false;
+  if ((await page.locator('.home-date-selector .date-current strong').innerText()).startsWith('Saturday')) {
+    await page.locator('.home-date-selector .date-arrow').nth(1).click();
+    movedToTuesdayForFixture = true;
+  }
   assert.equal(await page.locator('.home-held-cell[data-held="true"]').count(), 1, 'The demo includes an Admin-held room cell');
   assert.match(await page.locator('.home-held-cell').innerText(), /^Reserved\s+Reserved$/, 'Admin-held cells never expose an Admin-entered name');
   assert.equal(await page.locator('.home-day-overview').getByText('Admin Hold — Private', { exact: true }).count(), 0);
+  if (movedToTuesdayForFixture) await page.locator('.home-date-selector .date-arrow').first().click();
 
   const homeDate = await page.locator('.home-date-selector .date-current strong').innerText();
   assert.equal(await page.locator('.home-date-selector .date-arrow').first().isDisabled(), true);
@@ -167,6 +173,9 @@ try {
   assert.equal(await page.locator('.home-daypart').first().locator('.member-service button').count(), 0, 'Service bands cannot start a reservation');
   await page.locator('.home-date-selector .date-arrow').first().click();
 
+  if ((await page.locator('.home-date-selector .date-current strong').innerText()).startsWith('Saturday')) {
+    await page.locator('.home-date-selector .date-arrow').nth(1).click();
+  }
   const origin = page.locator('.home-open-cell[data-start="10:30"][data-unit="room-1"]');
   assert.equal(await origin.count(), 1);
   await origin.click();
@@ -206,6 +215,9 @@ try {
   await page.waitForFunction(() => document.activeElement?.dataset.focusKey === 'member-continue');
   assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null, 'The source daypart stays open through the booking flow');
 
+  if ((await page.locator('.home-date-selector .date-current strong').innerText()).startsWith('Tuesday')) {
+    await page.locator('.home-date-selector .date-arrow').first().click();
+  }
   await page.evaluate(() => window.__SRS_TEST_HELPERS__.seedHomeReservationStateForTest());
   await page.locator('[data-act="home-overview-type"][data-id="whiteboard"]').click();
   assert.deepEqual(await page.evaluate(() => window.__SRS_TEST_HELPERS__.homeReservationState()), {

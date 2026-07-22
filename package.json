@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "test": "node --check app.js && node --check tv.js && node --check sw.js && node --test functions/test/policy.test.js",
-    "test:ui": "node test/ui-smoke.mjs"
+    "test:ui": "node test/ui-smoke.mjs",
+    "test:selection-bar": "node test/selection-bar-smoke.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",

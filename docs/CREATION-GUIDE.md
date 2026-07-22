@@ -57,6 +57,15 @@ column, 65.75×44px tiles, 10px names, 8.5px purposes, and no overflow. Deployme
 `hosting:app` only; Functions, Firestore, Authentication, and the legacy redirect were
 unchanged.
 
+The July 22 selection-bar update is also live. After a member chooses an exact end time,
+the Home range summary containing **Clear** and **Continue** is fixed to the viewport
+instead of waiting below the schedule's scroll position. On phones it sits above the
+fixed navigation bar; on larger screens it stays centered and inset from the bottom.
+This is a presentation-only CSS change: booking policy, capacity, privacy, fixtures,
+TV output, Functions, Firestore, Authentication, and the legacy redirect are unchanged.
+`npm test`, `npm run test:ui`, the focused selection-bar smoke test, and a read-only live
+Playwright check passed. Deployment was `hosting:app` only.
+
 ## Applied visual redesign
 
 An isolated, interactive redesign preview was added on July 17, 2026 and approved
@@ -156,7 +165,8 @@ and Evening sections, each with the applicable service band, scroll cue, and hal
 grid. Its open slots are buttons that
 set the Home date, resource, and start, then focus the end-time choice; full and service
 slots are not booking actions. After an end is chosen, the same Home page renders the
-range, assignment/pending details, Clear, and Continue actions. The former
+range, assignment/pending details, Clear, and Continue actions in a viewport-fixed
+summary bar so those actions remain available while the schedule scrolls. The former
 device-specific notification and current/next-summary cards are not part of this
 refinement.
 

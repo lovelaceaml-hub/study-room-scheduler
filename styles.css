@@ -673,7 +673,15 @@ button.availability-select { cursor: pointer; }
 .unit-detail strong, .unit-detail span { display: block; }
 .unit-detail.open, .unit-detail.mine { background: var(--ok-tint); color: var(--ok); }
 .member-service { margin: 5px 0; border: 1px solid var(--line); border-radius: 9px; background: repeating-linear-gradient(135deg,var(--surface-sunken),var(--surface-sunken) 8px,color-mix(in srgb,var(--surface-sunken) 70%,var(--surface)) 8px,color-mix(in srgb,var(--surface-sunken) 70%,var(--surface)) 16px); color: var(--ink-soft); }
-.member-selection-summary { z-index: 8; min-height: 80px; padding: 9px 11px; border-radius: 14px; box-shadow: 0 14px 35px rgba(28,42,35,.18); }
+.member-selection-summary { z-index: 40; min-height: 80px; padding: 9px 11px; border-radius: 14px; box-shadow: 0 14px 35px rgba(28,42,35,.18); }
+.home-selection-summary {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  width: min(760px, calc(100% - 24px));
+  margin-top: 0;
+  transform: translateX(-50%);
+}
 .member-selection-summary > span { min-width: 0; flex: 1; }
 .member-selection-summary > span strong, .member-selection-summary > span small { display: block; }
 .member-selection-summary > span small { color: var(--ink-soft); font-size: 11px; }
@@ -777,7 +785,7 @@ button.availability-select { cursor: pointer; }
   #banners { bottom: 84px; }
   body:has(.member-selection-summary) #banners { bottom: 166px; }
   .availability-select { grid-template-columns: 84px 1fr 20px; }
-  .member-selection-summary { bottom: 72px; }
+  .home-selection-summary { bottom: calc(72px + env(safe-area-inset-bottom)); }
   .member-selection-summary .btn { padding-inline: 13px; }
   .unit-detail-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .end-time-panel label { grid-template-columns: minmax(0,1fr); }

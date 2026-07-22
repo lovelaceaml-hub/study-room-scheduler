@@ -15,7 +15,9 @@ https://lvz-rooms.web.app, forwards there automatically.)
 > mobile display/feed-order follow-up is also live: it keeps narrow-phone time labels
 > on one line and puts the newest Live update first. A further mobile grid-density
 > follow-up is also live: it keeps Home tiles compact and evenly spaced while preserving
-> readable names and short purpose labels.
+> readable names and short purpose labels. The July 22 selection-bar update is live as
+> well: after an exact end time is chosen, the Clear and Continue actions remain visible
+> while the schedule is scrolled.
 
 ## For members
 
@@ -49,7 +51,8 @@ change what a reservation means or how members start one.
 Tap an open cell to choose its start. Answer **When should it end?**, review the exact
 range and availability, then tap **Continue** for the name-and-purpose form. The
 availability details keep pending requests explicitly unassigned until Admin approves
-one.
+one. The selected range bar stays on the viewing screen, so you can scroll the schedule
+without losing **Clear** or **Continue**.
 
 ### Choose a day
 
@@ -110,7 +113,8 @@ or cross through one. The lobby TV still shows each service as a labeled timetab
    11:30 AM creates a 10:00–11:30 AM reservation—not 10:00 AM–12:00 PM.
 4. Tap the open/pending totals if you need to see numbered assignments and unassigned
    pending requests for that range.
-5. Tap **Continue**.
+5. Tap **Continue** in the selected range bar. It stays visible while you scroll the
+   schedule.
 6. Enter your full name and choose Contact, New Member, Meeting, or Other.
    For Other, briefly explain the purpose.
 7. Tap **Reserve now** when the selected request qualifies for instant approval, or
