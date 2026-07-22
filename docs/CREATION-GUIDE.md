@@ -35,6 +35,12 @@ count-free controls, scrolling feed, and absent Admin feed. The deployment was a
 limited to Hosting `app`; Functions, Firestore, Authentication, and the legacy redirect
 were unchanged.
 
+A separate, uncommitted two-item follow-up is **pre-deployment**. It makes the narrow
+Home day map use a compact no-wrap time column so four room tiles retain usable width,
+and makes Live updates newest-first using the latest available created, updated, or
+decision timestamp. It does not change booking policy, dates, fixtures, privacy, TV
+rendering, or backend behavior.
+
 ## Applied visual redesign
 
 An isolated, interactive redesign preview was added on July 17, 2026 and approved
@@ -138,6 +144,10 @@ range, assignment/pending details, Clear, and Continue actions. The former
 device-specific notification and current/next-summary cards are not part of this
 refinement.
 
+At the narrow-phone breakpoint, the Home grid replaces its wider time area with a
+compact no-wrap time column and keeps four room tiles at usable width. This is confined
+to the Home grid; it does not reduce the tap target of an open room tile.
+
 If no numbered unit is free for the complete selected range, the member interface
 uses an inline alert with the exact unavailable message. It computes the longest
 continuous shorter ending from the same start and offers Yes/No recovery when one
@@ -167,7 +177,10 @@ request time. The approval predicate is a pure policy helper and must use
 `America/Los_Angeles`, never the server host time zone.
 
 The activity feed derives Requested, Reserved, and Cancelled events from booking
-timestamps. Approved cancellations retain their last assigned unit in server-only
+timestamps and places the latest event first by comparing its created, updated, and
+decision timestamps. Timestamp inputs are normalized before comparing them so Firestore
+timestamps and standard browser date values cannot produce fixture-order results.
+Approved cancellations retain their last assigned unit in server-only
 write data so the feed can accurately say which room, whiteboard, or TV was cancelled.
 `?demo=1` overlays complete sample records in the browser only; it never writes them to
 Firestore. The planned member and TV previews include both eligible dates, all resource
@@ -269,6 +282,10 @@ Production verification covers:
   Schedule opens the public TV route.
 - My reservation cards remain compact and expose a distinct destructive cancellation
   control only for eligible owned requests; Admin has no Recent updates feed.
+- Before releasing the current follow-up, verify at 320×720 and 393×852 that Home time
+  labels stay on one line in the compact column, room tiles retain usable width, and
+  there is no document-level overflow; verify the first Live-update row is the latest
+  status change for number, browser-date, ISO, and Firestore timestamp inputs.
 - Phones at 320, 375, and 390 pixels.
 - TV mode at narrow width, 1280×720, and 1920×1080, including its eligible-day selector,
   four room cards, approved-only study-room timeline, and demo data.

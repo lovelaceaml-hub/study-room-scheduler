@@ -1,5 +1,21 @@
 # Study Rooms UI quality report — July 17–21, 2026
 
+## Pending two-item mobile/feed-order follow-up
+
+The current uncommitted branch is **not deployed or verified yet**. It gives the narrow
+Home day map a compact, no-wrap time column so the four room tiles retain usable width,
+and makes Live updates newest-first from the latest created, updated, or decision
+timestamp. The timestamp comparison normalizes number, browser-date, ISO, and Firestore
+forms. Booking policy, dates, demo isolation, privacy, TV output, and backend behavior
+remain unchanged.
+
+Before a Hosting release, verify the Home grid at 320×720 and 393×852 for one-line time
+labels, usable room tiles, and no document-level overflow. Verify that a latest decision
+appears first in Live updates for each supported timestamp form, then rerun UI smoke,
+policy, TV-smoke, demo-isolation, accessibility, and `git diff --check`. The existing
+limitations remain: the Firestore-rule emulator cannot run on this Mac until Java is
+installed, and browser checks do not replace a formal first-time-member user study.
+
 ## July 21 annotation-refinement verification
 
 Commit `29bc9d4` was deployed to **https://lvrooms.web.app** on July 21, 2026. It retains

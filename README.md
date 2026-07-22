@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — the July 21 Home-first and annotation-refinement releases are deployed and live-verified
+- **Status:** Live — the July 21 Home-first and annotation-refinement releases are deployed and live-verified; a two-item follow-up is currently pre-deployment
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -49,6 +49,12 @@ masthead **Schedule** link opens the public TV view; My
 reservations uses compact cards with a visibly destructive cancellation action; and
 Admin no longer repeats a Recent updates feed. Booking policy, privacy, dates, mock
 data, and the study-room-only TV remain unchanged.
+
+The current uncommitted follow-up keeps the Home schedule legible on narrow phones with
+a compact, no-wrap time column that leaves room for the room tiles. It also orders Live
+updates newest-first from the latest booking status timestamp. These two refinements are
+pre-deployment and do not change booking policy, date choices, demo isolation, privacy,
+or TV behavior.
 
 The app uses buildless vanilla JavaScript, Firebase Hosting, and Firestore live
 updates. It includes a phone-friendly booking experience and a dedicated lobby TV

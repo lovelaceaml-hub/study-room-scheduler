@@ -785,6 +785,11 @@ button.availability-select { cursor: pointer; }
   .admin-header-card { padding: 15px; }
   .admin-counts { gap: 5px; }
   .admin-counts span { min-width: 0; padding: 7px 4px; }
+  .home-day-map .member-calendar-grid { min-width: 0; }
+  .home-day-map .member-calendar-row { grid-template-columns: 58px minmax(0, 1fr); }
+  .home-day-map .member-time { padding-inline: 3px; font-size: 11px; letter-spacing: -.02em; white-space: nowrap; }
+  .home-day-map .member-squares { gap: 3px; padding-right: 4px; }
+  .home-day-map .member-square { min-width: 44px; }
   input[type="text"], input[type="password"], select, textarea { font-size: 16px; }
 }
 
@@ -794,10 +799,6 @@ button.availability-select { cursor: pointer; }
   .date-choice { padding-inline: 8px; }
   .member-resource { font-size: 12px; }
   .member-selection-summary { gap: 5px; padding-inline: 8px; }
-  .home-day-map .member-calendar-grid { min-width: 258px; }
-  .home-day-map .member-calendar-row { grid-template-columns: 64px minmax(194px, 1fr); }
-  .home-day-map .member-time { padding-inline: 4px; font-size: 12px; }
-  .home-day-map .member-square { min-width: 44px; }
 }
 
 @media (max-width: 250px) {

@@ -116,9 +116,25 @@ function esc(s) {
 }
 function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
 function timestampMillis(value) {
-  if (typeof value === 'number') return value;
-  if (value && typeof value.toMillis === 'function') return value.toMillis();
-  if (value && typeof value.seconds === 'number') return value.seconds * 1000;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (value instanceof Date) return Number.isFinite(value.getTime()) ? value.getTime() : 0;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  if (value && typeof value.toMillis === 'function') {
+    const millis = Number(value.toMillis());
+    return Number.isFinite(millis) ? millis : 0;
+  }
+  if (value && typeof value.toDate === 'function') return timestampMillis(value.toDate());
+  if (value && typeof value.seconds === 'number') {
+    const nanos = typeof value.nanoseconds === 'number' ? value.nanoseconds / 1e6 : 0;
+    return value.seconds * 1000 + nanos;
+  }
+  if (value && typeof value._seconds === 'number') {
+    const nanos = typeof value._nanoseconds === 'number' ? value._nanoseconds / 1e6 : 0;
+    return value._seconds * 1000 + nanos;
+  }
   return 0;
 }
 
@@ -219,6 +235,7 @@ function shouldAutoApproveMemberBooking(date, now = new Date()) {
 if (new URLSearchParams(location.search).get('test') === '1') {
   window.__SRS_TEST_HELPERS__ = {
     shouldAutoApproveMemberBooking,
+    timestampMillis,
     setTabForTest(tab) { ui.tab = tab; render(); return ui.tab; },
     homeReservationState() {
       return {
@@ -354,7 +371,8 @@ function demoBookings() {
   return [
     // Tuesday: instant-approved examples, a full short interval, equipment, and late slots.
     { id: 'demo-room-4', date: tuesday, start: '10:00', end: '13:30', name: 'Anthony', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-4', whiteboard: null, tv: null }, createdAt: created, decidedAt: created + 1000 },
-    { id: 'demo-room-1-full', date: tuesday, start: '11:00', end: '11:30', name: 'Jordan A.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2000, decidedAt: created - 1000 },
+    // ISO decision time verifies that Live updates uses the actual latest update, not fixture order.
+    { id: 'demo-room-1-full', date: tuesday, start: '11:00', end: '11:30', name: 'Jordan A.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2000, decidedAt: new Date(created + 3000).toISOString() },
     { id: 'demo-room-2-full', date: tuesday, start: '11:00', end: '11:30', name: 'Taylor B.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 3000, decidedAt: created - 2000 },
     { id: 'demo-room-3-full', date: tuesday, start: '11:00', end: '11:30', name: 'Morgan C.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 4000, decidedAt: created - 3000 },
     // Admin-held slots deliberately use a name that must never appear in the member map.
@@ -1018,8 +1036,8 @@ function activityFeedHtml(dateOrDates, dashboard, limit) {
   const dates = Array.isArray(dateOrDates) ? dateOrDates : [dateOrDates];
   const allEvents = bookingsList().filter(b => dates.includes(b.date) && ['pending', 'approved', 'cancelled'].includes(b.status)).map(b => {
     const status = b.status === 'approved' ? 'Reserved' : b.status === 'cancelled' ? 'Cancelled' : 'Requested';
-    const when = b.status === 'approved' ? (b.decidedAt || b.updatedAt || b.createdAt) : (b.updatedAt || b.createdAt);
-    return { b, status, when: timestampMillis(when) };
+    const when = Math.max(timestampMillis(b.createdAt), timestampMillis(b.updatedAt), timestampMillis(b.decidedAt));
+    return { b, status, when };
   }).sort((a, b) => b.when - a.when);
   const events = dashboard ? allEvents : allEvents.slice(0, limit || 6);
   const title = dashboard ? 'Live updates' : 'Recent updates';

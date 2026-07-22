@@ -18,6 +18,9 @@ Live updates, count-free compact resource controls, the masthead Schedule link, 
 My-reservation cards, and no Admin Recent updates feed. It does not change the booking,
 date, approval, or demo rules.
 
+A separate two-item follow-up is currently **pre-deployment**: narrow-phone Home grids
+use a compact no-wrap time column, and Live updates sort newest status changes first.
+
 ## Open the member app
 
 1. Open Safari, Chrome, or another current web browser.
@@ -32,11 +35,12 @@ date, approval, or demo rules.
 
 The member app has no separate **Sign up** screen. The time menus are divided around
 service periods, which cannot be selected. Home begins with two compact Live-update
-rows that scroll independently when there is more activity, then a Day overview split
-into expandable Morning, Afternoon, and Evening sections. The count-free **Study room**,
+rows, newest status change first, that scroll independently when there is more activity,
+then a Day overview split into expandable Morning, Afternoon, and Evening sections. The count-free **Study room**,
 **Whiteboard**, and **TV** resource buttons remain 44px touch controls. Tapping an open
 Home slot starts the end-time choice without changing tabs. The masthead **Schedule**
-control opens the read-only public TV view.
+control opens the read-only public TV view. On a narrow phone, the compact time column
+keeps each time label on one line while preserving room-tile space.
 
 ## Install it on an iPhone
 

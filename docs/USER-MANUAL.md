@@ -11,7 +11,8 @@ https://lvz-rooms.web.app, forwards there automatically.)
 > and live-verified on July 20, 2026. The Home-first booking update below was deployed
 > and live-verified on July 21, 2026. The same day's annotation refinement—independently
 > scrolling Live updates, count-free resource controls, the masthead Schedule link,
-> compact reservation cards, and no Admin Recent updates feed—is also live.
+> compact reservation cards, and no Admin Recent updates feed—is also live. A separate
+> two-item mobile display/feed-order follow-up is still pre-deployment.
 
 ## For members
 
@@ -19,8 +20,9 @@ https://lvz-rooms.web.app, forwards there automatically.)
 
 The app opens on **Home**, which is the only member booking screen on phone and desktop.
 It begins with two compact **Live updates** rows showing Requested, Reserved, or
-Cancelled activity. When there are more updates, the two-row area scrolls independently
-instead of making Home longer. Below it is the Day overview, showing Study Rooms 1–4 by
+Cancelled activity, with the newest status change first. When there are more updates,
+the two-row area scrolls independently instead of making Home longer. Below it is the
+Day overview, showing Study Rooms 1–4 by
 default. Choose **Whiteboard** or **TV** when you want those unit details, use the
 single-date arrows to choose Tuesday or Saturday, then open **Morning**, **Afternoon**,
 or **Evening**. Each section shows its service band and half-hour grid, with a visible
@@ -31,6 +33,10 @@ The resource buttons use the simple labels **Study room**, **Whiteboard**, and *
 they do not show a count. The compact controls still have a 44px minimum touch target.
 Select **Schedule** in the masthead to open the read-only public lobby-TV schedule. It
 does not start or change a reservation.
+
+On a narrow phone, each Day overview time stays on one line in a compact time column so
+the room tiles remain usable. This is only a layout adjustment; the same open-cell,
+end-time, and availability flow applies.
 
 Tap an open cell to choose its start. Answer **When should it end?**, review the exact
 range and availability, then tap **Continue** for the name-and-purpose form. The

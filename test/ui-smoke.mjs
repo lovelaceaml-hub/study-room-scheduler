@@ -64,12 +64,21 @@ try {
   assert.equal(await page.getByRole('tab').count(), 3, 'Desktop keeps the simplified three-tab navigation');
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await page.getByText('Real Cached Person').count(), 0, 'Demo never reads cached member data');
+  assert.deepEqual(await page.evaluate(() => ({
+    number: window.__SRS_TEST_HELPERS__.timestampMillis(42),
+    date: window.__SRS_TEST_HELPERS__.timestampMillis(new Date(1700000000000)),
+    iso: window.__SRS_TEST_HELPERS__.timestampMillis('2023-11-14T22:13:20.000Z'),
+    firestore: window.__SRS_TEST_HELPERS__.timestampMillis({ seconds: 1700000000, nanoseconds: 500000000 })
+  })), {
+    number: 42, date: 1700000000000, iso: 1700000000000, firestore: 1700000000500
+  }, 'Live update timestamps normalize number, Date, ISO, and Firestore Timestamp values');
 
   assert.equal(await page.locator('.member-intro h1').count(), 0, 'Home no longer repeats an introductory heading');
   assert.ok(await page.getByRole('heading', { name: 'Day overview' }).isVisible());
   assert.equal(await page.locator('.home-day-overview .section-note').count(), 0);
   assert.ok(await page.locator('.dashboard-feed .activity-row').count() > 2, 'Home keeps every live update in the scrollable feed');
   assert.equal(await page.locator('.dashboard-feed .activity-list').evaluate(node => node.scrollHeight > node.clientHeight), true, 'Live updates has an independent vertical scroller');
+  assert.match(await page.locator('.dashboard-feed .activity-row').first().innerText(), /Jordan A\./, 'The visually first live update is the latest decision, including ISO timestamps');
   const fullyVisibleUpdates = await page.locator('.dashboard-feed .activity-list').evaluate(node => {
     const bounds = node.getBoundingClientRect();
     return [...node.querySelectorAll('.activity-row')].filter(row => {
@@ -104,6 +113,21 @@ try {
   assert.equal(await page.locator('.home-daypart').nth(1).locator('.home-daypart-summary').innerText(), 'Show schedule');
   assert.equal(await page.locator('.home-scroll-cue').first().getAttribute('data-state'), 'top');
   assert.equal(await page.locator('.home-scroll-cue').first().innerText(), 'Scroll down ↓', 'The open map has a visible downward scroll cue');
+  await page.setViewportSize({ width: 393, height: 852 });
+  const grid393 = await page.locator('.home-day-map').first().evaluate(map => {
+    const row = map.querySelector('.member-calendar-row:not(.unit-header)');
+    const timeCells = [...map.querySelectorAll('.member-calendar-row:not(.unit-header) .member-time')];
+    const tile = row.querySelector('.member-square');
+    return {
+      timeWidth: timeCells[0].getBoundingClientRect().width,
+      tileWidth: tile.getBoundingClientRect().width,
+      labelsFit: timeCells.every(cell => getComputedStyle(cell).whiteSpace === 'nowrap' && cell.scrollWidth <= cell.clientWidth)
+    };
+  });
+  assert.ok(grid393.timeWidth <= 60, `393px Home time column is compact (${grid393.timeWidth}px)`);
+  assert.ok(grid393.tileWidth >= 64, `393px Home room tiles receive recovered width (${grid393.tileWidth}px)`);
+  assert.equal(grid393.labelsFit, true, '393px Home time labels stay on one line');
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('.home-daypart').nth(1).locator('summary').click();
   assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null, 'Opening another daypart preserves the first opened section');
   assert.notEqual(await page.locator('.home-daypart').nth(1).getAttribute('open'), null);
@@ -175,9 +199,23 @@ try {
   await page.locator('.home-date-selector .date-arrow').first().click();
   assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations, []);
 
+  await page.locator('[data-act="home-overview-type"][data-id="room"]').click();
   await page.setViewportSize({ width: 320, height: 720 });
   assert.equal(await page.getByRole('tab').count(), 3);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  const grid320 = await page.locator('.home-day-map').first().evaluate(map => {
+    const row = map.querySelector('.member-calendar-row:not(.unit-header)');
+    const timeCells = [...map.querySelectorAll('.member-calendar-row:not(.unit-header) .member-time')];
+    const tile = row.querySelector('.member-square');
+    return {
+      timeWidth: timeCells[0].getBoundingClientRect().width,
+      tileWidth: tile.getBoundingClientRect().width,
+      labelsFit: timeCells.every(cell => getComputedStyle(cell).whiteSpace === 'nowrap' && cell.scrollWidth <= cell.clientWidth)
+    };
+  });
+  assert.ok(grid320.timeWidth <= 60, `320px Home time column is compact (${grid320.timeWidth}px)`);
+  assert.ok(grid320.tileWidth >= 44, `320px Home room tiles retain adequate width (${grid320.tileWidth}px)`);
+  assert.equal(grid320.labelsFit, true, '320px Home time labels stay on one line');
   const targetSize = await page.locator('.home-open-cell').first().evaluate(node => {
     const rect = node.getBoundingClientRect();
     return { width: rect.width, height: rect.height };
