@@ -30,6 +30,14 @@ cells, Reserved privacy, the scroll cue, the end-time sheet, and no page overflo
 the primary Hosting `app` target was deployed. Functions, Firestore rules, indexes,
 Authentication, and the legacy redirect were unchanged.
 
+**Current mobile grid-density follow-up — pre-deployment.** The uncommitted branch
+keeps phone-width Home tiles evenly spaced with 44px minimum dimensions, retains the
+58px single-line time column, and uses 10px occupant names with 8.5px ellipsized
+purpose labels. It is a visual Home-grid tightening only: booking rules, capacity,
+dates, fixtures, privacy, TV output, Functions, Firestore, and Authentication remain
+unchanged. Do not represent it as live until focused mobile geometry, label-fit, axe,
+smoke, and diff checks pass and Hosting is deployed.
+
 **July 21 two-item follow-up — live.** Commit `880afcb` narrows the Home day map’s
 mobile time column and prevents its labels from wrapping, preserving room-tile width. It
 also orders Live updates newest-first from the latest created, updated, or decision
@@ -166,6 +174,10 @@ writing to Firestore.
   Live updates place the newest status change first across number, browser-date, ISO,
   and Firestore timestamp values. Repeat UI smoke, policy, TV, demo-isolation,
   accessibility, and diff checks for later changes.
+- Before releasing the current grid-density follow-up, verify at 320×720 and 393×852
+  that Home tiles stay evenly spaced and at least 44px, the 58px time column is
+  single-line, 10px names fit, 8.5px purpose labels ellipsize safely, and no document
+  overflow occurs; then rerun UI smoke, axe, and diff checks.
 - Verify Tuesday instant approval, advance Saturday pending, and the Saturday 9:59 AM /
   10:00 AM Los Angeles boundary.
 - Verify simultaneous member, Admin, phone, and TV live updates, the TV eligible-day

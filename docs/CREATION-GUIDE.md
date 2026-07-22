@@ -45,6 +45,12 @@ read-only production Playwright verified Jordan as latest, a 58px one-line time 
 66.5px room tiles, and no overflow at 393×852. Deployment was `hosting:app` only;
 Functions, Firestore, Authentication, and the legacy redirect were unchanged.
 
+The current uncommitted mobile grid-density follow-up is **pre-deployment**. At phone
+widths, it gives Home booking tiles a 44px minimum width and height with even spacing,
+keeps the time column at 58px and single-line, and fits occupied cells with 10px names
+and 8.5px ellipsized purpose labels. This is a Home-only presentation change; it does
+not alter booking policy, capacity, data, privacy, TV rendering, or backend behavior.
+
 ## Applied visual redesign
 
 An isolated, interactive redesign preview was added on July 17, 2026 and approved
@@ -151,6 +157,12 @@ refinement.
 At the narrow-phone breakpoint, the Home grid replaces its wider time area with a
 compact no-wrap time column and keeps four room tiles at usable width. This is confined
 to the Home grid; it does not reduce the tap target of an open room tile.
+
+The pending density follow-up preserves that 58px time column, but makes the four
+study-room tiles evenly spaced with 44px minimum dimensions. At phone widths, occupant
+names target 10px readable text; secondary purpose text targets 8.5px and ellipsizes
+instead of wrapping and growing a schedule row. Verify no content is clipped before
+releasing this visual tightening.
 
 If no numbered unit is free for the complete selected range, the member interface
 uses an inline alert with the exact unavailable message. It computes the longest
@@ -291,6 +303,10 @@ Production verification covers:
   document-level overflow. It also verified that the first Live-update row is the latest
   status change for number, browser-date, ISO, and Firestore timestamp inputs. Repeat
   these checks for later changes.
+- Before releasing the current grid-density follow-up, verify at 320×720 and 393×852
+  that Home tiles are evenly spaced and at least 44px high/wide, the 58px time labels
+  remain single-line, 10px names fit, 8.5px purpose labels ellipsize safely, and there
+  is no document-level overflow; then rerun UI smoke, axe, and `git diff --check`.
 - Phones at 320, 375, and 390 pixels.
 - TV mode at narrow width, 1280×720, and 1920×1080, including its eligible-day selector,
   four room cards, approved-only study-room timeline, and demo data.

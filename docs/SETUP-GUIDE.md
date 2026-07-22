@@ -21,6 +21,10 @@ date, approval, or demo rules.
 The July 21 two-item follow-up is also **live**: narrow-phone Home grids use a compact
 no-wrap time column, and Live updates sort newest status changes first.
 
+A separate mobile grid-density follow-up is currently **pre-deployment**. It keeps
+phone-width Home tiles compact and evenly spaced at a 44px minimum, retains the 58px
+single-line time column, and uses 10px names with 8.5px ellipsized purpose labels.
+
 ## Open the member app
 
 1. Open Safari, Chrome, or another current web browser.

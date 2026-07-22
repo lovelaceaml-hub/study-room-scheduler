@@ -117,16 +117,36 @@ try {
   const grid393 = await page.locator('.home-day-map').first().evaluate(map => {
     const row = map.querySelector('.member-calendar-row:not(.unit-header)');
     const timeCells = [...map.querySelectorAll('.member-calendar-row:not(.unit-header) .member-time')];
-    const tile = row.querySelector('.member-square');
+    const tiles = [...row.querySelectorAll('.member-square')];
+    const tile = tiles[0];
+    const gaps = tiles.slice(1).map((cell, index) => cell.getBoundingClientRect().left - tiles[index].getBoundingClientRect().right);
+    const rowHeights = [...map.querySelectorAll('.member-calendar-row:not(.unit-header)')].map(cell => cell.getBoundingClientRect().height);
+    const names = [...map.querySelectorAll('.home-cell-name')];
+    const purposes = [...map.querySelectorAll('.home-cell-purpose')];
     return {
       timeWidth: timeCells[0].getBoundingClientRect().width,
       tileWidth: tile.getBoundingClientRect().width,
-      labelsFit: timeCells.every(cell => getComputedStyle(cell).whiteSpace === 'nowrap' && cell.scrollWidth <= cell.clientWidth)
+      tileHeight: tile.getBoundingClientRect().height,
+      labelsFit: timeCells.every(cell => getComputedStyle(cell).whiteSpace === 'nowrap' && cell.scrollWidth <= cell.clientWidth),
+      tileGapsUniform: gaps.every(gap => Math.abs(gap - gaps[0]) < .5),
+      maxRowHeight: Math.max(...rowHeights),
+      namesFit: names.every(cell => cell.scrollWidth <= cell.clientWidth),
+      overflowingNames: names.filter(cell => cell.scrollWidth > cell.clientWidth).map(cell => ({ text: cell.textContent, clientWidth: cell.clientWidth, scrollWidth: cell.scrollWidth })),
+      purposesSafe: purposes.every(cell => getComputedStyle(cell).textOverflow === 'ellipsis' && getComputedStyle(cell).whiteSpace === 'nowrap'),
+      minNameFont: Math.min(...names.map(cell => parseFloat(getComputedStyle(cell).fontSize))),
+      minPurposeFont: Math.min(...purposes.map(cell => parseFloat(getComputedStyle(cell).fontSize)))
     };
   });
   assert.ok(grid393.timeWidth <= 60, `393px Home time column is compact (${grid393.timeWidth}px)`);
   assert.ok(grid393.tileWidth >= 64, `393px Home room tiles receive recovered width (${grid393.tileWidth}px)`);
+  assert.ok(grid393.tileHeight >= 44 && grid393.tileHeight <= 46, `393px Home tiles are compact but touch-safe (${grid393.tileHeight}px)`);
   assert.equal(grid393.labelsFit, true, '393px Home time labels stay on one line');
+  assert.equal(grid393.tileGapsUniform, true, '393px Home room tiles use even spacing');
+  assert.ok(grid393.maxRowHeight <= 52, `393px Home schedule rows stay compact (${grid393.maxRowHeight}px)`);
+  assert.equal(grid393.namesFit, true, '393px Home occupant names fit their tiles without clipping');
+  assert.equal(grid393.purposesSafe, true, '393px Home secondary purposes use safe compact ellipsis behavior');
+  assert.ok(grid393.minNameFont >= 10, `393px Home names remain legible (${grid393.minNameFont}px)`);
+  assert.ok(grid393.minPurposeFont >= 8.5, `393px Home purposes remain legible (${grid393.minPurposeFont}px)`);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('.home-daypart').nth(1).locator('summary').click();
   assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null, 'Opening another daypart preserves the first opened section');
@@ -206,16 +226,33 @@ try {
   const grid320 = await page.locator('.home-day-map').first().evaluate(map => {
     const row = map.querySelector('.member-calendar-row:not(.unit-header)');
     const timeCells = [...map.querySelectorAll('.member-calendar-row:not(.unit-header) .member-time')];
-    const tile = row.querySelector('.member-square');
+    const tiles = [...row.querySelectorAll('.member-square')];
+    const tile = tiles[0];
+    const gaps = tiles.slice(1).map((cell, index) => cell.getBoundingClientRect().left - tiles[index].getBoundingClientRect().right);
+    const names = [...map.querySelectorAll('.home-cell-name')];
+    const purposes = [...map.querySelectorAll('.home-cell-purpose')];
     return {
       timeWidth: timeCells[0].getBoundingClientRect().width,
       tileWidth: tile.getBoundingClientRect().width,
-      labelsFit: timeCells.every(cell => getComputedStyle(cell).whiteSpace === 'nowrap' && cell.scrollWidth <= cell.clientWidth)
+      tileHeight: tile.getBoundingClientRect().height,
+      labelsFit: timeCells.every(cell => getComputedStyle(cell).whiteSpace === 'nowrap' && cell.scrollWidth <= cell.clientWidth),
+      tileGapsUniform: gaps.every(gap => Math.abs(gap - gaps[0]) < .5),
+      namesFit: names.every(cell => cell.scrollWidth <= cell.clientWidth),
+      overflowingNames: names.filter(cell => cell.scrollWidth > cell.clientWidth).map(cell => ({ text: cell.textContent, clientWidth: cell.clientWidth, scrollWidth: cell.scrollWidth })),
+      purposesSafe: purposes.every(cell => getComputedStyle(cell).textOverflow === 'ellipsis' && getComputedStyle(cell).whiteSpace === 'nowrap'),
+      minNameFont: Math.min(...names.map(cell => parseFloat(getComputedStyle(cell).fontSize))),
+      minPurposeFont: Math.min(...purposes.map(cell => parseFloat(getComputedStyle(cell).fontSize)))
     };
   });
   assert.ok(grid320.timeWidth <= 60, `320px Home time column is compact (${grid320.timeWidth}px)`);
   assert.ok(grid320.tileWidth >= 44, `320px Home room tiles retain adequate width (${grid320.tileWidth}px)`);
+  assert.ok(grid320.tileHeight >= 44 && grid320.tileHeight <= 46, `320px Home tiles are compact but touch-safe (${grid320.tileHeight}px)`);
   assert.equal(grid320.labelsFit, true, '320px Home time labels stay on one line');
+  assert.equal(grid320.tileGapsUniform, true, '320px Home room tiles use even spacing');
+  assert.equal(grid320.namesFit, true, `320px Home occupant names fit their tiles without clipping: ${JSON.stringify(grid320.overflowingNames)}`);
+  assert.equal(grid320.purposesSafe, true, '320px Home secondary purposes use safe compact ellipsis behavior');
+  assert.ok(grid320.minNameFont >= 10, `320px Home names remain legible (${grid320.minNameFont}px)`);
+  assert.ok(grid320.minPurposeFont >= 8.5, `320px Home purposes remain legible (${grid320.minPurposeFont}px)`);
   const targetSize = await page.locator('.home-open-cell').first().evaluate(node => {
     const rect = node.getBoundingClientRect();
     return { width: rect.width, height: rect.height };

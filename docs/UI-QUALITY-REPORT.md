@@ -1,5 +1,20 @@
 # Study Rooms UI quality report — July 17–21, 2026
 
+## Pending mobile Home grid-density follow-up
+
+The current uncommitted branch is **not deployed or verified yet**. At phone widths, it
+keeps Home tiles compact and evenly spaced with 44px minimum dimensions, retains the
+58px single-line time column, and uses 10px occupant names with 8.5px purpose labels
+that ellipsize rather than wrap. Booking policy, capacity, dates, demo isolation,
+privacy, TV output, and backend behavior remain unchanged.
+
+Before Hosting release, verify the 320×720 and 393×852 Home grids for even 44px tiles,
+the no-wrap 58px time column, name fit, safe purpose ellipsis, no document-level
+overflow, keyboard focus, and axe results. Then rerun UI smoke and `git diff --check`.
+The existing limitations remain: the Firestore-rule emulator cannot run on this Mac
+until Java is installed, and browser checks do not replace a formal first-time-member
+user study.
+
 ## July 21 two-item mobile/feed-order follow-up verification
 
 Commit `880afcb` was deployed to **https://lvrooms.web.app** on July 21, 2026. It gives

@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — all July 21 Home-first, annotation, mobile-grid, and feed-order refinements are deployed and live-verified
+- **Status:** Live — all July 21 Home-first, annotation, mobile-grid, and feed-order refinements are deployed and live-verified; a mobile grid-density follow-up is pre-deployment
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -54,6 +54,11 @@ The July 21 follow-up (commit `880afcb`) keeps the Home schedule legible on narr
 phones with a compact, no-wrap time column that leaves room for room tiles. It also
 orders Live updates newest-first from the latest booking status timestamp. It does not
 change booking policy, date choices, demo isolation, privacy, or TV behavior.
+
+The current uncommitted mobile grid-density follow-up is **pre-deployment**. On phone
+widths, it keeps Home tiles at a compact, evenly spaced 44px minimum; retains the 58px
+single-line time column; and uses readable 10px names with 8.5px ellipsized purpose
+labels. It is a visual-density change only and does not alter scheduling behavior.
 
 The app uses buildless vanilla JavaScript, Firebase Hosting, and Firestore live
 updates. It includes a phone-friendly booking experience and a dedicated lobby TV
