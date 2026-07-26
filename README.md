@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — the July 26 update removes approval from every day and adds End early; the July 22 fixed Clear/Continue selection bar and earlier Home-first, annotation, mobile-grid, feed-order, and grid-density refinements remain in place
+- **Status:** Live — the July 26 update (approval removed from every day, plus End early) is deployed and live-verified; the July 22 fixed Clear/Continue selection bar and earlier Home-first, annotation, mobile-grid, feed-order, and grid-density refinements remain in place
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it

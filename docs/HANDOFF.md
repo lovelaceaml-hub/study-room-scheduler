@@ -2,6 +2,15 @@
 
 ## Current status
 
+**July 26, 2026 — approval removed and End early added. Deployed and live-verified.**
+Deployment was `--only functions,hosting:app`: the new `memberEndBookingEarly` function was
+created and the seven existing functions updated in `us-west1`. Firestore rules, indexes,
+Authentication, and the `legacy` redirect target were unchanged. Live checks at
+`https://lvrooms.web.app`: both eligible days report instant confirmation at every hour,
+Monday is still refused, the End early sheet lists each earlier boundary with its freed
+range, the "now" hint matches Los Angeles time, the reservation list goes inert behind the
+sheet, no pending sections render, and the console is clean on both the demo and real app.
+
 **July 26, 2026 — approval removed and End early added.** Every reservation is now
 confirmed the moment it is made, on both eligible days. `shouldAutoApproveMemberBooking`
 returns true for any Tuesday or Saturday in the shared front-end copy and in
