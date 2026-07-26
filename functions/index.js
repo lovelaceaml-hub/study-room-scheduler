@@ -8,6 +8,7 @@ const { HttpsError, onCall } = require('firebase-functions/v2/https');
 const {
   availableUnitForType,
   conflictingBooking,
+  earlyEndError,
   isoDateInLosAngeles,
   isoWeekday,
   migrationResourceUpdate,
@@ -322,6 +323,40 @@ async function changeExistingStatus(action, bookingId, uid) {
   });
 }
 
+/* Finishing early. The reservation keeps its unit and history; only its end
+   time moves back, which immediately frees the remaining slots for everyone
+   else. `requireOwnerUid` is set for member calls and null for Admin. */
+async function endBookingEarly(bookingId, requestedEnd, actor, requireOwnerUid = null) {
+  if (typeof bookingId !== 'string' || !bookingId || bookingId.length > 160) {
+    throw new HttpsError('invalid-argument', 'Booking ID is required.');
+  }
+  const bookingRef = db.collection('bookings').doc(bookingId);
+  return db.runTransaction(async transaction => {
+    const snapshot = await transaction.get(bookingRef);
+    if (!snapshot.exists) throw new HttpsError('not-found', 'Booking not found.');
+    const booking = snapshot.data();
+    if (requireOwnerUid && booking.ownerUid !== requireOwnerUid) {
+      throw new HttpsError('permission-denied', 'Only the device that made this reservation can end it early.');
+    }
+    if (!['pending', 'approved'].includes(booking.status)) {
+      throw new HttpsError('failed-precondition', 'This reservation is no longer active.');
+    }
+    const problem = earlyEndError(booking, typeof requestedEnd === 'string' ? requestedEnd : '', new Date());
+    if (problem) throw new HttpsError('failed-precondition', problem);
+    const now = FieldValue.serverTimestamp();
+    transaction.update(bookingRef, {
+      end: requestedEnd,
+      // Keep the first, longest booked ending so the record still shows what
+      // was originally reserved after several successive shortenings.
+      endedEarlyFrom: typeof booking.endedEarlyFrom === 'string' ? booking.endedEarlyFrom : booking.end,
+      endedEarlyAt: now,
+      endedEarlyBy: actor,
+      updatedAt: now
+    });
+    return { bookingId, end: requestedEnd };
+  });
+}
+
 async function directAdd(input, note, uid) {
   let booking;
   try {
@@ -468,6 +503,8 @@ exports.adminBookingAction = onCall({ region: REGION, secrets: [ADMIN_PIN] }, as
     case 'decline':
     case 'cancel':
       return changeExistingStatus(data.action, data.bookingId, session.uid);
+    case 'end-early':
+      return endBookingEarly(data.bookingId, data.end, session.uid, null);
     case 'direct-add':
       return directAdd(data.booking, data.note, session.uid);
     case 'cleanup':
@@ -499,6 +536,14 @@ exports.memberSubmitBooking = onCall({ region: REGION }, async request => {
     throw new HttpsError('resource-exhausted', 'Too many reservation requests from this device. Please wait a few minutes and try again.');
   }
   return memberSubmitBooking(request.data, uid);
+});
+
+// Ending early only ever shrinks a reservation the caller already owns, so it
+// needs no rate limit of its own: it can free time but never take more.
+exports.memberEndBookingEarly = onCall({ region: REGION }, async request => {
+  const uid = requireAuth(request);
+  const data = request.data || {};
+  return endBookingEarly(data.bookingId, data.end, uid, uid);
 });
 
 exports.adminNoteAction = onCall({ region: REGION, secrets: [ADMIN_PIN] }, async request => {

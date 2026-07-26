@@ -36,26 +36,13 @@ function isoDateInLosAngeles(now = new Date()) {
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
-/* Kept beside the Los Angeles date helper so approval never accidentally
-   follows the server's host time zone. `hourCycle: h23` makes midnight 00,
-   rather than the locale-specific 24 sometimes returned by hour12: false. */
-function minutesInLosAngeles(now = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Los_Angeles', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
-  }).formatToParts(now);
-  const get = type => Number(parts.find(part => part.type === type).value);
-  return get('hour') * 60 + get('minute');
-}
-
-/* Tuesday reservations remain instant for the selected upcoming Tuesday.
-   A Saturday reservation is instant only once that same Saturday has reached
-   10:00 AM in Los Angeles; advance Saturday requests remain in the Admin
-   queue. This is pure so the boundary can be covered without Firestore. */
+/* Every reservation on a valid booking day is confirmed immediately — no day
+   waits for approval any more. Availability is still the real gate: the
+   submission is refused when no unit of the requested type is free. The
+   signature keeps `now` so callers and tests do not have to change. */
 function shouldAutoApproveMemberBooking(date, now = new Date()) {
   const weekday = isoWeekday(date);
-  if (weekday === 2) return true;
-  if (weekday !== 6) return false;
-  return date === isoDateInLosAngeles(now) && minutesInLosAngeles(now) >= 10 * 60;
+  return weekday === 2 || weekday === 6;
 }
 
 function addDays(dateString, days) {
@@ -99,6 +86,23 @@ function validateBookingTime(date, startValue, endValue, now = new Date(), requi
     return 'This time overlaps a service.';
   }
   return null;
+}
+
+/* Shortening an existing reservation. The new ending must stay on the same
+   30-minute grid, leave at least one 30-minute block standing, and remain a
+   valid range for that day — a booking that no longer keeps any time should
+   be cancelled instead. Returns an error message, or null when allowed. */
+function earlyEndError(booking, requestedEnd, now = new Date()) {
+  if (!booking || typeof booking !== 'object') return 'This reservation cannot be shortened.';
+  const start = parseMinutes(booking.start);
+  const current = parseMinutes(booking.end);
+  const next = parseMinutes(requestedEnd);
+  if (!Number.isFinite(start) || !Number.isFinite(current)) return 'This reservation cannot be shortened.';
+  if (!Number.isFinite(next)) return 'Times must use HH:MM format.';
+  if (next % 30 !== 0) return 'Times must use 30-minute boundaries.';
+  if (next >= current) return 'Choose an earlier ending than the current one.';
+  if (next <= start) return 'A reservation must keep at least 30 minutes. Cancel it instead.';
+  return validateBookingTime(booking.date, booking.start, requestedEnd, now, true);
 }
 
 function priorityForPurpose(purpose) {
@@ -272,6 +276,7 @@ module.exports = {
   availableUnitForType,
   canonicalAssignments,
   conflictingBooking,
+  earlyEndError,
   isoDateInLosAngeles,
   isoWeekday,
   migrationResourceUpdate,

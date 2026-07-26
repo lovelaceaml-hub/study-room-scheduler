@@ -43,8 +43,13 @@ page.on('pageerror', error => errors.push(error.message));
 
 try {
   await page.goto(`http://127.0.0.1:${port}/?demo=1&test=1`, { waitUntil: 'networkidle' });
-  assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.shouldAutoApproveMemberBooking('2026-07-25', new Date('2026-07-25T16:59:00Z'))), false);
+  // No day waits for approval any more: Tuesday and Saturday are both instant,
+  // at any hour, and other weekdays are still not booking days at all.
+  assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.shouldAutoApproveMemberBooking('2026-07-25', new Date('2026-07-25T16:59:00Z'))), true);
   assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.shouldAutoApproveMemberBooking('2026-07-25', new Date('2026-07-25T17:00:00Z'))), true);
+  assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.shouldAutoApproveMemberBooking('2026-07-21', new Date('2026-07-17T19:00:00Z'))), true);
+  assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.shouldAutoApproveMemberBooking('2026-07-24', new Date('2026-07-17T19:00:00Z'))), false);
+  assert.match(await page.locator('.home-date-selector .date-current').innerText(), /Confirmed instantly when open/);
   assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.setTabForTest('schedule')), 'home', 'Stale Reservations state falls back to Home');
   assert.equal(await page.getByRole('tab').count(), 3, 'Reservations is removed at every layout width');
   assert.equal(await page.locator('#tab-schedule').count(), 0);
@@ -199,13 +204,15 @@ try {
   assert.match(await page.locator('.home-range-controls').innerText(), /10:30 AM–11:00 AM/);
   assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.homeReservationState().availabilityConflict), false, 'Accepting a shorter range resolves the conflict');
   assert.match(await page.locator('.selected-counts').innerText(), /open/);
-  assert.match(await page.locator('.selected-counts').innerText(), /pending/);
+  assert.doesNotMatch(await page.locator('.selected-counts').innerText(), /pending/, 'With nothing awaiting review, the pending count is not shown');
   await page.locator('.selected-counts').click();
   assert.match(await page.locator('.availability-dialog').innerText(), /Approved unit assignments/);
   await page.getByRole('button', { name: 'Close availability details' }).click();
   await page.waitForFunction(() => document.activeElement?.dataset.focusKey === 'member-range-details');
   await page.getByRole('button', { name: 'Continue' }).click();
   assert.match(await page.locator('#booking-dialog-summary').innerText(), /10:30 AM–11:00 AM/);
+  assert.match(await page.locator('#booking-dialog-title').innerText(), /Reserve this time/);
+  assert.match(await page.locator('.booking-approval-hint').innerText(), /confirmed right away/);
   assert.equal(await page.locator('.home-dashboard').evaluate(node => node.inert), true, 'Home is inert behind the reservation dialog');
   await page.locator('#su-name').fill('Sample Member');
   await page.getByRole('button', { name: 'Reserve now' }).click();
@@ -215,7 +222,9 @@ try {
   await page.waitForFunction(() => document.activeElement?.dataset.focusKey === 'member-continue');
   assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null, 'The source daypart stays open through the booking flow');
 
-  if ((await page.locator('.home-date-selector .date-current strong').innerText()).startsWith('Tuesday')) {
+  // Step back to the earliest eligible date, whichever weekday that is this
+  // week, so both arrows below are live regardless of the day the suite runs.
+  while (!(await page.locator('.home-date-selector .date-arrow').first().isDisabled())) {
     await page.locator('.home-date-selector .date-arrow').first().click();
   }
   await page.evaluate(() => window.__SRS_TEST_HELPERS__.seedHomeReservationStateForTest());
@@ -306,6 +315,39 @@ try {
   assert.equal(await page.locator('.cancel-request-btn').first().evaluate(node => node.tagName), 'BUTTON');
   const cancelTarget = await page.locator('.cancel-request-btn').first().evaluate(node => node.getBoundingClientRect().height);
   assert.ok(cancelTarget >= 44, `Cancel is an adequate destructive touch target (${cancelTarget}px)`);
+
+  // Finishing early: a multi-block reservation offers every earlier 30-minute
+  // ending, and the demo preview refuses to write anything.
+  const endEarlyTarget = await page.locator('.end-early-btn').first().evaluate(node => node.getBoundingClientRect().height);
+  assert.ok(endEarlyTarget >= 44, `End early is an adequate touch target (${endEarlyTarget}px)`);
+  await page.locator('.end-early-btn').first().click();
+  const endEarlySheet = page.locator('.end-time-dialog');
+  assert.match(await endEarlySheet.innerText(), /Finished early\?/);
+  assert.match(await endEarlySheet.innerText(), /Frees/);
+  assert.ok(await endEarlySheet.getByRole('button', { name: /^End at/ }).count() > 0, 'Every earlier ending is offered');
+  assert.equal(await page.locator('.reservation-list').evaluate(node => node.inert), true, 'The reservation list is inert behind the ending sheet');
+  assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations, []);
+  // "now" is the last 30-minute boundary Los Angeles has already passed, and
+  // only ever on the reservation's own day.
+  assert.deepEqual(await page.evaluate(() => {
+    const helpers = window.__SRS_TEST_HELPERS__;
+    const booking = { date: '2026-07-28', start: '10:00', end: '12:30' };
+    return {
+      options: helpers.endEarlyOptions(booking),
+      midway: helpers.endEarlyNowOption(booking, new Date('2026-07-28T19:05:00Z')),
+      beforeStart: helpers.endEarlyNowOption(booking, new Date('2026-07-28T16:00:00Z')),
+      otherDay: helpers.endEarlyNowOption(booking, new Date('2026-08-01T19:05:00Z'))
+    };
+  }), {
+    options: ['10:30', '11:00', '11:30', '12:00'],
+    midway: '12:00',
+    beforeStart: null,
+    otherDay: null
+  }, 'Ending choices and the "now" hint follow Los Angeles time');
+  await endEarlySheet.getByRole('button', { name: /^End at/ }).first().click();
+  assert.equal(await page.getByText('Sample preview only — nothing was changed.', { exact: true }).count(), 1, 'The demo ending sheet never writes');
+  await page.getByRole('button', { name: 'Keep my time' }).click();
+  assert.equal(await page.locator('.end-time-dialog').count(), 0, 'Keeping the time closes the sheet unchanged');
 
   await page.getByRole('tab', { name: 'Admin' }).click();
   assert.match(await page.locator('.admin-workspace').innerText(), /Sample Admin preview/);

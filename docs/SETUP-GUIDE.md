@@ -16,7 +16,7 @@ live-verified on July 21, 2026.
 The July 21 annotation refinement is also live. It adds independently scrolling Home
 Live updates, count-free compact resource controls, the masthead Schedule link, compact
 My-reservation cards, and no Admin Recent updates feed. It does not change the booking,
-date, approval, or demo rules.
+date, confirmation, or demo rules.
 
 The July 21 two-item follow-up is also **live**: narrow-phone Home grids use a compact
 no-wrap time column, and Live updates sort newest status changes first.
@@ -75,8 +75,8 @@ The lobby screen does not require an Admin unlock.
 4. Put the browser into full-screen mode if the TV device offers that option.
 5. Confirm that the upper-right status reads **Live**.
 6. Choose the Tuesday or Saturday to display with the TV day setting, then leave the
-   page open. It updates automatically when requests are submitted, approved, declined,
-   or cancelled.
+   page open. It updates automatically when reservations are made, ended early, or
+   cancelled.
 
 Confirm that the selected date and study-room availability cards agree with the
 approved-reservation timeline. The current-time marker appears only when the TV is

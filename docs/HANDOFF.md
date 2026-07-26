@@ -2,6 +2,27 @@
 
 ## Current status
 
+**July 26, 2026 — approval removed and End early added.** Every reservation is now
+confirmed the moment it is made, on both eligible days. `shouldAutoApproveMemberBooking`
+returns true for any Tuesday or Saturday in the shared front-end copy and in
+`functions/lib/policy.js`, so the trusted backend and the member promise still match.
+Availability remains the only gate: a submission is still refused, in the same
+transaction as before, when no numbered unit is free for the whole range.
+
+The new **End early** action lets the member who made a reservation—or Admin—move its
+ending back to any earlier 30-minute boundary, releasing the rest of the time for
+everyone immediately. It is implemented as the `memberEndBookingEarly` callable and an
+`end-early` case in `adminBookingAction`, both validated by `earlyEndError` in
+`functions/lib/policy.js`: the new ending must be on the grid, earlier than the current
+ending, later than the start (a booking may never be shortened to nothing—cancel it
+instead), and still valid for that day, including service blocks. The booking keeps its
+unit, its owner, and an `endedEarlyFrom` record of what was originally booked.
+Firestore rules are unchanged; ending early goes through the Admin SDK like every other
+write, so members still cannot edit booking documents directly.
+
+Older requests that were pending when this shipped are untouched. They remain in the
+Admin queue and can still be approved, declined, or cancelled there.
+
 **Live.** The July 20, 2026 mobile-first availability release was deployed to
 https://lvrooms.web.app and live-verified with phone and TV demos. It adds vertical
 start-time slots, an immediate **When should it end?** prompt, a member Home day
@@ -107,8 +128,8 @@ Authentication, and the legacy redirect were unchanged.
 - Store the second selected time as the exact ending; never silently add another
   30 minutes. Keep member options divided around service periods while the TV retains
   visible service bands.
-- Make the complete-range open/pending totals a button that shows numbered-unit
-  occupants and overlapping pending requests; pending requests remain unassigned.
+- Make the complete-range open total a button that shows numbered-unit occupants. The
+  pending count and pending lists appear only while a legacy pending request exists.
 - Refuse a range that has no one unit open throughout. Offer the longest continuous
   shorter ending with Yes/No actions when possible, and repeat the check in the
   protected backend transaction for both Tuesday and Saturday.
@@ -139,10 +160,12 @@ Authentication, and the legacy redirect were unchanged.
   uses compact status cards and keeps its owner-only cancellation control visibly
   destructive. Admin removes the redundant Recent updates feed while retaining queue,
   selected-request, and day-overview context.
-- Tuesday reservations auto-approve securely. Saturday auto-approves only when the
-  submission is made on that Saturday at or after 10:00 AM Los Angeles time; advance
-  Saturday requests remain in the Admin queue, ordered Contact, New Member, Study
-  Member, Meeting, Other, then request time.
+- Every Tuesday and Saturday reservation is confirmed on submission; no day has an
+  approval step. Purpose priority ordering is retained only for the legacy pending
+  queue: Contact, New Member, Study Member, Meeting, Other, then request time.
+- A member or Admin may end an approved reservation early at any earlier 30-minute
+  boundary. The freed time becomes immediately available on Home, in Admin, and on the
+  lobby TV.
 - The approved Quiet Study production design leads with availability counts on
   member screens, keeps numbered-unit occupancy expandable and secondary, presents
   My reservations as durable status cards, and expands Admin into a desktop
@@ -153,11 +176,16 @@ Authentication, and the legacy redirect were unchanged.
 
 ## Important behavior
 
-Pending requests reserve no specific unit. Their amber position means only that a
-member asked for that resource type and time. Approval performs the assignment and a
-fresh conflict check. Failed writes must visibly fail and roll back instead of looking
-saved. New pending requests are accepted only when at least one numbered unit is still
-open for the entire requested range at submission time.
+Reservations are assigned a numbered unit by the backend at submission time and are
+accepted only when one unit is free for the entire requested range. Failed writes must
+visibly fail and roll back instead of looking saved.
+
+Ending early only ever shrinks a reservation, so it needs no capacity check and no rate
+limit; it can free time but never take more. It must never be able to remove a booking
+outright—that is what cancellation is for.
+
+Legacy pending requests reserve no specific unit. Approval performs the assignment and a
+fresh conflict check.
 
 Home’s member-safe day overview lets a member tap an open half-hour slot, choose an end,
 inspect availability, and continue without changing tabs. Its booked cells show only
@@ -196,8 +224,13 @@ writing to Firestore.
   stay evenly spaced and at least 44px, the 58px time column is single-line, 10px names
   fit, 8.5px purpose labels ellipsize safely, and no document overflow occurs. Repeat
   UI smoke, axe, and diff checks for later changes.
-- Verify Tuesday instant approval, advance Saturday pending, and the Saturday 9:59 AM /
-  10:00 AM Los Angeles boundary.
+- Verify that both Tuesday and Saturday reservations confirm instantly, at any hour and
+  any number of days ahead, and that a full range is still refused with the shorter-ending
+  offer.
+- Verify End early on a member card and in the Admin day list: every earlier boundary is
+  offered, the "now" choice matches Los Angeles time on the day itself, the freed time
+  reappears as open, a 30-minute booking offers no End early, and the demo preview
+  writes nothing.
 - Verify simultaneous member, Admin, phone, and TV live updates, the TV eligible-day
   picker, four study-room cards, approved-only timeline, and filled member/TV demo data
   without Firestore writes.

@@ -17,7 +17,10 @@ https://lvz-rooms.web.app, forwards there automatically.)
 > follow-up is also live: it keeps Home tiles compact and evenly spaced while preserving
 > readable names and short purpose labels. The July 22 selection-bar update is live as
 > well: after an exact end time is chosen, the Clear and Continue actions remain visible
-> while the schedule is scrolled.
+> while the schedule is scrolled. The July 26, 2026 update removes approval from every
+> day—Tuesday and Saturday reservations are now confirmed the moment they are made—and
+> adds **End early**, so a member who finishes ahead of time can release the rest of
+> their reservation.
 
 ## For members
 
@@ -50,9 +53,8 @@ change what a reservation means or how members start one.
 
 Tap an open cell to choose its start. Answer **When should it end?**, review the exact
 range and availability, then tap **Continue** for the name-and-purpose form. The
-availability details keep pending requests explicitly unassigned until Admin approves
-one. The selected range bar stays on the viewing screen, so you can scroll the schedule
-without losing **Clear** or **Continue**.
+selected range bar stays on the viewing screen, so you can scroll the schedule without
+losing **Clear** or **Continue**.
 
 ### Choose a day
 
@@ -83,10 +85,8 @@ Use the **Study room**, **Whiteboard**, or **TV** picker above the Day overview.
 there are more times, and tap an open cell. A small prompt asks **When should it end?**
 Choose the exact ending.
 
-The availability result includes a button with the open and pending totals. Tap it to
-see who has each numbered room or item, plus every overlapping pending request. Pending
-requests are explicitly marked unassigned because they do not own a numbered unit until
-Admin approves and assigns one.
+The availability result includes a button with the number of units still open. Tap it to
+see who has each numbered room or item for that range.
 
 Open **My reservations** to see the status of every request made from this device.
 
@@ -111,14 +111,13 @@ or cross through one. The lobby TV still shows each service as a labeled timetab
 3. Tap an open **Start time**, then answer **When should it end?** with the exact
    **End time**. Choosing 10:00 AM and
    11:30 AM creates a 10:00–11:30 AM reservation—not 10:00 AM–12:00 PM.
-4. Tap the open/pending totals if you need to see numbered assignments and unassigned
-   pending requests for that range.
+4. Tap the open total if you need to see the numbered assignments for that range.
 5. Tap **Continue** in the selected range bar. It stays visible while you scroll the
    schedule.
 6. Enter your full name and choose Contact, New Member, Meeting, or Other.
    For Other, briefly explain the purpose.
-7. Tap **Reserve now** when the selected request qualifies for instant approval, or
-   **Send request** when it needs Admin review.
+7. Tap **Reserve now**. The room or item is yours immediately—there is nothing to wait
+   for.
 
 If no single unit remains open for the entire range, the app says that none are
 available in the selected time slot. When the same start has a shorter open range, it
@@ -137,31 +136,41 @@ No visible login is required. The app quietly gives the device a private member
 identity so that it can recognize ownership. That device can cancel its own new
 requests but cannot change another member’s request or perform approval actions.
 
-### Tuesday and Saturday approval
+### No approval on any day
 
-Tuesday reservations from 10:00 AM through 11:00 PM are approved automatically when a
-resource is free. A Saturday reservation submitted **on that Saturday at or after 10:00
-AM Los Angeles time** is also approved automatically when open. A Saturday request made
-in advance remains pending for manual approval; it stays pending even when Saturday
-arrives. A request cannot be submitted when every numbered unit is already occupied for
-part of the selected range. Pending Saturday requests are reviewed in this order:
-Contact, New Member, Meeting, Other; the earlier request wins when two have the same
-purpose.
+**Nobody waits for approval.** Every reservation—Tuesday or Saturday, made weeks ahead or
+on the day itself—is confirmed the moment it is made and appears on the schedule with its
+numbered room or item straight away.
 
-### Check or cancel your request
+Availability is the only gate. A reservation cannot be made when every numbered unit is
+already taken for part of the chosen range; the app says so and offers the longest
+shorter ending that is still free.
 
-Your requests appear under **My reservations** on the device used to submit them.
-Possible statuses include:
+Requests submitted before this change that are still waiting are not lost. They stay in
+the Admin queue and can be approved there as before.
 
-- **Requested — awaiting approval:** visible to everyone but not assigned.
+### Check, shorten, or cancel your reservation
+
+Your reservations appear under **My reservations** on the device used to make them.
+Possible statuses are:
+
 - **Approved:** assigned to a specific room or item.
-- **Declined:** not approved.
 - **Cancelled:** withdrawn by the member or Admin.
+- **Requested — awaiting approval:** only older requests made before approval was
+  removed.
 
-Each request uses a compact card with its date, time, status, resource, and purpose.
-Use the separate destructive **Cancel request** or **Cancel reservation** button when
-your plans change. Cancelling removes the active request from the live schedule. Older
-requests created before secure ownership was added may require Admin to make changes.
+Each reservation uses a compact card with its date, time, status, resource, and purpose.
+
+**Finished early?** Tap **End early** on the reservation, then choose the time you
+actually finished—for example, ending a 10:00 AM–12:30 PM reservation at 12:00 PM. The
+remaining time is released immediately, so Home and the lobby TV show the room as
+available. On the day itself, the choice matching the current time is marked **now**. Your
+reservation stays on your list with a note of what you originally booked. A reservation
+that is only 30 minutes long has nothing to shorten, so it offers only **Cancel**.
+
+Use the destructive **Cancel reservation** button when your plans change entirely.
+Cancelling removes it from the live schedule. Older reservations created before secure
+ownership was added may require Admin to make changes.
 
 ## For the approver
 
@@ -175,24 +184,28 @@ The browser sends the PIN to a protected Firebase service for validation. The PI
 not trusted merely because it was typed into the webpage. A successful unlock creates
 a short-lived Admin session, and repeated incorrect attempts are limited.
 
-### Review and assign requests
+### Manage the day
 
-Advance Saturday requests that remain pending are listed by priority: Contact, New
-Member, Meeting, then Other. Select a request in the priority queue to see its details,
-whole-range availability, recommended numbered assignment, and day map together. You
-can change the recommended unit before approving or declining. The Admin workspace does
-not include a separate Recent updates feed; the queue and day overview provide the
+New reservations arrive already confirmed and assigned, so the queue is normally empty.
+It still holds any request made before approval was removed: select it to see its
+details, whole-range availability, recommended numbered assignment, and day map
+together, and change the recommended unit before approving or declining.
+
+In the day list, each approved booking offers **End early** as well as **Cancel**. Use
+**End early** when someone tells you in person that they have finished, and choose the
+time they finished; the rest of their time is released for everyone. The Admin workspace
+does not include a separate Recent updates feed; the queue and day overview provide the
 operational context.
 
 ## Preview sample information
 
 To inspect the layout without changing the real schedule, add `?demo=1` to the end of
 the app address. The browser-only preview includes sample room, whiteboard, and TV
-assignments; pending requests; a full period; declined and cancelled requests; and both
-eligible days. It never writes mock information to Firestore.
+assignments; a full period; a cancelled reservation; and both eligible days. It never
+writes mock information to Firestore, so **End early** and **Reserve now** only show the
+sample message there.
 
-Approval moves the booking live from the amber request lane into its assigned green
-row. Declining or cancelling removes it from the active public schedule. Protected
+Cancelling or ending early removes that time from the active public schedule. Protected
 backend checks prevent two people from being assigned the same item at the same time.
 
 Optional member notes are visible only to Admin. They are not included in the public

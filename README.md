@@ -5,7 +5,7 @@
 - **Website:** https://lvrooms.web.app — primary member address
 - **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
 - **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — the July 22 fixed Clear/Continue selection bar and earlier Home-first, annotation, mobile-grid, feed-order, and grid-density refinements are deployed and live-verified
+- **Status:** Live — the July 26 update removes approval from every day and adds End early; the July 22 fixed Clear/Continue selection bar and earlier Home-first, annotation, mobile-grid, feed-order, and grid-density refinements remain in place
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it
@@ -37,11 +37,7 @@ adds a TV day picker, and provides full browser-only mock information for member
 previews. The July 21 update removes the separate member Reservations tab, makes Live
 updates two compact rows above the Home overview, adds purpose beneath each occupied
 Home cell's name, and makes the daypart map's vertical scrolling explicit. My
-reservations, Admin, booking policy, privacy rules, and the study-room-only lobby TV
-remain unchanged. Tuesday bookings
-remain instantly approved when open. A Saturday submission
-is instantly approved only when it is made on that Saturday at or after 10:00 AM Los
-Angeles time; advance Saturday requests remain pending for Admin review.
+reservations, Admin, privacy rules, and the study-room-only lobby TV remain unchanged.
 
 The July 21 annotation refinement keeps two visible Live-update rows and lets their
 activity scroll independently; the resource controls use count-free 44px labels; the
@@ -91,3 +87,19 @@ independent reviewer initially found a P1 tiny-text regression (8.5px/7.5px), wh
 corrected; the final review found no P0/P1/P2 issues. Read-only production Playwright
 confirmed a fitting 58px time column, 65.75×44px tiles, 10px names, 8.5px purposes, and
 no overflow. Only `hosting:app` deployed.
+
+The July 26 update changes the booking policy itself. **No day requires approval any
+more:** Tuesday and Saturday reservations are both confirmed the moment they are made,
+whether they are booked weeks ahead or on the day itself. Whether a room, whiteboard, or
+TV is actually free is still checked in the same protected transaction, so a full range
+is refused exactly as before.
+
+The same update adds **End early**. A member who finishes ahead of schedule opens My
+reservations, taps **End early**, and picks the time they actually finished — a
+10:00 AM–12:30 PM reservation ended at 12:00 PM immediately shows the room as available
+to everyone, on Home and on the lobby TV. On the day itself the choice matching the
+current Los Angeles time is marked **now**. The reservation stays on the member's list
+with a note of what was originally booked. Admin can do the same from the day list when
+someone reports finishing in person. A 30-minute reservation has nothing to shorten, so
+it offers only **Cancel**. Requests that were still pending when this shipped remain in
+the Admin queue and can be approved there.

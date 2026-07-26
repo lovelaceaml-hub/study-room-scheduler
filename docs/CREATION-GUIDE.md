@@ -7,10 +7,9 @@ app later. For everyday instructions, use the [User Manual](USER-MANUAL.md).
 
 LV Zion Study Rooms is an installable web app for reserving study rooms and shared
 equipment on the upcoming Tuesday and Saturday. Members request a resource type and
-time. Tuesday is assigned and approved automatically when open. Saturday is assigned
-and approved automatically only for a submission made on that Saturday at or after
-10:00 AM Los Angeles time; an advance Saturday request stays pending for Admin to assign
-or decline.
+time. Every reservation, on either day, is assigned a numbered unit and confirmed
+immediately when one is open — there is no approval step. A member who finishes ahead of
+schedule can end the reservation early, which releases the remaining time for everyone.
 
 The primary member address is **https://lvrooms.web.app**. The former address,
 **https://lvz-rooms.web.app**, is a permanent redirect. Production deployment was
@@ -149,9 +148,8 @@ explicit vertical-scroll cue when more rows are available. Approved cells show a
 and purpose beneath it; open cells start a reservation. Tapping an open cell opens one
 **When should it end?** choice. The chosen ending is stored exactly;
 selecting 10:00 AM then 11:30 AM means 10:00–11:30 AM. After a complete range, the
-screen shows an open/pending button. Its detail lists approved occupants by numbered
-unit and every overlapping pending request separately. Pending requests never occupy a
-numbered unit before approval. The short sheet then asks only for name and purpose
+screen shows an open-count button. Its detail lists approved occupants by numbered
+unit. The short sheet then asks only for name and purpose
 (Contact, New Member, Meeting, or Other).
 
 Service periods divide the daypart options but do not appear as selectable member
@@ -199,13 +197,23 @@ retain the old identifier for records without making the room bookable again.
 
 ## Live booking behavior
 
-Tuesday requests are created through a protected callable function, which assigns the
-first free unit and approves the request in one transaction. The same happens for a
-Saturday request made on its booking Saturday at or after 10:00 AM Los Angeles time.
-Advance Saturday requests stay pending even after Saturday begins, so the Admin queue
-and assignment recommendations sort them by Contact, New Member, Meeting, Other, then
-request time. The approval predicate is a pure policy helper and must use
-`America/Los_Angeles`, never the server host time zone.
+Reservations are created through a protected callable function, which assigns the first
+free unit and confirms the booking in one transaction, on both eligible days. If no unit
+is free for the whole range, the same transaction refuses the booking and offers the
+longest shorter ending. The confirmation predicate remains a pure policy helper shared by
+the front end and the backend so the two can never drift.
+
+Ending early is a second callable, `memberEndBookingEarly`, plus an `end-early` case in
+`adminBookingAction`. Both run `earlyEndError`, which requires the new ending to sit on a
+30-minute boundary, to be earlier than the current ending, to stay later than the start,
+and to remain valid for that day including service blocks. A reservation can therefore
+never be shortened out of existence — cancellation is the way to release it entirely. The
+booking keeps its unit and records `endedEarlyFrom`, so the card can still show what was
+originally booked. Because ending early only ever frees capacity, it needs no conflict
+check and no rate limit.
+
+Requests that were already pending when approval was removed stay in the Admin queue and
+still sort by Contact, New Member, Meeting, Other, then request time.
 
 The activity feed derives Requested, Reserved, and Cancelled events from booking
 timestamps and places the latest event first by comparing its created, updated, and
@@ -236,8 +244,9 @@ live states based on the actual result rather than assuming a write succeeded.
 Members do not create accounts or see a login screen. Firebase silently creates an
 anonymous identity. New bookings store that owner identity along with update and
 schema information. Direct client creation is blocked; the protected callable function
-creates valid instant or pending bookings for the two allowed dates. Database rules let
-members cancel only their own eligible requests.
+creates valid confirmed bookings for the two allowed dates. Database rules let members
+cancel only their own eligible requests; shortening one goes through the callable, so
+members still never write a booking field directly.
 
 Members cannot approve, assign, decline, delete, change app settings, or edit another
 member’s request. Legacy bookings without ownership remain readable and can be managed
@@ -293,10 +302,14 @@ Production verification covers:
 - Every service block and rejection of crossing ranges.
 - The 10:00 PM and 10:30 PM starts, final 10:30–11:00 PM slot, and rejection after
   11:00 PM.
-- Tuesday instant approval; advance Saturday pending; and the Los Angeles 9:59 AM /
-  10:00 AM Saturday boundary.
+- Instant confirmation on both Tuesday and Saturday, at any hour and any number of days
+  ahead, and refusal of days that are neither.
+- Ending early: valid earlier boundaries only, refusal of the current or a later ending,
+  refusal of an ending at or before the start, off-grid and malformed times, and a
+  shortened range that would land inside a service.
 - Four-room capacity and removal of every future Baptism Room path.
-- Pending-to-approved, decline, cancel, reconnect, and failed-save transitions.
+- End-early, cancel, reconnect, and failed-save transitions, plus legacy
+  pending-to-approved and decline.
 - Member ownership and rejection of unauthorized Admin or cross-member changes.
 - Two simultaneous devices receiving live changes without refresh.
 - Selecting 10:00 AM as Start and 11:30 AM as End produces exactly 10:00–11:30 AM

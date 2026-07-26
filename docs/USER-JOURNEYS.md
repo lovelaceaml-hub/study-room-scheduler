@@ -32,7 +32,7 @@
   4. Answer **When should it end?** with the exact end time, inspect availability, then
      continue.
   5. Enter a name and purpose and submit.
-- **Empty / loading / error / success behavior:** Availability waits for verified live data; full times are labeled; a valid range displays open capacity; success states whether the reservation is approved or pending.
+- **Empty / loading / error / success behavior:** Availability waits for verified live data; full times are labeled; a valid range displays open capacity; success states that the reservation is confirmed.
 - **Recovery or Undo:** If the range becomes unavailable, an alert explains that no unit is open and offers the longest available shorter ending when one exists, with Yes and No actions.
 - **Phone-specific consideration:** Home is the same booking surface on every width;
   Morning, Afternoon, and Evening can remain independently expanded as needed.
@@ -41,13 +41,13 @@
 ## Journey: Review and display the day
 
 - **User:** Approver or lobby viewer.
-- **Starting situation:** An approver has an advance Saturday request or the lobby TV is open.
+- **Starting situation:** An approver is managing the day's board or the lobby TV is open.
 - **Goal:** Keep assignments conflict-free and make room/service timing legible.
 - **Success is observable when:** Admin sees exact start/end ranges and unit availability; the TV shows approved Study Room assignments and service bands for a chosen eligible Tuesday or Saturday.
 - **Steps the product must make clear:**
   1. Unlock Admin or open TV mode.
   2. Review the selected date and resource, or select the TV day to display.
-  3. Assign and approve safely, or read the live timetable.
+  3. End a finished reservation early, cancel, or add one directly — or read the live timetable.
 - **Empty / loading / error / success behavior:** Clear queue, no eligible TV day, reconnecting, conflict, and saved states are explicit. Tuesday is instant; Saturday becomes instant only for a submission made on that Saturday at or after 10:00 AM Los Angeles time.
 - **Recovery or Undo:** Admin can decline/cancel or choose another free numbered unit; the TV retries without discarding its last safe cache.
 - **Phone-specific consideration:** Admin tools stack on narrow screens.

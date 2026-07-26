@@ -11,7 +11,7 @@
 
 1. Check two recent schedule updates, then see current room activity in a member-safe Home day overview.
 2. Reserve a study room, whiteboard, or TV for an exact available range.
-3. Review assignments and pending requests, then assign, approve, decline, or cancel reservations when needed.
+3. Review assignments, then end early, cancel, or directly add reservations when needed.
 4. Choose the day shown on the lobby TV and inspect a full mock schedule safely.
 
 ## Constraints
@@ -23,17 +23,16 @@
 
 ## Risks and exclusions
 
-- **Likely confusion or failure points:** Mistaking a clicked time for a hidden extra 30 minutes, selecting a range that has no single unit open throughout, unclear Saturday instant/pending status, and scanning too many half-hour rows.
+- **Likely confusion or failure points:** Mistaking a clicked time for a hidden extra 30 minutes, selecting a range that has no single unit open throughout, leaving a room booked after finishing early, and scanning too many half-hour rows.
 - **Out of scope for this version:** New resource types, additional reservable weekdays, or changes to the existing Admin authentication model.
-- **What must not change:** Tuesday/Saturday eligibility, 30-minute boundaries, service-time blocking, numbered-unit capacity, booking privacy, or lobby-TV service bands. The current approval policy is Tuesday instant; Saturday instant only for a submission made on that Saturday at or after 10:00 AM Los Angeles time; advance Saturday requests remain pending.
+- **What must not change:** Tuesday/Saturday eligibility, 30-minute boundaries, service-time blocking, numbered-unit capacity, booking privacy, or lobby-TV service bands. As of July 26, 2026 there is no approval step on any day: every reservation is confirmed on submission, and availability is the only gate. A reservation may be ended early but never shortened to nothing.
 
 ## July 20 release scope
 
 The July 20, 2026 release was deployed and live-verified. It extends closing to 11:00
 PM, including 10:00 PM and 10:30 PM starts. It makes member start times vertical on
 phones, uses an immediate end-time prompt, puts the Admin-style day overview on Home
-for every member, and makes the open/pending count a detail button for named assignments
-and unassigned pending requests. It also adds an eligible-day setting and full
+for every member, and makes the open count a detail button for named assignments. It also adds an eligible-day setting and full
 browser-only mock data to the lobby TV.
 
 ## July 21 Home-first release

@@ -6,6 +6,7 @@ const {
   availableUnitForType,
   canonicalAssignments,
   conflictingBooking,
+  earlyEndError,
   migrationResourceUpdate,
   normalizeBookingIds,
   normalizeLegacyResourceMaps,
@@ -49,20 +50,46 @@ test('rejects service overlaps but accepts ranges ending or starting at a servic
   assert.equal(validateBookingTime('2026-07-21', '21:00', '23:00', now), null);
 });
 
-test('uses Los Angeles time for automatic Tuesday and Saturday approvals', () => {
-  // Tuesday is instant even when it is reserved ahead of that Tuesday.
+test('confirms every booking day immediately, with no approval queue', () => {
+  // A Tuesday reserved days ahead is instant.
   assert.equal(shouldAutoApproveMemberBooking('2026-07-21', new Date('2026-07-17T19:00:00Z')), true);
 
-  // An advance Saturday request remains pending for the Admin queue.
-  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-17T19:00:00Z')), false);
+  // Saturday no longer waits for an approver, either in advance...
+  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-17T19:00:00Z')), true);
+  // ...or before the old 10:00 AM Los Angeles boundary on the day itself.
+  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-18T16:59:00Z')), true);
+  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-18T00:30:00Z')), true);
 
-  // The Saturday boundary is local Los Angeles time: 09:59 PDT is pending;
-  // 10:00 PDT is assigned and approved immediately.
-  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-18T16:59:00Z')), false);
-  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-18T17:00:00Z')), true);
+  // Days that are not booking days remain ineligible.
+  assert.equal(shouldAutoApproveMemberBooking('2026-07-17', new Date('2026-07-17T19:00:00Z')), false);
+  assert.equal(shouldAutoApproveMemberBooking('not-a-date', new Date('2026-07-17T19:00:00Z')), false);
+});
 
-  // This is still Friday evening in Los Angeles even though UTC says Saturday.
-  assert.equal(shouldAutoApproveMemberBooking('2026-07-18', new Date('2026-07-18T00:30:00Z')), false);
+test('ending early shortens a reservation but never removes it entirely', () => {
+  const now = new Date('2026-07-17T19:00:00Z');
+  const booking = { date: '2026-07-18', start: '10:00', end: '12:30' };
+
+  // A valid earlier ending that keeps at least one 30-minute block.
+  assert.equal(earlyEndError(booking, '12:00', now), null);
+  assert.equal(earlyEndError(booking, '10:30', now), null);
+
+  // The same ending, a later one, the start itself, and anything before the
+  // start are all refused; cancelling is the way to give up the whole booking.
+  assert.match(earlyEndError(booking, '12:30', now), /earlier ending/);
+  assert.match(earlyEndError(booking, '13:00', now), /earlier ending/);
+  assert.match(earlyEndError(booking, '10:00', now), /at least 30 minutes/);
+  assert.match(earlyEndError(booking, '09:30', now), /at least 30 minutes/);
+
+  // Malformed and off-grid times are refused.
+  assert.match(earlyEndError(booking, '11:15', now), /30-minute boundaries/);
+  assert.match(earlyEndError(booking, 'noon', now), /HH:MM/);
+  assert.match(earlyEndError(null, '11:00', now), /cannot be shortened/);
+
+  // A shortened Saturday booking still may not end inside a service.
+  assert.match(
+    earlyEndError({ date: '2026-07-18', start: '14:00', end: '16:30' }, '15:30', now),
+    /service/
+  );
 });
 
 test('orders Saturday recommendations by purpose priority, then request time', () => {
