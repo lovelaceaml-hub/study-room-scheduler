@@ -40,7 +40,14 @@ page.on('request', request => {
 });
 
 try {
-  await page.goto(`http://127.0.0.1:${port}/tv.html?tv=1&demo=1&date=not-a-date`, { waitUntil: 'networkidle' });
+  await page.goto(`http://127.0.0.1:${port}/tv.html?tv=1&demo=1&test=1&date=not-a-date`, { waitUntil: 'networkidle' });
+  assert.deepEqual(await page.evaluate(() => ({
+    leadingInitial: window.__SRS_TV_TEST_HELPERS__.publicName('D Chloe Daniels'),
+    titledName: window.__SRS_TV_TEST_HELPERS__.publicName('B. Anthony Lovelace')
+  })), {
+    leadingInitial: 'D Chloe D.',
+    titledName: 'Anthony L.'
+  }, 'TV names preserve a bare leading initial while keeping titles private');
   assert.equal(await page.getByText('Choose day', { exact: true }).count(), 1);
   assert.ok(await page.locator('.day-choice').count() >= 2);
   assert.match(page.url(), /date=\d{4}-\d{2}-\d{2}/, 'Invalid date safely falls back to Today');

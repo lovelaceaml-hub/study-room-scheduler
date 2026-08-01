@@ -126,7 +126,19 @@ function publicName(name) {
   if (parts.length > 1 && /^[BSEMDP]\.$/i.test(parts[0])) parts.shift();
   if (!parts.length) return 'Reserved';
   if (parts.length === 1) return parts[0];
+  // Some names use a bare first initial before the first name (for example,
+  // "D Chloe Daniels"). Keep that initial so the public label is not reduced
+  // to the same initial twice.
+  if (parts.length >= 3 && /^[A-Z]$/i.test(parts[0])) {
+    return parts[0].toUpperCase() + ' ' + parts[1] + ' ' + parts[parts.length - 1].charAt(0).toUpperCase() + '.';
+  }
   return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+}
+
+// Keep the privacy formatter directly verifiable in the browser smoke test
+// without exposing an application control in normal TV use.
+if (new URLSearchParams(location.search).get('test') === '1') {
+  window.__SRS_TV_TEST_HELPERS__ = { publicName };
 }
 
 function isDisplayableBooking(booking) {
