@@ -87,9 +87,9 @@ status changes to **Reconnecting**. It returns to **Live** after data reconnects
 
 ## Share the right links
 
-- Members: **https://lvrooms.web.app**
-- Lobby TV: **https://lvrooms.web.app/?tv=1**
-- Previous bookmarks: **https://lvz-rooms.web.app** redirects to the new address
+- Firebase member scheduler: **https://lvrooms.web.app**
+- Firebase lobby TV: **https://lvrooms.web.app/?tv=1**
+- Separate LV Zion scheduler: **https://lvzion.vercel.app/rooms** (bookings do not synchronize)
 
 The TV link is meant for a public lobby screen. It abbreviates names and hides private
 request and Admin details.

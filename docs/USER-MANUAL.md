@@ -1,10 +1,15 @@
 # LV Zion Study Rooms — User Manual
 
+> **Current service:** This Firebase Study Rooms scheduler remains live at
+> https://lvrooms.web.app. LV Zion Study Rooms is also active at
+> https://lvzion.vercel.app/rooms. They are separate calendars and do not
+> synchronize reservations.
+
 This app lets LV Zion members reserve a study room, whiteboard, or TV for the
 upcoming Tuesday or Saturday from one phone-friendly calendar.
 
-The app is live at **https://lvrooms.web.app**. (The older address,
-https://lvz-rooms.web.app, forwards there automatically.)
+The established Firebase service is **https://lvrooms.web.app**. Use
+**https://lvrooms.web.app/?tv=1** for this scheduler's lobby display.
 
 > Release note: the mobile, approval, TV-day-picker, expanded mock-data, simplified
 > Home, compact reservation rows, and study-room-focused TV changes below were deployed
