@@ -1,6 +1,13 @@
 'use strict';
 
+const { isoDateInLosAngeles, upcomingTuesdayAndSaturday } = require('./policy');
+
 const ROOM_IDS = new Set(['room-1', 'room-2', 'room-3', 'room-4']);
+
+function publicLobbyScheduleDates(now = new Date()) {
+  const today = isoDateInLosAngeles(now);
+  return [...new Set([today, ...upcomingTuesdayAndSaturday(now)])].sort();
+}
 
 function publicName(value) {
   const parts = String(value || '')
@@ -48,4 +55,4 @@ function publicLobbyBooking(booking) {
   };
 }
 
-module.exports = { publicLobbyBooking, publicName };
+module.exports = { publicLobbyBooking, publicLobbyScheduleDates, publicName };

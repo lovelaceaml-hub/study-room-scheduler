@@ -21,7 +21,7 @@ const {
   validateBookingTime,
   validateDirectBooking
 } = require('./lib/policy');
-const { publicLobbyBooking } = require('./lib/public-lobby-schedule');
+const { publicLobbyBooking, publicLobbyScheduleDates } = require('./lib/public-lobby-schedule');
 
 initializeApp();
 const db = getFirestore();
@@ -35,9 +35,9 @@ const MAX_FAILED_ATTEMPTS = 5;
 // never read Firestore booking documents from this endpoint: it returns only
 // the exact fields already visible in the four-room lobby timetable.
 exports.publicLobbySchedule = onRequest({ region: REGION }, async (_request, response) => {
-  const today = isoDateInLosAngeles(new Date());
+  const displayDates = publicLobbyScheduleDates(new Date());
   const snapshot = await db.collection('bookings')
-    .where('date', '>=', today)
+    .where('date', 'in', displayDates)
     .orderBy('date')
     .limit(240)
     .get();

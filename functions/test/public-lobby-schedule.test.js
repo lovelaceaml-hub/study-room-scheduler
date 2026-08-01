@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { publicLobbyBooking, publicName } = require('../lib/public-lobby-schedule');
+const { publicLobbyBooking, publicLobbyScheduleDates, publicName } = require('../lib/public-lobby-schedule');
 
 test('reduces a public room booking to the lobby-safe fields only', () => {
   const booking = publicLobbyBooking({
@@ -35,4 +35,15 @@ test('rejects every non-public-room booking and safely abbreviates names', () =>
   assert.equal(publicLobbyBooking({ status: 'approved', needs: { room: true }, assignments: { room: 'room-baptism' } }), null);
   assert.equal(publicName('B. Anthony Lovelace'), 'Anthony L.');
   assert.equal(publicName(''), 'Reserved');
+});
+
+test('matches the lobby date chooser: today plus the next Tuesday and Saturday', () => {
+  assert.deepEqual(
+    publicLobbyScheduleDates(new Date('2026-08-02T19:00:00Z')),
+    ['2026-08-02', '2026-08-04', '2026-08-08'],
+  );
+  assert.deepEqual(
+    publicLobbyScheduleDates(new Date('2026-08-04T19:00:00Z')),
+    ['2026-08-04', '2026-08-08'],
+  );
 });
