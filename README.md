@@ -1,5 +1,14 @@
 # LV Zion Study Rooms
 
+The current Firebase app remains the live scheduler and rollback system. The
+non-deployed `codex/lv-zion-rooms-compatibility` branch adds a cutover-only
+Hosting bundle under `cutover/` that routes ordinary visits to
+`https://lvzion.vercel.app/rooms` and `?tv=1` visits to
+`https://lvzion.vercel.app/rooms/tv`. It contains no booking code and must not
+be deployed until the LV Zion migration, count comparison, and one-system
+cutover are approved. The existing Functions, Firestore data, primary Hosting
+release, and private repository must remain intact for rollback.
+
 ## Quick links
 
 - **Website:** https://lvrooms.web.app — primary member address

@@ -2,6 +2,15 @@
 
 ## Current status
 
+**July 31, 2026 — LV Zion compatibility page prepared, not deployed.** Branch
+`codex/lv-zion-rooms-compatibility` adds an isolated `cutover/` Hosting bundle
+and `firebase.cutover.json`. Ordinary visits route to the shared `/rooms`
+module; `?tv=1` routes to `/rooms/tv`. The bundle has no Firebase booking or
+management code. Do not deploy it until the LV Zion backup, restore, importer,
+count comparison, human testing, and cutover gates pass. This live Firebase
+app, its Functions, Firestore database, prior Hosting release, and repository
+remain the rollback system and are not authorized for deletion.
+
 **July 26, 2026 — approval removed and End early added. Deployed and live-verified.**
 Deployment was `--only functions,hosting:app`: the new `memberEndBookingEarly` function was
 created and the seven existing functions updated in `us-west1`. Firestore rules, indexes,
