@@ -1,11 +1,21 @@
-# LV Zion Study Rooms
+# LV Zion Study Rooms — Firebase scheduler
 
+**August 1, 2026 — Firebase remains live.** This established scheduler is
+active at `https://lvrooms.web.app`, including its existing booking and lobby
+TV functions. LV Zion Study Rooms is also active at
+`https://lvzion.vercel.app/rooms` by Anthony's direction.
+
+The two systems use separate calendars: a booking made here does not appear in
+LV Zion. A final encrypted 129-document Firebase snapshot was imported into
+LV Zion (4 account-linked; 14 intentionally unclaimed for Room Coordinator
+management), but no ongoing synchronization exists. Firebase data, Functions
+source, prior Hosting release, and this private repository are preserved.
 ## Quick links
 
-- **Website:** https://lvrooms.web.app — primary member address
-- **Lobby TV:** https://lvrooms.web.app/?tv=1 — lobby schedule with an eligible-day picker
-- **Previous address:** https://lvz-rooms.web.app — redirects to the primary address
-- **Status:** Live — the July 26 update (approval removed from every day, plus End early) is deployed and live-verified; the July 22 fixed Clear/Continue selection bar and earlier Home-first, annotation, mobile-grid, feed-order, and grid-density refinements remain in place
+- **Firebase scheduler:** https://lvrooms.web.app — established Tuesday/Saturday calendar
+- **Firebase lobby TV:** https://lvrooms.web.app/?tv=1 — established public lobby display
+- **LV Zion scheduler:** https://lvzion.vercel.app/rooms — separate shared-account calendar
+- **Status:** Both systems active by owner decision August 1, 2026; bookings do not synchronize. The July 26 End early and earlier UI refinements are live here.
 - **Docs:**
   - [User Manual](docs/USER-MANUAL.md) — how members, approvers, and the lobby display use it
   - [Setup Guide](docs/SETUP-GUIDE.md) — how to open or install it

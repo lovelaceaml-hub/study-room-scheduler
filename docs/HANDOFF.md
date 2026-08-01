@@ -2,6 +2,17 @@
 
 ## Current status
 
+**August 1, 2026 — Firebase scheduler restored and live.** The established
+`lvrooms.web.app` booking site and its Functions/Firestore rules are active.
+LV Zion Study Rooms is also active at `/rooms` by owner decision.
+
+An encrypted local snapshot contained 129 documents, and LV Zion's importer
+dry-run twice, apply, and post-apply reconciliation agreed: 64 source
+bookings, 18 eligible/confirmed, 18 imported, 18 unchanged afterward, 4
+account-linked, and 14 deliberately unclaimed for coordinator management.
+There is no ongoing sync: Firebase and LV Zion bookings are separate. The
+release owner explicitly waived the representative-member test because of time
+constraints. No Firebase resource is authorized for deletion.
 **July 26, 2026 — approval removed and End early added. Deployed and live-verified.**
 Deployment was `--only functions,hosting:app`: the new `memberEndBookingEarly` function was
 created and the seven existing functions updated in `us-west1`. Firestore rules, indexes,
@@ -111,9 +122,9 @@ the cancellation action, count-free resource controls, the scrolling Live-update
 and the absent Admin feed. Deployment was only `hosting:app`; Functions, Firestore,
 Authentication, and the legacy redirect were unchanged.
 
-- **Primary address:** https://lvrooms.web.app
-- **Lobby TV:** https://lvrooms.web.app/?tv=1
-- **Previous address:** https://lvz-rooms.web.app — retained as a redirect
+- **Firebase scheduler:** https://lvrooms.web.app
+- **Firebase lobby TV:** https://lvrooms.web.app/?tv=1
+- **Separate LV Zion scheduler:** https://lvzion.vercel.app/rooms
 - **Firebase project:** `lvz-rooms`
 - **GitHub repository:** `lovelaceaml-hub/study-room-scheduler` (private)
 
@@ -207,6 +218,10 @@ only. A browser-only demo populates both member and TV views with fixture data w
 writing to Firestore.
 
 ## Rollout checklist
+
+> The Firebase scheduler is live alongside LV Zion by the August 1, 2026 owner
+> decision. The two systems are independent; do not assume their availability
+> or bookings synchronize.
 
 - Firebase Blaze billing is enabled on this project through the church's existing
   Firebase Payment account because protected functions require it.
