@@ -14,6 +14,13 @@ There is no ongoing sync: Firebase and LV Zion bookings are separate. The
 release owner explicitly waived the representative-member test because of time
 constraints. No Firebase resource is authorized for deletion.
 
+For the temporary public LV Zion release only, `functions:publicLobbySchedule`
+provides a read-only projection of the Firebase lobby timetable. It returns
+only approved Room 1–4 bookings with date, time, room, and an abbreviated
+name—never booking IDs, owner IDs, requests, notes, equipment, or timestamps.
+LV Zion renders that feed on its server; it does not read Firebase booking
+documents in a visitor's browser. This is a display feed, not a booking sync.
+
 **July 26, 2026 — approval removed and End early added. Deployed and live-verified.**
 Deployment was `--only functions,hosting:app`: the new `memberEndBookingEarly` function was
 created and the seven existing functions updated in `us-west1`. Firestore rules, indexes,
