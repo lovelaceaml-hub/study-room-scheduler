@@ -10,6 +10,7 @@ LV Zion. A final encrypted 129-document Firebase snapshot was imported into
 LV Zion (4 account-linked; 14 intentionally unclaimed for Room Coordinator
 management), but no ongoing synchronization exists. Firebase data, Functions
 source, prior Hosting release, and this private repository are preserved.
+
 ## Quick links
 
 - **Firebase scheduler:** https://lvrooms.web.app — established Tuesday/Saturday calendar

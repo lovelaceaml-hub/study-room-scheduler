@@ -11,7 +11,10 @@ time. Every reservation, on either day, is assigned a numbered unit and confirme
 immediately when one is open — there is no approval step. A member who finishes ahead of
 schedule can end the reservation early, which releases the remaining time for everyone.
 
-The primary member address is **https://lvrooms.web.app**. The former address,
+This scheduler's member address is **https://lvrooms.web.app**. Since August 1, 2026 it
+is not the only one: LV Zion Study Rooms is dual-live at
+**https://lvzion.vercel.app/rooms**. The two are separate calendars and do not
+synchronize, so a booking made in one is invisible to the other. The former address,
 **https://lvz-rooms.web.app**, is a permanent redirect. Production deployment was
 verified initially on July 17, 2026; the compact dashboard and exact-time release was
 deployed and verified on July 19, 2026; and the mobile, scheduling, TV, and demo update

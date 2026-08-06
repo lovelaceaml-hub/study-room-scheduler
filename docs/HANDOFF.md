@@ -13,6 +13,15 @@ account-linked, and 14 deliberately unclaimed for coordinator management.
 There is no ongoing sync: Firebase and LV Zion bookings are separate. The
 release owner explicitly waived the representative-member test because of time
 constraints. No Firebase resource is authorized for deletion.
+
+For the temporary public LV Zion release only, `functions:publicLobbySchedule`
+provides a read-only projection of the Firebase lobby timetable. It returns
+only the lobby's offered dates (today and the next Tuesday/Saturday), approved
+Room 1–4 bookings with date, time, room, and an abbreviated name—never booking
+IDs, owner IDs, requests, notes, equipment, or timestamps. LV Zion renders
+that feed on its server; it does not read Firebase booking documents in a
+visitor's browser. This is a display feed, not a booking sync.
+
 **July 26, 2026 — approval removed and End early added. Deployed and live-verified.**
 Deployment was `--only functions,hosting:app`: the new `memberEndBookingEarly` function was
 created and the seven existing functions updated in `us-west1`. Firestore rules, indexes,
@@ -226,6 +235,19 @@ writing to Firestore.
 - Firebase Blaze billing is enabled on this project through the church's existing
   Firebase Payment account because protected functions require it.
 - Confirm future Baptism Room bookings were safely returned to pending.
+  **Still open as of August 6, 2026 — attempted and blocked, not skipped.** Reading
+  the `bookings` collection in Firestore project `lvz-rooms` returned
+  `403 PERMISSION_DENIED`: this Mac's application-default credential belongs to
+  `lovelace.aml@gmail.com`, which can see only the four `gen-lang-client-*` /
+  personal projects, not the church Firebase projects. Two safety nets mean nothing
+  member-visible depends on this row: `canonicalAssignments` in
+  `functions/lib/policy.js` rejects `room-baptism` outright, and the migration path
+  forces `status: 'pending'` for any booking it retires
+  (`functions/lib/policy.js:173`). What is unproven is the *stored* state of legacy
+  rows. To close it, either run the admin `retire-baptism-room` action once from
+  https://lvrooms.web.app (idempotent — it re-pends anything still assigned there),
+  or grant an account with Firestore read on `lvz-rooms` so the count can be
+  measured directly.
 - Verify anonymous request creation and owner-only cancellation.
 - Verify Admin unlock, approve, decline, cancel, reassignment, direct-add, and lock.
 - Verify listed start-time and revealed End-time selection, Morning/Afternoon/Evening disclosures, date arrows,

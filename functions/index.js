@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const { initializeApp } = require('firebase-admin/app');
 const { FieldPath, FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { defineSecret } = require('firebase-functions/params');
-const { HttpsError, onCall } = require('firebase-functions/v2/https');
+const { HttpsError, onCall, onRequest } = require('firebase-functions/v2/https');
 const {
   availableUnitForType,
   conflictingBooking,
@@ -21,6 +21,7 @@ const {
   validateBookingTime,
   validateDirectBooking
 } = require('./lib/policy');
+const { publicLobbyBooking, publicLobbyScheduleDates } = require('./lib/public-lobby-schedule');
 
 initializeApp();
 const db = getFirestore();
@@ -29,6 +30,24 @@ const REGION = 'us-west1';
 const SESSION_MINUTES = 20;
 const RATE_WINDOW_MINUTES = 15;
 const MAX_FAILED_ATTEMPTS = 5;
+
+// Server-side projection for LV Zion's temporary public release. Browsers
+// never read Firestore booking documents from this endpoint: it returns only
+// the exact fields already visible in the four-room lobby timetable.
+exports.publicLobbySchedule = onRequest({ region: REGION }, async (_request, response) => {
+  const displayDates = publicLobbyScheduleDates(new Date());
+  const snapshot = await db.collection('bookings')
+    .where('date', 'in', displayDates)
+    .orderBy('date')
+    .limit(240)
+    .get();
+  const bookings = snapshot.docs
+    .map(document => publicLobbyBooking(document.data()))
+    .filter(Boolean);
+  response.set('Cache-Control', 'public, max-age=60, s-maxage=60');
+  response.set('X-Content-Type-Options', 'nosniff');
+  response.json({ version: 1, generatedAt: new Date().toISOString(), bookings });
+});
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');

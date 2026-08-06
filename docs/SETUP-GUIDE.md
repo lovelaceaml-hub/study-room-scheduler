@@ -5,6 +5,11 @@
 The shorter address and revised scheduler are **Live** at
 **https://lvrooms.web.app**.
 
+**Dual-live since August 1, 2026.** LV Zion Study Rooms is also live at
+**https://lvzion.vercel.app/rooms**. They are independent calendars with no
+synchronization, so the same room can be booked twice — once in each system. This is a
+known, owner-accepted risk that ends when this scheduler is retired to a redirect.
+
 The previous address, **https://lvz-rooms.web.app**, remains available and sends
 visitors to the shorter address automatically.
 
