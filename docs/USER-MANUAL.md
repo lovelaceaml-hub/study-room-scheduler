@@ -182,7 +182,7 @@ ownership was added may require Admin to make changes.
 ### Unlock Admin
 
 1. Open **Admin**.
-2. Enter the familiar PIN, **0000**.
+2. Enter the administrator PIN from the active provider-managed secret store. Never copy its value into documentation.
 3. Tap **Unlock**.
 
 The browser sends the PIN to a protected Firebase service for validation. The PIN is

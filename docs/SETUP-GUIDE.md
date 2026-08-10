@@ -108,7 +108,7 @@ written to the live schedule.
 
 ## Admin access
 
-The Admin PIN remains **0000**. Enter it on the Admin tab only on a trusted device.
+The Admin PIN remains server-validated and provider-managed. Read it only from the active secret store, enter it on the Admin tab only on a trusted device, and never copy its value into documentation.
 The app verifies it through a protected backend service and grants a short-lived
 Admin session. The Admin workspace intentionally has no Recent updates activity feed;
 use its queue and day overview instead. Tap **Lock admin** when the work is finished.

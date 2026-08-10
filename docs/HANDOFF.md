@@ -174,7 +174,7 @@ Authentication, and the legacy redirect were unchanged.
   clearer selected states, pop-up labels and announcements, keyboard access, and
   enlarged-text support.
 - Use silent member identity for ownership and protected backend Admin actions while
-  keeping the familiar `0000` PIN experience.
+  keeping the existing server-validated administrator PIN flow while moving its value out of documentation.
 - Keep optional notes Admin-only and never expose them on public or TV schedules.
 - Member reservations now use one resource type at a time (Study room, Whiteboard, or
   TV), a compact scrollable calendar, and a name-and-purpose-only confirmation sheet.

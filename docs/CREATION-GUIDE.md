@@ -257,7 +257,7 @@ by Admin, but are not claimed by whichever member happens to open them.
 
 ### Admin
 
-The familiar PIN remains `0000`, but the webpage does not decide whether it is valid.
+The legacy administrator PIN remains server-validated, but its value belongs only in the active provider secret store; the webpage does not decide whether it is valid.
 A protected Firebase backend verifies it, limits repeated attempts, and creates a
 short-lived Admin session. Approval, decline, cancellation, reassignment, direct-add,
 and cleanup actions run through protected backend operations with server-side conflict
