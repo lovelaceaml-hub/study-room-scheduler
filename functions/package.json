@@ -7,7 +7,7 @@
   },
   "scripts": {
     "test": "node --test test/policy.test.js test/public-lobby-schedule.test.js test/freeze.test.js",
-    "test:rules": "node --test test/firestore-rules.test.js test/freeze-writes.test.js"
+    "test:rules": "node --test test/firestore-rules.test.js && node --test test/freeze-writes.test.js"
   },
   "dependencies": {
     "firebase-admin": "^14.2.0",

@@ -58,6 +58,15 @@ test("the cutover hosting config serves the shell, worker, and redirect with no-
   for (const file of ["index.html", "sw.js", "redirect.mjs"]) {
     await readFile(new URL(`../cutover/${file}`, import.meta.url));
   }
-  // The admin freeze tool must NOT be publicly served from the shell.
-  await assert.rejects(readFile(new URL("../cutover/freeze.mjs", import.meta.url)));
+});
+
+test("the LIVE hosting config never publishes the retirement worker or the freeze tool", async () => {
+  // firebase.json target `app` deploys the repository root. Until Section 9,
+  // an ordinary hosting deploy must not put cutover/sw.js (which purges every
+  // cache origin-wide once registered) or tools/freeze.mjs at a public URL.
+  const live = JSON.parse(await readFile(new URL("../firebase.json", import.meta.url), "utf8"));
+  const appTarget = live.hosting.find(entry => entry.target === "app");
+  for (const pattern of ["cutover/**", "tools/**", "AGENTS.md", "firebase.cutover.json"]) {
+    assert.ok(appTarget.ignore.includes(pattern), `firebase.json must ignore ${pattern}`);
+  }
 });

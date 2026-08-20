@@ -19,7 +19,13 @@ const { upcomingTuesdayAndSaturday } = require('../lib/policy');
 if (!process.env.FIRESTORE_EMULATOR_HOST) {
   throw new Error('freeze-writes.test.js requires FIRESTORE_EMULATOR_HOST (run through emulators:exec).');
 }
-process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'demo-study-room-security';
+// This suite owns a DIFFERENT emulator project than firestore-rules.test.js
+// so the two can never see each other's data (a shared namespace made the
+// rules suite observe this suite's freeze document mid-test). FIREBASE_CONFIG
+// must be overridden too: initializeApp() prefers it over GCLOUD_PROJECT, and
+// emulators:exec injects it with the --project id.
+process.env.GCLOUD_PROJECT = 'demo-study-room-freeze';
+process.env.FIREBASE_CONFIG = JSON.stringify({ projectId: 'demo-study-room-freeze' });
 
 const { getFirestore } = require('firebase-admin/firestore');
 const { _testInternals } = require('../index');
@@ -74,6 +80,19 @@ test('with the switch ON, ending a reservation early is refused too', async () =
     () => _testInternals.endBookingEarly(created.bookingId, '10:00', 'uid-fixture-3', 'uid-fixture-3'),
     /read-only|failed-precondition/i
   );
+});
+
+test('with the switch ON, admin cleanup deletes nothing — the freeze read shares the delete transaction', async () => {
+  const created = await _testInternals.memberSubmitBooking(memberInput(), 'uid-fixture-5');
+  // Age the booking past the 56-day cleanup cutoff so cleanup would delete it.
+  await db.collection('bookings').doc(created.bookingId).update({ date: '2020-01-04' });
+  await db.collection('app').doc('writeFreeze').set({ frozen: true });
+  await assert.rejects(
+    () => _testInternals.cleanupOldBookings('uid-admin'),
+    /read-only|failed-precondition/i
+  );
+  const survivor = await db.collection('bookings').doc(created.bookingId).get();
+  assert.equal(survivor.exists, true);
 });
 
 test('lifting the freeze restores writes immediately (switch rollback proof)', async () => {

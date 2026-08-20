@@ -434,22 +434,25 @@ async function directAdd(input, note, uid) {
 }
 
 async function cleanupOldBookings(uid) {
-  await assertWritesNotFrozen();
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - 56);
   const cutoffDate = cutoff.toISOString().slice(0, 10);
   const snapshot = await db.collection('bookings').where('date', '<', cutoffDate).limit(350).get();
-  const batch = db.batch();
-  snapshot.docs.forEach(document => {
-    batch.delete(document.ref);
-    batch.delete(db.collection('privateBookingNotes').doc(document.id));
-  });
-  if (!snapshot.empty) await batch.commit();
+  if (!snapshot.empty) {
+    // The freeze read shares the transaction with the deletes, so a flip
+    // that lands mid-flight forces a retry and the deletes are refused.
+    await db.runTransaction(async transaction => {
+      await assertWritesNotFrozen(transaction);
+      snapshot.docs.forEach(document => {
+        transaction.delete(document.ref);
+        transaction.delete(db.collection('privateBookingNotes').doc(document.id));
+      });
+    });
+  }
   return { removed: snapshot.size, more: snapshot.size === 350, cutoffDate, performedBy: uid };
 }
 
 async function retireBaptismRoom(uid, cursor = {}) {
-  await assertWritesNotFrozen();
   const today = isoDateInLosAngeles(new Date());
   let query = db.collection('bookings')
     .where('date', '>=', today)
@@ -461,7 +464,7 @@ async function retireBaptismRoom(uid, cursor = {}) {
     query = query.startAfter(cursor.afterDate, cursor.afterBookingId);
   }
   const snapshot = await query.get();
-  const batch = db.batch();
+  const updates = [];
   let normalized = 0;
   let returnedToPending = 0;
   let skippedInvalid = 0;
@@ -492,10 +495,17 @@ async function retireBaptismRoom(uid, cursor = {}) {
       update.migrationReason = 'Baptism Room retired';
       returnedToPending += 1;
     }
-    batch.update(document.ref, update);
+    updates.push({ ref: document.ref, update });
     normalized += 1;
   });
-  if (normalized) await batch.commit();
+  if (normalized) {
+    // Freeze read and updates share one transaction: a mid-flight flip retries
+    // the transaction and the normalization is refused.
+    await db.runTransaction(async transaction => {
+      await assertWritesNotFrozen(transaction);
+      updates.forEach(({ ref, update }) => transaction.update(ref, update));
+    });
+  }
   const last = snapshot.docs[snapshot.docs.length - 1];
   return {
     scanned: snapshot.size,
@@ -569,6 +579,11 @@ function memberSubmitRef(address) {
 
 exports.memberSubmitBooking = onCall({ region: REGION }, async request => {
   const uid = requireAuth(request);
+  // Check the freeze BEFORE touching the shared per-address counter: on
+  // cutover day every member behind the building's one NAT address must see
+  // the clear read-only message, never "too many requests". The inner
+  // transaction re-checks the freeze atomically.
+  await assertWritesNotFrozen();
   const address = clientAddress(request);
   const submitRef = memberSubmitRef(address);
   if (isCurrentlyBlocked(await submitRef.get())) {
@@ -615,11 +630,13 @@ exports.adminNoteAction = onCall({ region: REGION, secrets: [ADMIN_PIN] }, async
     return { bookingId, note: snapshot.exists ? String(snapshot.data().note || '') : '' };
   }
   if (data.action === 'set') {
-    await assertWritesNotFrozen();
     const note = typeof data.note === 'string' ? data.note.trim() : '';
     if (note.length > 1000) throw new HttpsError('invalid-argument', 'Note is too long.');
-    if (!note) await noteRef.delete();
-    else await noteRef.set({ bookingId, note, updatedAt: FieldValue.serverTimestamp(), updatedBy: session.uid });
+    await db.runTransaction(async transaction => {
+      await assertWritesNotFrozen(transaction);
+      if (!note) transaction.delete(noteRef);
+      else transaction.set(noteRef, { bookingId, note, updatedAt: FieldValue.serverTimestamp(), updatedBy: session.uid });
+    });
     return { bookingId, saved: true };
   }
   throw new HttpsError('invalid-argument', 'Unknown note action.');
@@ -652,30 +669,41 @@ exports.memberSetPrivateNote = onCall({ region: REGION }, async request => {
 // public `note` fields into the server-only private collection.
 exports.adminMigrateNotes = onCall({ region: REGION, secrets: [ADMIN_PIN], timeoutSeconds: 120 }, async request => {
   const session = await requireAdminSession(request);
-  await assertWritesNotFrozen();
   const data = request.data || {};
   let query = db.collection('bookings').orderBy(FieldPath.documentId()).limit(150);
   if (typeof data.afterBookingId === 'string' && data.afterBookingId) query = query.startAfter(data.afterBookingId);
   const snapshot = await query.get();
-  const batch = db.batch();
+  const operations = [];
   let migrated = 0;
   snapshot.docs.forEach(document => {
     const booking = document.data();
     if (!Object.prototype.hasOwnProperty.call(booking, 'note')) return;
     const note = typeof booking.note === 'string' ? booking.note.trim() : '';
     if (note) {
-      batch.set(db.collection('privateBookingNotes').doc(document.id), {
-        bookingId: document.id,
-        note,
-        updatedAt: FieldValue.serverTimestamp(),
-        updatedBy: session.uid,
-        migratedFromPublicBooking: true
+      operations.push({
+        set: db.collection('privateBookingNotes').doc(document.id),
+        value: {
+          bookingId: document.id,
+          note,
+          updatedAt: FieldValue.serverTimestamp(),
+          updatedBy: session.uid,
+          migratedFromPublicBooking: true
+        }
       });
     }
-    batch.update(document.ref, { note: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+    operations.push({ update: document.ref, value: { note: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() } });
     migrated += 1;
   });
-  if (migrated) await batch.commit();
+  if (migrated) {
+    // Freeze read and note moves share one transaction (see freeze.js).
+    await db.runTransaction(async transaction => {
+      await assertWritesNotFrozen(transaction);
+      operations.forEach(operation => {
+        if (operation.set) transaction.set(operation.set, operation.value);
+        else transaction.update(operation.update, operation.value);
+      });
+    });
+  }
   const last = snapshot.docs[snapshot.docs.length - 1];
   return {
     scanned: snapshot.size,
@@ -689,4 +717,4 @@ exports.adminMigrateNotes = onCall({ region: REGION, secrets: [ADMIN_PIN], timeo
 // internal write paths directly (no onCall transport) to prove the kill
 // switch refuses them. Clients can never reach these — only deployed
 // `exports.<name>` onCall/onRequest handlers become Cloud Functions.
-exports._testInternals = { assertWritesNotFrozen, endBookingEarly, memberSubmitBooking };
+exports._testInternals = { assertWritesNotFrozen, cleanupOldBookings, endBookingEarly, memberSubmitBooking };

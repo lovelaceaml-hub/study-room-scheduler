@@ -14,8 +14,8 @@ kill switch stays disabled, and nothing in this repository is deployed.
 |---|---|---|
 | Server-enforced write kill switch | `functions/lib/freeze.js`, guards in `functions/index.js`, `writesFrozen()` in `firestore.rules` | **Disabled**: the `app/writeFreeze` document does not exist; live behavior unchanged. Not deployed. |
 | Freeze flip tool | `tools/freeze.mjs` | Emulator-only by default; refuses production without `--allow-production` + `--project lvz-rooms` + `STUDY_ROOMS_FREEZE_CONFIRM=lvz-rooms` |
-| Retirement shell | `cutover/index.html` + `cutover/redirect.mjs` | Built, tested, **not deployed** |
-| Retirement service worker | `cutover/sw.js` (served as `/sw.js` by the cutover config) | Built, tested, **not deployed** — deletes every `srs-v*` cache, unregisters, reloads clients onto the shell |
+| Retirement shell | `cutover/index.html` + `cutover/redirect.mjs` | Built and tested. **Not the root page** — but note: the August 1 hosting deploy published the repository root, so these two files have been quietly reachable at `https://lvrooms.web.app/cutover/…` since then (a harmless member notice/redirect, deployed deliberately in commit `9544536`). Nothing links to them, and the app itself is untouched. |
+| Retirement service worker | `cutover/sw.js` (served as `/sw.js` only by the cutover config) | Built, tested, **not deployed and not deployable by accident**: `firebase.json` now ignores `cutover/**` and `tools/**`, so an ordinary hosting deploy cannot publish it. It goes live only through `firebase.cutover.json` in Section 9 — deletes every `srs-v*` cache, unregisters, reloads clients onto the shell |
 | Cutover hosting config | `firebase.cutover.json` | Present, **never passed to a deploy** |
 | Migration rehearsal | `/Users/anthony/Projects/preaching` — `npm run rooms:migrate:rehearse` | Offline only (fixture export + in-memory Postgres); proves idempotency, row accounting, owner linking, conflicts, encrypted backup, rollback |
 
