@@ -69,4 +69,7 @@ test("the LIVE hosting config never publishes the retirement worker or the freez
   for (const pattern of ["cutover/**", "tools/**", "AGENTS.md", "firebase.cutover.json"]) {
     assert.ok(appTarget.ignore.includes(pattern), `firebase.json must ignore ${pattern}`);
   }
+  // And the SECTION 9 config publishes all of cutover/, so the admin freeze
+  // tool must never live inside that directory.
+  await assert.rejects(readFile(new URL("../cutover/freeze.mjs", import.meta.url)));
 });

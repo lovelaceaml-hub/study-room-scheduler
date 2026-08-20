@@ -28,7 +28,8 @@ process.env.GCLOUD_PROJECT = 'demo-study-room-freeze';
 process.env.FIREBASE_CONFIG = JSON.stringify({ projectId: 'demo-study-room-freeze' });
 
 const { getFirestore } = require('firebase-admin/firestore');
-const { _testInternals } = require('../index');
+const functionsIndex = require('../index');
+const { _testInternals } = functionsIndex;
 
 const db = getFirestore();
 
@@ -45,7 +46,7 @@ function memberInput() {
 }
 
 async function clearCollections() {
-  for (const name of ['bookings', 'app', 'privateBookingNotes']) {
+  for (const name of ['bookings', 'app', 'privateBookingNotes', 'adminRateLimits']) {
     const snapshot = await db.collection(name).get();
     await Promise.all(snapshot.docs.map(document => document.ref.delete()));
   }
@@ -93,6 +94,24 @@ test('with the switch ON, admin cleanup deletes nothing — the freeze read shar
   );
   const survivor = await db.collection('bookings').doc(created.bookingId).get();
   assert.equal(survivor.exists, true);
+});
+
+test('the onCall wrapper checks the freeze BEFORE the shared per-address rate counter', async () => {
+  // On cutover day everyone behind the building's one NAT address must see
+  // the read-only message — never "too many requests" — and the shared
+  // counter must not record their refused attempts. Drives the REAL deployed
+  // wrapper via the v2 callable .run() seam.
+  await db.collection('app').doc('writeFreeze').set({ frozen: true, reason: 'Cutover rehearsal' });
+  await assert.rejects(
+    () => functionsIndex.memberSubmitBooking.run({
+      auth: { uid: 'uid-fixture-nat' },
+      data: memberInput(),
+      rawRequest: { headers: { 'x-forwarded-for': '203.0.113.7' }, ip: '203.0.113.7' }
+    }),
+    /read-only/
+  );
+  const counters = await db.collection('adminRateLimits').get();
+  assert.equal(counters.size, 0, 'a frozen submission must not touch the shared rate counter');
 });
 
 test('lifting the freeze restores writes immediately (switch rollback proof)', async () => {

@@ -437,7 +437,9 @@ async function cleanupOldBookings(uid) {
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - 56);
   const cutoffDate = cutoff.toISOString().slice(0, 10);
-  const snapshot = await db.collection('bookings').where('date', '<', cutoffDate).limit(350).get();
+  // 250 bookings × 2 deletes stays comfortably inside one commit (the old
+  // 350 × 2 page could exceed a 500-write commit ceiling).
+  const snapshot = await db.collection('bookings').where('date', '<', cutoffDate).limit(250).get();
   if (!snapshot.empty) {
     // The freeze read shares the transaction with the deletes, so a flip
     // that lands mid-flight forces a retry and the deletes are refused.
@@ -449,7 +451,7 @@ async function cleanupOldBookings(uid) {
       });
     });
   }
-  return { removed: snapshot.size, more: snapshot.size === 350, cutoffDate, performedBy: uid };
+  return { removed: snapshot.size, more: snapshot.size === 250, cutoffDate, performedBy: uid };
 }
 
 async function retireBaptismRoom(uid, cursor = {}) {

@@ -14,9 +14,9 @@ kill switch stays disabled, and nothing in this repository is deployed.
 |---|---|---|
 | Server-enforced write kill switch | `functions/lib/freeze.js`, guards in `functions/index.js`, `writesFrozen()` in `firestore.rules` | **Disabled**: the `app/writeFreeze` document does not exist; live behavior unchanged. Not deployed. |
 | Freeze flip tool | `tools/freeze.mjs` | Emulator-only by default; refuses production without `--allow-production` + `--project lvz-rooms` + `STUDY_ROOMS_FREEZE_CONFIRM=lvz-rooms` |
-| Retirement shell | `cutover/index.html` + `cutover/redirect.mjs` | Built and tested. **Not the root page** — but note: the August 1 hosting deploy published the repository root, so these two files have been quietly reachable at `https://lvrooms.web.app/cutover/…` since then (a harmless member notice/redirect, deployed deliberately in commit `9544536`). Nothing links to them, and the app itself is untouched. |
+| Retirement shell | `cutover/index.html` + `cutover/redirect.mjs` | Built and tested (created 2026-08-01 in commit `c0430c8`, "Prepare LV Zion Rooms compatibility cutover"). **Not the root page** — but note: the August 1 root hosting deploy swept the repository root in, so these two files have been quietly reachable at `https://lvrooms.web.app/cutover/…` since then. Nothing links to them, and the app itself is untouched. |
 | Retirement service worker | `cutover/sw.js` (served as `/sw.js` only by the cutover config) | Built, tested, **not deployed and not deployable by accident**: `firebase.json` now ignores `cutover/**` and `tools/**`, so an ordinary hosting deploy cannot publish it. It goes live only through `firebase.cutover.json` in Section 9 — deletes every `srs-v*` cache, unregisters, reloads clients onto the shell |
-| Cutover hosting config | `firebase.cutover.json` | Present, **never passed to a deploy** |
+| Cutover hosting config | `firebase.cutover.json` | Present. Used **once**, in the August 1, 2026 cutover/rollback drill (the hosting deploy cache records a `cutover/`-rooted release at 10:13 PDT, rolled back to the real scheduler 23 minutes later — see the drill in `/Users/anthony/Projects/preaching/docs/STUDY-ROOMS-RELEASE-RUNBOOK.md`). **Not used since, and not used in Section 8.** |
 | Migration rehearsal | `/Users/anthony/Projects/preaching` — `npm run rooms:migrate:rehearse` | Offline only (fixture export + in-memory Postgres); proves idempotency, row accounting, owner linking, conflicts, encrypted backup, rollback |
 
 ## Section 9 execution order (each step separately confirmed with Anthony)
@@ -34,7 +34,11 @@ kill switch stays disabled, and nothing in this repository is deployed.
 4. **Final export + encrypted backup + final import** into LV Zion, then
    reconciliation — the exact flow rehearsed by
    `npm run rooms:migrate:rehearse`, now pointed at the real post-freeze
-   export. Every source row must be accounted for before step 5.
+   export. The real 32-byte `LV_ZION_BACKUP_ENCRYPTION_KEY_V1` must be set
+   (the runner refuses external input without it), and the freeze instant
+   must be exact: an export file's embedded `frozenAt` wins over
+   `--frozen-at`, so stamp the export with the real freeze time from step 3.
+   Every source row must be accounted for before step 5.
 5. **Redirect the old URL.**
    `npm_config_cache=/tmp/npm-cache npx -y firebase-tools@latest deploy --config firebase.cutover.json --only hosting:app`.
    This replaces lvrooms.web.app with the retirement shell; `/sw.js` becomes
