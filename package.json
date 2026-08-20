@@ -2,7 +2,7 @@
   "name": "lv-zion-study-rooms",
   "private": true,
   "scripts": {
-    "test": "node --check app.js && node --check tv.js && node --check sw.js && node --test functions/test/policy.test.js",
+    "test": "node --check app.js && node --check tv.js && node --check sw.js && node --check cutover/sw.js && node --check tools/freeze.mjs && node --test functions/test/policy.test.js functions/test/freeze.test.js",
     "test:cutover": "node --test test/cutover-compatibility.test.mjs",
     "test:ui": "node test/ui-smoke.mjs",
     "test:selection-bar": "node test/selection-bar-smoke.mjs"

@@ -99,3 +99,72 @@ test('clients cannot change settings or delete bookings', async () => {
   await assertFails(setDoc(doc(memberDb, 'app', 'settings'), { pinHash: 'unsafe' }));
   await assertFails(setDoc(doc(memberDb, 'privateBookingNotes', 'x'), { note: 'unsafe' }));
 });
+
+// ——— Write kill switch (Rooms unification Section 8, ships DISABLED) ———
+// These cases run against the REAL rules file with the REAL client SDK, which
+// is exactly what a stale cached copy of the old app uses. The rules do not
+// care what JavaScript the browser runs, so passing here proves a cached old
+// client cannot write once the switch is on.
+
+async function seedOwnedBooking(id, ownerUid) {
+  const date = nextEligibleDate();
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'bookings', id), {
+      ...booking(date, ownerUid), createdAt: Timestamp.now(), updatedAt: Timestamp.now()
+    });
+  });
+}
+
+async function setFreeze(value) {
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'app', 'writeFreeze'), value);
+  });
+}
+
+test('kill switch ships disabled: owner cancellation still works with no freeze document', async () => {
+  await seedOwnedBooking('freeze-absent', 'member-a');
+  const ownerDb = environment.authenticatedContext('member-a').firestore();
+  await assertSucceeds(updateDoc(doc(ownerDb, 'bookings', 'freeze-absent'), {
+    status: 'cancelled', updatedAt: serverTimestamp()
+  }));
+});
+
+test('kill switch disabled state: frozen:false and junk values keep writes working', async () => {
+  await seedOwnedBooking('freeze-false', 'member-a');
+  await setFreeze({ frozen: false, reason: 'not yet' });
+  const ownerDb = environment.authenticatedContext('member-a').firestore();
+  await assertSucceeds(updateDoc(doc(ownerDb, 'bookings', 'freeze-false'), {
+    status: 'cancelled', updatedAt: serverTimestamp()
+  }));
+
+  await seedOwnedBooking('freeze-junk', 'member-b');
+  await setFreeze({ frozen: 'true' });
+  const otherDb = environment.authenticatedContext('member-b').firestore();
+  await assertSucceeds(updateDoc(doc(otherDb, 'bookings', 'freeze-junk'), {
+    status: 'cancelled', updatedAt: serverTimestamp()
+  }));
+});
+
+test('kill switch ON: even the owner cannot cancel — the one direct client write is refused', async () => {
+  await seedOwnedBooking('freeze-on', 'member-a');
+  await setFreeze({ frozen: true, reason: 'Cutover rehearsal' });
+  const ownerDb = environment.authenticatedContext('member-a').firestore();
+  await assertFails(updateDoc(doc(ownerDb, 'bookings', 'freeze-on'), {
+    status: 'cancelled', updatedAt: serverTimestamp()
+  }));
+});
+
+test('kill switch ON: direct creation stays refused for stale clients', async () => {
+  await setFreeze({ frozen: true });
+  const memberDb = environment.authenticatedContext('member-a').firestore();
+  await assertFails(setDoc(doc(memberDb, 'bookings', 'stale-create'), booking(nextEligibleDate(), 'member-a')));
+});
+
+test('clients may read the freeze document but can never write it', async () => {
+  await setFreeze({ frozen: true, reason: 'Cutover rehearsal' });
+  const memberDb = environment.authenticatedContext('member-a').firestore();
+  await assertSucceeds(getDoc(doc(memberDb, 'app', 'writeFreeze')));
+  await assertFails(setDoc(doc(memberDb, 'app', 'writeFreeze'), { frozen: false }));
+  const publicDb = environment.unauthenticatedContext().firestore();
+  await assertFails(setDoc(doc(publicDb, 'app', 'writeFreeze'), { frozen: false }));
+});

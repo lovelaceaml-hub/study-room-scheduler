@@ -22,6 +22,7 @@ const {
   validateDirectBooking
 } = require('./lib/policy');
 const { publicLobbyBooking, publicLobbyScheduleDates } = require('./lib/public-lobby-schedule');
+const { FREEZE_COLLECTION, FREEZE_DOCUMENT, FROZEN_MESSAGE, freezeStateFrom } = require('./lib/freeze');
 
 initializeApp();
 const db = getFirestore();
@@ -57,6 +58,22 @@ function timingSafeTextEqual(first, second) {
   const firstHash = crypto.createHash('sha256').update(String(first)).digest();
   const secondHash = crypto.createHash('sha256').update(String(second)).digest();
   return crypto.timingSafeEqual(firstHash, secondHash);
+}
+
+function freezeRef() {
+  return db.collection(FREEZE_COLLECTION).doc(FREEZE_DOCUMENT);
+}
+
+/* Server-enforced write kill switch (see functions/lib/freeze.js). Inside a
+   booking transaction, pass the transaction so the freeze read is part of the
+   same consistent snapshot as the booking writes: any transaction that would
+   commit after the freeze flips is retried and refused. Reads never call this,
+   so boards, lobby, and Admin note *reading* keep working while frozen. */
+async function assertWritesNotFrozen(transaction = null) {
+  const snapshot = transaction ? await transaction.get(freezeRef()) : await freezeRef().get();
+  if (freezeStateFrom(snapshot).frozen) {
+    throw new HttpsError('failed-precondition', FROZEN_MESSAGE);
+  }
 }
 
 function requireAuth(request) {
@@ -227,6 +244,7 @@ async function memberSubmitBooking(input, uid) {
   catch (error) { throw errorFromValidation(error); }
   const bookingRef = db.collection('bookings').doc();
   return db.runTransaction(async transaction => {
+    await assertWritesNotFrozen(transaction);
     const mine = await transaction.get(
       db.collection('bookings')
         .where('ownerUid', '==', uid)
@@ -283,6 +301,7 @@ async function approveExisting(action, bookingId, assignments, uid) {
   if (!bookingId) throw new HttpsError('invalid-argument', 'Booking ID is required.');
   const bookingRef = db.collection('bookings').doc(bookingId);
   return db.runTransaction(async transaction => {
+    await assertWritesNotFrozen(transaction);
     const snapshot = await transaction.get(bookingRef);
     if (!snapshot.exists) throw new HttpsError('not-found', 'Booking not found.');
     const booking = snapshot.data();
@@ -324,6 +343,7 @@ async function changeExistingStatus(action, bookingId, uid) {
   if (!bookingId) throw new HttpsError('invalid-argument', 'Booking ID is required.');
   const bookingRef = db.collection('bookings').doc(bookingId);
   return db.runTransaction(async transaction => {
+    await assertWritesNotFrozen(transaction);
     const snapshot = await transaction.get(bookingRef);
     if (!snapshot.exists) throw new HttpsError('not-found', 'Booking not found.');
     const booking = snapshot.data();
@@ -351,6 +371,7 @@ async function endBookingEarly(bookingId, requestedEnd, actor, requireOwnerUid =
   }
   const bookingRef = db.collection('bookings').doc(bookingId);
   return db.runTransaction(async transaction => {
+    await assertWritesNotFrozen(transaction);
     const snapshot = await transaction.get(bookingRef);
     if (!snapshot.exists) throw new HttpsError('not-found', 'Booking not found.');
     const booking = snapshot.data();
@@ -387,6 +408,7 @@ async function directAdd(input, note, uid) {
   const noteText = typeof note === 'string' ? note.trim() : '';
   if (noteText.length > 1000) throw new HttpsError('invalid-argument', 'Note is too long.');
   await db.runTransaction(async transaction => {
+    await assertWritesNotFrozen(transaction);
     const existing = await approvedBookingsForDate(transaction, booking.date);
     assertNoConflict({ ...booking, id: bookingRef.id }, existing, null);
     const now = FieldValue.serverTimestamp();
@@ -412,6 +434,7 @@ async function directAdd(input, note, uid) {
 }
 
 async function cleanupOldBookings(uid) {
+  await assertWritesNotFrozen();
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - 56);
   const cutoffDate = cutoff.toISOString().slice(0, 10);
@@ -426,6 +449,7 @@ async function cleanupOldBookings(uid) {
 }
 
 async function retireBaptismRoom(uid, cursor = {}) {
+  await assertWritesNotFrozen();
   const today = isoDateInLosAngeles(new Date());
   let query = db.collection('bookings')
     .where('date', '>=', today)
@@ -591,6 +615,7 @@ exports.adminNoteAction = onCall({ region: REGION, secrets: [ADMIN_PIN] }, async
     return { bookingId, note: snapshot.exists ? String(snapshot.data().note || '') : '' };
   }
   if (data.action === 'set') {
+    await assertWritesNotFrozen();
     const note = typeof data.note === 'string' ? data.note.trim() : '';
     if (note.length > 1000) throw new HttpsError('invalid-argument', 'Note is too long.');
     if (!note) await noteRef.delete();
@@ -612,6 +637,7 @@ exports.memberSetPrivateNote = onCall({ region: REGION }, async request => {
   const bookingRef = db.collection('bookings').doc(bookingId);
   const noteRef = db.collection('privateBookingNotes').doc(bookingId);
   await db.runTransaction(async transaction => {
+    await assertWritesNotFrozen(transaction);
     const snapshot = await transaction.get(bookingRef);
     if (!snapshot.exists || snapshot.data().ownerUid !== uid || snapshot.data().status !== 'pending') {
       throw new HttpsError('permission-denied', 'You cannot add a note to this request.');
@@ -626,6 +652,7 @@ exports.memberSetPrivateNote = onCall({ region: REGION }, async request => {
 // public `note` fields into the server-only private collection.
 exports.adminMigrateNotes = onCall({ region: REGION, secrets: [ADMIN_PIN], timeoutSeconds: 120 }, async request => {
   const session = await requireAdminSession(request);
+  await assertWritesNotFrozen();
   const data = request.data || {};
   let query = db.collection('bookings').orderBy(FieldPath.documentId()).limit(150);
   if (typeof data.afterBookingId === 'string' && data.afterBookingId) query = query.startAfter(data.afterBookingId);
@@ -657,3 +684,9 @@ exports.adminMigrateNotes = onCall({ region: REGION, secrets: [ADMIN_PIN], timeo
     done: snapshot.size < 150
   };
 });
+
+// Test-only seam for the emulator-backed freeze suite: it calls the real
+// internal write paths directly (no onCall transport) to prove the kill
+// switch refuses them. Clients can never reach these — only deployed
+// `exports.<name>` onCall/onRequest handlers become Cloud Functions.
+exports._testInternals = { assertWritesNotFrozen, endBookingEarly, memberSubmitBooking };

@@ -6,6 +6,17 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Server-enforced write kill switch (Rooms unification Section 8).
+    // The switch SHIPS DISABLED: `app/writeFreeze` does not exist, so this
+    // function returns false and behavior is unchanged. During the Section 9
+    // cutover the Admin SDK writes `{ frozen: true }` and every client write —
+    // including from stale cached apps — is refused. Clients cannot write
+    // `app/*` documents, so nothing a browser does can unfreeze the schedule.
+    function writesFrozen() {
+      return exists(/databases/$(database)/documents/app/writeFreeze)
+        && get(/databases/$(database)/documents/app/writeFreeze).data.frozen == true;
+    }
+
     function validOwnerCancellation() {
       return signedIn()
         && resource.data.ownerUid == request.auth.uid
@@ -25,7 +36,7 @@ service cloud.firestore {
       // and enforces per-day and per-address limits. The old direct-create
       // path for schemaVersion 3 clients is retired.
       allow create: if false;
-      allow update: if validOwnerCancellation();
+      allow update: if !writesFrozen() && validOwnerCancellation();
       allow delete: if false;
     }
 
