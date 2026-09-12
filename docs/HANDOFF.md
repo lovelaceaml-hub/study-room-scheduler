@@ -1,5 +1,11 @@
 # Handoff notes — LV Zion Study Rooms
 
+## September 12, 2026: Extra design copy removed
+
+The six member design experiences no longer show the unnecessary promotional welcome and hero copy. Atlas, Cove, Lattice, Petal, Solace, and Velum keep their schedule, booking, status, accessibility, and navigation text. Lattice also no longer repeats the selected date as a separate schedule eyebrow. The change is local and committed, with no deployment requested or performed.
+
+Verification passed: `npm test` 17/17, live-model and public-lobby tests 7/7, cutover tests 3/3, UI smoke, confirmation-popup smoke, TV smoke, and all six member-design journeys with fictional fixtures. See [copy cleanup plan](PLAN-REMOVE-EXTRA-COPY.md) and [run record](runs/2026-09-12-remove-extra-copy/INDEX.md).
+
 ## September 12, 2026: Member design choice
 
 Live at https://lvrooms.web.app/?choose=1. Members can keep the current app or choose Atlas, Lattice, Solace, Velum, Cove, or Petal. The device remembers the selection; Change design reopens the chooser. All six use the existing live schedule, anonymous member identity, and protected memberSubmitBooking service. My reservations returns to the current app without losing the selected design or booking ownership.

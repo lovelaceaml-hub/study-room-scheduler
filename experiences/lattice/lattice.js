@@ -105,7 +105,6 @@ function renderState() {
   else if (!state.canBook) message = 'Reservations are temporarily unavailable. Please try again shortly.';
   $('#statusMessage').textContent = message;
   $('#statusMessage').classList.toggle('hidden', !message);
-  $('#dayEyebrow').textContent = selectedDay ? `${dayLabel(selectedDay)} schedule` : 'Your daily schedule';
   $('#dates').innerHTML = state.days.map((day) => `<button class="date ${day.key === selectedDay ? 'active' : ''}" type="button" data-day="${html(day.key)}" aria-pressed="${day.key === selectedDay}"><b>${html(day.label)}</b>${day.weekday === 6 ? 'Saturday availability' : 'Tuesday availability'}</button>`).join('');
   renderSchedule();
   if (dialog.open) refreshFlowAvailability();
