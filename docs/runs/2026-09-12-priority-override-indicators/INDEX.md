@@ -16,12 +16,12 @@ Coordinator: Sol, current Codex session
 
 | Lane | Title | State | Model | Worktree | Review | Depends on |
 |---|---|---|---|---|---|---|
-| LL1 | Atlas | running | gpt-5.6-luna | agent-isolated | none | none |
-| LL2 | Cove | running | gpt-5.6-luna | agent-isolated | none | none |
-| LL3 | Lattice | running | gpt-5.6-luna | agent-isolated | none | none |
-| LL4 | Petal | running | gpt-5.6-luna | agent-isolated | none | none |
-| LL5 | Solace | running | gpt-5.6-luna | agent-isolated | none | none |
-| LL6 | Velum | running | gpt-5.6-luna | agent-isolated | none | none |
+| LL1 | Atlas | deployed | gpt-5.6-luna | agent-isolated | none | none |
+| LL2 | Cove | deployed | gpt-5.6-luna | agent-isolated | none | none |
+| LL3 | Lattice | deployed | gpt-5.6-luna | agent-isolated | none | none |
+| LL4 | Petal | deployed | gpt-5.6-luna | agent-isolated | none | none |
+| LL5 | Solace | deployed | gpt-5.6-luna | agent-isolated | none | none |
+| LL6 | Velum | deployed | gpt-5.6-luna | agent-isolated | none | none |
 
 ## Folders
 
@@ -33,12 +33,12 @@ Coordinator: Sol, current Codex session
 
 ## Artifacts
 
-- Rule diagram: pending
-- Lane board: pending
+- Rule diagram: shared model and backend policy tests in commit `6d7a01e`
+- Lane board: `board/lane-board.html`
 
-<!-- lane: LL1 state: running model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T19:30Z -->
-<!-- lane: LL2 state: running model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T19:30Z -->
-<!-- lane: LL3 state: running model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T19:30Z -->
-<!-- lane: LL4 state: running model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T19:30Z -->
-<!-- lane: LL5 state: running model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T19:30Z -->
-<!-- lane: LL6 state: running model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T19:30Z -->
+<!-- lane: LL1 state: deployed model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T20:18Z -->
+<!-- lane: LL2 state: deployed model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T20:18Z -->
+<!-- lane: LL3 state: deployed model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T20:18Z -->
+<!-- lane: LL4 state: deployed model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T20:18Z -->
+<!-- lane: LL5 state: deployed model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T20:18Z -->
+<!-- lane: LL6 state: deployed model: gpt-5.6-luna worktree: agent-isolated review: none updated: 2026-09-12T20:18Z -->
