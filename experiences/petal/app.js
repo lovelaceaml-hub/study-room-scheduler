@@ -1,5 +1,7 @@
-import {subscribe, submit, retry} from '../shared/live.js';
+import * as live from '../shared/live.js';
 import {overrideUnitForRange} from '../shared/model.js';
+
+const {subscribe, submit, retry} = live;
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -18,13 +20,16 @@ const purposes = {
   new: {label:'New Member', hint:''},
   other: {label:'Other', hint:''}
 };
+const reservedForLabels = {contact:'Contact Name', new:'Member Name', other:'Purpose'};
+const reservedForPlaceholders = {contact:'e.g. Kiana Davis', new:'e.g. Kiana Davis', other:'e.g. Family Bible study'};
 const priorityOverrideLabel = 'Priority override';
 const documentKeys = new Map();
 let documentKeyCount = 0;
 let connection = {status:'loading', canBook:false, demo:false, error:''};
 let days = [], bookings = [], dayIndex = 0, type = 'room';
-let draft = {}, history = [], step = 'resource', returnFocus = null, lastBooking = null;
+let draft = {}, history = [], step = 'resource', returnFocus = null, lastBooking = null, detailBooking = null, detailReturnFocus = null;
 let saving = false, draftError = '';
+let actionPending = false;
 
 const fmt = minutes => {
   const hours = Math.floor(minutes / 60);
@@ -91,10 +96,39 @@ function normalizeDay(value) {
 }
 function normalizeBooking(value) {
   if (!documentKeys.has(value.key)) documentKeys.set(value.key, 'entry-' + ++documentKeyCount);
-  const blocked = value.blocked || value.purpose === 'blocked';
-  return {id:documentKeys.get(value.key), key:value.key, day:value.day, type:value.type, unit:value.unit,
-    start:value.start, end:value.end, name:blocked ? '' : value.name,
-    purpose:blocked ? 'blocked' : value.purpose, blocked:Boolean(blocked)};
+  const purpose = value.purpose === 'new-member' ? 'new' : value.purpose;
+  const blocked = value.blocked || purpose === 'blocked';
+  const projectedName = publicProjection(value);
+  return {id:documentKeys.get(value.key), key:value.key, bookingId:value.bookingId || value.id || value.key, day:value.day, type:value.type, unit:value.unit,
+    start:value.start, end:value.end, name:blocked ? '' : projectedName,
+    publicName:blocked ? '' : projectedName, purpose:blocked ? 'blocked' : purpose, blocked:Boolean(blocked), ownerDetail:authorizedOwnerDetail(value)};
+}
+function publicProjection(value) {
+  const projected = value?.publicName ?? value?.displayName ?? value?.name;
+  const text = String(projected ?? '').trim();
+  return text || 'Reserved';
+}
+function authorizedOwnerDetail(value) {
+  const detail = value?.ownerDetail ?? value?.ownerDetails ?? value?.detail;
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return null;
+  return detail.authorized === true || detail.ownerAuthorized === true || detail.authorizedForMember === true ? detail : null;
+}
+function detailAllows(detail, action) {
+  return Boolean(detail && (detail[action] === true || detail.permissions?.[action] === true || detail.actions?.[action] === true));
+}
+function actionHandler(action) {
+  const names = action === 'cancel' ? ['cancelBooking','memberCancelBooking','cancel'] : ['endBookingEarly','memberEndBookingEarly','endEarly'];
+  return names.map(name => live[name]).find(handler => typeof handler === 'function') || null;
+}
+function reservedForValue(detail, booking) {
+  if (!detail) return '';
+  const value = booking?.purpose === 'other'
+    ? detail.purposeOther ?? detail.purpose_other ?? detail.reservedFor ?? detail.reserved_for
+    : detail.reservedFor ?? detail.reserved_for ?? detail.name;
+  return String(value ?? '').trim();
+}
+function reservationPurpose(booking) {
+  return booking?.blocked ? '' : purposes[booking?.purpose]?.label || 'Other';
 }
 function connectionCopy() {
   if (connection.status === 'offline') return {title:'Schedule unavailable.', text:'You are offline. Availability will be checked again before you reserve.'};
@@ -151,7 +185,7 @@ function renderSchedule() {
         const end = Math.min(booking.end, 1380), count = (end - minutes) / 30;
         const name = booking.blocked ? 'Reserved' : booking.name;
         const purpose = booking.blocked ? '' : purposes[booking.purpose]?.label || 'Other';
-        html += `<article class="slot booked ${booking.purpose} ${count === 1 ? 'short' : ''} ${lastBooking?.key === booking.key ? 'new-booking' : ''}" tabindex="-1" id="${booking.id}" style="--s:${(minutes - 600) / 30};--n:${count}" aria-label="${resource.single} ${unit}, ${esc(name)}${purpose ? ', ' + purpose : ''}, ${fmt(minutes)} to ${fmt(end)}"><span class="booking-name">${esc(name)}</span>${purpose ? `<span class="purpose-tag">${purpose}</span>` : ''}</article>`;
+        html += `<button type="button" class="slot booked ${booking.purpose} ${count === 1 ? 'short' : ''} ${lastBooking?.key === booking.key ? 'new-booking' : ''}" data-booking="${esc(booking.key)}" id="${booking.id}" style="--s:${(minutes - 600) / 30};--n:${count}" aria-label="${resource.single} ${unit}, ${esc(name)}${purpose ? ', ' + purpose : ''}, ${fmt(minutes)} to ${fmt(end)}"><span class="booking-name">${esc(name)}</span>${purpose ? `<span class="purpose-tag">${purpose}</span>` : ''}</button>`;
         minutes = end;
       } else {
         html += isReady() ? `<button type="button" class="slot open" data-unit="${unit}" data-start="${minutes}" style="--s:${(minutes - 600) / 30};--n:1" aria-label="Reserve ${resource.single} ${unit} starting ${fmt(minutes)} on ${esc(dateLabel(day))}"><span class="plus" aria-hidden="true">+</span><span>Open</span></button>` : `<div class="slot waiting" style="--s:${(minutes - 600) / 30};--n:1" aria-label="${resource.single} ${unit}, availability not confirmed"><span aria-hidden="true">&#183;</span></div>`;
@@ -163,6 +197,56 @@ function renderSchedule() {
   const bands = services(day).map(([start, end, label]) => `<div class="service" style="--s:${(start - 600) / 30};--n:${(end - start) / 30}"><span class="service-label">${label}</span><small>${fmt(start)} to ${fmt(end)}</small></div>`).join('');
   element.innerHTML = `<div class="grid-head"><span class="rail-title">Time</span>${units(type).map(unit => `<div class="unit-head" aria-label="${resource.single} ${unit}"><span class="unit-num">${unit}</span><span class="unit-kind">${resource.short}</span></div>`).join('')}</div><div class="timeline"><div class="rail">${rail}</div>${columns}${bands}</div>`;
 }
+function detailActionMarkup(action, label) {
+  return detailAllows(detailBooking?.ownerDetail, action) && actionHandler(action)
+    ? `<button type="button" class="primary wide detail-action" data-detail-action="${action}">${label}</button>`
+    : '';
+}
+function renderDetail(booking, open = false) {
+  if (!booking) return;
+  detailBooking = booking;
+  const bookingDay = days.find(day => day.key === booking.day);
+  const detail = booking.ownerDetail;
+  const purpose = reservationPurpose(booking);
+  const privateValue = reservedForValue(detail, booking);
+  const privateLabel = reservedForLabels[booking.purpose] || 'Reserved for';
+  const actionMarkup = `${detailActionMarkup('endEarly', 'End early')}${detailActionMarkup('cancel', 'Cancel')}`;
+  const publicRows = `<div class="detail-row"><span>Day</span><b>${esc(bookingDay?.label || booking.day || 'Reservation day')}</b></div><div class="detail-row"><span>Time</span><b>${fmt(booking.start)} to ${fmt(booking.end)}</b></div><div class="detail-row"><span>Public name</span><b>${esc(booking.blocked ? 'Reserved' : booking.publicName || booking.name)}</b></div>${purpose ? `<div class="detail-row"><span>Purpose</span><b>${esc(purpose)}</b></div>` : ''}`;
+  $('#detailBody').innerHTML = `<p class="crumb">${esc(types[booking.type]?.single || 'Reservation')} ${booking.unit}</p><h2 id="detailTitle" class="step-title" tabindex="-1">Reservation details</h2><div class="detail-card">${publicRows}${detail && privateValue ? `<div class="detail-row detail-private"><span>${esc(privateLabel)}</span><b>${esc(privateValue)}</b></div>` : ''}</div>${actionMarkup ? `<div class="detail-actions">${actionMarkup}</div>` : ''}<p id="detailStatus" class="validation form-error" role="alert"></p>`;
+  if (open && !$('#detailDialog').open) {
+    detailReturnFocus = document.activeElement;
+    $('#detailDialog').showModal();
+  }
+  requestAnimationFrame(() => $('#detailTitle')?.focus({preventScroll:true}));
+}
+function closeDetail() {
+  if (!$('#detailDialog').open || actionPending) return;
+  $('#detailDialog').close();
+  if (detailReturnFocus?.isConnected) detailReturnFocus.focus({preventScroll:true});
+  detailReturnFocus = null;
+  detailBooking = null;
+}
+async function runDetailAction(action) {
+  if (actionPending || !detailBooking) return;
+  const handler = actionHandler(action), detail = detailBooking.ownerDetail;
+  if (!handler || !detailAllows(detail, action)) return;
+  const booking = detailBooking;
+  const bookingId = detail.bookingId ?? detail.id ?? booking.bookingId ?? booking.key;
+  actionPending = true;
+  const status = $('#detailStatus');
+  if (status) status.textContent = action === 'cancel' ? 'Cancelling reservation...' : 'Ending reservation early...';
+  $('#detailBody').querySelectorAll('button').forEach(button => button.disabled = true);
+  try {
+    await handler({bookingId, bookingKey:booking.key, action});
+    actionPending = false;
+    closeDetail();
+    retry();
+  } catch (error) {
+    actionPending = false;
+    if (status) status.textContent = error?.message || 'That action could not be completed. Please try again.';
+    $('#detailBody').querySelectorAll('button').forEach(button => button.disabled = false);
+  }
+}
 function render() { renderDays(); renderResources(); renderSchedule(); renderConnection(); }
 
 function openBooking(preset) {
@@ -170,7 +254,7 @@ function openBooking(preset) {
   returnFocus = document.activeElement;
   const day = days[dayIndex];
   draft = {day:day.key, dayInfo:day, type:preset ? type : null, unit:preset ? preset.unit : null,
-    start:preset ? preset.start : null, end:null, purpose:null, purposeOther:'', name:'', locked:Boolean(preset), override:false};
+    start:preset ? preset.start : null, end:null, purpose:null, purposeOther:'', reservedFor:'', name:'', locked:Boolean(preset), override:false};
   history = []; draftError = ''; step = preset ? 'purpose' : 'resource';
   renderStep(false); $('#bookingDialog').showModal(); updateDialogConnection();
   requestAnimationFrame(() => $('#stepTitle').focus());
@@ -192,7 +276,7 @@ function frame(title, hint, content) {
 function receipt() {
   const unit = draft.unit && !(draft.override && !draft.locked) ? ` ${draft.unit}` : '';
   const overrideNote = draft.override ? `<div class="priority-note" role="note"><b>${priorityOverrideLabel}</b><span>This time replaces a lower-priority reservation.</span></div>` : '';
-  return `<div class="receipt"><h3 class="receipt-unit">${types[draft.type].single}${unit}</h3>${overrideNote}<div class="receipt-row"><span>Day</span><b>${esc(dateLabel(draftDay()))}</b></div><div class="receipt-row"><span>Time</span><b>${fmt(draft.start)} to ${fmt(draft.end)}<br>${duration(draft.start, draft.end)}</b></div><div class="receipt-row"><span>Purpose</span><b>${purposes[draft.purpose].label}</b></div>${draft.purpose === 'other' ? `<div class="receipt-row"><span>Details</span><b>${esc(draft.purposeOther)}</b></div>` : ''}<div class="receipt-row"><span>Name</span><b>${esc(draft.name)}</b></div></div>`;
+  return `<div class="receipt"><h3 class="receipt-unit">${types[draft.type].single}${unit}</h3>${overrideNote}<div class="receipt-row"><span>Day</span><b>${esc(dateLabel(draftDay()))}</b></div><div class="receipt-row"><span>Time</span><b>${fmt(draft.start)} to ${fmt(draft.end)}<br>${duration(draft.start, draft.end)}</b></div><div class="receipt-row"><span>Purpose</span><b>${purposes[draft.purpose].label}</b></div><div class="receipt-row"><span>${esc(reservedForLabels[draft.purpose])}</span><b>${esc(draft.reservedFor)}</b></div></div>`;
 }
 function renderStep(focus = true) {
   let content = '';
@@ -200,7 +284,12 @@ function renderStep(focus = true) {
   $('#stepCounter').textContent = step === 'success' ? connection.demo ? 'Demo reservation added' : 'Reservation confirmed' : connection.demo ? 'Your demo reservation' : 'Your reservation';
   if (step === 'resource') content = frame('What would you like to reserve?', 'Select a resource.', `<div class="choice-list">${Object.entries(types).map(([key, resource]) => `<button class="choice" type="button" data-pick-resource="${key}"><span class="choice-icon">${icons[key]}</span><span class="choice-copy"><b>${resource.label}</b><small>${resource.count} spaces to choose from</small></span><span class="next" aria-hidden="true">&#8250;</span></button>`).join('')}</div>`);
   if (step === 'purpose') content = frame('What is this reservation for?', draft.locked ? 'Your exact space and start time are selected.' : 'Select a purpose.', `<div class="choice-list">${Object.entries(purposes).map(([key, purpose]) => `<button type="button" class="choice purpose-choice ${key}" data-purpose="${key}"><span class="choice-copy"><b>${purpose.label}</b>${purpose.hint ? `<small>${purpose.hint}</small>` : ''}</span><span class="next" aria-hidden="true">&#8250;</span></button>`).join('')}</div>`);
-  if (step === 'details') content = frame('Tell us a little more.', 'What will you use this space for?', `<form id="otherForm"><label class="field-label" for="purposeOther">Reservation details</label><input id="purposeOther" name="purpose-other" autocomplete="off" maxlength="120" required value="${esc(draft.purposeOther)}" placeholder="e.g. Family Bible study" aria-describedby="otherHelp otherError"><p class="field-help" id="otherHelp">These details are for the reservation team. The schedule shows Other.</p><p class="validation" id="otherError" role="alert"></p><button type="submit" class="primary wide">Continue <span aria-hidden="true">&#8594;</span></button></form>`);
+  if (step === 'reservedFor') {
+    const label = reservedForLabels[draft.purpose] || 'Reserved for';
+    const title = draft.purpose === 'other' ? 'What is this for?' : 'Who is this for?';
+    const hint = draft.purpose === 'other' ? 'Add a short purpose for this reservation.' : 'Add the person this reservation is for.';
+    content = frame(title, hint, `<form id="nameForm"><label class="field-label" for="guestName">${label}</label><input id="guestName" name="reservedFor" autocomplete="off" maxlength="120" required value="${esc(draft.reservedFor)}" placeholder="${reservedForPlaceholders[draft.purpose] || 'Add a detail'}" aria-describedby="nameHelp nameError"><p class="field-help" id="nameHelp">Only the shared public name and purpose appear on the schedule.</p><p class="validation" id="nameError" role="alert"></p><button type="submit" class="primary wide">Continue <span aria-hidden="true">&#8594;</span></button></form>`);
+  }
   if (step === 'start') {
     const starts = startOptions();
     const groups = [['Morning',600,720],['Afternoon',720,1020],['Evening',1020,1380]].map(([label, start, end]) => {
@@ -213,7 +302,6 @@ function renderStep(focus = true) {
     const ends = endOptions();
     content = frame('And when will you finish?', 'Choose an ending that keeps your whole visit in one space and clear of services. Priority override marks a lower-priority reservation.', `<div class="chips">${ends.map(option => `<button type="button" class="chip${option.override ? ' override-option' : ''}" data-end="${option.end}"${option.override ? ` aria-label="${fmt(draft.start)} to ${fmt(option.end)}, ${priorityOverrideLabel}"` : ''}>${fmt(option.end)}<small>${duration(draft.start, option.end)}</small>${option.override ? `<span class="override-label">${priorityOverrideLabel}</span>` : ''}</button>`).join('')}</div>${ends.length ? '' : `<p class="step-hint">${draftReady() ? 'This time is no longer available. Close this sheet to choose another open time.' : 'Endings will appear when availability is confirmed.'}</p>`}`);
   }
-  if (step === 'name') content = frame('Who should we expect?', connection.demo ? 'Use a fictional name while you try this demo.' : 'Add your name to the reservation.', `<form id="nameForm"><label class="field-label" for="guestName">${connection.demo ? 'Name for this demo' : 'Your name'}</label><input id="guestName" name="name" autocomplete="${connection.demo ? 'off' : 'name'}" maxlength="40" placeholder="e.g. Avery Lee" value="${esc(draft.name)}" required aria-describedby="nameHelp nameError"><p class="field-help" id="nameHelp">Only a first name and last initial will appear on the schedule.</p><p class="validation" id="nameError" role="alert"></p><button type="submit" class="primary wide">Review reservation <span aria-hidden="true">&#8594;</span></button></form>`);
   if (step === 'confirm') content = frame('Review your reservation.', connection.demo ? 'Confirm this demo reservation to see it on the schedule.' : 'Your space is reserved after you confirm and the save completes.', receipt() + `<button type="button" class="primary wide" id="confirm">${connection.demo ? 'Confirm demo reservation' : 'Confirm reservation'}</button>${connection.demo ? '<p class="field-help">Demo mode. This does not reserve a real resource.</p>' : ''}`);
   if (step === 'success') content = `<div class="success"><div class="seal"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></svg></div><h2 class="step-title" id="stepTitle" tabindex="-1">Reservation confirmed.</h2><p class="step-hint" id="stepHint">${connection.demo ? 'Your demo reservation has been added.' : 'Your reservation is confirmed.'}</p><p class="success-details"><strong>${types[draft.type].single} ${draft.unit}</strong><br>${esc(dateLabel(draftDay()))}<br>${fmt(draft.start)} to ${fmt(draft.end)}</p><button type="button" class="primary wide" id="seeReservation">See it on the schedule <span aria-hidden="true">&#8594;</span></button><button type="button" class="quiet-button" id="reserveAnother">Make another reservation</button>${connection.demo ? '<p class="field-help">Demo mode. This is a simulated reservation.</p>' : '<a class="saved-link" href="/?classic=1&amp;tab=mine">Manage my reservations</a>'}</div>`;
   $('#sheetBody').innerHTML = content;
@@ -228,6 +316,7 @@ function showDraftError(message) {
 async function save() {
   if (saving) return;
   if (!draftReady()) { showDraftError('Reconnect and confirm availability before reserving. Your details are still here.'); updateDialogConnection(); return; }
+  if (!visibleText(draft.reservedFor)) { showDraftError(`Add a ${reservedForLabels[draft.purpose]?.toLowerCase() || 'reserved-for detail'} before confirming.`); return; }
   const selected = rangeAvailability(draftDay(), draft.type, draft.start, draft.end, draft.purpose, draft.locked ? draft.unit : null);
   if (!selected || selected.override !== Boolean(draft.override)) {
     showDraftError(selected ? 'Availability changed. Please go back and review this time again.' : 'This time is no longer available for the whole visit. Go back to choose another ending, or close this sheet to choose a different space.');
@@ -239,7 +328,8 @@ async function save() {
   try {
     const submittedUnit = draft.override && !draft.locked ? null : draft.unit;
     const saved = await submit({day:draft.day, type:draft.type, unit:submittedUnit, start:draft.start, end:draft.end,
-      name:draft.name.trim(), purpose:draft.purpose, purposeOther:draft.purpose === 'other' ? draft.purposeOther.trim() : ''});
+      name:(draft.name || draft.reservedFor).trim(), reservedFor:draft.reservedFor.trim(), purpose:draft.purpose,
+      purposeOther:draft.purpose === 'other' ? draft.reservedFor.trim() : ''});
     const booking = normalizeBooking(saved);
     const existing = bookings.findIndex(item => item.key === booking.key);
     if (existing === -1) bookings.push(booking); else bookings[existing] = booking;
@@ -271,6 +361,12 @@ $('#resources').addEventListener('click', event => {
   $('#resources').querySelector(`[data-resource="${type}"]`)?.focus({preventScroll:true});
 });
 $('#schedule').addEventListener('click', event => {
+  const bookingButton = event.target.closest('[data-booking]');
+  if (bookingButton) {
+    const booking = bookings.find(item => item.key === bookingButton.dataset.booking);
+    if (booking) renderDetail(booking, true);
+    return;
+  }
   const button = event.target.closest('[data-unit][data-start]');
   if (button && !button.disabled && isReady()) openBooking({unit:Number(button.dataset.unit), start:Number(button.dataset.start)});
 });
@@ -292,6 +388,17 @@ $('#bookingDialog').addEventListener('keydown', event => {
   if (event.shiftKey && (document.activeElement === first || document.activeElement.id === 'stepTitle')) { event.preventDefault(); last.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 });
+$('#detailClose').addEventListener('click', closeDetail);
+$('#detailDialog').addEventListener('cancel', event => { event.preventDefault(); closeDetail(); });
+$('#detailDialog').addEventListener('click', event => {
+  if (event.target !== $('#detailDialog')) return;
+  const rect = event.target.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeDetail();
+});
+$('#detailBody').addEventListener('click', event => {
+  const action = event.target.closest('[data-detail-action]')?.dataset.detailAction;
+  if (action) runDetailAction(action);
+});
 $('#sheetBody').addEventListener('click', event => {
   if (saving) return;
   if (event.target.closest('#seeReservation')) {
@@ -305,7 +412,7 @@ $('#sheetBody').addEventListener('click', event => {
   const resource = event.target.closest('[data-pick-resource]');
   if (resource) { draft.type = resource.dataset.pickResource; draft.unit = null; draft.start = null; draft.end = null; go('purpose'); return; }
   const purpose = event.target.closest('[data-purpose]');
-  if (purpose) { draft.purpose = purpose.dataset.purpose; draft.override = false; if (!draft.locked) draft.unit = null; if (draft.purpose !== 'other') draft.purposeOther = ''; go(draft.purpose === 'other' ? 'details' : draft.locked ? 'end' : 'start'); return; }
+  if (purpose) { draft.purpose = purpose.dataset.purpose; draft.override = false; if (!draft.locked) draft.unit = null; draft.purposeOther = ''; go(draft.locked ? 'end' : 'start'); return; }
   const start = event.target.closest('[data-pick-start]');
   if (start) { draft.start = Number(start.dataset.pickStart); draft.end = null; draft.unit = null; draft.override = false; go('end'); return; }
   const end = event.target.closest('[data-end]');
@@ -315,37 +422,37 @@ $('#sheetBody').addEventListener('click', event => {
     if (!option) { showDraftError('Availability changed. Please choose an available ending.'); return; }
     draft.end = ending;
     draft.unit = option.unit; draft.override = option.override;
-    go('name'); return;
+    go('reservedFor'); return;
   }
   if (event.target.closest('#confirm')) save();
 });
 $('#sheetBody').addEventListener('submit', event => {
-  if (!['nameForm','otherForm'].includes(event.target.id)) return;
+  if (event.target.id !== 'nameForm') return;
   event.preventDefault();
   if (!draftReady() || saving) { updateDialogConnection(); return; }
-  if (event.target.id === 'otherForm') {
-    const field = $('#purposeOther'), value = field.value.trim();
-    if (!/[\p{L}\p{N}]/u.test(value)) { $('#otherError').textContent = 'Add a short description to continue.'; field.setAttribute('aria-invalid','true'); field.focus(); return; }
-    draft.purposeOther = value; go(draft.locked ? 'end' : 'start'); return;
-  }
   const field = $('#guestName'), value = field.value.trim();
-  if (!/[\p{L}\p{N}]/u.test(value)) { $('#nameError').textContent = 'Add your name to continue.'; field.setAttribute('aria-invalid','true'); field.focus(); return; }
-  draft.name = value; go('confirm');
+  if (!/[\p{L}\p{N}]/u.test(value)) { $('#nameError').textContent = `Add a ${reservedForLabels[draft.purpose]?.toLowerCase() || 'detail'} to continue.`; field.setAttribute('aria-invalid','true'); field.focus(); return; }
+  draft.reservedFor = value; draft.purposeOther = draft.purpose === 'other' ? value : ''; go('confirm');
 });
 $('#sheetBody').addEventListener('input', event => {
-  if (event.target.id === 'guestName') { draft.name = event.target.value; event.target.removeAttribute('aria-invalid'); $('#nameError').textContent = ''; }
-  if (event.target.id === 'purposeOther') { draft.purposeOther = event.target.value; event.target.removeAttribute('aria-invalid'); $('#otherError').textContent = ''; }
+  if (event.target.id === 'guestName') { draft.reservedFor = event.target.value; draft.purposeOther = draft.purpose === 'other' ? event.target.value : ''; event.target.removeAttribute('aria-invalid'); $('#nameError').textContent = ''; }
 });
 
 render();
 subscribe(snapshot => {
   const selectedDay = days[dayIndex]?.key;
+  const openDetailKey = detailBooking?.key;
   connection = {status:snapshot.status, canBook:Boolean(snapshot.canBook), demo:Boolean(snapshot.demo), error:snapshot.error || ''};
   days = (snapshot.days || []).map(normalizeDay);
   const selected = days.findIndex(day => day.key === selectedDay);
   dayIndex = selected === -1 ? 0 : selected;
   bookings = (snapshot.bookings || []).map(normalizeBooking);
   render();
+  if ($('#detailDialog').open && openDetailKey) {
+    const updated = bookings.find(item => item.key === openDetailKey);
+    if (updated) renderDetail(updated);
+    else closeDetail();
+  }
   if ($('#bookingDialog').open && ['start','end'].includes(step) && !saving) {
     const focused = document.activeElement;
     const focusType = focused?.hasAttribute('data-pick-start') ? 'data-pick-start' : focused?.hasAttribute('data-end') ? 'data-end' : null;

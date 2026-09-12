@@ -16,6 +16,22 @@ dialog{position:fixed;inset:auto 0 0;width:min(520px,100%);max-height:calc(100dv
 
 .member-links{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 17px;padding:10px 16px 0}.member-links a{display:inline-flex;align-items:center;min-height:44px;font-size:11px;text-decoration-color:#c4aeb7;text-underline-offset:4px;color:#755864}.footer{margin-top:2px}.booked.blocked{background:#ede9e4;border-color:#e2dcd6;color:#7b706b}.waiting{display:flex;align-items:center;justify-content:center;background:#f7f3ef;border:1px solid #eee7e1;color:#9c8b89;font-size:10px}.sheet-connection{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #e7d6d7;border-radius:12px;background:#fbf1ee;padding:10px 12px;margin-top:12px;font-size:12px;line-height:1.5}.sheet-connection .text-button{flex:0 0 auto}.saved-link{display:inline-flex;justify-content:center;align-items:center;min-height:44px;color:#785562;font-size:12px;text-underline-offset:4px}.form-error:empty{display:none}.form-error{padding:12px;border-radius:12px;background:#fbefed}.ticket:disabled{opacity:.65}.connection-detail{margin-top:5px}.secondary-help{font-size:11px;line-height:1.5;color:#826875;margin:12px 0 0}.override-option{border-color:#bc8d9a;background:#f5e6e9;color:#684451;white-space:normal;overflow-wrap:anywhere;box-shadow:inset 0 1px 0 #fff,0 2px 0 #dec0c7}.override-option:hover{background:#eedde1}.override-label{display:block;margin-top:4px;font-size:9px;font-weight:600;line-height:1.15;color:#77505d;overflow-wrap:anywhere}.priority-note{display:grid;gap:3px;margin:14px 0 0;padding:11px 12px;border:1px solid #d9bbc4;border-radius:12px;background:#f6e9eb;color:#6d4551;font-size:11px;line-height:1.45}.priority-note b{font-size:12px;font-weight:600}@media(max-width:600px){.override-option{padding-left:4px;padding-right:4px}.override-label{font-size:8px}.priority-note{font-size:10px}}
 </style>
+<style>
+button.booked{appearance:none;font:inherit;cursor:pointer;color:inherit}
+.booked:hover,.booked:focus-visible{filter:brightness(.98);box-shadow:0 0 0 2px #78556255}
+.detail-card{padding:18px 19px;background:#f7f0ea;border:1px solid #e9dcd6;border-radius:20px}
+.detail-row{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-top:1px solid #e7d9d5;font-size:12px;line-height:1.5}
+.detail-row:first-child{border-top:0;padding-top:0}
+.detail-row:last-child{padding-bottom:0}
+.detail-row span{color:#87707a}
+.detail-row b{font-weight:500;text-align:right;overflow-wrap:anywhere}
+.detail-private{margin-top:2px;padding-top:14px;border-top-color:#d9c6b8;background:#fbf5ec}
+.detail-actions{display:grid;gap:8px;margin-top:15px}
+.detail-actions .wide{margin-top:0}
+.detail-action[data-detail-action="cancel"]{background:#9a5360;border-color:#8c4654}
+.detail-sheet .validation{min-height:0}
+@media(max-width:600px){.detail-row{font-size:11px}.detail-card{padding:17px}.detail-actions{margin-top:13px}}
+</style>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icon.svg">
 </head>
@@ -41,6 +57,9 @@ dialog{position:fixed;inset:auto 0 0;width:min(520px,100%);max-height:calc(100dv
 </main>
 <dialog id="bookingDialog" aria-labelledby="stepTitle" aria-describedby="stepHint">
   <div class="sheet-inner"><div class="grip" aria-hidden="true"></div><div class="sheet-nav"><button id="back" class="icon-button" aria-label="Previous step" type="button">&#8592;</button><span id="stepCounter" class="step-counter"></span><button id="close" class="icon-button" aria-label="Close reservation" type="button">&times;</button></div><div id="sheetConnection" class="sheet-connection" role="status" hidden></div><div id="sheetBody"></div></div>
+</dialog>
+<dialog id="detailDialog" aria-labelledby="detailTitle">
+  <div class="sheet-inner detail-sheet"><div class="grip" aria-hidden="true"></div><div class="sheet-nav"><span class="step-counter">Reservation details</span><button id="detailClose" class="icon-button" aria-label="Close reservation details" type="button">&times;</button></div><div id="detailBody"></div></div>
 </dialog>
 <script type="module" src="./app.js"></script>
 <script src="/design-choice.js" defer></script>
