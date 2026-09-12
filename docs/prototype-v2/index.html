@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LV Rooms — Command Center Prototype</title>
+<link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+<div class="app-shell">
+<header class="topbar">
+<div class="brand"><span class="brandmark">LV</span><div><strong>LV Rooms</strong><small>Study room command center</small></div></div>
+<nav><button class="active" data-view="home">Home</button><button data-view="reservations">My Reservations</button><button data-view="admin">Admin</button><button data-view="display">Display</button></nav>
+<div class="live"><span></span>Live schedule</div>
+</header>
+
+<main>
+<section id="home" class="view active">
+<div class="layout">
+<div class="content">
+<section class="hero"><p class="kicker">Tuesday · September 15</p><h1>Find a quiet place to study in seconds.</h1><p>See what is open now, compare rooms at a glance, and reserve an exact time range directly from the schedule.</p><div class="actions"><button class="primary">Find a room</button><button class="secondary" data-view-jump="reservations">My reservations</button></div></section>
+<section class="panel"><div class="section-title"><div><h2>Live updates</h2><p>What just changed in the room schedule</p></div><small>Updated now</small></div><div class="updates"><article><span class="update-icon">✓</span><div><strong>Room 3 became available</strong><p>A study finished early. Open from 7:30 PM.</p></div></article><article><span class="update-icon blue">↗</span><div><strong>New reservation confirmed</strong><p>Room 1 · 8:00–9:30 PM · Study</p></div></article></div></section>
+<section class="panel schedule"><div class="section-title"><div><h2>Day overview</h2><p>Tap any open time to begin a reservation</p></div><div class="date-stepper"><button>‹</button><strong>Tue, Sep 15</strong><button>›</button></div></div><div class="resource-tabs"><button class="active">Study rooms</button><button>Whiteboards</button><button>TV</button></div><div class="daypart"><div class="daypart-head"><strong>Evening</strong><span>3 rooms open now</span></div><div class="room-grid" id="roomGrid"></div></div></section>
+</div>
+<aside>
+<section class="booking-card"><p class="kicker">Reservation builder</p><h2>Room 3</h2><p class="muted">Tuesday, September 15</p><div class="range"><strong>7:30 PM → ?</strong><span>Choose exactly when your study should end.</span></div><div class="metrics"><div><strong>4</strong><span>rooms total</span></div><div><strong>3</strong><span>available at start</span></div></div><p class="label">When should it end?</p><div class="end-times"><button>8:00</button><button class="active">8:30</button><button>9:00</button><button>9:30</button><button>10:00</button></div><button class="continue">Continue · 7:30–8:30 PM</button></section>
+<section class="panel mini"><h3>Tonight at a glance</h3><div class="reservation-row"><div><strong>7:00–8:30 PM</strong><span>Room 1 · Study</span></div><em>Confirmed</em></div><div class="reservation-row"><div><strong>8:30–10:00 PM</strong><span>Room 2 · Education</span></div><em>Confirmed</em></div></section>
+</aside>
+</div>
+</section>
+
+<section id="reservations" class="view"><section class="hero"><p class="kicker">Your schedule</p><h1>Reservations that are easy to scan and act on.</h1><p>Upcoming bookings surface room, time, purpose, and the actions you may need without becoming a dense admin table.</p></section><section class="panel wide"><div class="section-title"><div><h2>My reservations</h2><p>2 upcoming</p></div></div><div class="reservation-row large"><div><strong>Tuesday · 7:30–8:30 PM</strong><span>Room 3 · Study</span></div><em>Confirmed</em></div><div class="reservation-row large"><div><strong>Saturday · 11:00 AM–12:00 PM</strong><span>Room 1 · Education</span></div><em>Confirmed</em></div></section></section>
+
+<section id="admin" class="view"><section class="hero"><p class="kicker">Coordinator workspace</p><h1>Manage the day without losing the room picture.</h1><p>Current occupancy, direct-add tools, pending items, and end-early or cancel actions live in one calm operational view.</p></section><section class="panel wide"><div class="section-title"><div><h2>Room operations</h2><p>Tuesday · current day</p></div><button class="soft">+ Add reservation</button></div><div class="updates"><article><span class="update-icon">3</span><div><strong>Rooms open now</strong><p>Rooms 2, 3, and 4 have immediate availability.</p></div></article><article><span class="update-icon blue">0</span><div><strong>Conflicts</strong><p>No overlapping assignments detected.</p></div></article></div></section></section>
+
+<section id="display" class="view"><section class="hero display-hero"><p class="kicker">Lobby display concept</p><h1>Study Rooms · Tonight</h1><p>Large, glanceable room blocks share the same visual language as the member app.</p></section><section class="panel wide"><div class="section-title"><div><h2>7:00–10:00 PM</h2><p>Live lobby schedule</p></div><div class="live"><span></span>Connected</div></div><div class="display-grid"><article><b>Room 1</b><strong>Occupied</strong><p>7:00–8:30 PM · Study</p></article><article><b>Room 2</b><strong>Reserved later</strong><p>8:30–10:00 PM · Education</p></article><article class="open"><b>Room 3</b><strong>Open now</strong><p>Available until 11:00 PM</p></article><article class="open"><b>Room 4</b><strong>Open now</strong><p>Available until 11:00 PM</p></article></div></section></section>
+</main>
+<p class="prototype-note">Prototype only · no production data is modified</p>
+</div>
+<script src="prototype.js"></script>
+</body>
+</html>
