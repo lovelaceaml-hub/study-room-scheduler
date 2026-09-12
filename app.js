@@ -777,7 +777,7 @@ function render() {
   // live updates never erase unsaved member details.
   const activeBeforeRender = document.activeElement;
   const adminPinDraft = activeBeforeRender && activeBeforeRender.id === 'admin-pin-input' ? activeBeforeRender.value : '';
-  const popupFocus = (ui.signup || ui.endPrompt || ui.availabilityDetails || ui.endEarly) && activeBeforeRender && activeBeforeRender.closest('.booking-dialog')
+  const popupFocus = (ui.signup || ui.availabilityDetails || ui.endEarly) && activeBeforeRender && activeBeforeRender.closest('.booking-dialog')
     ? { id: activeBeforeRender.id || '', act: activeBeforeRender.dataset.act || '', item: activeBeforeRender.dataset.id || '' }
     : null;
   const actionNode = activeBeforeRender && !activeBeforeRender.closest('.booking-dialog') && !activeBeforeRender.closest('#tabs')
@@ -795,7 +795,7 @@ function render() {
   syncMastheadScheduleLink();
   syncSignupDraft();
   syncAdminFormDraft();
-  document.body.classList.toggle('modal-open', !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails || !!ui.endEarly);
+  document.body.classList.toggle('modal-open', !!ui.signup || !!ui.availabilityDetails || !!ui.endEarly);
   document.body.classList.toggle('admin-workspace-open', ui.tab === 'admin' && adminUnlocked());
 
   const date = selectedDate();
@@ -820,7 +820,7 @@ function render() {
 
   const masthead = document.querySelector('#masthead .head-in');
   const primaryNav = document.querySelector('nav[aria-label="Primary"]');
-  const sheetOpen = !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails || !!ui.selectionConfirm || !!ui.endEarly;
+  const sheetOpen = !!ui.signup || !!ui.availabilityDetails || !!ui.selectionConfirm || !!ui.endEarly;
   if (masthead) masthead.inert = sheetOpen;
   if (primaryNav) primaryNav.inert = sheetOpen;
   // My reservations renders its list and feed as siblings of the intro, so
@@ -925,43 +925,94 @@ function hydrateDashboardActivityFeed() {
   });
 }
 
+function latticeLaneWord(type) {
+  if (type === 'room') return 'Room';
+  if (type === 'whiteboard') return 'Board';
+  return 'TV';
+}
+
+function latticeEndPanelId(date, type, start) {
+  return 'lattice-end-' + date + '-' + type + '-' + start.replace(':', '-');
+}
+
+function latticeBookingLinkClass(type, unitId, date, start, end, occupant) {
+  if (!occupant) return '';
+  const beforeStart = hhmmOfMins(minsOfDay(start) - 30);
+  const afterEnd = hhmmOfMins(minsOfDay(end) + 30);
+  const before = unitOccupant(type, unitId, date, beforeStart, start, null);
+  const after = unitOccupant(type, unitId, date, end, afterEnd, null);
+  const linkedBefore = before && before.id === occupant.id;
+  const linkedAfter = after && after.id === occupant.id;
+  if (linkedBefore && linkedAfter) return ' lattice-run-middle';
+  if (linkedBefore) return ' lattice-run-end';
+  if (linkedAfter) return ' lattice-run-start';
+  return ' lattice-run-single';
+}
+
+function latticeInlineEndPromptHtml(date, type, start) {
+  const d = ui.endPrompt;
+  if (!d || d.date !== date || d.type !== type || d.start !== start) return '';
+  const period = bookingWindows(d.date)[d.windowIdx];
+  if (!period) return '';
+  const panelId = latticeEndPanelId(date, type, start);
+  const titleId = panelId + '-title';
+  const ends = periodTimePoints(period).filter(end => minsOfDay(end) > minsOfDay(start));
+  return '<section id="' + esc(panelId) + '" class="lattice-inline-selection end-time-dialog" aria-labelledby="' + esc(titleId) + '">' +
+    '<div class="lattice-inline-head"><div><div class="booking-kicker">Start at ' + esc(fmtTime(start)) + '</div><h3 id="' + esc(titleId) + '">Choose the exact ending</h3><p>Every room stays in view while you compare the full range.</p></div>' +
+    '<button type="button" class="modal-close lattice-inline-close" data-act="member-close-end-prompt" aria-label="Close end time choices">&times;</button></div>' +
+    '<div class="end-time-list lattice-inline-end-grid" role="group" aria-label="Choose an end time">' + ends.map(end => {
+      const open = freeUnitsForType(type, date, start, end, null).length;
+      const minutes = minsOfDay(end) - minsOfDay(start);
+      return '<button type="button" class="end-time-choice lattice-end-choice" data-act="member-end-time" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-period="' + d.windowIdx + '" data-end="' + end + '"><strong>End at ' + esc(fmtTime(end)) + '</strong><span>' + esc(open ? open + ' open' : 'Full') + '<small>' + minutes + ' min total</small></span></button>';
+    }).join('') + '</div></section>';
+}
+
 /* Shared read-only day map. Admin gets status styling; Home opts into open-cell
    actions, which still start a general reservation rather than assigning that
    specific unit. */
 function dayMapGridHtml(date, type, options = {}) {
   const units = unitsForType(type);
-  let html = '<div class="member-calendar-grid">' +
-    '<div class="member-calendar-row unit-header"><div class="member-time"><small>Time</small></div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span>' + esc(String(unit.num)) + '</span>').join('') + '</div></div>';
+  const laneWord = latticeLaneWord(type);
+  let html = '<div class="member-calendar-grid lattice-schedule" data-resource="' + esc(type) + '">' +
+    '<div class="member-calendar-row unit-header lattice-lane-header"><div class="member-time lattice-spine-head"><small>Time</small><span>30 min</span></div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => '<span class="lattice-lane-label"><strong>' + esc(String(unit.num)) + '</strong><small>' + esc(laneWord) + '</small></span>').join('') + '</div></div>';
   (options.segments || scheduleSegments(date)).forEach(window => {
     if (window.service) {
-      html += '<div class="member-service"><span>' + esc(window.label) + '</span><span>' + esc(fmtTime(window.start)) + '–' + esc(fmtTime(window.end)) + '</span></div>';
+      html += '<div class="member-service lattice-service-band"><span>' + esc(window.label) + '</span><span>' + esc(fmtTime(window.start)) + ' to ' + esc(fmtTime(window.end)) + '</span></div>';
       return;
     }
     slotStarts(window).forEach(start => {
       const end = hhmmOfMins(minsOfDay(start) + 30);
-      html += '<div class="member-calendar-row"><div class="member-time">' + esc(fmtTime(start)) + '</div><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => {
+      const hourBoundary = minsOfDay(start) % 60 === 0;
+      const selection = ui.memberSelection;
+      const selectedBand = options.clickOpen && selection && selection.date === date && selection.type === type && selection.start === start;
+      const panelId = latticeEndPanelId(date, type, start);
+      html += '<div class="member-calendar-row lattice-time-band ' + (hourBoundary ? 'lattice-hour-boundary' : 'lattice-half-boundary') + (selectedBand ? ' lattice-time-band-selected' : '') + '" data-start="' + start + '"><time class="member-time lattice-hour-spine" datetime="' + esc(date + 'T' + start) + '"><strong>' + esc(fmtTimeTight(start)) + '</strong>' + (hourBoundary ? '<small>' + esc(fmtTime(start).slice(-2)) + '</small>' : '') + '</time><div class="member-squares" style="--capacity:' + units.length + '">' + units.map(unit => {
         const occupant = unitOccupant(type, unit.id, date, start, end, null);
         const status = options.memberStatus ? memberSlotStatus(type, date, start, unit.id) : (occupant ? 'taken' : 'open');
+        const selectedSlot = selectedBand && selection.unit === unit.id;
+        const selectedClass = selectedSlot ? ' lattice-slot-selected' : '';
+        const expanded = selectedSlot && ui.endPrompt ? ' aria-expanded="true" aria-controls="' + esc(panelId) + '"' : '';
         if (options.clickOpen && !occupant) {
           const focusKey = 'home-open-' + date + '-' + type + '-' + start + '-' + unit.id;
-          return '<button type="button" class="member-square open home-open-cell" data-act="home-reserve-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + start + '" data-unit="' + esc(unit.id) + '" data-focus-key="' + esc(focusKey) + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ' is open. Reserve this time.') + '">Open</button>';
+          return '<button type="button" class="member-square open home-open-cell lattice-slot-card' + selectedClass + '" data-act="home-reserve-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + start + '" data-unit="' + esc(unit.id) + '" data-focus-key="' + esc(focusKey) + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ' is open. Reserve this time.') + '"' + expanded + '><span class="lattice-slot-state">Open</span><small>Choose</small></button>';
         }
         if (options.clickOpen && occupant) {
           const adminHeld = occupant.purpose === 'blocked' || occupant.blocked === true;
           const name = adminHeld ? 'Reserved' : occupant.name;
           const purpose = adminHeld ? 'Reserved' : purposeLabel(occupant.purpose);
           const tone = adminHeld ? 'purpose-held' : purposeToneClass(occupant.purpose);
-          const body = '<strong class="home-cell-name">' + esc(name) + '</strong><small class="home-cell-purpose">' + esc(purpose) + '</small>';
+          const linkClass = latticeBookingLinkClass(type, unit.id, date, start, end, occupant);
+          const body = '<strong class="home-cell-name">' + esc(name) + '</strong><small class="home-cell-purpose"><span class="lattice-purpose-dot" aria-hidden="true"></span>' + esc(purpose) + '</small>';
           // A held slot is Admin business and stays inert. Anything else can be
           // opened, which is how a higher priority asks to take an Other slot.
           if (adminHeld) {
-            return '<div class="member-square ' + status + ' home-occupied-cell home-held-cell ' + tone + '" data-held="true" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved') + '">' + body + '</div>';
+            return '<div class="member-square ' + status + ' home-occupied-cell home-held-cell lattice-slot-card ' + tone + linkClass + '" data-held="true" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved') + '">' + body + '</div>';
           }
           const takenKey = 'home-taken-' + date + '-' + type + '-' + start + '-' + unit.id;
-          return '<button type="button" class="member-square ' + status + ' home-occupied-cell ' + tone + '" data-act="home-taken-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + start + '" data-focus-key="' + esc(takenKey) + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved by ' + name + ', ' + purpose + '. Open this time to see your options.') + '">' + body + '</button>';
+          return '<button type="button" class="member-square ' + status + ' home-occupied-cell lattice-slot-card ' + tone + linkClass + selectedClass + '" data-act="home-taken-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + start + '" data-unit="' + esc(unit.id) + '" data-focus-key="' + esc(takenKey) + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved by ' + name + ', ' + purpose + '. Open this time to see your options.') + '"' + expanded + '>' + body + '</button>';
         }
-        return '<div class="member-square ' + status + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + (occupant ? 'reserved by ' + occupant.name : status)) + '">' + (occupant ? esc(occupant.name) : '') + '</div>';
-      }).join('') + '</div></div>';
+        return '<div class="member-square lattice-slot-card ' + status + latticeBookingLinkClass(type, unit.id, date, start, end, occupant) + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + (occupant ? 'reserved by ' + occupant.name : status)) + '">' + (occupant ? esc(occupant.name) : '') + '</div>';
+      }).join('') + '</div></div>' + (options.clickOpen ? latticeInlineEndPromptHtml(date, type, start) : '');
     });
   });
   return html + '</div>';
@@ -1037,8 +1088,8 @@ function purposeLegendHtml() {
 function homeDayOverviewHtml(date, type) {
   const cueId = 'home-scroll-cue-' + date + '-' + type;
   return '<section class="home-day-overview" aria-labelledby="home-day-overview-title">' +
-    '<div class="home-section-head"><div><div class="eyebrow">Plan a reservation</div><h2 id="home-day-overview-title">Day overview</h2></div></div>' +
-    homeDateControlsHtml(date) + memberResourceToggleHtml(type, 'home-overview-type') +
+    '<div class="home-section-head"><div><div class="eyebrow">Lattice schedule</div><h2 id="home-day-overview-title">Every room, one continuous day.</h2><p>Choose any open card. The ending unfolds inside the schedule.</p></div><span class="lattice-live-key"><span aria-hidden="true"></span>Live availability</span></div>' +
+    '<div class="lattice-control-deck">' + homeDateControlsHtml(date) + memberResourceToggleHtml(type, 'home-overview-type') + '</div>' +
     purposeLegendHtml() +
     '<div class="home-day-map-wrap"><div class="member-calendar-scroll home-day-map" tabindex="0" role="region" aria-label="' + esc('Full day ' + needLabel(type).toLowerCase() + ' schedule') + '" aria-describedby="' + esc(cueId) + '">' + dayMapGridHtml(date, type, { clickOpen: true }) + '</div><span id="' + esc(cueId) + '" class="home-scroll-cue" aria-live="polite" aria-atomic="true"></span></div>' +
     homeRangeControlsHtml(date, type) +
@@ -1054,7 +1105,6 @@ function renderHome() {
   let html = '<section class="home-dashboard"><h1 class="sr-only">Study Rooms</h1>' + activityFeedHtml(dates, true, 2) +
     homeDayOverviewHtml(overviewDate, ui.homeOverviewType) + '</section>';
   if (ui.signup) html += bookingModalHtml();
-  else if (ui.endPrompt) html += endTimePromptHtml();
   else if (ui.availabilityDetails) html += availabilityDetailsHtml();
   else if (ui.selectionConfirm) html += selectionConfirmHtml();
   return html;
@@ -1451,16 +1501,23 @@ function reserveFromHomeOverview(el) {
   const date = el.dataset.date;
   const type = el.dataset.type;
   const start = el.dataset.start;
+  const unit = el.dataset.unit || null;
   const periodIdx = windowIndexForStart(date, start);
   if (!upcomingBookingDates().includes(date) || !NEED_TYPES.some(item => item.id === type) || periodIdx < 0) return;
   ui.selectedDate = date;
-  ui.memberSelection = { date, type, start, end: null, windowIdx: periodIdx };
+  ui.memberSelection = { date, type, unit, start, end: null, windowIdx: periodIdx };
   ui.availabilityConflict = null;
   ui.selectionConfirm = null;
-  ui.endPrompt = { date, type, start, windowIdx: periodIdx };
+  ui.endPrompt = { date, type, unit, start, windowIdx: periodIdx };
   ui.returnFocusKey = el.dataset.focusKey || null;
   ui.tab = 'home';
   render();
+  requestAnimationFrame(() => {
+    const panel = document.getElementById(latticeEndPanelId(date, type, start));
+    const firstChoice = panel && panel.querySelector('.lattice-end-choice');
+    if (firstChoice) firstChoice.focus();
+    if (panel) panel.scrollIntoView({ block: 'nearest' });
+  });
 }
 
 function clearHomeReservationState() {
