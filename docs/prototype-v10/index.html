@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>LV Rooms — Request Desk</title>
+<link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <div><small>LV ZION</small><h1>Request Desk</h1></div>
+    <button class="pill" id="dateBtn">Tue, Sep 15</button>
+  </header>
+
+  <nav class="views">
+    <button class="active" data-view="ask">Ask</button>
+    <button data-view="mine">Mine</button>
+    <button data-view="admin">Admin</button>
+    <button data-view="lobby">Lobby</button>
+  </nav>
+
+  <!-- ================= ASK ================= -->
+  <section class="view active" id="view-ask">
+    <div class="ask-head">
+      <span class="eyebrow">TELL US WHAT YOU NEED</span>
+      <h2 class="sentence" id="sentence">
+        I need <button class="slot" data-field="resource">a study room</button>
+        for <button class="slot" data-field="people">2 people</button>,
+        starting <button class="slot" data-field="start">now</button>
+        for <button class="slot" data-field="length">90 minutes</button>.
+      </h2>
+      <p class="hint">Tap any underlined word to change it. The answer updates as you go.</p>
+    </div>
+
+    <div class="answer" id="answer">
+      <div class="answer-top">
+        <span class="eyebrow light">BEST MATCH</span>
+        <span class="badge" id="badge">Free the whole time</span>
+      </div>
+      <h3 id="matchRoom">Room 3</h3>
+      <p id="matchLine">7:30–9:00 PM · 4 seats · whiteboard wall</p>
+      <div class="answer-meta" id="matchWhy">Nothing else is booked in this room tonight, so you can run long if the study needs it.</div>
+      <div class="answer-actions">
+        <button class="primary" id="reserveBtn">Reserve Room 3</button>
+        <button class="ghost light" id="otherBtn">Other options</button>
+      </div>
+    </div>
+
+    <div class="live">
+      <div><i></i><div><b>Room 3 just opened</b><small>Study ended early · 2 min ago</small></div></div>
+      <button>Activity</button>
+    </div>
+
+    <div class="alts" id="alts">
+      <div class="list-head"><h3>Also fits</h3><small id="altCount">3 spaces</small></div>
+      <div class="cluster" id="altList"></div>
+    </div>
+
+    <details class="fallback">
+      <summary>Nothing fits? See the whole evening</summary>
+      <div class="timeline">
+        <div><b>7 PM</b><span class="free">3 open</span></div>
+        <div><b>8 PM</b><span class="mix">2 open</span></div>
+        <div><b>9 PM</b><span class="free">5 open</span></div>
+        <div><b>10 PM</b><span class="free">6 open</span></div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ================= MINE ================= -->
+  <section class="view" id="view-mine">
+    <div class="intro"><span class="eyebrow">YOUR EVENING</span><h2>My reservations</h2></div>
+    <article class="res-card now">
+      <div class="res-when"><b>7:30</b><small>TONIGHT</small></div>
+      <div>
+        <strong>Room 3 · Bible study</strong>
+        <p>7:30–9:00 PM · ends automatically unless you extend</p>
+        <div class="res-actions"><button class="ghost">Extend 30 min</button><button class="ghost danger">Release</button></div>
+      </div>
+    </article>
+    <article class="res-card">
+      <div class="res-when"><b>Thu</b><small>SEP 17</small></div>
+      <div>
+        <strong>Whiteboard B · Preaching prep</strong>
+        <p>6:00–7:00 PM</p>
+        <div class="res-actions"><button class="ghost">Change end time</button><button class="ghost danger">Release</button></div>
+      </div>
+    </article>
+    <p class="empty-note">Ask again any time — a second request never replaces the first.</p>
+  </section>
+
+  <!-- ================= ADMIN ================= -->
+  <section class="view" id="view-admin">
+    <div class="intro"><span class="eyebrow">COORDINATOR</span><h2>Requests and pressure</h2><p>What people asked for, and where the evening is tight.</p></div>
+    <div class="stat-row">
+      <div class="stat"><b>11</b><small>requests tonight</small></div>
+      <div class="stat"><b>2</b><small>unmet asks</small></div>
+      <div class="stat"><b>8:00</b><small>tightest hour</small></div>
+    </div>
+    <div class="admin-list">
+      <div class="admin-row"><div><strong>Two asks for 8 seats at 8:00</strong><small>Only Room 5 is that size</small></div><button class="ghost">Open Room 5</button></div>
+      <div class="admin-row"><div><strong>Room 2 running long</strong><small>Next ask is waiting on it</small></div><button class="ghost">Nudge</button></div>
+      <div class="admin-row"><div><strong>Room 4 has no purpose listed</strong><small>Booked 20 minutes ago</small></div><button class="ghost">Add note</button></div>
+    </div>
+    <div class="admin-row block"><div><strong>Close the north wing</strong><small>Blocks Rooms 1–3 for the rest of tonight</small></div><button class="ghost danger">Block</button></div>
+  </section>
+
+  <!-- ================= LOBBY ================= -->
+  <section class="view lobby" id="view-lobby">
+    <div class="lobby-head"><span class="eyebrow">LOBBY DISPLAY</span><h2>Ask at the desk or on your phone</h2><b id="lobbyClock">7:12 PM</b></div>
+    <div class="lobby-grid">
+      <div class="lobby-tile open"><b>01</b><span>Open</span><small>until 8:30</small></div>
+      <div class="lobby-tile busy"><b>02</b><span>In use</span><small>free at 8:00</small></div>
+      <div class="lobby-tile open"><b>03</b><span>Open</span><small>all evening</small></div>
+      <div class="lobby-tile busy"><b>04</b><span>In use</span><small>free at 9:00</small></div>
+      <div class="lobby-tile soon"><b>05</b><span>Opens 7:30</span><small>study ending</small></div>
+      <div class="lobby-tile open"><b>06</b><span>Open</span><small>until 11:00</small></div>
+    </div>
+    <p class="lobby-foot">Say what you need — the desk finds the room · lvrooms.web.app</p>
+  </section>
+
+  <!-- picker -->
+  <aside id="picker" aria-label="Choose a value">
+    <div class="handle"></div>
+    <button id="close" aria-label="Close">×</button>
+    <span class="eyebrow" id="pickerLabel">HOW LONG</span>
+    <h2 id="pickerTitle">Length</h2>
+    <div class="options" id="options"></div>
+  </aside>
+  <div id="shade"></div>
+  <div id="toast" role="status"></div>
+</div>
+<script src="prototype.js"></script>
+</body>
+</html>
