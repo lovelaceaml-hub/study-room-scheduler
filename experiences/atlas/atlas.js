@@ -12,6 +12,9 @@ const STARTS = Array.from({ length: (CLOSE - OPEN) / 30 }, (_, index) => OPEN + 
 const $ = selector => document.querySelector(selector);
 const dialog = $('#sheet');
 const body = $('#body');
+const detailDialog = $('#bookingDetails');
+const detailBody = $('#detailBody');
+let detailReturnFocus = null;
 let snapshot = { status: 'loading', canBook: false, demo: false, error: '', days: [], bookings: [] };
 let selectedDay = '';
 let type = 'room';
@@ -25,6 +28,49 @@ let formError = '';
 
 function escapeHTML(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+}
+function publicNameFor(booking) {
+  // The current live projection calls its already-public-safe label `name`.
+  const projected = [booking?.publicName, booking?.displayName, booking?.name].find(value => typeof value === 'string' && hasVisibleText(value))?.trim() || '';
+  return hasVisibleText(projected) ? projected : 'Reserved';
+}
+function bookingKeyFor(booking, day = booking?.day, resource = booking?.type, unit = booking?.unit) {
+  const key = booking?.key ?? booking?.id;
+  return String(key || `${day || ''}-${resource || ''}-${unit || ''}-${booking?.start ?? ''}-${booking?.end ?? ''}`);
+}
+function ownerDetailFor(booking) {
+  const detail = booking?.ownerDetail && typeof booking.ownerDetail === 'object'
+    ? booking.ownerDetail
+    : booking?.ownerDetails && typeof booking.ownerDetails === 'object' ? booking.ownerDetails
+      : booking?.owner && typeof booking.owner === 'object' ? booking.owner : null;
+  if (!detail || (detail.authorized !== true && detail.ownerAuthorized !== true)) return null;
+  const actions = detail.actions && typeof detail.actions === 'object' ? detail.actions : {};
+  const allowed = (...names) => names.some(name => detail[name] === true || actions[name] === true || actions[name]?.allowed === true);
+  const reservedFor = typeof detail.reservedFor === 'string' && hasVisibleText(detail.reservedFor) ? detail.reservedFor.trim() : '';
+  return { reservedFor, canEndEarly: allowed('canEndEarly', 'endEarly', 'end'), canCancel: allowed('canCancel', 'cancel') };
+}
+function detailActionMarkup(detail) {
+  if (!detail || (!detail.canEndEarly && !detail.canCancel)) return '';
+  const actions = [];
+  if (detail.canEndEarly) actions.push('<a class="detailAction" href="/?classic=1&amp;tab=mine">End early</a>');
+  if (detail.canCancel) actions.push('<a class="detailAction danger" href="/?classic=1&amp;tab=mine">Cancel</a>');
+  return `<div class="detailActions"><p>Use My reservations to complete an authorized action.</p><div>${actions.join('')}</div></div>`;
+}
+function showBookingDetails(booking, trigger) {
+  if (!detailDialog || !booking) return;
+  const resource = TYPES[booking.type]?.label || 'Resource';
+  const blocked = booking.blocked === true || booking.purpose === 'blocked';
+  const purpose = blocked ? 'Reserved' : purposeLabel(booking.purpose);
+  const detail = ownerDetailFor(booking);
+  const publicName = blocked ? 'Reserved' : publicNameFor(booking);
+  const ownerRow = detail?.reservedFor ? `<div class="detailRow"><span>Reserved for</span><b>${escapeHTML(detail.reservedFor)}</b></div>` : '';
+  detailBody.innerHTML = `<div class="detailContent"><h2 id="detailTitle">${escapeHTML(publicName)}</h2><p id="detailDescription" class="detailHint">${escapeHTML(resource)} ${escapeHTML(booking.unit)} · ${escapeHTML(dayLabel(booking.day))}</p><div class="detailSummary"><div class="detailRow"><span>Time</span><b>${timeLabel(booking.start)} to ${timeLabel(booking.end)}</b></div><div class="detailRow"><span>Purpose</span><b>${escapeHTML(purpose)}</b></div>${ownerRow}</div>${detailActionMarkup(detail)}</div>`;
+  detailReturnFocus = trigger;
+  detailDialog.showModal();
+  $('#detailTitle')?.focus({ preventScroll: true });
+}
+function closeBookingDetails() {
+  if (detailDialog?.open) detailDialog.close();
 }
 function timeLabel(minutes, compact = false) {
   const hour = Math.floor(minutes / 60);
@@ -150,9 +196,11 @@ function renderSchedule() {
       if (booking) {
         const blocked = booking.blocked || booking.purpose === 'blocked';
         const purpose = ['contact', 'new', 'other'].includes(booking.purpose) ? booking.purpose : 'other';
-        const name = blocked ? 'Reserved' : booking.name || 'Reserved';
-        const label = blocked ? `${range}, Reserved` : `${range}, ${name}, ${purposeLabel(purpose)}`;
-        return `<article class="roomSlot ${blocked ? 'reserved' : `booked ${purpose}`}" aria-label="${escapeHTML(label)}"><span class="slotRoom">${room}</span><span class="slotName">${escapeHTML(name)}</span>${blocked ? '' : `<span class="slotPurpose">${purposeLabel(purpose)}</span>`}</article>`;
+        const name = blocked ? 'Reserved' : publicNameFor(booking);
+        const startsHere = start <= booking.start;
+        const label = startsHere ? (blocked ? `${range}, Reserved` : `${range}, ${name}, ${purposeLabel(purpose)}`) : `${range}, reservation continues`;
+        const continuation = startsHere ? `<span class="slotRoom">${room}</span><span class="slotName">${escapeHTML(name)}</span>${blocked ? '' : `<span class="slotPurpose">${purposeLabel(purpose)}</span>`}` : '<span class="slotContinuation" aria-hidden="true"></span>';
+        return `<button class="roomSlot ${blocked ? 'reserved' : `booked ${purpose}`} ${bookingSegmentClass(booking, start, end)}" type="button" data-booking-key="${escapeHTML(bookingKeyFor(booking, selectedDay, type, unit))}" aria-haspopup="dialog" aria-label="${escapeHTML(label)}">${continuation}</button>`;
       }
       if (!canBook()) return `<div class="roomSlot unavailable" aria-label="${escapeHTML(range)}, availability unconfirmed"><span class="slotRoom">${room}</span><span class="slotOpen">Checking</span></div>`;
       return `<button class="roomSlot open" type="button" data-unit="${unit}" data-start="${start}" aria-label="${escapeHTML(range)}, open, reserve this unit"><span class="slotRoom">${room}</span><span class="slotOpen">Open</span></button>`;
@@ -173,6 +221,11 @@ function setType(next) {
   renderMeters();
   renderSchedule();
 }
+function bookingSegmentClass(booking, start, end) {
+  const startsHere = start <= booking.start;
+  const endsHere = end >= booking.end;
+  return ['bookingPart', startsHere ? 'bookingStart' : 'bookingContinue', endsHere ? 'bookingEnd' : 'bookingMiddle'].join(' ');
+}
 function updateDialogConnection() {
   const message = $('#dialogStatus');
   const disconnected = !snapshot.canBook || !dayInfo(draft.day);
@@ -187,7 +240,7 @@ function openSheet(selection = null, trigger = $('#reserve')) {
   if (!canBook()) return;
   if (selection && !freeUnits(selectedDay, selection.type, selection.start, selection.start + 30, selection.unit).length) return;
   returnFocus = trigger;
-  draft = { day: selectedDay, type: selection?.type || null, unit: selection?.unit ?? null, start: selection?.start ?? null, end: null, purpose: null, purposeOther: '', name: '', direct: Boolean(selection) };
+  draft = { day: selectedDay, type: selection?.type || null, unit: selection?.unit ?? null, start: selection?.start ?? null, end: null, purpose: null, purposeOther: '', reservedFor: '', direct: Boolean(selection) };
   step = selection ? 'purpose' : 'resource';
   history = [];
   saved = null;
@@ -232,12 +285,14 @@ function overrideNotice(start, end) {
   return '<div class="overrideNotice" role="note"><strong>Priority override</strong><span>This range is held by a lower-priority reservation and may replace it.</span></div>';
 }
 function summaryRows(booking = draft) {
-  const purpose = booking === draft && draft.purpose === 'other' ? `Other: ${draft.purposeOther}` : purposeLabel(booking.purpose);
-  return `<div class="sumrow"><span>Day</span><b>${escapeHTML(dayLabel(booking.day))}</b></div><div class="sumrow"><span>Purpose</span><b>${escapeHTML(purpose)}</b></div><div class="sumrow"><span>Time</span><b>${timeLabel(booking.start)} to ${timeLabel(booking.end)}</b></div>`;
+  const purpose = purposeLabel(booking.purpose);
+  const reservedForLabel = booking.purpose === 'contact' ? 'Contact Name' : booking.purpose === 'new' ? 'Member Name' : 'Purpose';
+  const reservedFor = booking.reservedFor || (booking === draft && booking.purpose === 'other' ? booking.purposeOther : '');
+  return `<div class="sumrow"><span>Day</span><b>${escapeHTML(dayLabel(booking.day))}</b></div><div class="sumrow"><span>Purpose</span><b>${escapeHTML(purpose)}</b></div><div class="sumrow"><span>Time</span><b>${timeLabel(booking.start)} to ${timeLabel(booking.end)}</b></div><div class="sumrow"><span>${reservedForLabel}</span><b>${escapeHTML(reservedFor)}</b></div>`;
 }
 function renderStep(focus = true) {
-  const progressSteps = draft.direct ? ['purpose', 'end', 'name', 'confirm'] : ['resource', 'purpose', 'start', 'end', 'name', 'confirm'];
-  const current = step === 'other' ? 'purpose' : step;
+  const progressSteps = draft.direct ? ['purpose', 'end', 'reservedFor', 'confirm'] : ['resource', 'purpose', 'start', 'end', 'reservedFor', 'confirm'];
+  const current = step;
   $('#progress').innerHTML = progressSteps.map(item => `<i class="${item === current ? 'on' : ''}"></i>`).join('');
   $('#progress').classList.toggle('hidden', step === 'success');
   $('#back').disabled = saving || step === 'success';
@@ -247,18 +302,21 @@ function renderStep(focus = true) {
     content = heading('What would you like to reserve?', `Choose a resource for ${escapeHTML(dayLabel(draft.day))}. We will show its available times.`) + `<div class="choices">${Object.entries(TYPES).map(([key, item]) => `<button class="choice" type="button" data-picktype="${key}"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24">${item.icon}</svg></span><span><b>${item.label}</b><small>${item.count} ${key === 'room' ? 'study rooms' : key === 'tv' ? 'displays' : 'boards'}</small></span></button>`).join('')}</div>`;
   } else if (step === 'purpose') {
     content = heading(`What is ${draft.unit === null ? `this ${TYPES[draft.type].label.toLowerCase()}` : escapeHTML(selectedResource())} for?`, `Purpose determines reservation priority.${draft.start !== null ? ` Your start time is ${timeLabel(draft.start)}.` : ''}`) + '<div class="choices"><button class="choice priority contact" type="button" data-purpose="contact"><span class="ico" aria-hidden="true">1</span><span><b>Contact</b><small>Highest priority</small></span><span class="rank">1st priority</span></button><button class="choice priority new" type="button" data-purpose="new"><span class="ico" aria-hidden="true">2</span><span><b>New Member</b><small>Second priority</small></span><span class="rank">2nd priority</span></button><button class="choice priority other" type="button" data-purpose="other"><span class="ico" aria-hidden="true">3</span><span><b>Other</b><small>Tell us what it is for</small></span><span class="rank">Last priority</span></button></div>';
-  } else if (step === 'other') {
-    content = heading('What do you have planned?', 'Add a short description for this reservation.') + `<form id="otherForm"><label class="fieldLabel" for="purposeOther">Reservation description</label><textarea class="field" id="purposeOther" name="purposeOther" required maxlength="300" placeholder="What is the reservation for?">${escapeHTML(draft.purposeOther)}</textarea><button class="continue" type="submit">Continue</button></form>`;
   } else if (step === 'start') {
     const starts = availableStarts();
     content = heading('When would you like to start?', `${escapeHTML(dayLabel(draft.day))}. ${draft.unit === null ? 'We will assign one unit that is free for your full reservation.' : `${escapeHTML(selectedResource())} stays selected.`}`) + (starts.length ? `<div class="chips">${starts.map(start => timeChip('start', start, start, start + 30)).join('')}</div>` : '<div class="emptyState">There are no open start times for this selection. Close this sheet to choose another day or unit.</div>');
   } else if (step === 'end') {
     const ends = availableEnds();
     content = heading('When would you like to end?', `Starting at ${timeLabel(draft.start)}. Every ending keeps ${draft.unit === null ? 'one unit' : escapeHTML(selectedResource())} free continuously, without crossing a service.`) + (ends.length ? `<div class="chips">${ends.map(end => timeChip('end', end, draft.start, end)).join('')}</div>` : '<div class="emptyState">This start time is no longer available. Choose another time to keep going.</div><button class="secondary" type="button" data-edit-time>Choose another time</button>');
-  } else if (step === 'name') {
-    content = heading('Who is this reservation for?', 'Enter your full name. The public schedule displays an abbreviated name.') + `<form id="nameForm"><label class="fieldLabel" for="name">Full name</label><input class="field" id="name" name="name" autocomplete="name" maxlength="100" required value="${escapeHTML(draft.name)}" placeholder="Your full name"><button class="continue" type="submit">Review reservation</button></form>`;
+  } else if (step === 'reservedFor') {
+    const label = draft.purpose === 'contact' ? 'Contact Name' : draft.purpose === 'new' ? 'Member Name' : 'Purpose';
+    const description = draft.purpose === 'other' ? 'Describe what this reservation is for.' : `Enter the ${label.toLowerCase()} for this reservation.`;
+    const field = draft.purpose === 'other'
+      ? `<textarea class="field" id="reservedFor" name="reservedFor" required maxlength="300" placeholder="What is the reservation for?">${escapeHTML(draft.reservedFor)}</textarea>`
+      : `<input class="field" id="reservedFor" name="reservedFor" type="text" autocomplete="off" maxlength="100" required value="${escapeHTML(draft.reservedFor)}" placeholder="${escapeHTML(label)}">`;
+    content = heading('Who or what is this for?', description) + `<form id="reservedForForm"><label class="fieldLabel" for="reservedFor">${label}</label>${field}<button class="continue" type="submit">Review reservation</button></form>`;
   } else if (step === 'confirm') {
-    content = heading('Confirm your reservation', snapshot.demo ? 'This sample reservation will stay in the preview.' : 'One final check before it goes on the schedule.') + `<div class="summary"><h3>${escapeHTML(selectedResource())}</h3>${summaryRows()}<div class="sumrow"><span>Name</span><b>${escapeHTML(draft.name)}</b></div></div>${overrideNotice(draft.start, draft.end)}<button class="continue" id="confirm" type="button" ${saving || !snapshot.canBook ? 'disabled' : ''}>${saving ? 'Reserving...' : 'Confirm reservation'}</button><button class="secondary" type="button" data-edit-time ${saving ? 'disabled' : ''}>Change time</button>`;
+    content = heading('Confirm your reservation', snapshot.demo ? 'This sample reservation will stay in the preview.' : 'One final check before it goes on the schedule.') + `<div class="summary"><h3>${escapeHTML(selectedResource())}</h3>${summaryRows()}</div>${overrideNotice(draft.start, draft.end)}<button class="continue" id="confirm" type="button" ${saving || !snapshot.canBook ? 'disabled' : ''}>${saving ? 'Reserving...' : 'Confirm reservation'}</button><button class="secondary" type="button" data-edit-time ${saving ? 'disabled' : ''}>Change time</button>`;
   } else if (step === 'success') {
     const resource = `${TYPES[saved.type].label} ${saved.unit}`;
     content = `<div class="done"><div class="check" aria-hidden="true">&#10003;</div>${heading(snapshot.demo ? 'Your sample is reserved.' : 'You are reserved.', `${escapeHTML(resource)} is reserved from ${timeLabel(saved.start)} to ${timeLabel(saved.end)}.`)}<div class="summary"><h3>${escapeHTML(resource)}</h3>${summaryRows(saved)}</div><button class="continue" id="finish" type="button">Return to schedule</button></div>`;
@@ -277,16 +335,17 @@ function hasVisibleText(value) {
 async function confirmReservation() {
   if (saving) return;
   if (!snapshot.canBook || !dayInfo(draft.day)) return setError('Reconnect to confirm. Your reservation details are still here.');
-  if (!['contact', 'new', 'other'].includes(draft.purpose) || !hasVisibleText(draft.name) || (draft.purpose === 'other' && !hasVisibleText(draft.purposeOther))) return setError('Add your full name and reservation purpose before confirming.');
+  if (!['contact', 'new', 'other'].includes(draft.purpose) || !hasVisibleText(draft.reservedFor)) return setError('Complete the reserved-for field before confirming.');
   const availability = rangeAvailability(draft.start, draft.end);
   if (!availability.free.length && !availability.overrideUnit) return setError('This time is no longer available for the full reservation. Choose Change time to select another range.');
   saving = true;
   resetError();
   renderStep(false);
   try {
-    const result = await submit({ day: draft.day, type: draft.type, unit: draft.override ? null : draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? draft.purposeOther.trim() : '' });
+    const reservedFor = draft.reservedFor.trim();
+    const result = await submit({ day: draft.day, type: draft.type, unit: draft.override ? null : draft.unit, start: draft.start, end: draft.end, name: reservedFor, reservedFor, purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? reservedFor : '' });
     if (!result || result.status !== 'approved' || !TYPES[result.type] || !Number.isInteger(result.unit)) throw new Error('The reservation could not be confirmed. Your details are still here.');
-    saved = result;
+    saved = { ...result, reservedFor: typeof result.reservedFor === 'string' ? result.reservedFor : reservedFor };
     saving = false;
     step = 'success';
     history = [];
@@ -310,8 +369,25 @@ $('#daypick').addEventListener('click', event => {
 });
 document.querySelectorAll('.meter').forEach(button => button.addEventListener('click', () => setType(button.dataset.type)));
 $('#schedule').addEventListener('click', event => {
+  const occupied = event.target.closest('[data-booking-key]');
+  if (occupied) {
+    const booking = snapshot.bookings.find(item => bookingKeyFor(item) === occupied.dataset.bookingKey);
+    if (booking) showBookingDetails(booking, occupied);
+    return;
+  }
   const button = event.target.closest('.roomSlot.open');
   if (button) openSheet({ type, unit: Number(button.dataset.unit), start: Number(button.dataset.start) }, button);
+});
+$('#detailClose')?.addEventListener('click', closeBookingDetails);
+detailDialog?.addEventListener('close', () => {
+  if (detailReturnFocus?.isConnected) detailReturnFocus.focus({ preventScroll: true });
+  else $('#reserve')?.focus({ preventScroll: true });
+  detailReturnFocus = null;
+});
+detailDialog?.addEventListener('click', event => {
+  if (event.target !== detailDialog) return;
+  const box = detailDialog.getBoundingClientRect();
+  if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) closeBookingDetails();
 });
 dialog.addEventListener('cancel', event => {
   if (saving) event.preventDefault();
@@ -341,11 +417,9 @@ body.addEventListener('click', event => {
     nextStep('purpose');
   } else if (button.dataset.purpose) {
     draft.purpose = button.dataset.purpose;
-    if (draft.purpose === 'other') nextStep('other');
-    else {
-      draft.purposeOther = '';
-      nextStep(draft.direct && draft.start !== null ? 'end' : 'start');
-    }
+    draft.purposeOther = '';
+    draft.reservedFor = '';
+    nextStep(draft.direct && draft.start !== null ? 'end' : 'start');
   } else if (button.hasAttribute('data-start')) {
     const start = Number(button.dataset.start);
     if (!selectableRange(start, start + 30)) return setError('That start time is no longer available. Choose another time.');
@@ -356,26 +430,26 @@ body.addEventListener('click', event => {
     const end = Number(button.dataset.end);
     if (!selectableRange(draft.start, end)) return setError('That ending is no longer available. Choose another ending.');
     draft.end = end;
-    nextStep('name');
+    nextStep('reservedFor');
   } else if (button.hasAttribute('data-edit-time')) {
     nextStep('start');
-  } else if (button.id === 'confirm') confirmReservation();
-  else if (button.id === 'finish') closeSheet();
+  } else if (button.id === 'confirm') {
+    confirmReservation();
+  } else if (button.id === 'finish') closeSheet();
 });
 body.addEventListener('input', event => {
-  if (event.target.id === 'name') draft.name = event.target.value;
-  if (event.target.id === 'purposeOther') draft.purposeOther = event.target.value;
+  if (event.target.id === 'reservedFor') {
+    draft.reservedFor = event.target.value;
+    if (draft.purpose === 'other') draft.purposeOther = event.target.value;
+  }
 });
 body.addEventListener('submit', event => {
   event.preventDefault();
   if (saving) return;
-  if (event.target.id === 'otherForm') {
-    draft.purposeOther = $('#purposeOther').value.trim();
-    if (!hasVisibleText(draft.purposeOther)) return setError('Add a short description before continuing.');
-    nextStep(draft.direct && draft.start !== null ? 'end' : 'start');
-  } else if (event.target.id === 'nameForm') {
-    draft.name = $('#name').value.trim();
-    if (!hasVisibleText(draft.name)) return setError('Enter your full name before continuing.');
+  if (event.target.id === 'reservedForForm') {
+    draft.reservedFor = $('#reservedFor').value.trim();
+    if (!hasVisibleText(draft.reservedFor)) return setError('Complete this field before continuing.');
+    if (draft.purpose === 'other') draft.purposeOther = draft.reservedFor;
     nextStep('confirm');
   }
 });

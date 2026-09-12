@@ -60,6 +60,14 @@
   <div id="body"></div>
   <div class="dialogError hidden" id="dialogError" tabindex="-1" role="alert"></div>
 </dialog>
+<dialog class="detailSheet" id="bookingDetails" aria-labelledby="detailTitle" aria-describedby="detailDescription">
+  <div class="detailBar">
+    <span class="detailEyebrow">Reservation details</span>
+    <button class="iconbtn" id="detailClose" type="button" aria-label="Close reservation details">&#215;</button>
+  </div>
+  <div id="detailBody"></div>
+  <p class="detailNotice hidden" id="detailNotice" role="status"></p>
+</dialog>
 <script type="module" src="./atlas.js"></script>
 <script src="/design-choice.js" defer></script>
 </body>
