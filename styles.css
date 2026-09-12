@@ -119,6 +119,7 @@ h2 { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.01em; margin:
 .status-approved { background: var(--ok-tint); color: var(--ok); }
 .status-pending, .status-waiting { background: var(--warn-tint); color: var(--warn); }
 .status-cancelled, .status-declined { background: var(--danger-tint); color: var(--danger); }
+.status-overridden { background: var(--warn-tint); color: var(--warn); }
 .badge-cert.confirmed { color: var(--ok); }
 .badge-cert.tentative { color: var(--info); }
 
@@ -226,21 +227,6 @@ button.member-square { cursor: pointer; font: inherit; }
   font-size: var(--fs-sm);
   border-bottom: 1px solid var(--line);
 }
-.member-selection-summary {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 10px;
-  padding: 7px 10px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-card);
-}
-
 /* ---------- activity feed ---------- */
 .activity-feed { margin: 12px 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-card); padding: 12px 14px; }
 .activity-title { font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 8px; }
@@ -465,23 +451,13 @@ nav[aria-label="Primary"] .tabs { padding: 8px 14px; }
 .home-section-head h2 { margin: 1px 0 0; }
 .home-day-overview { padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-card); }
 .home-day-overview .home-section-head { align-items: flex-start; }
-.home-daypart-list { display: grid; gap: 7px; margin-top: 10px; }
-.home-daypart { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
-.home-daypart[open] { border-color: var(--primary); }
-.home-daypart > summary { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; cursor: pointer; list-style: none; }
-.home-daypart > summary::-webkit-details-marker { display: none; }
-.home-daypart > summary::after { content: "+" / ""; color: var(--accent); font-size: 18px; }
-.home-daypart[open] > summary::after { content: "−" / ""; }
-.home-daypart summary strong, .home-daypart summary small { display: block; }
-.home-daypart summary strong { color: var(--ink); font-size: var(--fs-sm); }
-.home-daypart summary small, .home-daypart-summary { color: var(--ink-soft); font-size: 11px; font-weight: 600; }
-.home-daypart-summary { margin-left: auto; color: var(--primary); font-weight: 750; }
-.home-day-map-wrap { position: relative; }
-.home-daypart .home-day-map {
-  max-height: 330px;
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
+.home-day-map-wrap { position: relative; margin-top: 10px; }
+/* The whole day scrolls in one region. It used to be three collapsible
+   dayparts with only Morning open, which read as a missing schedule. */
+.home-day-overview .home-day-map {
+  max-height: min(64vh, 560px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
 }
 .home-scroll-cue {
   position: absolute;
@@ -713,20 +689,44 @@ button.availability-select { cursor: pointer; }
 .unit-detail strong, .unit-detail span { display: block; }
 .unit-detail.open, .unit-detail.mine { background: var(--ok-tint); color: var(--ok); }
 .member-service { margin: 5px 0; border: 1px solid var(--line); border-radius: 9px; background: repeating-linear-gradient(135deg,var(--surface-sunken),var(--surface-sunken) 8px,color-mix(in srgb,var(--surface-sunken) 70%,var(--surface)) 8px,color-mix(in srgb,var(--surface-sunken) 70%,var(--surface)) 16px); color: var(--ink-soft); }
-.member-selection-summary { z-index: 40; min-height: 80px; padding: 9px 11px; border-radius: 14px; box-shadow: 0 14px 35px rgba(28,42,35,.18); }
-body:has(.home-selection-summary) .wrap { padding-bottom: 176px; }
-.home-selection-summary {
-  position: fixed;
-  left: 50%;
-  bottom: 16px;
-  width: min(760px, calc(100% - 24px));
-  margin-top: 0;
-  transform: translateX(-50%);
-}
-.member-selection-summary > span { min-width: 0; flex: 1; }
-.member-selection-summary > span strong, .member-selection-summary > span small { display: block; }
-.member-selection-summary > span small { color: var(--ink-soft); font-size: 11px; }
-.selection-clear { min-height: 44px; border: 0; background: transparent; color: var(--ink-soft); font-size: 12px; font-weight: 800; cursor: pointer; }
+.selection-clear { min-height: 44px; color: var(--ink-soft); font-weight: 800; }
+
+/* Confirming a chosen time. This used to be a small bar at the bottom of the
+   page that people missed, so it arrives as a popup instead. */
+.selection-confirm-range { margin: 0 0 12px; }
+.selection-confirm-range strong { display: block; color: var(--ink); font-size: var(--fs-xl); font-weight: 800; letter-spacing: -.01em; }
+.selection-confirm-range small { display: block; margin-top: 2px; color: var(--ink-soft); font-size: var(--fs-xs); font-weight: 600; }
+.confirm-counts { border: 1px solid var(--line); border-radius: var(--r-md); }
+.selection-confirm-actions { justify-content: space-between; }
+.override-offer { margin: 0 0 4px; padding: 10px 12px; border: 1px solid var(--purpose-contact); border-radius: var(--r-md); background: var(--purpose-contact-tint); }
+.override-offer p { margin: 0 0 6px; color: var(--ink); font-size: var(--fs-sm); }
+.override-offer p:last-child { margin-bottom: 0; }
+.override-offer .hint { color: var(--ink-soft); font-size: var(--fs-xs); }
+
+/* What the colors mean, above the day map. */
+.purpose-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; }
+.purpose-legend-item { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-soft); font-size: 11px; font-weight: 700; }
+.purpose-swatch { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--line-strong); background: var(--purpose-other-tint); }
+.purpose-contact .purpose-swatch { border-color: var(--purpose-contact); background: var(--purpose-contact); }
+.purpose-new-member .purpose-swatch { border-color: var(--purpose-new-member); background: var(--purpose-new-member); }
+.purpose-other .purpose-swatch { border-color: var(--purpose-other); background: var(--purpose-other); }
+
+/* A reserved cell carries its purpose colour as a left edge and a tint. The
+   purpose is always written out too, so colour is never the only signal. */
+/* The edge is an inset shadow, not a border, so it never steals width from a
+   name on a 320px phone. */
+.home-occupied-cell.purpose-contact { box-shadow: inset 4px 0 0 var(--purpose-contact); background: var(--purpose-contact-tint); }
+.home-occupied-cell.purpose-new-member { box-shadow: inset 4px 0 0 var(--purpose-new-member); background: var(--purpose-new-member-tint); }
+.home-occupied-cell.purpose-other { box-shadow: inset 4px 0 0 var(--purpose-other); background: var(--purpose-other-tint); }
+.home-occupied-cell.purpose-legacy { box-shadow: inset 4px 0 0 var(--purpose-legacy); background: var(--purpose-legacy-tint); opacity: .92; }
+button.home-occupied-cell { cursor: pointer; }
+button.home-occupied-cell:hover { border-color: var(--primary); }
+.purpose-chip .purpose-swatch { margin-right: 6px; vertical-align: -1px; }
+
+/* A reservation that was moved or released by a higher priority. */
+.priority-notice { margin-top: 8px; padding: 8px 10px; border-radius: var(--r-sm); border-left: 4px solid var(--info); background: var(--info-tint); color: var(--ink); font-size: var(--fs-xs); }
+.priority-notice.released { border-left-color: var(--warn); background: var(--warn-tint); }
+.priority-notice strong { display: block; font-weight: 800; }
 
 .modal-backdrop { background: rgba(12,22,18,.58); backdrop-filter: blur(3px); }
 .booking-dialog { max-width: 590px; border-radius: 24px 24px 0 0; padding: 14px 20px 26px; }
@@ -836,13 +836,7 @@ body:has(.home-selection-summary) .wrap { padding-bottom: 176px; }
   .tab.active { background: transparent; color: var(--primary); box-shadow: none; }
   .wrap { padding: 12px 12px 112px; }
   #banners { bottom: 84px; }
-  body:has(.member-selection-summary) #banners { bottom: 166px; }
-  /* The Clear/Continue bar is fixed above the phone navigation, so the page
-     needs room to scroll its last controls clear of it. */
-  body:has(.home-selection-summary) .wrap { padding-bottom: 236px; }
   .availability-select { grid-template-columns: 84px 1fr 20px; }
-  .home-selection-summary { bottom: calc(72px + env(safe-area-inset-bottom)); }
-  .member-selection-summary .btn { padding-inline: 13px; }
   .unit-detail-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .end-time-panel label { grid-template-columns: minmax(0,1fr); }
   .time-range-controls { grid-template-columns: minmax(0,1fr); }
@@ -868,7 +862,6 @@ body:has(.home-selection-summary) .wrap { padding-bottom: 176px; }
   .availability-select { grid-template-columns: 78px 1fr 18px; padding-inline: 8px; }
   .date-choice { padding-inline: 8px; }
   .member-resource { font-size: 12px; }
-  .member-selection-summary { gap: 5px; padding-inline: 8px; }
 }
 
 @media (max-width: 250px) {
@@ -876,9 +869,6 @@ body:has(.home-selection-summary) .wrap { padding-bottom: 176px; }
   .member-resource-toggle { display: grid; grid-template-columns: 1fr; }
   .member-resource { border-right: 0; border-bottom: 1px solid var(--line); }
   .member-resource:last-child { border-bottom: 0; }
-  .member-selection-summary { flex-wrap: wrap; }
-  .member-selection-summary > span { flex-basis: 100%; }
-  .member-selection-summary .selection-clear, .member-selection-summary .btn { flex: 1; }
   .modal-actions { flex-direction: column-reverse; }
   .modal-actions .btn { width: 100%; min-width: 0; }
   .purpose-grid { grid-template-columns: 1fr; }

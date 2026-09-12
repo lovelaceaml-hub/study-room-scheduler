@@ -20,9 +20,10 @@ The established Firebase service is **https://lvrooms.web.app**. Use
 > mobile display/feed-order follow-up is also live: it keeps narrow-phone time labels
 > on one line and puts the newest Live update first. A further mobile grid-density
 > follow-up is also live: it keeps Home tiles compact and evenly spaced while preserving
-> readable names and short purpose labels. The July 22 selection-bar update is live as
-> well: after an exact end time is chosen, the Clear and Continue actions remain visible
-> while the schedule is scrolled. The July 26, 2026 update removes approval from every
+> readable names and short purpose labels. The September 11, 2026 update replaces the
+> July 22 selection bar with a confirmation popup, shows the whole day as one schedule
+> instead of three boxes, colors reservations by purpose, and lets a Contact or New
+> Member take a time held for Other. The July 26, 2026 update removes approval from every
 > day—Tuesday and Saturday reservations are now confirmed the moment they are made—and
 > adds **End early**, so a member who finishes ahead of time can release the rest of
 > their reservation.
@@ -101,10 +102,14 @@ Slots are 30 minutes long. Booking begins at **10:00 AM** and the final reservab
 is **10:30–11:00 PM**. The evening list therefore includes **10:00 PM** and **10:30 PM**
 as start times.
 
-The Home overview is divided around these service periods:
+The Home overview shows the whole day in one schedule, with these service periods
+marked in place (new times, starting 12 September 2026):
 
-- **Tuesday:** 8:00–9:00 PM.
-- **Saturday:** 9:00–10:00 AM, 3:00–4:00 PM, and 8:00–9:00 PM.
+- **Tuesday:** 7:30–8:30 PM.
+- **Saturday:** 10:00–11:00 AM, 2:30–3:30 PM, and 7:30–8:30 PM.
+
+Because Saturday's morning service runs 10:00–11:00 AM, the first Saturday reservation
+starts at 11:00 AM.
 
 Service time does not appear as a selectable member slot. A reservation cannot overlap
 or cross through one. The lobby TV still shows each service as a labeled timetable band.

@@ -59,8 +59,9 @@ The redesign addresses these structural problems before adding decoration:
 - Study Rooms 1–4, Whiteboards 1–5 with matching podium included, and TVs 1–3.
 - No Baptism Room, separate podium request, preferred room, or member certainty field.
 - Thirty-minute periods through 9:30–10:00 PM.
-- Saturday services at 9:00–10:00 AM, 3:00–4:00 PM, and 8:00–9:00 PM.
-- Tuesday service at 8:00–9:00 PM.
+- Saturday services at 10:00–11:00 AM, 2:30–3:30 PM, and 7:30–8:30 PM
+  (new times, effective 12 September 2026).
+- Tuesday service at 7:30–8:30 PM.
 - Pending requests do not own numbered units before approval.
 - The lobby TV uses first name plus last initial and never shows private notes,
   purposes, preferences, PIN controls, or Admin actions.

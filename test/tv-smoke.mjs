@@ -113,7 +113,8 @@ try {
     }
   };
   await checkRoomCardAt('2026-07-21T08:00:00-07:00', 0, /Available when rooms open/, /Next: Anthony L\. · 10:00 AM–12:00 PM/);
-  await checkRoomCardAt('2026-07-21T20:30:00-07:00', 2, /Service in progress/, /Next: Marcus G\. · 10:00 PM–10:30 PM/);
+  // Tuesday's service moved to 7:30-8:30 PM on 12 September 2026.
+  await checkRoomCardAt('2026-07-21T20:00:00-07:00', 2, /Service in progress/, /Next: Marcus G\. · 10:00 PM–10:30 PM/);
   assert.deepEqual(errors, []);
   console.log('TV demo/date selector smoke checks passed');
 } finally {

@@ -6,6 +6,7 @@ const { FieldPath, FieldValue, Timestamp, getFirestore } = require('firebase-adm
 const { defineSecret } = require('firebase-functions/params');
 const { HttpsError, onCall, onRequest } = require('firebase-functions/v2/https');
 const {
+  OVERRIDE_PURPOSES,
   availableUnitForType,
   conflictingBooking,
   earlyEndError,
@@ -14,6 +15,7 @@ const {
   migrationResourceUpdate,
   normalizeBookingIds,
   normalizeLegacyResourceMaps,
+  overrideTarget,
   priorityForPurpose,
   rangesOverlap,
   shorterAvailableEnd,
@@ -214,11 +216,33 @@ function memberRequestInput(input) {
   if (timeError) throw new HttpsError('invalid-argument', timeError);
   const resourceType = requestText(data.resourceType, 20, 'Resource type', true);
   if (!UNITS_BY_TYPE[resourceType]) throw new HttpsError('invalid-argument', 'Choose a study room, whiteboard, or TV.');
-  const purpose = ['contact', 'new-member', 'meeting', 'group', 'study-member', 'other'].includes(data.purpose) ? data.purpose : '';
+  // Meeting was retired as a choice on 11 September 2026. Records already
+  // saved with it keep working; no new one can be created.
+  const purpose = ['contact', 'new-member', 'other'].includes(data.purpose) ? data.purpose : '';
   if (!purpose) throw new HttpsError('invalid-argument', 'Choose a purpose.');
   const purposeOther = requestText(data.purposeOther, 240, 'Purpose details');
   if (purpose === 'other' && !purposeOther) throw new HttpsError('invalid-argument', 'Purpose details are required.');
   return { date, start: data.start, end: data.end, resourceType, name: requestText(data.name, 120, 'Name', true), purpose, purposeOther };
+}
+
+function memberBookingDocument(request, assignments, uid, now, automatic = true) {
+  return {
+    schemaVersion: 4,
+    date: request.date,
+    bookingDate: bookingDateTimestamp(request.date),
+    start: request.start,
+    end: request.end,
+    name: request.name,
+    needs: { room: request.resourceType === 'room', whiteboard: request.resourceType === 'whiteboard', tv: request.resourceType === 'tv' },
+    purpose: request.purpose,
+    purposeOther: request.purpose === 'other' ? request.purposeOther : '',
+    status: automatic ? 'approved' : 'pending',
+    assignments,
+    ownerUid: uid,
+    createdAt: now,
+    updatedAt: now,
+    ...(automatic ? { decidedAt: now, decidedBy: 'automatic' } : {})
+  };
 }
 
 async function memberSubmitBooking(input, uid) {
@@ -253,24 +277,107 @@ async function memberSubmitBooking(input, uid) {
     const unitId = automatic ? availableUnitId : null;
     candidate.assignments[request.resourceType] = unitId;
     const now = FieldValue.serverTimestamp();
-    transaction.create(bookingRef, {
-      schemaVersion: 4,
-      date: request.date,
-      bookingDate: bookingDateTimestamp(request.date),
-      start: request.start,
-      end: request.end,
-      name: request.name,
-      needs: { room: request.resourceType === 'room', whiteboard: request.resourceType === 'whiteboard', tv: request.resourceType === 'tv' },
-      purpose: request.purpose,
-      purposeOther: request.purpose === 'other' ? request.purposeOther : '',
-      status: automatic ? 'approved' : 'pending',
-      assignments: candidate.assignments,
-      ownerUid: uid,
-      createdAt: now,
-      updatedAt: now,
-      ...(automatic ? { decidedAt: now, decidedBy: 'automatic' } : {})
-    });
+    transaction.create(bookingRef, memberBookingDocument(request, candidate.assignments, uid, now, automatic));
     return { bookingId: bookingRef.id, status: automatic ? 'approved' : 'pending', assignment: unitId, priority: priorityForPurpose(request.purpose) };
+  });
+}
+
+/* Taking a reserved time. Contact and New Member outrank Other, so when a
+   range is full and everything standing in it is an Other, one unit can be
+   reclaimed. Whoever is displaced keeps their time in another unit when one
+   is free; otherwise their reservation is released and flagged for the
+   approver. Everything happens in one transaction so two people can never
+   take the same unit. */
+async function memberOverrideBooking(input, uid) {
+  let request;
+  try { request = memberRequestInput(input); }
+  catch (error) { throw errorFromValidation(error); }
+  if (!OVERRIDE_PURPOSES.includes(request.purpose)) {
+    throw new HttpsError('failed-precondition', 'Only a Contact or New Member reservation can take a reserved time.');
+  }
+  const type = request.resourceType;
+  const bookingRef = db.collection('bookings').doc();
+  return db.runTransaction(async transaction => {
+    const mine = await transaction.get(
+      db.collection('bookings')
+        .where('ownerUid', '==', uid)
+        .where('date', '==', request.date)
+        .where('status', 'in', ['pending', 'approved'])
+    );
+    if (mine.size >= 4) {
+      throw new HttpsError('resource-exhausted', 'You already have several reservations for this day. Please talk to the approver if you need more.');
+    }
+    const approved = await approvedBookingsForDate(transaction, request.date);
+    const candidate = { ...request, assignments: { room: null, whiteboard: null, tv: null } };
+    const now = FieldValue.serverTimestamp();
+
+    // Something opened up while they were deciding: take it and displace no one.
+    const freeUnit = availableUnitForType(type, candidate, approved);
+    if (freeUnit) {
+      candidate.assignments[type] = freeUnit;
+      transaction.create(bookingRef, memberBookingDocument(request, candidate.assignments, uid, now));
+      return { bookingId: bookingRef.id, status: 'approved', assignment: freeUnit, priority: priorityForPurpose(request.purpose) };
+    }
+
+    const target = overrideTarget(type, candidate, approved);
+    if (!target) {
+      throw new HttpsError('failed-precondition', 'That time is fully reserved and nothing in it can be taken.');
+    }
+
+    // Re-place the displaced reservations against a pool that already counts
+    // the new claim, so nobody is moved into a unit that is about to be taken.
+    const displacedIds = new Set(target.holders.map(holder => holder.id));
+    const pool = approved
+      .filter(existing => !displacedIds.has(existing.id))
+      .map(existing => ({ ...existing, assignments: { ...(existing.assignments || {}) } }));
+    candidate.assignments[type] = target.unitId;
+    pool.push({ ...candidate, id: bookingRef.id, status: 'approved' });
+
+    const moves = target.holders.map(holder => {
+      const holderCandidate = {
+        date: holder.date,
+        start: holder.start,
+        end: holder.end,
+        assignments: { room: null, whiteboard: null, tv: null }
+      };
+      const toUnit = availableUnitForType(type, holderCandidate, pool);
+      if (toUnit) {
+        const assignments = { ...(holder.assignments || {}), [type]: toUnit };
+        pool.push({ ...holder, status: 'approved', assignments });
+        return { holder, toUnit, assignments };
+      }
+      return { holder, toUnit: null, assignments: { ...(holder.assignments || {}), [type]: null } };
+    });
+
+    moves.forEach(move => {
+      const notice = {
+        kind: move.toUnit ? 'moved' : 'released',
+        type,
+        fromUnit: target.unitId,
+        toUnit: move.toUnit || null,
+        byPurpose: request.purpose,
+        byBookingId: bookingRef.id,
+        at: now
+      };
+      transaction.update(db.collection('bookings').doc(move.holder.id), move.toUnit
+        ? { assignments: move.assignments, priorityNotice: notice, updatedAt: now }
+        : { status: 'overridden', assignments: move.assignments, needsRebooking: true, priorityNotice: notice, updatedAt: now });
+    });
+
+    transaction.create(bookingRef, {
+      ...memberBookingDocument(request, candidate.assignments, uid, now),
+      overrodeBookingIds: moves.map(move => move.holder.id)
+    });
+
+    return {
+      bookingId: bookingRef.id,
+      status: 'approved',
+      assignment: target.unitId,
+      priority: priorityForPurpose(request.purpose),
+      overrodeBookingId: moves.length ? moves[0].holder.id : null,
+      moved: moves.every(move => !!move.toUnit),
+      released: moves.filter(move => !move.toUnit).length
+    };
   });
 }
 
@@ -555,6 +662,20 @@ exports.memberSubmitBooking = onCall({ region: REGION }, async request => {
     throw new HttpsError('resource-exhausted', 'Too many reservation requests from this device. Please wait a few minutes and try again.');
   }
   return memberSubmitBooking(request.data, uid);
+});
+
+exports.memberOverrideBooking = onCall({ region: REGION }, async request => {
+  const uid = requireAuth(request);
+  const address = clientAddress(request);
+  const submitRef = memberSubmitRef(address);
+  if (isCurrentlyBlocked(await submitRef.get())) {
+    throw new HttpsError('resource-exhausted', 'Too many reservation requests from this device. Please wait a few minutes and try again.');
+  }
+  const blocked = await recordFailureOn(submitRef, MAX_MEMBER_SUBMISSIONS);
+  if (blocked) {
+    throw new HttpsError('resource-exhausted', 'Too many reservation requests from this device. Please wait a few minutes and try again.');
+  }
+  return memberOverrideBooking(request.data, uid);
 });
 
 // Ending early only ever shrinks a reservation the caller already owns, so it

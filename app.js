@@ -21,12 +21,20 @@ const ADMIN_KEY = 'srs-admin-session';
 const MY_BOOKINGS_KEY = 'srs-my-bookings';   // localStorage array of this device's own booking ids
 const NAME_KEY = 'srs-name';                 // localStorage: last name typed in the reservation popup
 
+/* Priority order, highest first. A Contact reservation outranks a New
+   Member one, and both outrank Other. Only an Other reservation can be
+   taken over, and only when nothing else is open (see overrideTarget). */
 const PURPOSES = [
-  { id: 'contact', label: 'Contact' },
-  { id: 'new-member', label: 'New Member' },
-  { id: 'meeting', label: 'Meeting' },
-  { id: 'other', label: 'Other' }
+  { id: 'contact', label: 'Contact', rank: 1 },
+  { id: 'new-member', label: 'New Member', rank: 2 },
+  { id: 'other', label: 'Other', rank: 3 }
 ];
+/* Purposes that may take a lower-priority reservation's place. */
+const OVERRIDE_PURPOSES = ['contact', 'new-member'];
+/* The only purpose that can be taken. Meeting was retired as a choice on
+   11 September 2026; reservations already saved as Meeting, Group or Study
+   member keep their label and are never override targets. */
+const OVERRIDABLE_PURPOSE = 'other';
 /* Admin-only addition, used solely on the "Add a booking" form (e.g. to
    hold a room for another use). Never offered to
    members in the reservation popup. Renders as a neutral "Reserved" chip. */
@@ -79,11 +87,11 @@ let ui = {
   selectedDate: null,   // shared by Home selection and Admin
   homeDate: null,       // independent date in the member Home day overview
   homeOverviewType: 'room', // resource shown in the member Home day overview
-  homeOpenDayparts: ['morning'], // preserved across Home renders and sheets
   adminType: 'room',    // resource displayed in the matching Admin calendar
   adminSelectedId: null, // one pending request shown in the Admin detail pane
   memberSelection: null, // { date, type, start, end, windowIdx }
   endPrompt: null, // { date, type, start, windowIdx }; shown after choosing a start
+  selectionConfirm: null, // { date, type, start, end }; confirmation popup after choosing an end
   availabilityDetails: null, // { date, type, start, end }; read-only availability sheet
   endEarly: null,       // { id }; "finished early" sheet for one of this device's reservations
   availabilityConflict: null, // rejected range plus optional shorter ending
@@ -232,6 +240,7 @@ if (new URLSearchParams(location.search).get('test') === '1') {
         availabilityConflict: !!ui.availabilityConflict,
         endPrompt: !!ui.endPrompt,
         availabilityDetails: !!ui.availabilityDetails,
+        selectionConfirm: !!ui.selectionConfirm,
         returnFocusKey: ui.returnFocusKey
       };
     },
@@ -240,46 +249,39 @@ if (new URLSearchParams(location.search).get('test') === '1') {
       ui.availabilityConflict = { date: selectedHomeDate(), type: ui.homeOverviewType, start: '10:00', attemptedEnd: '11:00' };
       ui.endPrompt = { date: selectedHomeDate(), type: ui.homeOverviewType, start: '10:00', windowIdx: 0 };
       ui.availabilityDetails = { date: selectedHomeDate(), type: ui.homeOverviewType, start: '10:00', end: '10:30' };
+      ui.selectionConfirm = { date: selectedHomeDate(), type: ui.homeOverviewType, start: '10:00', end: '10:30' };
       ui.returnFocusKey = 'test-home-origin';
     }
   };
 }
 
 /* Every schedule segment is explicit so a selected range can never cross
-   a service. Saturday begins at 9:00 AM to keep its morning service visible;
-   reservable slots still begin at 10:00 AM. */
+   a service. Service times changed on 12 September 2026: Saturday holds all
+   three services, Tuesday only the evening one. Reservable slots begin at
+   10:00 AM, so Saturday's first bookable start is 11:00 AM. */
 function scheduleSegments(date) {
   if (isSaturday(date)) return [
-    { start: '09:00', end: '10:00', label: 'Morning service', service: true },
-    { start: '10:00', end: '15:00', label: 'Morning and early afternoon' },
-    { start: '15:00', end: '16:00', label: 'Afternoon service', service: true },
-    { start: '16:00', end: '20:00', label: 'Afternoon and evening' },
-    { start: '20:00', end: '21:00', label: 'Evening service', service: true },
-    { start: '21:00', end: '23:00', label: 'Late evening' }
+    { start: '10:00', end: '11:00', label: 'Morning service', service: true },
+    { start: '11:00', end: '14:30', label: 'Late morning and early afternoon' },
+    { start: '14:30', end: '15:30', label: 'Afternoon service', service: true },
+    { start: '15:30', end: '19:30', label: 'Afternoon and evening' },
+    { start: '19:30', end: '20:30', label: 'Evening service', service: true },
+    { start: '20:30', end: '23:00', label: 'Late evening' }
   ];
   return [
-    { start: '10:00', end: '20:00', label: 'Daytime and evening' },
-    { start: '20:00', end: '21:00', label: 'Evening service', service: true },
-    { start: '21:00', end: '23:00', label: 'Late evening' }
+    { start: '10:00', end: '19:30', label: 'Daytime and evening' },
+    { start: '19:30', end: '20:30', label: 'Evening service', service: true },
+    { start: '20:30', end: '23:00', label: 'Late evening' }
   ];
 }
 function bookingWindows(date) { return scheduleSegments(date).filter(w => !w.service); }
 function serviceWindows(date) { return scheduleSegments(date).filter(w => w.service); }
 
-/* Member-facing disclosures stay compact and use familiar dayparts. Tuesday
-   has no afternoon service, so its daytime booking window is presented as two
-   sections without changing the underlying range validation. */
-function reservationPeriods(date) {
-  if (isSaturday(date)) return [
-    { start: '10:00', end: '15:00', label: 'Morning' },
-    { start: '16:00', end: '20:00', label: 'Afternoon' },
-    { start: '21:00', end: '23:00', label: 'Evening' }
-  ];
-  return [
-    { start: '10:00', end: '15:00', label: 'Morning' },
-    { start: '15:00', end: '20:00', label: 'Afternoon' },
-    { start: '21:00', end: '23:00', label: 'Evening' }
-  ];
+/* Which booking window a start time falls in. The windows between services
+   are the only real boundary a reservation cannot cross, so they replaced the
+   old Morning/Afternoon/Evening grouping on 11 September 2026. */
+function windowIndexForStart(date, start) {
+  return bookingWindows(date).findIndex(w => start >= w.start && start < w.end);
 }
 
 function periodTimePoints(period) {
@@ -361,9 +363,9 @@ function demoBookings() {
     // Tuesday: confirmed examples, a full short interval, equipment, and late slots.
     { id: 'demo-room-4', date: tuesday, start: '10:00', end: '13:30', name: 'Anthony', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-4', whiteboard: null, tv: null }, createdAt: created, decidedAt: created + 1000 },
     // ISO decision time verifies that Live updates uses the actual latest update, not fixture order.
-    { id: 'demo-room-1-full', date: tuesday, start: '11:00', end: '11:30', name: 'Jordan A.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2000, decidedAt: new Date(created + 3000).toISOString() },
-    { id: 'demo-room-2-full', date: tuesday, start: '11:00', end: '11:30', name: 'Taylor B.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 3000, decidedAt: created - 2000 },
-    { id: 'demo-room-3-full', date: tuesday, start: '11:00', end: '11:30', name: 'Morgan C.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 4000, decidedAt: created - 3000 },
+    { id: 'demo-room-1-full', date: tuesday, start: '11:00', end: '11:30', name: 'Jordan A.', purpose: 'other', purposeOther: 'Catching up', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2000, decidedAt: new Date(created + 3000).toISOString() },
+    { id: 'demo-room-2-full', date: tuesday, start: '11:00', end: '11:30', name: 'Taylor B.', purpose: 'other', purposeOther: 'Catching up', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 3000, decidedAt: created - 2000 },
+    { id: 'demo-room-3-full', date: tuesday, start: '11:00', end: '11:30', name: 'Morgan C.', purpose: 'other', purposeOther: 'Catching up', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 4000, decidedAt: created - 3000 },
     // Admin-held slots deliberately use a name that must never appear in the member map.
     { id: 'demo-room-admin-held', date: tuesday, start: '12:00', end: '12:30', name: 'Admin Hold — Private', purpose: 'blocked', purposeOther: 'Internal staffing note', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 4500, decidedAt: created - 4400 },
     { id: 'demo-room-1', date: tuesday, start: '18:00', end: '19:00', name: 'Sofia M.', purpose: 'other', purposeOther: 'Family Bible study', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 1800000, decidedAt: created - 1700000 },
@@ -371,13 +373,17 @@ function demoBookings() {
     { id: 'demo-whiteboard-1', date: tuesday, start: '16:00', end: '17:30', name: 'Daniel K.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: 'wb-1', tv: null }, createdAt: created - 1200000, decidedAt: created - 1100000 },
     { id: 'demo-tv-1', date: tuesday, start: '14:00', end: '15:00', name: 'Maria R.', purpose: 'new-member', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: 'tv-1' }, createdAt: created - 1300000, decidedAt: created - 1200000 },
     { id: 'demo-tv-2', date: tuesday, start: '14:00', end: '15:00', name: 'Maria R.', purpose: 'new-member', purposeOther: '', status: 'cancelled', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: null }, lastAssignments: { room: null, whiteboard: null, tv: 'tv-2' }, createdAt: created - 600000, updatedAt: created - 300000 },
+    // The two priority updates: one that kept its time in another room, one
+    // that had to be released because nothing else was open.
+    { id: 'demo-room-moved', date: tuesday, start: '18:00', end: '19:00', name: 'Anthony', purpose: 'other', purposeOther: 'Catching up', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 800000, decidedAt: created - 800000, updatedAt: created - 60000, priorityNotice: { kind: 'moved', type: 'room', fromUnit: 'room-2', toUnit: 'room-3', byPurpose: 'new-member', at: created - 60000 } },
+    { id: 'demo-room-released', date: tuesday, start: '11:00', end: '11:30', name: 'Anthony', purpose: 'other', purposeOther: 'Catching up', status: 'overridden', needsRebooking: true, needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 500000, updatedAt: created - 30000, priorityNotice: { kind: 'released', type: 'room', fromUnit: 'room-2', toUnit: null, byPurpose: 'contact', at: created - 30000 } },
     { id: 'demo-room-cancelled', date: tuesday, start: '17:00', end: '18:00', name: 'Anthony', purpose: 'meeting', purposeOther: '', status: 'cancelled', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1500000, updatedAt: created - 1400000 },
     // Saturday: confirmed on submission, exactly like Tuesday.
-    { id: 'demo-sat-room-1', date: saturday, start: '10:00', end: '12:00', name: 'Elena M.', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2400000, decidedAt: created - 2300000 },
-    { id: 'demo-sat-room-2', date: saturday, start: '10:30', end: '11:30', name: 'Isaac V.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 2500000, decidedAt: created - 2400000 },
-    { id: 'demo-sat-room-mine', date: saturday, start: '10:00', end: '11:30', name: 'Grace L.', purpose: 'new-member', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 900000, decidedAt: created - 900000 },
-    { id: 'demo-sat-tv-1', date: saturday, start: '16:30', end: '18:00', name: 'Micah S.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: 'tv-1' }, createdAt: created - 850000, decidedAt: created - 850000 },
-    { id: 'demo-sat-wb-2', date: saturday, start: '18:00', end: '19:30', name: 'Hannah C.', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: 'wb-2', tv: null }, createdAt: created - 2600000, decidedAt: created - 2500000 },
+    { id: 'demo-sat-room-1', date: saturday, start: '11:00', end: '13:00', name: 'Elena M.', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2400000, decidedAt: created - 2300000 },
+    { id: 'demo-sat-room-2', date: saturday, start: '11:30', end: '12:30', name: 'Isaac V.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 2500000, decidedAt: created - 2400000 },
+    { id: 'demo-sat-room-mine', date: saturday, start: '11:00', end: '12:30', name: 'Grace L.', purpose: 'new-member', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 900000, decidedAt: created - 900000 },
+    { id: 'demo-sat-tv-1', date: saturday, start: '16:00', end: '17:30', name: 'Micah S.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: 'tv-1' }, createdAt: created - 850000, decidedAt: created - 850000 },
+    { id: 'demo-sat-wb-2', date: saturday, start: '17:30', end: '19:00', name: 'Hannah C.', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: 'wb-2', tv: null }, createdAt: created - 2600000, decidedAt: created - 2500000 },
     { id: 'demo-sat-room-late', date: saturday, start: '22:30', end: '23:00', name: 'Samuel D.', purpose: 'other', purposeOther: 'Review meeting', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 700000, decidedAt: created - 700000 }
   ];
 }
@@ -388,14 +394,19 @@ function activeBookingsForDate(date) {
 function needsOf(b) { return b.needs || {}; }
 function assignmentsOf(b) { return b.assignments || {}; }
 
+const LEGACY_PURPOSES = [
+  { id: 'meeting', label: 'Meeting' },
+  { id: 'group', label: 'Group' },
+  { id: 'study-member', label: 'Study member' }
+];
 const PURPOSE_MAP = {};
-PURPOSES.concat(ADMIN_PURPOSES).forEach(p => { PURPOSE_MAP[p.id] = p.label; });
+PURPOSES.concat(ADMIN_PURPOSES, LEGACY_PURPOSES).forEach(p => { PURPOSE_MAP[p.id] = p.label; });
 function purposeLabel(p) { return PURPOSE_MAP[p] || p || ''; }
 function bookingPurposeText(b) {
   if (b.purpose === 'other' && b.purposeOther) return 'Other — ' + b.purposeOther;
   return purposeLabel(b.purpose);
 }
-const STATUS_LABEL = { pending: 'Pending review', approved: 'Approved', declined: 'Declined', cancelled: 'Cancelled' };
+const STATUS_LABEL = { pending: 'Pending review', approved: 'Approved', declined: 'Declined', cancelled: 'Cancelled', overridden: 'Given to a higher priority' };
 
 function neededTypesOf(b) {
   const n = needsOf(b);
@@ -432,7 +443,7 @@ function scheduleAdminExpiry(expiresAt) {
 
 /* ---- this device's own requests (localStorage) ---- */
 function myBookingIds() {
-  if (demoMode()) return ['demo-sat-room-mine', 'demo-room-4', 'demo-room-cancelled'];
+  if (demoMode()) return ['demo-sat-room-mine', 'demo-room-4', 'demo-room-cancelled', 'demo-room-moved', 'demo-room-released'];
   try { const raw = localStorage.getItem(MY_BOOKINGS_KEY); return raw ? JSON.parse(raw) : []; }
   catch (e) { return []; }
 }
@@ -543,8 +554,33 @@ function blockingReasonForRange(neededTypes, date, start, end, excludeId) {
 
 /* ================= admin assignment recommendation ================= */
 
-function bookingPriority(b) {
-  return ({ contact: 0, 'new-member': 1, group: 2, 'study-member': 2, meeting: 2, other: 3 }[b.purpose] ?? 3);
+function purposePriority(purpose) {
+  return ({ contact: 0, 'new-member': 1, group: 2, 'study-member': 2, meeting: 2, other: 3 }[purpose] ?? 3);
+}
+function bookingPriority(b) { return purposePriority(b.purpose); }
+
+/* Colour tone for a purpose. Legacy purposes that are no longer offered
+   share one neutral tone so they never read as a current choice. */
+function purposeToneClass(purpose) {
+  return PURPOSES.some(p => p.id === purpose) ? 'purpose-' + purpose : 'purpose-legacy';
+}
+
+/* Units of `type` that a higher priority could take for [start,end): every
+   approved reservation touching that unit in the range must be an Other.
+   A unit with nothing on it is not listed here — it is simply free. */
+function reclaimableUnits(type, date, start, end) {
+  return unitsForType(type).map(unit => {
+    const holders = bookingsForDate(date).filter(b =>
+      b.status === 'approved' && assignmentsOf(b)[type] === unit.id &&
+      rangesOverlap(b.start, b.end, start, end));
+    if (!holders.length) return null;
+    if (!holders.every(b => b.purpose === OVERRIDABLE_PURPOSE)) return null;
+    return { unit: unit, holders: holders };
+  }).filter(Boolean).sort((a, b) => a.holders.length - b.holders.length || a.unit.num - b.unit.num);
+}
+function overrideCandidate(type, date, start, end) {
+  if (freeUnitsForType(type, date, start, end, null).length) return null;
+  return reclaimableUnits(type, date, start, end)[0] || null;
 }
 
 function recommendedUnit(type, booking, date) {
@@ -658,6 +694,7 @@ async function initFirebase(config) {
       adminNoteAction: fnMod.httpsCallable(functions, 'adminNoteAction'),
       adminMigrateNotes: fnMod.httpsCallable(functions, 'adminMigrateNotes'),
       memberSubmitBooking: fnMod.httpsCallable(functions, 'memberSubmitBooking'),
+      memberOverrideBooking: fnMod.httpsCallable(functions, 'memberOverrideBooking'),
       memberEndBookingEarly: fnMod.httpsCallable(functions, 'memberEndBookingEarly'),
       memberSetPrivateNote: fnMod.httpsCallable(functions, 'memberSetPrivateNote')
     }
@@ -672,7 +709,12 @@ async function initFirebase(config) {
     // device's saved bookings — wait for a real server answer.
     if (snap.metadata.fromCache && snap.empty) return;
     const previousStatuses = {};
-    myBookingIds().forEach(id => { if (state.bookings[id]) previousStatuses[id] = state.bookings[id].status; });
+    const previousNotices = {};
+    myBookingIds().forEach(id => {
+      if (!state.bookings[id]) return;
+      previousStatuses[id] = state.bookings[id].status;
+      previousNotices[id] = priorityNoticeKey(state.bookings[id]);
+    });
     state.bookings = {};
     snap.docs.forEach(d => { state.bookings[d.id] = d.data(); });
     scheduleReady = true;
@@ -683,6 +725,15 @@ async function initFirebase(config) {
       if (previousStatuses[id] !== 'pending' || !now || now === 'pending') return;
       if (now === 'approved') addBanner('Your reservation was approved. See My reservations for details.');
       else if (now === 'declined') addBanner('Your reservation request was declined. See My reservations.', true);
+    });
+    // A priority update: someone with a higher purpose took this time, so the
+    // reservation either moved to another unit or was released.
+    myBookingIds().forEach(id => {
+      const booking = state.bookings[id];
+      const key = priorityNoticeKey(booking);
+      if (!key || key === previousNotices[id]) return;
+      const message = priorityNoticeText(booking);
+      if (message) addBanner(message, booking.priorityNotice.kind === 'released');
     });
     saveLocal(); render();
     setSyncPill(!snap.metadata.fromCache, snap.metadata.fromCache ? 'Reconnecting' : 'Live');
@@ -760,7 +811,7 @@ function render() {
 
   const masthead = document.querySelector('#masthead .head-in');
   const primaryNav = document.querySelector('nav[aria-label="Primary"]');
-  const sheetOpen = !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails || !!ui.endEarly;
+  const sheetOpen = !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails || !!ui.selectionConfirm || !!ui.endEarly;
   if (masthead) masthead.inert = sheetOpen;
   if (primaryNav) primaryNav.inert = sheetOpen;
   // My reservations renders its list and feed as siblings of the intro, so
@@ -838,20 +889,6 @@ function updateHomeScrollCue(map) {
 }
 
 function hydrateHomeDayOverview() {
-  document.querySelectorAll('.home-daypart').forEach(part => {
-    const label = part.querySelector('.home-daypart-summary');
-    const sync = () => {
-      const daypart = part.dataset.daypart;
-      const opened = new Set(ui.homeOpenDayparts || []);
-      if (part.open) opened.add(daypart); else opened.delete(daypart);
-      ui.homeOpenDayparts = Array.from(opened);
-      if (label) label.textContent = part.open ? 'Hide schedule' : 'Show schedule';
-      part.querySelector('summary')?.setAttribute('aria-expanded', String(part.open));
-      part.querySelectorAll('.home-day-map').forEach(updateHomeScrollCue);
-    };
-    part.addEventListener('toggle', sync);
-    sync();
-  });
   document.querySelectorAll('.home-day-map').forEach(map => {
     map.addEventListener('scroll', () => updateHomeScrollCue(map), { passive: true });
     updateHomeScrollCue(map);
@@ -904,36 +941,21 @@ function dayMapGridHtml(date, type, options = {}) {
           const adminHeld = occupant.purpose === 'blocked' || occupant.blocked === true;
           const name = adminHeld ? 'Reserved' : occupant.name;
           const purpose = adminHeld ? 'Reserved' : purposeLabel(occupant.purpose);
-          return '<div class="member-square ' + status + ' home-occupied-cell' + (adminHeld ? ' home-held-cell' : '') + '" data-held="' + adminHeld + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved by ' + name + ', ' + purpose) + '"><strong class="home-cell-name">' + esc(name) + '</strong><small class="home-cell-purpose">' + esc(purpose) + '</small></div>';
+          const tone = adminHeld ? 'purpose-held' : purposeToneClass(occupant.purpose);
+          const body = '<strong class="home-cell-name">' + esc(name) + '</strong><small class="home-cell-purpose">' + esc(purpose) + '</small>';
+          // A held slot is Admin business and stays inert. Anything else can be
+          // opened, which is how a higher priority asks to take an Other slot.
+          if (adminHeld) {
+            return '<div class="member-square ' + status + ' home-occupied-cell home-held-cell ' + tone + '" data-held="true" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved') + '">' + body + '</div>';
+          }
+          const takenKey = 'home-taken-' + date + '-' + type + '-' + start + '-' + unit.id;
+          return '<button type="button" class="member-square ' + status + ' home-occupied-cell ' + tone + '" data-act="home-taken-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + start + '" data-focus-key="' + esc(takenKey) + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved by ' + name + ', ' + purpose + '. Open this time to see your options.') + '">' + body + '</button>';
         }
         return '<div class="member-square ' + status + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + (occupant ? 'reserved by ' + occupant.name : status)) + '">' + (occupant ? esc(occupant.name) : '') + '</div>';
       }).join('') + '</div></div>';
     });
   });
   return html + '</div>';
-}
-
-function homeDayparts(date) {
-  const start = isSaturday(date) ? '09:00' : '10:00';
-  return [
-    { id: 'morning', label: 'Morning', start, end: '15:00' },
-    { id: 'afternoon', label: 'Afternoon', start: '15:00', end: '20:00' },
-    { id: 'evening', label: 'Evening', start: '20:00', end: '23:00' }
-  ];
-}
-
-function homeDaypartSegments(date, daypart) {
-  const start = minsOfDay(daypart.start);
-  const end = minsOfDay(daypart.end);
-  return scheduleSegments(date).reduce((segments, segment) => {
-    const segmentStart = Math.max(start, minsOfDay(segment.start));
-    const segmentEnd = Math.min(end, minsOfDay(segment.end));
-    if (segmentStart < segmentEnd) segments.push(Object.assign({}, segment, {
-      start: hhmmOfMins(segmentStart),
-      end: hhmmOfMins(segmentEnd)
-    }));
-    return segments;
-  }, []);
 }
 
 function homeDateControlsHtml(date) {
@@ -957,33 +979,59 @@ function homePendingRequestsHtml(date, type) {
     '<div class="pending-request-list">' + pending.map(b => '<div><strong>' + esc(b.name) + '</strong><span>Unassigned · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</span></div>').join('') + '</div></section>';
 }
 
+/* Only the conflict message lives on the page now. The chosen range, its open
+   count and the Clear/Continue actions all moved into the confirmation popup. */
 function homeRangeControlsHtml(date, type) {
-  const selection = ui.memberSelection;
   const conflict = ui.availabilityConflict && ui.availabilityConflict.date === date && ui.availabilityConflict.type === type
     ? ui.availabilityConflict
     : null;
-  let html = memberConflictHtml(conflict);
-  if (!selection || selection.date !== date || selection.type !== type || !selection.start || !selection.end) return html;
-  const open = freeUnitsForType(type, date, selection.start, selection.end, null).length;
-  const pending = bookingsForDate(date).filter(b => b.status === 'pending' && needsOf(b)[type] && rangesOverlap(b.start, b.end, selection.start, selection.end)).length;
-  return html + '<div class="home-range-controls"><div class="selected-availability"><button type="button" class="selected-counts" data-act="member-range-details" data-focus-key="member-range-details" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + selection.start + '" data-end="' + selection.end + '"><span><strong>' + open + '</strong> open</span>' + (pending ? '<span><strong>' + pending + '</strong> pending</span>' : '') + '<small>View room and request details</small></button></div>' +
-    '<div class="member-selection-summary home-selection-summary"><span><strong>' + esc(fmtTime(selection.start)) + '–' + esc(fmtTime(selection.end)) + '</strong><small>' + esc(needLabel(type)) + ' · exact reservation time</small></span><button type="button" class="selection-clear" data-act="member-clear">Clear</button><button type="button" class="btn primary" data-act="member-continue" data-focus-key="member-continue">Continue</button></div></div>';
+  return memberConflictHtml(conflict);
+}
+
+/* Confirming the chosen time used to happen in a small fixed bar at the
+   bottom of the page, which people missed entirely — the app looked like it
+   had swallowed their choice. The same two actions now arrive as a popup. */
+function selectionConfirmHtml() {
+  const d = ui.selectionConfirm;
+  if (!d) return '';
+  const open = freeUnitsForType(d.type, d.date, d.start, d.end, null).length;
+  const pending = bookingsForDate(d.date).filter(b => b.status === 'pending' && needsOf(b)[d.type] && rangesOverlap(b.start, b.end, d.start, d.end)).length;
+  const candidate = d.override ? overrideCandidate(d.type, d.date, d.start, d.end) : null;
+  const holderNames = candidate ? Array.from(new Set(candidate.holders.map(b => b.name))).join(', ') : '';
+  const shorter = candidate ? shorterAvailableEnd(d.type, d.date, d.start, d.end) : null;
+  return '<div class="modal-backdrop selection-confirm-backdrop" role="presentation"><section class="booking-dialog selection-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="selection-confirm-title">' +
+    '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(d.date)) + '</div><h2 id="selection-confirm-title">' + (candidate ? 'This time is full' : 'Confirm this time') + '</h2></div><button type="button" class="modal-close" data-act="member-clear" aria-label="Clear this time">&times;</button></div>' +
+    '<p class="selection-confirm-range"><strong>' + esc(fmtTime(d.start) + ' – ' + fmtTime(d.end)) + '</strong><small>' + esc(needLabel(d.type)) + ' · exact reservation time</small></p>' +
+    (candidate
+      ? '<div class="override-offer"><p><strong>' + esc(candidate.unit.label) + '</strong> is held by ' + esc(holderNames) + ' for <strong>Other</strong>. Contact and New Member come first, so you can take this time.</p><p class="hint">Whoever is here now moves to another open ' + esc(needLabel(d.type).toLowerCase()) + ' if one is free, and is told either way.</p>' +
+        (shorter ? '<button type="button" class="btn small" data-act="member-shorten" data-end="' + esc(shorter) + '">Take nobody\u2019s time: end at ' + esc(fmtTime(shorter)) + ' instead</button>' : '') + '</div>'
+      : '<button type="button" class="selected-counts confirm-counts" data-act="member-range-details" data-focus-key="member-range-details" data-date="' + esc(d.date) + '" data-type="' + esc(d.type) + '" data-start="' + d.start + '" data-end="' + d.end + '"><span><strong>' + open + '</strong> open</span>' + (pending ? '<span><strong>' + pending + '</strong> pending</span>' : '') + '<small>View room and request details</small></button>') +
+    '<div class="modal-actions selection-confirm-actions"><button type="button" class="btn selection-clear" data-act="member-clear">Clear</button>' +
+    (candidate
+      ? '<button type="button" class="btn primary" data-act="member-override" data-focus-key="member-continue">Override with priority</button>'
+      : '<button type="button" class="btn primary" data-act="member-continue" data-focus-key="member-continue">Continue</button>') +
+    '</div></section></div>';
 }
 
 /* The Admin day map is useful before a member starts a request too. This
    member version deliberately exposes only names, times, status, and open
    capacity already visible elsewhere in the public-by-link schedule. */
+function purposeLegendHtml() {
+  return '<div class="purpose-legend" aria-label="What the colors mean">' + PURPOSES.map(p =>
+    '<span class="purpose-legend-item purpose-' + esc(p.id) + '"><span class="purpose-swatch" aria-hidden="true"></span>' + esc(p.rank + '. ' + p.label) + '</span>'
+  ).join('') + '</div>';
+}
+
+/* One whole day in one scroll region. The dayparts used to be three
+   collapsible boxes with only Morning open, which read as a missing
+   schedule. The in-grid service rows already separate the day. */
 function homeDayOverviewHtml(date, type) {
-  const opened = new Set(ui.homeOpenDayparts || ['morning']);
+  const cueId = 'home-scroll-cue-' + date + '-' + type;
   return '<section class="home-day-overview" aria-labelledby="home-day-overview-title">' +
     '<div class="home-section-head"><div><div class="eyebrow">Plan a reservation</div><h2 id="home-day-overview-title">Day overview</h2></div></div>' +
     homeDateControlsHtml(date) + memberResourceToggleHtml(type, 'home-overview-type') +
-    '<div class="home-daypart-list">' + homeDayparts(date).map(daypart => {
-      const isOpen = opened.has(daypart.id);
-      const cueId = 'home-scroll-cue-' + date + '-' + type + '-' + daypart.id;
-      return '<details class="home-daypart" data-daypart="' + esc(daypart.id) + '"' + (isOpen ? ' open' : '') + '><summary aria-expanded="' + isOpen + '"><span><strong>' + esc(daypart.label) + '</strong><small>' + esc(fmtTime(daypart.start) + '–' + fmtTime(daypart.end)) + '</small></span><span class="home-daypart-summary">' + (isOpen ? 'Hide schedule' : 'Show schedule') + '</span></summary>' +
-        '<div class="home-day-map-wrap"><div class="member-calendar-scroll home-day-map" tabindex="0" role="region" aria-label="' + esc(daypart.label + ' ' + needLabel(type).toLowerCase() + ' schedule') + '" aria-describedby="' + esc(cueId) + '">' + dayMapGridHtml(date, type, { clickOpen: true, segments: homeDaypartSegments(date, daypart) }) + '</div><span id="' + esc(cueId) + '" class="home-scroll-cue" aria-live="polite" aria-atomic="true"></span></div></details>';
-    }).join('') + '</div>' +
+    purposeLegendHtml() +
+    '<div class="home-day-map-wrap"><div class="member-calendar-scroll home-day-map" tabindex="0" role="region" aria-label="' + esc('Full day ' + needLabel(type).toLowerCase() + ' schedule') + '" aria-describedby="' + esc(cueId) + '">' + dayMapGridHtml(date, type, { clickOpen: true }) + '</div><span id="' + esc(cueId) + '" class="home-scroll-cue" aria-live="polite" aria-atomic="true"></span></div>' +
     homeRangeControlsHtml(date, type) +
     homePendingRequestsHtml(date, type) + '</section>';
 }
@@ -999,6 +1047,7 @@ function renderHome() {
   if (ui.signup) html += bookingModalHtml();
   else if (ui.endPrompt) html += endTimePromptHtml();
   else if (ui.availabilityDetails) html += availabilityDetailsHtml();
+  else if (ui.selectionConfirm) html += selectionConfirmHtml();
   return html;
 }
 
@@ -1078,8 +1127,9 @@ function activityFeedHtml(dateOrDates, dashboard, limit) {
   const dates = Array.isArray(dateOrDates) ? dateOrDates : [dateOrDates];
   const allEvents = bookingsList().filter(b => dates.includes(b.date) && ['pending', 'approved', 'cancelled'].includes(b.status)).map(b => {
     const status = b.status === 'cancelled' ? 'Cancelled'
-      : b.status === 'pending' ? 'Requested'
-        : endedEarly(b) ? 'Ended early —' : 'Reserved';
+      : b.status === 'overridden' ? 'Priority update —'
+        : b.status === 'pending' ? 'Requested'
+          : endedEarly(b) ? 'Ended early —' : 'Reserved';
     const when = Math.max(timestampMillis(b.createdAt), timestampMillis(b.updatedAt), timestampMillis(b.decidedAt));
     return { b, status, when };
   }).sort((a, b) => b.when - a.when);
@@ -1139,7 +1189,7 @@ function availabilityDetailsHtml() {
 
 function endTimePromptHtml() {
   const d = ui.endPrompt;
-  const period = d && reservationPeriods(d.date)[d.windowIdx];
+  const period = d && bookingWindows(d.date)[d.windowIdx];
   if (!d || !period) return '';
   const ends = periodTimePoints(period).filter(end => minsOfDay(end) > minsOfDay(d.start));
   return '<div class="modal-backdrop end-time-backdrop" role="presentation"><section class="booking-dialog end-time-dialog" role="dialog" aria-modal="true" aria-labelledby="end-time-dialog-title">' +
@@ -1209,6 +1259,7 @@ function renderMyReservations() {
 }
 
 function myRequestStatusHtml(b, date) {
+  if (b.status === 'overridden') return '<span class="badge status-overridden">Given to a higher priority</span>';
   if (b.status === 'cancelled') return '<span class="badge status-cancelled">Cancelled</span>';
   if (b.status === 'declined') return '<span class="badge status-declined">Declined</span>';
   if (b.status === 'pending') {
@@ -1222,6 +1273,34 @@ function myRequestStatusHtml(b, date) {
   return '<span class="badge status-approved">Approved' + (parts.length ? ' — ' + esc(parts.join(', ')) : '') + '</span>';
 }
 
+/* One reservation's latest priority update, or null. `kind` is 'moved' when
+   it kept its time in another unit, 'released' when the time was given up. */
+function priorityNoticeOf(b) {
+  const notice = b && b.priorityNotice;
+  return notice && (notice.kind === 'moved' || notice.kind === 'released') ? notice : null;
+}
+function priorityNoticeKey(b) {
+  const notice = priorityNoticeOf(b);
+  return notice ? notice.kind + '|' + timestampMillis(notice.at) + '|' + (notice.toUnit || '') : '';
+}
+function priorityNoticeText(b) {
+  const notice = priorityNoticeOf(b);
+  if (!notice) return '';
+  const type = notice.type || neededTypesOf(b)[0] || 'room';
+  const taker = purposeLabel(notice.byPurpose) || 'higher priority';
+  if (notice.kind === 'moved') {
+    return 'Priority update: a ' + taker + ' reservation took ' + (notice.fromUnit ? unitLabel(type, notice.fromUnit) : 'your ' + needLabel(type).toLowerCase()) +
+      '. You kept your time in ' + (notice.toUnit ? unitLabel(type, notice.toUnit) : 'another ' + needLabel(type).toLowerCase()) + '.';
+  }
+  return 'Priority update: a ' + taker + ' reservation took your ' + fmtTime(b.start) + '–' + fmtTime(b.end) +
+    ' ' + needLabel(type).toLowerCase() + '. Nothing else was open, so please choose another time.';
+}
+function priorityNoticeHtml(b) {
+  const notice = priorityNoticeOf(b);
+  if (!notice) return '';
+  return '<p class="reservation-note priority-notice ' + esc(notice.kind) + '" role="note"><strong>Priority update</strong> ' + esc(priorityNoticeText(b)) + '</p>';
+}
+
 function myRequestRowHtml(b, date, featured) {
   const active = b.status === 'pending' || b.status === 'approved';
   const featureClass = featured ? (b.status === 'approved' ? ' featured-approved' : b.status === 'pending' ? ' featured-pending' : '') : '';
@@ -1232,6 +1311,8 @@ function myRequestRowHtml(b, date, featured) {
     '<div class="reservation-card-head"><time class="reservation-time">' + esc(fmtDate(b.date)) + ' · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</time>' + myRequestStatusHtml(b, date) + '</div>' +
     '<div class="reservation-meta"><span>' + esc(needsSummary(b)) + '</span><span aria-hidden="true">·</span><span>' + esc(bookingPurposeText(b)) + '</span></div>' +
     (endedEarly(b) ? '<p class="reservation-note">Ended early · originally booked until ' + esc(fmtTime(b.endedEarlyFrom)) + '</p>' : '') +
+    priorityNoticeHtml(b) +
+    (b.status === 'overridden' ? '<div class="req-actions"><button type="button" class="btn small primary" data-act="my-rebook" data-id="' + esc(b.id) + '">Reserve another time</button></div>' : '') +
     (active ? '<div class="req-actions">' +
       (canEndEarly ? '<button type="button" class="end-early-btn" data-act="my-end-early" data-id="' + esc(b.id) + '">End early</button>' : '') +
       '<button type="button" class="cancel-request-btn" data-act="my-cancel" data-id="' + esc(b.id) + '">' + (b.status === 'approved' ? 'Cancel reservation' : 'Cancel request') + '</button></div>' : '') +
@@ -1285,7 +1366,7 @@ function selectMemberEnd(el) {
   const selection = ui.memberSelection;
   const end = el.dataset.end || el.value;
   if (!selection || !end || selection.date !== el.dataset.date || selection.type !== el.dataset.type || selection.windowIdx !== Number(el.dataset.period)) return;
-  const period = reservationPeriods(selection.date)[selection.windowIdx];
+  const period = bookingWindows(selection.date)[selection.windowIdx];
   if (!period || minsOfDay(end) <= minsOfDay(selection.start) || minsOfDay(end) > minsOfDay(period.end) || !isValidBookingRange(selection.date, selection.start, end)) {
     addBanner('Please choose an end time after the start time in the same reservation period.', true);
     ui.endPrompt = null;
@@ -1293,6 +1374,16 @@ function selectMemberEnd(el) {
     return;
   }
   if (!freeUnitsForType(selection.type, selection.date, selection.start, end, null).length) {
+    // Nothing open. If every reservation in the way is an Other, a Contact or
+    // New Member may take it, so offer that instead of a dead end.
+    if (overrideCandidate(selection.type, selection.date, selection.start, end)) {
+      selection.end = end;
+      ui.endPrompt = null;
+      ui.availabilityConflict = null;
+      ui.selectionConfirm = { date: selection.date, type: selection.type, start: selection.start, end: end, override: true };
+      render();
+      return;
+    }
     ui.availabilityConflict = {
       date: selection.date,
       type: selection.type,
@@ -1302,12 +1393,14 @@ function selectMemberEnd(el) {
     };
     selection.end = null;
     ui.endPrompt = null;
+    ui.selectionConfirm = null;
     render();
     return;
   }
   selection.end = end;
   ui.endPrompt = null;
   ui.availabilityConflict = null;
+  ui.selectionConfirm = { date: selection.date, type: selection.type, start: selection.start, end: end };
   render();
 }
 
@@ -1349,11 +1442,12 @@ function reserveFromHomeOverview(el) {
   const date = el.dataset.date;
   const type = el.dataset.type;
   const start = el.dataset.start;
-  const periodIdx = reservationPeriods(date).findIndex(period => start >= period.start && start < period.end);
+  const periodIdx = windowIndexForStart(date, start);
   if (!upcomingBookingDates().includes(date) || !NEED_TYPES.some(item => item.id === type) || periodIdx < 0) return;
   ui.selectedDate = date;
   ui.memberSelection = { date, type, start, end: null, windowIdx: periodIdx };
   ui.availabilityConflict = null;
+  ui.selectionConfirm = null;
   ui.endPrompt = { date, type, start, windowIdx: periodIdx };
   ui.returnFocusKey = el.dataset.focusKey || null;
   ui.tab = 'home';
@@ -1363,16 +1457,33 @@ function reserveFromHomeOverview(el) {
 function clearHomeReservationState() {
   ui.memberSelection = null;
   ui.availabilityConflict = null;
+  ui.selectionConfirm = null;
   ui.endPrompt = null;
   ui.availabilityDetails = null;
   ui.returnFocusKey = null;
 }
 
-function openMemberDetails() {
+function openMemberDetails(override) {
   const selected = ui.memberSelection;
   if (!selected || !isValidBookingRange(selected.date, selected.start, selected.end)) return;
+  let takeover = null;
+  if (override) {
+    const candidate = overrideCandidate(selected.type, selected.date, selected.start, selected.end);
+    if (!candidate) {
+      addBanner('That time changed while you were choosing. Please pick it again.', true);
+      clearHomeReservationState();
+      render();
+      return;
+    }
+    takeover = {
+      unitId: candidate.unit.id,
+      unitLabel: candidate.unit.label,
+      names: Array.from(new Set(candidate.holders.map(b => b.name)))
+    };
+  }
   ui.selectedDate = selected.date;
   ui.returnFocusKey = 'member-continue';
+  ui.selectionConfirm = null;
   ui.signup = {
     date: selected.date,
     name: localStorage.getItem(NAME_KEY) || '',
@@ -1380,7 +1491,8 @@ function openMemberDetails() {
     start: selected.start,
     end: selected.end,
     purpose: 'contact',
-    purposeOther: ''
+    purposeOther: '',
+    override: takeover
   };
   ui.signupBaseline = signupComparable(ui.signup);
   render();
@@ -1395,6 +1507,18 @@ function closeBookingModal(force) {
   ui.signup = null;
   ui.signupBaseline = null;
   ui.returnFocusKey = null;
+  // Closing the reservation popup without sending it keeps the chosen time,
+  // so bring its confirmation back rather than dropping them on the page.
+  const selection = ui.memberSelection;
+  if (selection && selection.start && selection.end) {
+    ui.selectionConfirm = {
+      date: selection.date,
+      type: selection.type,
+      start: selection.start,
+      end: selection.end,
+      override: !freeUnitsForType(selection.type, selection.date, selection.start, selection.end, null).length
+    };
+  }
   render();
   requestAnimationFrame(() => {
     const target = key ? Array.from(document.querySelectorAll('[data-focus-key]')).find(node => node.dataset.focusKey === key) : null;
@@ -1463,8 +1587,9 @@ function signupExistingHtml(d, date) {
 }
 
 function purposeChipsHtml(d) {
-  return '<div class="purpose-grid">' + PURPOSES.map(p =>
-    '<button type="button" class="purpose-chip' + (d.purpose === p.id ? ' active' : '') + '" data-act="su-purpose" data-id="' + p.id + '" aria-pressed="' + (d.purpose === p.id ? 'true' : 'false') + '">' + esc(p.label) + '</button>'
+  const choices = d.override ? PURPOSES.filter(p => OVERRIDE_PURPOSES.includes(p.id)) : PURPOSES;
+  return '<div class="purpose-grid">' + choices.map(p =>
+    '<button type="button" class="purpose-chip purpose-' + esc(p.id) + (d.purpose === p.id ? ' active' : '') + '" data-act="su-purpose" data-id="' + p.id + '" aria-pressed="' + (d.purpose === p.id ? 'true' : 'false') + '"><span class="purpose-swatch" aria-hidden="true"></span>' + esc(p.rank + '. ' + p.label) + '</button>'
   ).join('') + '</div>' +
   (d.purpose === 'other'
     ? '<label class="fld purpose-other-label" for="su-other">Describe the purpose</label><input class="purpose-other-field" type="text" id="su-other" value="' + esc(d.purposeOther) + '" placeholder="Short description" required>'
@@ -1497,7 +1622,9 @@ function bookingModalHtml() {
     '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(date)) + '</div><h2 id="booking-dialog-title">Reserve this time</h2></div>' +
     '<button type="button" class="modal-close" data-act="su-close" aria-label="Close reservation popup">&times;</button></div>' +
     '<p class="booking-time-summary" id="booking-dialog-summary"><strong>' + esc(needLabel(d.resourceType)) + '</strong> · ' + esc(fmtTime(d.start)) + '–' + esc(fmtTime(d.end)) + '</p>' +
-    '<p class="hint booking-approval-hint">Reservations are confirmed right away while space is open. If you finish early, end the reservation in My reservations so the room shows as free.</p>' +
+    (d.override
+      ? '<div class="override-offer" role="note"><p>This takes <strong>' + esc(d.override.unitLabel) + '</strong> from ' + esc(d.override.names.join(', ')) + '. Only Contact and New Member can do this, and they will be told.</p></div>'
+      : '<p class="hint booking-approval-hint">Reservations are confirmed right away while space is open. If you finish early, end the reservation in My reservations so the room shows as free.</p>') +
     '<form data-act="su-submit">' +
     '<label class="fld" for="su-name">Your name</label>' +
     '<input type="text" id="su-name" value="' + esc(d.name) + '" placeholder="Full name" autocomplete="name" required>' +
@@ -1533,13 +1660,18 @@ async function submitSignup(form) {
     return;
   }
 
+  if (d.override && !OVERRIDE_PURPOSES.includes(d.purpose)) {
+    addBanner('Taking a reserved time needs a Contact or New Member purpose.', true);
+    return;
+  }
+
   ui.submitting = true;
   setSyncPill(false, 'Saving');
   const btn = form ? form.querySelector('button[type=submit]') : null;
   if (btn) btn.disabled = true; // belt & suspenders: dead until the re-render
   const id = uid();
   try {
-    const result = await callBackend('memberSubmitBooking', {
+    const result = await callBackend(d.override ? 'memberOverrideBooking' : 'memberSubmitBooking', {
       date: date,
       start: d.start,
       end: d.end,
@@ -1554,14 +1686,18 @@ async function submitSignup(form) {
     ui.signupBaseline = null;
     ui.returnFocusKey = null;
     ui.memberSelection = null;
-    addBanner(result.status === 'approved'
-      ? 'Reserved. Your time is now on the schedule.'
-      : 'Request saved. Check My reservations for its status.');
+    addBanner(result.moved
+      ? 'Reserved with priority. The reservation that was here moved to another ' + needLabel(d.resourceType).toLowerCase() + '.'
+      : result.overrodeBookingId
+        ? 'Reserved with priority. The reservation that was here was released and told why.'
+        : result.status === 'approved'
+          ? 'Reserved. Your time is now on the schedule.'
+          : 'Request saved. Check My reservations for its status.');
     setSyncPill(true, 'Saved');
   } catch (error) {
     const code = String(error && error.code || '').replace(/^functions\//, '');
     if (code === 'already-exists' && d && d.resourceType) {
-      const periodIdx = reservationPeriods(date).findIndex(period => d.start >= period.start && d.start < period.end);
+      const periodIdx = windowIndexForStart(date, d.start);
       ui.signup = null;
       ui.signupBaseline = null;
       ui.returnFocusKey = null;
@@ -1972,7 +2108,7 @@ function afPreferredRoomHtml(d) {
 function afTimePickerHtml(d) {
   let html = '<div class="fld">Time</div>';
   html += '<div class="time-period-list admin-time-periods">';
-  reservationPeriods(d.date).forEach((period, periodIdx) => {
+  bookingWindows(d.date).forEach((period, periodIdx) => {
     const points = periodTimePoints(period);
     const inPeriod = d.windowIdx === periodIdx;
     const startValue = inPeriod ? d.start : '';
@@ -2295,6 +2431,7 @@ function handleAction(act, el) {
     return;
   }
   if (act === 'home-reserve-slot') { reserveFromHomeOverview(el); return; }
+  if (act === 'home-taken-slot') { reserveFromHomeOverview(el); return; }
   if (act === 'member-end-time') { selectMemberEnd(el); return; }
   if (act === 'member-close-end-prompt') { closeEndPrompt(); return; }
   if (act === 'member-range-details') { showAvailabilityDetails(el); return; }
@@ -2305,25 +2442,46 @@ function handleAction(act, el) {
     render();
     return;
   }
-  if (act === 'member-clear') { ui.memberSelection = null; ui.endPrompt = null; ui.availabilityConflict = null; render(); return; }
+  if (act === 'member-clear') { clearHomeReservationState(); render(); return; }
   if (act === 'conflict-yes') {
     const conflict = ui.availabilityConflict;
     if (!conflict || !conflict.suggestedEnd) return;
-    ui.memberSelection = { date: conflict.date, type: conflict.type, start: conflict.start, end: conflict.suggestedEnd, windowIdx: reservationPeriods(conflict.date).findIndex(period => conflict.start >= period.start && conflict.start < period.end) };
+    ui.memberSelection = { date: conflict.date, type: conflict.type, start: conflict.start, end: conflict.suggestedEnd, windowIdx: windowIndexForStart(conflict.date, conflict.start) };
     ui.availabilityConflict = null;
+    ui.selectionConfirm = { date: conflict.date, type: conflict.type, start: conflict.start, end: conflict.suggestedEnd };
     render();
     return;
   }
   if (act === 'conflict-no') {
     const key = ui.returnFocusKey;
-    ui.memberSelection = null;
-    ui.availabilityConflict = null;
+    clearHomeReservationState();
     render();
     restoreFocusKey(key);
     return;
   }
-  if (act === 'member-continue') { openMemberDetails(); return; }
+  if (act === 'member-continue') { openMemberDetails(false); return; }
+  if (act === 'member-override') { openMemberDetails(true); return; }
+  if (act === 'member-shorten') {
+    const selection = ui.memberSelection;
+    const end = el.dataset.end;
+    if (!selection || !end || !isValidBookingRange(selection.date, selection.start, end)) return;
+    selection.end = end;
+    ui.availabilityConflict = null;
+    ui.selectionConfirm = { date: selection.date, type: selection.type, start: selection.start, end: end };
+    render();
+    return;
+  }
   if (act === 'su-close') { closeBookingModal(false); return; }
+  if (act === 'my-rebook') {
+    const booking = bookingByIdSafe(el.dataset.id);
+    if (!booking) return;
+    clearHomeReservationState();
+    ui.tab = 'home';
+    ui.homeDate = upcomingBookingDates().includes(booking.date) ? booking.date : null;
+    ui.homeOverviewType = neededTypesOf(booking)[0] || 'room';
+    render();
+    return;
+  }
   if (act === 'my-cancel') {
     cancelMyBooking(el.dataset.id);
     return;
@@ -2458,7 +2616,7 @@ document.addEventListener('change', e => {
   if (el.dataset.chg === 'af-start') {
     syncAdminFormDraft(); ensureAdminFormDraft(selectedDate());
     const periodIdx = Number(el.dataset.period);
-    const period = reservationPeriods(ui.adminForm.date)[periodIdx];
+    const period = bookingWindows(ui.adminForm.date)[periodIdx];
     ui.adminForm.start = period && el.value ? el.value : null;
     ui.adminForm.end = null;
     ui.adminForm.windowIdx = ui.adminForm.start ? periodIdx : null;
@@ -2470,7 +2628,7 @@ document.addEventListener('change', e => {
     syncAdminFormDraft(); ensureAdminFormDraft(selectedDate());
     const d = ui.adminForm;
     const periodIdx = Number(el.dataset.period);
-    const period = reservationPeriods(d.date)[periodIdx];
+    const period = bookingWindows(d.date)[periodIdx];
     if (!period || d.windowIdx !== periodIdx || !d.start || !el.value || minsOfDay(el.value) <= minsOfDay(d.start) || minsOfDay(el.value) > minsOfDay(period.end)) {
       addBanner('Choose an end time after the start time in the same reservation period.', true);
       render();

@@ -10,21 +10,22 @@ const ROOM_UNITS = [1, 2, 3, 4].map(n => ({ id: `room-${n}`, label: `Study Room 
 
 // 10:30 PM is the final bookable start. The display includes the resulting
 // 10:30–11:00 PM assignment, so every schedule ends at 11:00 PM.
+// Service times changed on 12 September 2026.
 const dayConfig = {
   2: {
     name: 'Tuesday',
     start: '10:00',
     end: '23:00',
-    services: [{ start: '20:00', end: '21:00', label: 'Service' }]
+    services: [{ start: '19:30', end: '20:30', label: 'Service' }]
   },
   6: {
     name: 'Saturday',
-    start: '09:00',
+    start: '10:00',
     end: '23:00',
     services: [
-      { start: '09:00', end: '10:00', label: 'Service' },
-      { start: '15:00', end: '16:00', label: 'Service' },
-      { start: '20:00', end: '21:00', label: 'Service' }
+      { start: '10:00', end: '11:00', label: 'Service' },
+      { start: '14:30', end: '15:30', label: 'Service' },
+      { start: '19:30', end: '20:30', label: 'Service' }
     ]
   }
 };
@@ -544,7 +545,7 @@ function demoBookingsFor(date) {
     { id: 'demo-tu-tv', date: tuesday, start: '16:30', end: '18:30', name: 'Taylor Brooks', status: 'approved', needs: { tv: true }, assignments: { tv: 'tv-1' } },
     { id: 'demo-tu-pending-1', date: tuesday, start: '13:30', end: '15:00', name: 'Naomi Carter', status: 'pending', needs: { room: true }, assignments: {}, createdAt: created },
     { id: 'demo-tu-pending-2', date: tuesday, start: '14:00', end: '16:30', name: 'Isaiah Davis', status: 'pending', needs: { room: true, whiteboard: true }, assignments: {}, createdAt: created + 1 },
-    { id: 'demo-tu-pending-tv', date: tuesday, start: '18:30', end: '19:30', name: 'Elena Flores', status: 'pending', needs: { tv: true }, assignments: {}, createdAt: created + 2 },
+    { id: 'demo-tu-pending-tv', date: tuesday, start: '18:00', end: '19:00', name: 'Elena Flores', status: 'pending', needs: { tv: true }, assignments: {}, createdAt: created + 2 },
     { id: 'demo-tu-late-1', date: tuesday, start: '22:00', end: '22:30', name: 'Marcus Green', status: 'approved', needs: { room: true }, assignments: { room: 'room-3' } },
     { id: 'demo-tu-late-2', date: tuesday, start: '22:30', end: '23:00', name: 'Olivia Harris', status: 'approved', needs: { tv: true }, assignments: { tv: 'tv-3' } },
     // These non-display statuses prove the demo data is comprehensive without
@@ -553,10 +554,10 @@ function demoBookingsFor(date) {
     { id: 'demo-tu-cancelled', date: tuesday, start: '18:00', end: '19:00', name: 'Sample Cancelled', status: 'cancelled', needs: { tv: true }, assignments: {} },
     // Saturday: every resource, service-boundary-adjacent reservations, and a
     // late request so the other bookable day stays informative.
-    { id: 'demo-sa-room', date: saturday, start: '10:00', end: '12:30', name: 'Rachel Ingram', status: 'approved', needs: { room: true }, assignments: { room: 'room-1' } },
-    { id: 'demo-sa-wb', date: saturday, start: '14:00', end: '15:00', name: 'Brother Caleb Jones', status: 'approved', needs: { whiteboard: true }, assignments: { whiteboard: 'wb-4' } },
-    { id: 'demo-sa-tv', date: saturday, start: '16:00', end: '18:00', name: 'Sister Hannah Lee', status: 'approved', needs: { tv: true }, assignments: { tv: 'tv-2' } },
-    { id: 'demo-sa-pending-1', date: saturday, start: '18:30', end: '20:00', name: 'Noah Moore', status: 'pending', needs: { room: true }, assignments: {}, createdAt: created + 3 },
+    { id: 'demo-sa-room', date: saturday, start: '11:00', end: '12:30', name: 'Rachel Ingram', status: 'approved', needs: { room: true }, assignments: { room: 'room-1' } },
+    { id: 'demo-sa-wb', date: saturday, start: '13:00', end: '14:00', name: 'Brother Caleb Jones', status: 'approved', needs: { whiteboard: true }, assignments: { whiteboard: 'wb-4' } },
+    { id: 'demo-sa-tv', date: saturday, start: '16:00', end: '17:30', name: 'Sister Hannah Lee', status: 'approved', needs: { tv: true }, assignments: { tv: 'tv-2' } },
+    { id: 'demo-sa-pending-1', date: saturday, start: '18:00', end: '19:30', name: 'Noah Moore', status: 'pending', needs: { room: true }, assignments: {}, createdAt: created + 3 },
     { id: 'demo-sa-pending-2', date: saturday, start: '21:00', end: '22:00', name: 'Ava Nelson', status: 'pending', needs: { whiteboard: true, tv: true }, assignments: {}, createdAt: created + 4 },
     { id: 'demo-sa-late', date: saturday, start: '22:30', end: '23:00', name: 'Mia Ortiz', status: 'approved', needs: { room: true }, assignments: { room: 'room-4' } }
   ];

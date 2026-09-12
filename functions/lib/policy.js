@@ -6,9 +6,14 @@ const ALLOWED_UNITS = Object.freeze({
   tv: Object.freeze(['tv-1', 'tv-2', 'tv-3'])
 });
 
-// `meeting` is retained for earlier records. New member requests use
-// `study-member`, which is clearer in the new calendar flow.
+// `meeting`, `group` and `study-member` are retained only so earlier records
+// still validate. Members now choose Contact, New Member or Other.
 const PURPOSES = Object.freeze(['contact', 'new-member', 'group', 'study-member', 'meeting', 'other', 'blocked']);
+// What a member may choose today, and what a priority takeover may claim.
+const MEMBER_PURPOSES = Object.freeze(['contact', 'new-member', 'other']);
+const OVERRIDE_PURPOSES = Object.freeze(['contact', 'new-member']);
+// The only purpose that can be taken from someone.
+const OVERRIDABLE_PURPOSE = 'other';
 const CERTAINTIES = Object.freeze(['confirmed', 'tentative']);
 const RESOURCE_TYPES = Object.freeze(['room', 'whiteboard', 'tv']);
 
@@ -79,9 +84,11 @@ function validateBookingTime(date, startValue, endValue, now = new Date(), requi
   if (requireUpcoming && !upcomingTuesdayAndSaturday(now).includes(date)) {
     return 'Choose the upcoming Tuesday or Saturday.';
   }
+  // Service times changed on 12 September 2026. Saturday holds all three,
+  // Tuesday only the evening one.
   const serviceBlocks = weekday === 2
-    ? [[20 * 60, 21 * 60]]
-    : [[15 * 60, 16 * 60], [20 * 60, 21 * 60]];
+    ? [[19 * 60 + 30, 20 * 60 + 30]]
+    : [[10 * 60, 11 * 60], [14 * 60 + 30, 15 * 60 + 30], [19 * 60 + 30, 20 * 60 + 30]];
   if (serviceBlocks.some(([blockStart, blockEnd]) => overlaps(start, end, blockStart, blockEnd))) {
     return 'This time overlaps a service.';
   }
@@ -212,6 +219,31 @@ function availableUnitForType(type, candidate, approvedBookings) {
   )) || null;
 }
 
+/* Units of `type` a higher priority could take for `candidate`'s range: the
+   unit must be occupied, and every approved reservation touching it in that
+   range must be an overridable Other. A unit with nothing on it is simply
+   free and is never listed here. Ordered so the least disruptive comes first. */
+function reclaimableUnitsForType(type, candidate, approvedBookings) {
+  const units = ALLOWED_UNITS[type] || [];
+  return units.map(unitId => {
+    const holders = approvedBookings.filter(existing =>
+      existing.status === 'approved' &&
+      existing.assignments && existing.assignments[type] === unitId &&
+      rangesOverlap(candidate, existing));
+    if (!holders.length) return null;
+    if (!holders.every(existing => existing.purpose === OVERRIDABLE_PURPOSE)) return null;
+    return { unitId, holders: sortBookingsByPriority(holders) };
+  }).filter(Boolean).sort((first, second) => first.holders.length - second.holders.length
+    || units.indexOf(first.unitId) - units.indexOf(second.unitId));
+}
+
+/* The single unit an override would claim, or null when the caller should
+   simply book a free unit (or has nothing to take). */
+function overrideTarget(type, candidate, approvedBookings) {
+  if (availableUnitForType(type, candidate, approvedBookings)) return null;
+  return reclaimableUnitsForType(type, candidate, approvedBookings)[0] || null;
+}
+
 function shorterAvailableEnd(type, candidate, approvedBookings) {
   const start = parseMinutes(candidate.start);
   const attemptedEnd = parseMinutes(candidate.end);
@@ -272,6 +304,11 @@ function validateDirectBooking(input, now = new Date()) {
 
 module.exports = {
   ALLOWED_UNITS,
+  MEMBER_PURPOSES,
+  OVERRIDABLE_PURPOSE,
+  OVERRIDE_PURPOSES,
+  overrideTarget,
+  reclaimableUnitsForType,
   addDays,
   availableUnitForType,
   canonicalAssignments,

@@ -9,6 +9,8 @@ const {
   earlyEndError,
   migrationResourceUpdate,
   normalizeBookingIds,
+  overrideTarget,
+  reclaimableUnitsForType,
   normalizeLegacyResourceMaps,
   priorityForPurpose,
   shouldAutoApproveMemberBooking,
@@ -39,15 +41,27 @@ test('accepts the 10:00 PM and 10:30 PM starts, ending at 11:00 PM', () => {
   assert.match(validateBookingTime('2026-07-18', '23:00', '23:30', now), /23:00/);
 });
 
+// Service times changed on 12 September 2026: Saturday holds 10:00-11:00,
+// 2:30-3:30 and 7:30-8:30; Tuesday only the evening one.
 test('rejects service overlaps but accepts ranges ending or starting at a service boundary', () => {
   const now = new Date('2026-07-17T19:00:00Z');
+  assert.match(validateBookingTime('2026-07-18', '10:00', '10:30', now), /service/);
+  assert.match(validateBookingTime('2026-07-18', '10:30', '11:30', now), /service/);
   assert.match(validateBookingTime('2026-07-18', '14:30', '15:30', now), /service/);
+  assert.match(validateBookingTime('2026-07-18', '14:00', '15:00', now), /service/);
   assert.match(validateBookingTime('2026-07-18', '19:30', '21:30', now), /service/);
   assert.match(validateBookingTime('2026-07-21', '19:30', '20:30', now), /service/);
-  assert.equal(validateBookingTime('2026-07-18', '14:30', '15:00', now), null);
-  assert.equal(validateBookingTime('2026-07-18', '16:00', '16:30', now), null);
-  assert.equal(validateBookingTime('2026-07-21', '19:30', '20:00', now), null);
-  assert.equal(validateBookingTime('2026-07-21', '21:00', '23:00', now), null);
+  assert.match(validateBookingTime('2026-07-21', '19:00', '20:00', now), /service/);
+  // Saturday's first bookable start is now 11:00, right after the morning service.
+  assert.equal(validateBookingTime('2026-07-18', '11:00', '11:30', now), null);
+  assert.equal(validateBookingTime('2026-07-18', '14:00', '14:30', now), null);
+  assert.equal(validateBookingTime('2026-07-18', '15:30', '16:00', now), null);
+  assert.equal(validateBookingTime('2026-07-18', '20:30', '23:00', now), null);
+  // Tuesday keeps its whole morning and afternoon.
+  assert.equal(validateBookingTime('2026-07-21', '10:00', '10:30', now), null);
+  assert.equal(validateBookingTime('2026-07-21', '14:30', '15:30', now), null);
+  assert.equal(validateBookingTime('2026-07-21', '19:00', '19:30', now), null);
+  assert.equal(validateBookingTime('2026-07-21', '20:30', '23:00', now), null);
 });
 
 test('confirms every booking day immediately, with no approval queue', () => {
@@ -67,27 +81,27 @@ test('confirms every booking day immediately, with no approval queue', () => {
 
 test('ending early shortens a reservation but never removes it entirely', () => {
   const now = new Date('2026-07-17T19:00:00Z');
-  const booking = { date: '2026-07-18', start: '10:00', end: '12:30' };
+  const booking = { date: '2026-07-18', start: '11:00', end: '13:30' };
 
   // A valid earlier ending that keeps at least one 30-minute block.
-  assert.equal(earlyEndError(booking, '12:00', now), null);
-  assert.equal(earlyEndError(booking, '10:30', now), null);
+  assert.equal(earlyEndError(booking, '13:00', now), null);
+  assert.equal(earlyEndError(booking, '11:30', now), null);
 
   // The same ending, a later one, the start itself, and anything before the
   // start are all refused; cancelling is the way to give up the whole booking.
-  assert.match(earlyEndError(booking, '12:30', now), /earlier ending/);
-  assert.match(earlyEndError(booking, '13:00', now), /earlier ending/);
-  assert.match(earlyEndError(booking, '10:00', now), /at least 30 minutes/);
-  assert.match(earlyEndError(booking, '09:30', now), /at least 30 minutes/);
+  assert.match(earlyEndError(booking, '13:30', now), /earlier ending/);
+  assert.match(earlyEndError(booking, '14:00', now), /earlier ending/);
+  assert.match(earlyEndError(booking, '11:00', now), /at least 30 minutes/);
+  assert.match(earlyEndError(booking, '10:30', now), /at least 30 minutes/);
 
   // Malformed and off-grid times are refused.
-  assert.match(earlyEndError(booking, '11:15', now), /30-minute boundaries/);
+  assert.match(earlyEndError(booking, '12:15', now), /30-minute boundaries/);
   assert.match(earlyEndError(booking, 'noon', now), /HH:MM/);
   assert.match(earlyEndError(null, '11:00', now), /cannot be shortened/);
 
   // A shortened Saturday booking still may not end inside a service.
   assert.match(
-    earlyEndError({ date: '2026-07-18', start: '14:00', end: '16:30' }, '15:30', now),
+    earlyEndError({ date: '2026-07-18', start: '13:30', end: '16:30' }, '15:00', now),
     /service/
   );
 });
@@ -152,7 +166,7 @@ test('rejects a full Saturday range and finds the longest shorter ending', () =>
 
 test('sanitizes a valid direct Admin booking', () => {
   const booking = validateDirectBooking({
-    date: '2026-07-18', start: '10:00', end: '10:30', name: 'A Member',
+    date: '2026-07-18', start: '11:00', end: '11:30', name: 'A Member',
     needs: { room: true, whiteboard: false, tv: true },
     assignments: { room: 'room-2', tv: 'tv-1' },
     preferredRoom: 'room-2', purpose: 'meeting', purposeOther: '', certainty: 'confirmed'
@@ -204,4 +218,48 @@ test('bulk note IDs are bounded, validated, and deduplicated', () => {
   assert.throws(() => normalizeBookingIds([]), /between 1 and 50/);
   assert.throws(() => normalizeBookingIds(Array.from({ length: 51 }, (_, index) => `id-${index}`)), /between 1 and 50/);
   assert.throws(() => normalizeBookingIds(['bad/path']), /invalid/);
+});
+
+test('ranks Contact above New Member above Other', () => {
+  assert.ok(priorityForPurpose('contact') < priorityForPurpose('new-member'));
+  assert.ok(priorityForPurpose('new-member') < priorityForPurpose('other'));
+  // Retired purposes still rank between New Member and Other, and are never
+  // override targets.
+  assert.ok(priorityForPurpose('meeting') < priorityForPurpose('other'));
+  assert.equal(sortBookingsByPriority([
+    { purpose: 'other', name: 'C', createdAt: 3 },
+    { purpose: 'contact', name: 'A', createdAt: 2 },
+    { purpose: 'new-member', name: 'B', createdAt: 1 }
+  ]).map(booking => booking.name).join(''), 'ABC');
+});
+
+test('an override may take only a unit whose reservations are all Other', () => {
+  const candidate = { date: '2026-07-21', start: '11:00', end: '11:30' };
+  const holder = (unit, purpose, extra = {}) => ({
+    id: `${unit}-${purpose}`, status: 'approved', date: candidate.date,
+    start: '11:00', end: '11:30', purpose, assignments: { room: unit }, createdAt: 1, ...extra
+  });
+
+  // A free unit means no override: the caller should simply book it.
+  assert.equal(overrideTarget('room', candidate, [holder('room-1', 'other')]), null);
+
+  // Every room taken, and every reservation in the way is an Other.
+  const allOther = ['room-1', 'room-2', 'room-3', 'room-4'].map(unit => holder(unit, 'other'));
+  assert.equal(overrideTarget('room', candidate, allOther).unitId, 'room-1');
+
+  // A Contact in the way protects that room; the Other rooms stay takeable.
+  const mixed = [holder('room-1', 'contact'), holder('room-2', 'new-member'), holder('room-3', 'meeting'), holder('room-4', 'other')];
+  assert.deepEqual(reclaimableUnitsForType('room', candidate, mixed).map(entry => entry.unitId), ['room-4']);
+  assert.equal(overrideTarget('room', candidate, mixed).unitId, 'room-4');
+
+  // Nothing takeable when no room in the way is an Other.
+  const noneTakeable = ['room-1', 'room-2', 'room-3', 'room-4'].map(unit => holder(unit, 'contact'));
+  assert.equal(overrideTarget('room', candidate, noneTakeable), null);
+
+  // The least disruptive unit comes first: one reservation to displace, not two.
+  const uneven = [
+    holder('room-1', 'other'), { ...holder('room-1', 'other'), id: 'room-1-late', start: '11:00', end: '11:30' },
+    holder('room-2', 'other'), holder('room-3', 'contact'), holder('room-4', 'contact')
+  ];
+  assert.equal(overrideTarget('room', candidate, uneven).unitId, 'room-2');
 });

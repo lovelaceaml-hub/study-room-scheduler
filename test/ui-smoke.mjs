@@ -112,12 +112,13 @@ try {
   assert.deepEqual(await page.locator('.home-day-overview .member-resource').allInnerTexts(), ['Study room', 'Whiteboard', 'TV'], 'Home resource controls omit capacity counts');
   const resourceTarget = await page.locator('.home-day-overview .member-resource').first().evaluate(node => node.getBoundingClientRect().height);
   assert.ok(resourceTarget >= 44 && resourceTarget <= 46, `Home resource controls are compact 44px touch targets (${resourceTarget}px)`);
-  assert.equal(await page.locator('.home-daypart').count(), 3);
-  assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null);
-  assert.equal(await page.locator('.home-daypart').nth(0).locator('.home-daypart-summary').innerText(), 'Hide schedule');
-  assert.equal(await page.locator('.home-daypart').nth(1).locator('.home-daypart-summary').innerText(), 'Show schedule');
+  // One whole day, one scroll region: the Morning/Afternoon/Evening boxes were
+  // removed on 11 September 2026 because a closed box read as a missing schedule.
+  assert.equal(await page.locator('.home-daypart').count(), 0, 'The daypart boxes are gone');
+  assert.equal(await page.locator('.home-day-overview .home-day-map').count(), 1, 'The whole day is one scroll region');
+  assert.deepEqual(await page.locator('.purpose-legend-item').allInnerTexts(), ['1. Contact', '2. New Member', '3. Other'], 'The colour legend names every purpose in priority order');
   assert.equal(await page.locator('.home-scroll-cue').first().getAttribute('data-state'), 'top');
-  assert.equal(await page.locator('.home-scroll-cue').first().innerText(), 'Scroll down ↓', 'The open map has a visible downward scroll cue');
+  assert.equal(await page.locator('.home-scroll-cue').first().innerText(), 'Scroll down ↓', 'The day map has a visible downward scroll cue');
   await page.setViewportSize({ width: 393, height: 852 });
   const grid393 = await page.locator('.home-day-map').first().evaluate(map => {
     const row = map.querySelector('.member-calendar-row:not(.unit-header)');
@@ -153,13 +154,10 @@ try {
   assert.ok(grid393.minNameFont >= 10, `393px Home names remain legible (${grid393.minNameFont}px)`);
   assert.ok(grid393.minPurposeFont >= 8.5, `393px Home purposes remain legible (${grid393.minPurposeFont}px)`);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.locator('.home-daypart').nth(1).locator('summary').click();
-  assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null, 'Opening another daypart preserves the first opened section');
-  assert.notEqual(await page.locator('.home-daypart').nth(1).getAttribute('open'), null);
-  assert.equal(await page.locator('.home-daypart').nth(1).locator('.home-daypart-summary').innerText(), 'Hide schedule');
   assert.ok(await page.locator('.home-occupied-cell').count() > 0);
   assert.ok(await page.locator('.home-cell-name').count() > 0);
-  assert.match(await page.locator('.home-cell-purpose').first().innerText(), /Contact|Meeting/);
+  assert.match(await page.locator('.home-cell-purpose').first().innerText(), /Contact|New Member|Other|Meeting/);
+  assert.ok(await page.locator('.home-occupied-cell.purpose-contact, .home-occupied-cell.purpose-new-member, .home-occupied-cell.purpose-other').count() > 0, 'Reserved cells carry their purpose colour');
   assert.equal(await page.locator('.home-day-overview').getByText('Family Bible study', { exact: true }).count(), 0, 'Home cells expose categories, never free-form notes');
   let movedToTuesdayForFixture = false;
   if ((await page.locator('.home-date-selector .date-current strong').innerText()).startsWith('Saturday')) {
@@ -175,7 +173,7 @@ try {
   assert.equal(await page.locator('.home-date-selector .date-arrow').first().isDisabled(), true);
   await page.locator('.home-date-selector .date-arrow').nth(1).click();
   assert.notEqual(await page.locator('.home-date-selector .date-current strong').innerText(), homeDate);
-  assert.equal(await page.locator('.home-daypart').first().locator('.member-service button').count(), 0, 'Service bands cannot start a reservation');
+  assert.equal(await page.locator('.home-day-map .member-service button').count(), 0, 'Service bands cannot start a reservation');
   await page.locator('.home-date-selector .date-arrow').first().click();
 
   if ((await page.locator('.home-date-selector .date-current strong').innerText()).startsWith('Saturday')) {
@@ -193,16 +191,18 @@ try {
 
   await origin.click();
   await page.getByRole('button', { name: /End at 11:30 AM/ }).click();
-  assert.match(await page.locator('.availability-conflict').innerText(), /There are no rooms available/);
-  await page.getByRole('button', { name: 'No' }).click();
-  await page.waitForFunction(() => document.activeElement?.dataset.focusKey?.includes('home-open-'));
-  assert.equal(await page.evaluate(() => document.activeElement?.dataset.focusKey), await origin.getAttribute('data-focus-key'), 'Conflict recovery returns to the exact originating cell');
+  assert.match(await page.locator('.selection-confirm-dialog').innerText(), /This time is full/);
+  assert.match(await page.locator('.override-offer').innerText(), /held by .* for Other/);
+  assert.ok(await page.getByRole('button', { name: 'Override with priority' }).isVisible(), 'A full time whose holders are all Other can be taken');
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  assert.equal(await page.locator('.selection-confirm-dialog').count(), 0);
 
   await origin.click();
   await page.getByRole('button', { name: /End at 11:30 AM/ }).click();
-  await page.getByRole('button', { name: 'Yes' }).click();
-  assert.match(await page.locator('.home-range-controls').innerText(), /10:30 AM–11:00 AM/);
-  assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.homeReservationState().availabilityConflict), false, 'Accepting a shorter range resolves the conflict');
+  await page.getByRole('button', { name: /end at 11:00 AM instead/ }).click();
+  assert.match(await page.locator('.selection-confirm-range').innerText(), /10:30 AM\s*–\s*11:00 AM/);
+  assert.equal(await page.locator('.override-offer').count(), 0, 'The shorter ending takes nobody\u2019s reservation');
+  assert.equal(await page.evaluate(() => window.__SRS_TEST_HELPERS__.homeReservationState().availabilityConflict), false, 'Choosing a shorter range resolves the conflict');
   assert.match(await page.locator('.selected-counts').innerText(), /open/);
   assert.doesNotMatch(await page.locator('.selected-counts').innerText(), /pending/, 'With nothing awaiting review, the pending count is not shown');
   await page.locator('.selected-counts').click();
@@ -220,7 +220,12 @@ try {
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: 'Close reservation popup' }).click();
   await page.waitForFunction(() => document.activeElement?.dataset.focusKey === 'member-continue');
-  assert.notEqual(await page.locator('.home-daypart').nth(0).getAttribute('open'), null, 'The source daypart stays open through the booking flow');
+
+  // Closing the reservation popup keeps the chosen time and brings its
+  // confirmation back, so clear it before moving around the schedule.
+  assert.ok(await page.locator('.selection-confirm-dialog').isVisible(), 'Closing the reservation popup returns to the confirmation');
+  await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  assert.equal(await page.locator('.selection-confirm-dialog').count(), 0);
 
   // Step back to the earliest eligible date, whichever weekday that is this
   // week, so both arrows below are live regardless of the day the suite runs.
@@ -230,12 +235,12 @@ try {
   await page.evaluate(() => window.__SRS_TEST_HELPERS__.seedHomeReservationStateForTest());
   await page.locator('[data-act="home-overview-type"][data-id="whiteboard"]').click();
   assert.deepEqual(await page.evaluate(() => window.__SRS_TEST_HELPERS__.homeReservationState()), {
-    memberSelection: false, availabilityConflict: false, endPrompt: false, availabilityDetails: false, returnFocusKey: null
+    memberSelection: false, availabilityConflict: false, endPrompt: false, availabilityDetails: false, selectionConfirm: false, returnFocusKey: null
   }, 'Changing the Home resource clears every reservation-flow state');
   await page.evaluate(() => window.__SRS_TEST_HELPERS__.seedHomeReservationStateForTest());
   await page.locator('.home-date-selector .date-arrow').nth(1).click();
   assert.deepEqual(await page.evaluate(() => window.__SRS_TEST_HELPERS__.homeReservationState()), {
-    memberSelection: false, availabilityConflict: false, endPrompt: false, availabilityDetails: false, returnFocusKey: null
+    memberSelection: false, availabilityConflict: false, endPrompt: false, availabilityDetails: false, selectionConfirm: false, returnFocusKey: null
   }, 'Changing the Home date clears every reservation-flow state');
   await page.locator('.home-date-selector .date-arrow').first().click();
   assert.deepEqual((await new AxeBuilder({ page }).analyze()).violations, []);

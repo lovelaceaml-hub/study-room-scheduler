@@ -67,11 +67,16 @@ widths, it keeps Home tiles at a compact, evenly spaced 44px minimum; retains th
 single-line time column; and uses readable 10px names with 8.5px ellipsized purpose
 labels. It is a visual-density change only and does not alter scheduling behavior.
 
-The July 22 selection-bar update is also live. After a member chooses an exact end
-time, the Home range summary keeps **Clear** and **Continue** fixed inside the viewing
-screen, above the phone navigation when needed. Members can scroll the schedule without
-losing the actions. This is a presentation-only change; booking behavior, privacy, and
-the backend are unchanged.
+The September 11, 2026 update (branch `claude/rooms-one-schedule-priority`, not yet
+deployed) replaces the July 22 selection bar. Choosing an end time now opens a
+confirmation popup with the exact range, **Clear**, and **Continue**, because members
+missed the fixed bar and read the return to Home as a glitch. The same update shows the
+whole day as one schedule instead of three collapsible boxes, moves the service times to
+Saturday 10:00–11:00 AM, 2:30–3:30 PM, 7:30–8:30 PM and Tuesday 7:30–8:30 PM, retires
+**Meeting** as a purpose, colors reservations by purpose in priority order (Contact, New
+Member, Other), and lets a Contact or New Member take a time held for **Other** when
+nothing is open. Whoever is displaced keeps their time in another unit if one is free,
+and receives a priority update notice either way.
 
 The app uses buildless vanilla JavaScript, Firebase Hosting, and Firestore live
 updates. It includes a phone-friendly booking experience and a dedicated lobby TV

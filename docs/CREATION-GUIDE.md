@@ -59,14 +59,10 @@ column, 65.75×44px tiles, 10px names, 8.5px purposes, and no overflow. Deployme
 `hosting:app` only; Functions, Firestore, Authentication, and the legacy redirect were
 unchanged.
 
-The July 22 selection-bar update is also live. After a member chooses an exact end time,
-the Home range summary containing **Clear** and **Continue** is fixed to the viewport
-instead of waiting below the schedule's scroll position. On phones it sits above the
-fixed navigation bar; on larger screens it stays centered and inset from the bottom.
-This is a presentation-only CSS change: booking policy, capacity, privacy, fixtures,
-TV output, Functions, Firestore, Authentication, and the legacy redirect are unchanged.
-`npm test`, `npm run test:ui`, the focused selection-bar smoke test, and a read-only live
-Playwright check passed. Deployment was `hosting:app` only.
+The July 22 selection-bar update was replaced on 11 September 2026. Choosing an end time
+now opens a confirmation popup carrying the exact range, **Clear**, and **Continue**;
+the viewport-fixed bottom bar was removed because members did not notice it and read the
+return to Home as a glitch. The focused smoke test for it is `npm run test:confirm-popup`.
 
 ## Applied visual redesign
 
@@ -133,13 +129,14 @@ All reservable slots are 30 minutes. Booking begins at 10:00 AM and the final sl
 10:30–11:00 PM. The member and TV views must therefore include 10:00 PM and 10:30 PM
 start positions, while server validation rejects any end after 11:00 PM.
 
-Unavailable service periods are:
+Unavailable service periods, as of 12 September 2026, are:
 
-- Tuesday: 8:00–9:00 PM.
-- Saturday: 9:00–10:00 AM, 3:00–4:00 PM, and 8:00–9:00 PM.
+- Tuesday: 7:30–8:30 PM.
+- Saturday: 10:00–11:00 AM, 2:30–3:30 PM, and 7:30–8:30 PM.
 
-Saturday’s visual schedule starts at 9:00 AM to show the morning service. Validation
-must reject ranges that overlap a service or begin before reservable time.
+Both schedules start at 10:00 AM. Saturday's morning service occupies 10:00–11:00 AM,
+so its first reservable start is 11:00 AM. Validation must reject ranges that overlap
+a service or begin before reservable time.
 
 ### Member booking flow
 
