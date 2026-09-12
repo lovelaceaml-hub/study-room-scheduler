@@ -14,6 +14,18 @@ export function publicName(value) {
 }
 export function minutes(value) {return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;}
 export function clock(value) {return `${String(Math.floor(value/60)).padStart(2,'0')}:${String(value%60).padStart(2,'0')}`;}
+export function priorityForPurpose(purpose) {return ({contact:0,new:1,'new-member':1,other:3,blocked:4}[purpose]??3);}
+export function overrideUnitForRange(type,day,start,end,purpose,bookings,exactUnit=null) {
+  const candidatePriority=priorityForPurpose(purpose);
+  if(!['contact','new'].includes(purpose))return null;
+  const ids=Array.from({length:units[type]||0},(_,i)=>i+1).filter(unit=>exactUnit==null||exactUnit===unit);
+  const free=ids.some(unit=>!bookings.some(b=>b.day===day&&b.type===type&&b.unit===unit&&start<b.end&&end>b.start));
+  if(free)return null;
+  return ids.find(unit=>{
+    const holders=bookings.filter(b=>b.day===day&&b.type===type&&b.unit===unit&&start<b.end&&end>b.start);
+    return holders.length&&holders.every(b=>!b.blocked&&priorityForPurpose(b.purpose)>candidatePriority&&['new','other'].includes(b.purpose));
+  })||null;
+}
 export function projectBookings(records,days=eligibleDays()) {
   const output=[];
   for(const b of records){
@@ -45,6 +57,7 @@ export function validateInput(input,bookings,days=eligibleDays()) {
   if(!['contact','new','other'].includes(purpose))throw new Error('Choose a purpose.');
   if(purpose==='other'&&(!purposeOther||purposeOther.length>240))throw new Error('Describe the purpose in 240 characters or fewer.');
   const free=Array.from({length:units[type]},(_,i)=>i+1).filter(n=>(unit===null||unit===n)&&!bookings.some(b=>b.day===day&&b.type===type&&b.unit===n&&start<b.end&&end>b.start));
-  if(!free.length)throw new Error('That space is no longer open for the whole time. Please choose another time.');
-  return {day,type,start,end,unit,name,purpose,purposeOther,availableUnit:free[0]};
+  const overrideUnit=free.length?null:overrideUnitForRange(type,day,start,end,purpose,bookings,unit);
+  if(!free.length&&!overrideUnit)throw new Error('That space is no longer open for the whole time. Please choose another time.');
+  return {day,type,start,end,unit,name,purpose,purposeOther,availableUnit:free[0]??overrideUnit,override:Boolean(overrideUnit)};
 }

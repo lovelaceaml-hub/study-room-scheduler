@@ -12,7 +12,9 @@ const PURPOSES = Object.freeze(['contact', 'new-member', 'group', 'study-member'
 // What a member may choose today, and what a priority takeover may claim.
 const MEMBER_PURPOSES = Object.freeze(['contact', 'new-member', 'other']);
 const OVERRIDE_PURPOSES = Object.freeze(['contact', 'new-member']);
-// The only purpose that can be taken from someone.
+// Kept for compatibility with callers that imported the old single-purpose
+// rule. The active rule below allows a higher-priority member purpose to take
+// an active lower-priority member reservation.
 const OVERRIDABLE_PURPOSE = 'other';
 const CERTAINTIES = Object.freeze(['confirmed', 'tentative']);
 const RESOURCE_TYPES = Object.freeze(['room', 'whiteboard', 'tv']);
@@ -220,19 +222,25 @@ function availableUnitForType(type, candidate, approvedBookings, requestedUnit =
   )) || null;
 }
 
-/* Units of `type` a higher priority could take for `candidate`'s range: the
-   unit must be occupied, and every approved reservation touching it in that
-   range must be an overridable Other. A unit with nothing on it is simply
-   free and is never listed here. Ordered so the least disruptive comes first. */
+/* Units of `type` a higher priority could take for `candidate`'s range. A
+   Contact may take New Member or Other, and a New Member may take Other. A
+   unit with nothing on it is simply free and is never listed here. Ordered so
+   the least disruptive comes first. */
 function reclaimableUnitsForType(type, candidate, approvedBookings) {
   const units = ALLOWED_UNITS[type] || [];
+  const candidatePriority = priorityForPurpose(candidate.purpose);
+  const canOverride = ['contact', 'new-member'].includes(candidate.purpose);
   return units.map(unitId => {
     const holders = approvedBookings.filter(existing =>
       existing.status === 'approved' &&
       existing.assignments && existing.assignments[type] === unitId &&
       rangesOverlap(candidate, existing));
     if (!holders.length) return null;
-    if (!holders.every(existing => existing.purpose === OVERRIDABLE_PURPOSE)) return null;
+    if (!canOverride || !holders.every(existing => (
+      existing.purpose !== 'blocked'
+      && priorityForPurpose(existing.purpose) > candidatePriority
+      && ['new-member', 'other'].includes(existing.purpose)
+    ))) return null;
     return { unitId, holders: sortBookingsByPriority(holders) };
   }).filter(Boolean).sort((first, second) => first.holders.length - second.holders.length
     || units.indexOf(first.unitId) - units.indexOf(second.unitId));

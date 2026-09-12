@@ -29,7 +29,8 @@ async function connect(){
     await new Promise((resolve,reject)=>{let stop=authMod.onAuthStateChanged(auth,()=>{stop();resolve();},reject);});
     if(!auth.currentUser)await authMod.signInAnonymously(auth);
     if(token!==generation)return;
-    backend={auth,call:fn.httpsCallable(fn.getFunctions(app,'us-west1'),'memberSubmitBooking')};
+    const functions=fn.getFunctions(app,'us-west1');
+    backend={auth,call:fn.httpsCallable(functions,'memberSubmitBooking'),overrideCall:fn.httpsCallable(functions,'memberOverrideBooking')};
     const query=fs.query(fs.collection(fs.getFirestore(app),'bookings'),fs.where('date','in',state.days.map(d=>d.key)));
     unsubscribe=fs.onSnapshot(query,{includeMetadataChanges:true},snap=>{
       if(token!==generation)return;
@@ -46,7 +47,8 @@ export async function submit(input){
   try{
     let unit=safe.availableUnit;
     if(!demo){
-      const result=await backend.call({date:safe.day,start:clock(safe.start),end:clock(safe.end),name:safe.name,resourceType:safe.type,purpose:safe.purpose==='new'?'new-member':safe.purpose,purposeOther:safe.purpose==='other'?safe.purposeOther:'',...(safe.unit===null?{}:{requestedUnit:prefixes[safe.type]+safe.unit})});
+      const call=safe.override?backend.overrideCall:backend.call;
+      const result=await call({date:safe.day,start:clock(safe.start),end:clock(safe.end),name:safe.name,resourceType:safe.type,purpose:safe.purpose==='new'?'new-member':safe.purpose,purposeOther:safe.purpose==='other'?safe.purposeOther:'',...(safe.override||safe.unit===null?{}:{requestedUnit:prefixes[safe.type]+safe.unit})});
       const data=result.data;
       if(!data||typeof data.bookingId!=='string'||data.status!=='approved')throw new Error('The server could not confirm the reservation. Check My reservations before trying again.');
       try{const saved=JSON.parse(localStorage.getItem('srs-my-bookings')||'[]');const ids=Array.isArray(saved)?saved.filter(x=>typeof x==='string'):[];localStorage.setItem('srs-my-bookings',JSON.stringify([...new Set([...ids,data.bookingId])]));localStorage.setItem('srs-name',safe.name);}catch{}
@@ -54,7 +56,10 @@ export async function submit(input){
       unit=typeof assignment==='string'&&assignment.startsWith(prefixes[safe.type])?Number(assignment.slice(prefixes[safe.type].length)):NaN;
       if(!Number.isInteger(unit)||unit<1||unit>units[safe.type]||(safe.unit!==null&&unit!==safe.unit))throw new Error('Your booking was saved with a different assignment. Please check My reservations.');
     }
-    const saved={key:`slot-${safe.day}-${safe.type}-${unit}-${safe.start}-${safe.end}`,day:safe.day,type:safe.type,unit,start:safe.start,end:safe.end,name:publicName(safe.name),purpose:safe.purpose,blocked:false,status:'approved'};
+    const saved={key:`slot-${safe.day}-${safe.type}-${unit}-${safe.start}-${safe.end}`,day:safe.day,type:safe.type,unit,start:safe.start,end:safe.end,name:publicName(safe.name),purpose:safe.purpose,blocked:false,status:'approved',override:Boolean(safe.override)};
+    if(demo&&safe.override){
+      state={...state,bookings:state.bookings.filter(b=>!(b.day===saved.day&&b.type===saved.type&&b.unit===saved.unit&&saved.start<b.end&&saved.end>b.start))};
+    }
     // The server result is authoritative. Avoid duplicating an already-arrived snapshot.
     const exists=state.bookings.some(b=>b.day===saved.day&&b.type===saved.type&&b.unit===saved.unit&&b.start===saved.start&&b.end===saved.end);
     emit({bookings:exists?state.bookings:[...state.bookings,saved]});

@@ -286,12 +286,12 @@ async function memberSubmitBooking(input, uid) {
   });
 }
 
-/* Taking a reserved time. Contact and New Member outrank Other, so when a
-   range is full and everything standing in it is an Other, one unit can be
-   reclaimed. Whoever is displaced keeps their time in another unit when one
-   is free; otherwise their reservation is released and flagged for the
-   approver. Everything happens in one transaction so two people can never
-   take the same unit. */
+/* Taking a reserved time. Contact may take New Member or Other, and New
+   Member may take Other, so when a range is full and a lower-priority unit is
+   reclaimable, one unit can be reclaimed. Whoever is displaced keeps their
+   time in another unit when one is free; otherwise their reservation is
+   released and flagged for the approver. Everything happens in one
+   transaction so two people can never take the same unit. */
 async function memberOverrideBooking(input, uid) {
   let request;
   try { request = memberRequestInput(input); }

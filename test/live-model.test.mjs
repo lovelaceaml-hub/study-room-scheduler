@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {eligibleDays,projectBookings,validateInput,validRange,publicName} from '../experiences/shared/model.js';
+import {eligibleDays,projectBookings,validateInput,validRange,publicName,overrideUnitForRange} from '../experiences/shared/model.js';
 const days=eligibleDays(new Date('2026-09-12T20:00:00Z'));
 test('eligible days use Los Angeles calendar at UTC midnight',()=>{
  assert.deepEqual(eligibleDays(new Date('2026-09-13T01:00:00Z')).map(d=>d.key),['2026-09-12','2026-09-15']);
@@ -20,6 +20,19 @@ test('direct unit availability never silently substitutes another room',()=>{
  assert.throws(()=>validateInput(input,booked,days),/no longer open/);
  assert.equal(validateInput({...input,unit:null},booked,days).availableUnit,1);
  assert.throws(()=>validateInput({...input,unit:5},[],days),/valid room/);
+});
+test('Contact sees a lower-priority occupied range as an override candidate',()=>{
+ const day=days[0].key;
+ const bookings=[
+  {day,type:'room',unit:1,start:660,end:720,purpose:'new',blocked:false},
+  {day,type:'room',unit:2,start:660,end:720,purpose:'other',blocked:false},
+  {day,type:'room',unit:3,start:660,end:720,purpose:'contact',blocked:false},
+  {day,type:'room',unit:4,start:660,end:720,purpose:'blocked',blocked:true}
+ ];
+ assert.equal(overrideUnitForRange('room',day,660,720,'contact',bookings),1);
+ assert.equal(overrideUnitForRange('room',day,660,720,'new',bookings),2);
+ assert.equal(overrideUnitForRange('room',day,660,720,'other',bookings),null);
+ assert.equal(validateInput({day,type:'room',unit:null,start:660,end:720,name:'Robin Test',purpose:'contact'},bookings,days).override,true);
 });
 test('time boundaries and Other details are enforced',()=>{
  assert(validRange(days[0].key,660,690,days));assert(!validRange(days[0].key,840,900,days));assert(validRange(days[0].key,1350,1380,days));

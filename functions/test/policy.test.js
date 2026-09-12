@@ -233,7 +233,7 @@ test('ranks Contact above New Member above Other', () => {
   ]).map(booking => booking.name).join(''), 'ABC');
 });
 
-test('an override may take only a unit whose reservations are all Other', () => {
+test('an override may take only lower-priority member reservations', () => {
   const candidate = { date: '2026-07-21', start: '11:00', end: '11:30' };
   const holder = (unit, purpose, extra = {}) => ({
     id: `${unit}-${purpose}`, status: 'approved', date: candidate.date,
@@ -243,16 +243,22 @@ test('an override may take only a unit whose reservations are all Other', () => 
   // A free unit means no override: the caller should simply book it.
   assert.equal(overrideTarget('room', candidate, [holder('room-1', 'other')]), null);
 
-  // Every room taken, and every reservation in the way is an Other.
-  const allOther = ['room-1', 'room-2', 'room-3', 'room-4'].map(unit => holder(unit, 'other'));
-  assert.equal(overrideTarget('room', candidate, allOther).unitId, 'room-1');
+  // Contact can take rooms held by New Member or Other.
+  const contactTargets = [holder('room-1', 'new-member'), holder('room-2', 'other'), holder('room-3', 'contact'), holder('room-4', 'blocked')];
+  assert.deepEqual(reclaimableUnitsForType('room', { ...candidate, purpose: 'contact' }, contactTargets).map(entry => entry.unitId), ['room-1', 'room-2']);
+  assert.equal(overrideTarget('room', { ...candidate, purpose: 'contact' }, contactTargets).unitId, 'room-1');
 
-  // A Contact in the way protects that room; the Other rooms stay takeable.
+  // New Member can take a room held by Other, but not one held by Contact.
+  const newMemberTargets = ['room-1', 'room-2', 'room-3', 'room-4'].map(unit => holder(unit, unit === 'room-1' ? 'other' : 'contact'));
+  assert.equal(overrideTarget('room', { ...candidate, purpose: 'new-member' }, newMemberTargets).unitId, 'room-1');
+  assert.equal(overrideTarget('room', { ...candidate, purpose: 'new-member' }, newMemberTargets.map(item => ({ ...item, purpose: 'contact' }))), null);
+
+  // A Contact or New Member in the way protects that room; the Other room stays takeable.
   const mixed = [holder('room-1', 'contact'), holder('room-2', 'new-member'), holder('room-3', 'meeting'), holder('room-4', 'other')];
-  assert.deepEqual(reclaimableUnitsForType('room', candidate, mixed).map(entry => entry.unitId), ['room-4']);
-  assert.equal(overrideTarget('room', candidate, mixed).unitId, 'room-4');
+  assert.deepEqual(reclaimableUnitsForType('room', { ...candidate, purpose: 'contact' }, mixed).map(entry => entry.unitId), ['room-2', 'room-4']);
+  assert.equal(overrideTarget('room', { ...candidate, purpose: 'contact' }, mixed).unitId, 'room-2');
 
-  // Nothing takeable when no room in the way is an Other.
+  // Nothing takeable when no room in the way is lower priority.
   const noneTakeable = ['room-1', 'room-2', 'room-3', 'room-4'].map(unit => holder(unit, 'contact'));
   assert.equal(overrideTarget('room', candidate, noneTakeable), null);
 
@@ -261,7 +267,7 @@ test('an override may take only a unit whose reservations are all Other', () => 
     holder('room-1', 'other'), { ...holder('room-1', 'other'), id: 'room-1-late', start: '11:00', end: '11:30' },
     holder('room-2', 'other'), holder('room-3', 'contact'), holder('room-4', 'contact')
   ];
-  assert.equal(overrideTarget('room', candidate, uneven).unitId, 'room-2');
+  assert.equal(overrideTarget('room', { ...candidate, purpose: 'contact' }, uneven).unitId, 'room-2');
 });
 
 test('requested units are honored and conflicts never substitute another unit', () => {
