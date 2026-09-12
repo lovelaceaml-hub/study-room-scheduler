@@ -19,7 +19,7 @@ Create six isolated, phone-ready design previews that use the current live sched
 - All preview write paths are blocked locally before reaching Functions or Firestore.
 - Every design shows the full vertical schedule with numbered resources side by side, hourly boundary labels, names, and Contact, New Member, or Other purpose.
 - Clicking an open resource carries resource and start time into the reservation flow. The general reserve action still begins with resource choice.
-- Each preview has a distinct composition, typography, color system, and signature treatment while remaining professional and accessible.
+- Each preview has a distinct composition, information hierarchy, schedule structure, and slot-selection interaction. Palette changes alone do not qualify as a new design.
 - Production remains byte-for-byte untouched by deployment.
 - Each branch passes syntax, policy, UI, confirmation-popup, TV, diff, and browser live-read/read-only checks.
 
@@ -61,3 +61,4 @@ Luna runs repeated branch checks. Sol reviews receipts, pushes each branch, depl
 
 - 2026-09-12: Anthony requested four new designs plus Atlas and Lattice, all in separate branches with live data and production preserved.
 - 2026-09-12: Scope set to live Firestore reads with every mutation blocked in previews. Production merges and production deploys are out of scope.
+- 2026-09-12: Anthony clarified that the six directions must be structurally different products, not color variants. All six Sol briefs were expanded to include schedule composition and interaction design.
