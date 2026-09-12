@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>LV Rooms — Departure Board</title>
+<link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <div><small>LV ZION · STUDY WING</small><h1>Board</h1></div>
+    <div class="head-right">
+      <b id="clock">7:12 PM</b>
+      <button class="pill" id="cmdBtn">⌘K</button>
+    </div>
+  </header>
+
+  <nav class="views">
+    <button class="active" data-view="board">Board</button>
+    <button data-view="mine">Mine</button>
+    <button data-view="admin">Admin</button>
+    <button data-view="lobby">Lobby</button>
+  </nav>
+
+  <!-- ================= BOARD ================= -->
+  <section class="view active" id="view-board">
+    <div class="board-bar">
+      <div class="resource-switch" id="resSwitch">
+        <button class="active" data-res="rooms">ROOMS</button>
+        <button data-res="boards">BOARDS</button>
+        <button data-res="tv">TV</button>
+      </div>
+      <div class="legend">
+        <span><i class="k-free"></i>FREE</span>
+        <span><i class="k-held"></i>HELD</span>
+        <span><i class="k-sel"></i>YOURS</span>
+      </div>
+    </div>
+
+    <div class="status-line" id="statusLine">
+      <i></i><span>ROOM 3 RELEASED EARLY · 7:10 PM · 3 SPACES FREE NOW</span>
+    </div>
+
+    <div class="board" id="board">
+      <div class="board-scroll">
+        <div class="grid" id="grid"></div>
+      </div>
+    </div>
+
+    <p class="board-hint">Tap a free block to start, tap a later block to extend. On a keyboard: arrows to move, space to select, enter to reserve.</p>
+
+    <div class="summary" id="summary">
+      <div class="summary-main">
+        <span class="eyebrow">SELECTION</span>
+        <b id="selLine">Nothing selected</b>
+        <small id="selNote">Pick a free block on the board.</small>
+      </div>
+      <div class="summary-actions">
+        <input id="purpose" placeholder="PURPOSE — BIBLE STUDY">
+        <button class="confirm" id="confirm" disabled>RESERVE</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MINE ================= -->
+  <section class="view" id="view-mine">
+    <div class="intro"><span class="eyebrow">YOUR LINES</span><h2>My reservations</h2></div>
+    <div class="ledger">
+      <div class="ledger-row live">
+        <span class="lr-time">19:30</span><span class="lr-room">ROOM 3</span>
+        <span class="lr-note">BIBLE STUDY · 90 MIN</span><span class="lr-state">ACTIVE</span>
+      </div>
+      <div class="ledger-row">
+        <span class="lr-time">THU 18:00</span><span class="lr-room">BOARD B</span>
+        <span class="lr-note">PREACHING PREP · 60 MIN</span><span class="lr-state">BOOKED</span>
+      </div>
+      <div class="ledger-row done">
+        <span class="lr-time">MON 19:00</span><span class="lr-room">ROOM 1</span>
+        <span class="lr-note">NEW STUDENT STUDY</span><span class="lr-state">DONE</span>
+      </div>
+    </div>
+    <div class="row-actions">
+      <button class="ghost">EXTEND 30 MIN</button>
+      <button class="ghost">CHANGE END TIME</button>
+      <button class="ghost danger">RELEASE</button>
+    </div>
+  </section>
+
+  <!-- ================= ADMIN ================= -->
+  <section class="view" id="view-admin">
+    <div class="intro"><span class="eyebrow">COORDINATOR</span><h2>Board control</h2></div>
+    <div class="stat-row">
+      <div class="stat"><b>3</b><small>FREE NOW</small></div>
+      <div class="stat"><b>62%</b><small>EVENING FILLED</small></div>
+      <div class="stat"><b>20:00</b><small>PEAK HOUR</small></div>
+    </div>
+    <div class="ledger">
+      <div class="ledger-row warn"><span class="lr-time">19:00</span><span class="lr-room">ROOM 2</span><span class="lr-note">RUNNING LONG · NEXT PARTY WAITING</span><button class="lr-act">NUDGE</button></div>
+      <div class="ledger-row warn"><span class="lr-time">19:30</span><span class="lr-room">ROOM 5</span><span class="lr-note">HELD, NO PURPOSE LISTED</span><button class="lr-act">RELEASE</button></div>
+      <div class="ledger-row"><span class="lr-time">20:00</span><span class="lr-room">ALL</span><span class="lr-note">PEAK — 2 REQUESTS UNMET</span><button class="lr-act">OPEN TV</button></div>
+    </div>
+    <div class="danger-row"><div><strong>BLOCK THE NORTH WING</strong><small>Clears Rooms 1–3 for the rest of tonight</small></div><button class="ghost danger">BLOCK</button></div>
+  </section>
+
+  <!-- ================= LOBBY ================= -->
+  <section class="view lobby" id="view-lobby">
+    <div class="lobby-head"><span class="eyebrow">LOBBY DISPLAY</span><b id="lobbyClock">7:12 PM</b></div>
+    <div class="split-flap" id="flap"></div>
+    <p class="lobby-foot">RESERVE AT THE DESK OR AT LVROOMS.WEB.APP</p>
+  </section>
+
+  <!-- command palette -->
+  <aside id="palette" aria-label="Command palette">
+    <input id="cmdInput" placeholder="Type a room, a time, or a command…" autocomplete="off">
+    <div id="cmdList"></div>
+    <p class="cmd-foot">ESC to close · ↑↓ to move · ENTER to run</p>
+  </aside>
+  <div id="shade"></div>
+  <div id="toast" role="status"></div>
+</div>
+<script src="prototype.js"></script>
+</body>
+</html>
