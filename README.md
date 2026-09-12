@@ -5,6 +5,10 @@ active at `https://lvrooms.web.app`, including its existing booking and lobby
 TV functions. LV Zion Study Rooms is also active at
 `https://lvzion.vercel.app/rooms` by Anthony's direction.
 
+**September 11, 2026.** The "Study Rooms has moved to the LV Zion app" notice was
+removed from the top of the page. It was not true: this scheduler is still the one
+members use, and the notice was telling them to book somewhere else.
+
 The two systems use separate calendars: a booking made here does not appear in
 LV Zion. A final encrypted 129-document Firebase snapshot was imported into
 LV Zion (4 account-linked; 14 intentionally unclaimed for Room Coordinator

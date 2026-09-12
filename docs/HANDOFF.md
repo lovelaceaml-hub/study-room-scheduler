@@ -80,6 +80,11 @@ cells, Reserved privacy, the scroll cue, the end-time sheet, and no page overflo
 the primary Hosting `app` target was deployed. Functions, Firestore rules, indexes,
 Authentication, and the legacy redirect were unchanged.
 
+**Moved-to-LV-Zion notice removed (live 11 September 2026).** The static
+`.moved-notice` aside in `index.html` and its styles were deleted. It told members
+Study Rooms had moved and to book in LV Zion, which is not the case: this scheduler is
+still the one in use. Anything that re-adds it needs Anthony's explicit decision first.
+
 **One whole schedule, new service times, and priority override (live 11 September
 2026).** Home shows the whole day in one scroll region. Service times moved to Saturday
 10:00-11:00 AM, 2:30-3:30 PM, 7:30-8:30 PM and Tuesday 7:30-8:30 PM, so Saturday's first
