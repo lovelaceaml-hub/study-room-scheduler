@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7f4ec">
+<title>LV Rooms — Day Sheet</title>
+<style>
+:root{
+  --paper:#f7f4ec; --paper-2:#fffdf7; --ink:#15130f; --ink-2:#4a463d; --ink-3:#8b8579;
+  --rule:#ddd6c6; --rule-2:#c8c0ad;
+  --contact:#c2402a; --contact-bg:#f7e2dc;
+  --member:#2a4fc2; --member-bg:#dde3f8;
+  --other:#8a6a1f; --other-bg:#f3e9d2;
+  --go:#e2512c;
+  --pad:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink)}
+body{font-family:"Helvetica Neue",Inter,-apple-system,system-ui,"Segoe UI",Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.num{font-variant-numeric:tabular-nums}
+
+.wrap{max-width:1080px;margin:0 auto;padding:0 var(--pad) calc(150px + env(safe-area-inset-bottom))}
+
+/* ---------- masthead ---------- */
+.masthead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding:20px 0 12px;border-bottom:2px solid var(--ink)}
+.masthead h1{margin:0;font-size:19px;font-weight:800;letter-spacing:-.02em;text-transform:uppercase}
+.masthead small{display:block;margin-top:4px;font-size:9.5px;letter-spacing:.26em;color:var(--ink-3);text-transform:uppercase}
+.stamp{font-size:10px;letter-spacing:.18em;text-transform:uppercase;border:1.5px solid var(--ink);padding:7px 10px;white-space:nowrap}
+
+.lede{padding:26px 0 22px;border-bottom:1px solid var(--rule)}
+.lede h2{margin:0;font-size:clamp(34px,10vw,58px);line-height:.94;letter-spacing:-.045em;font-weight:800;text-transform:uppercase}
+.lede h2 em{font-style:normal;color:var(--go)}
+.lede p{margin:14px 0 0;font-size:15px;line-height:1.55;color:var(--ink-2);max-width:44ch}
+
+.tally{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--rule)}
+.tally div{padding:18px 0}
+.tally div + div{border-left:1px solid var(--rule);padding-left:16px}
+.tally b{display:block;font-size:32px;letter-spacing:-.04em;line-height:1}
+.tally small{display:block;margin-top:7px;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+
+/* ---------- controls ---------- */
+.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:20px 0 14px}
+.tabs{display:flex;border:1.5px solid var(--ink)}
+.tabs button{border:0;background:transparent;padding:11px 16px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.tabs button + button{border-left:1.5px solid var(--ink)}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+.key{display:flex;flex-wrap:wrap;gap:14px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.key span{display:flex;align-items:center;gap:6px}
+.key i{width:12px;height:12px;display:block;border:1px solid var(--ink)}
+.i-contact{background:var(--contact-bg)}
+.i-member{background:var(--member-bg)}
+.i-other{background:var(--other-bg)}
+.i-open{background:var(--paper-2)}
+
+/* ---------- the day sheet ---------- */
+.sheetwrap{border:1.5px solid var(--ink);background:var(--paper-2);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.sheet-grid{min-width:880px}
+.gridrow{display:grid;grid-template-columns:104px repeat(12,1fr);border-bottom:1px solid var(--rule)}
+.gridrow:last-child{border-bottom:0}
+.gridrow.times{position:sticky;top:0;z-index:4;background:var(--paper-2);border-bottom:1.5px solid var(--ink)}
+.rowlabel{position:sticky;left:0;z-index:3;background:var(--paper-2);border-right:1.5px solid var(--ink);padding:13px 12px}
+.rowlabel b{display:block;font-size:13.5px;letter-spacing:-.01em}
+.rowlabel small{display:block;margin-top:4px;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.times .rowlabel{padding:11px 12px}
+.times .rowlabel b{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+.tick{padding:11px 0 10px;text-align:center;font-size:10px;letter-spacing:.06em;color:var(--ink-3);border-left:1px solid var(--rule)}
+.tick.hour{color:var(--ink);font-weight:700}
+.lane{position:relative;display:grid;grid-template-columns:repeat(12,1fr);grid-column:2 / -1}
+.lane::before{content:"";position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px calc(100% / 12))}
+.block{position:relative;z-index:1;margin:5px 3px;padding:8px 9px;border:1.5px solid var(--ink);text-align:left;overflow:hidden;display:flex;flex-direction:column;justify-content:center;min-height:54px}
+.block b{display:block;font-size:11.5px;line-height:1.2;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.block small{display:block;margin-top:3px;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.block.contact{background:var(--contact-bg)}
+.block.contact small{color:var(--contact)}
+.block.member{background:var(--member-bg)}
+.block.member small{color:var(--member)}
+.block.other{background:var(--other-bg)}
+.block.other small{color:var(--other)}
+.block.mine{background:var(--ink);color:var(--paper)}
+.block.mine small{color:#f0c9a8}
+.block.past{opacity:.4}
+.open{position:relative;z-index:1;margin:5px 3px;border:1.5px dashed var(--rule-2);background:transparent;color:var(--ink-3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;min-height:54px;transition:background .12s,border-color .12s,color .12s}
+.open:hover,.open:focus-visible{background:var(--go);border-color:var(--ink);border-style:solid;color:#fff;outline:none}
+.open.past{opacity:.35;pointer-events:none}
+.nowmark{position:absolute;top:0;bottom:0;width:2px;background:var(--go);z-index:2;pointer-events:none}
+.nowmark::after{content:"NOW";position:absolute;top:-1px;left:4px;font-size:8px;letter-spacing:.14em;color:var(--go);font-weight:700}
+.hint{margin:12px 2px 0;font-size:11px;letter-spacing:.04em;color:var(--ink-3)}
+.scroll-note{display:none}
+@media(max-width:760px){.scroll-note{display:block;margin:10px 2px 0;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}}
+
+.colophon{margin:34px 0 0;padding-top:16px;border-top:2px solid var(--ink);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+
+/* ---------- the button ---------- */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:16px var(--pad) calc(18px + env(safe-area-inset-bottom));display:flex;justify-content:center;pointer-events:none;
+  background:linear-gradient(to top,var(--paper) 52%,rgba(247,244,236,0))}
+.reserve{pointer-events:auto;width:min(100%,520px);border:2px solid var(--ink);background:var(--go);color:#fff;
+  padding:20px 24px;font-size:18px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;
+  box-shadow:6px 6px 0 var(--ink);transition:transform .1s,box-shadow .1s;display:flex;align-items:center;justify-content:center;gap:12px}
+.reserve:active{transform:translate(4px,4px);box-shadow:2px 2px 0 var(--ink)}
+.reserve .rule{width:26px;height:2px;background:#fff}
+
+/* ---------- full-page flow ---------- */
+.flowpage{position:fixed;inset:0;z-index:40;background:var(--paper);display:none;overflow:auto;padding:0 var(--pad) calc(40px + env(safe-area-inset-bottom))}
+.flowpage.on{display:block;animation:pagein .22s ease-out}
+@keyframes pagein{from{opacity:0;transform:translateY(10px)}}
+.flowtop{position:sticky;top:0;background:var(--paper);display:flex;justify-content:space-between;align-items:center;gap:14px;padding:18px 0 14px;border-bottom:2px solid var(--ink);z-index:2}
+.flowtop .step-no{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
+.flowtop button{border:1.5px solid var(--ink);background:transparent;padding:9px 12px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+.rulerow{display:flex;gap:5px;padding:14px 0 0}
+.rulerow i{height:4px;flex:1;background:var(--rule)}
+.rulerow i.on{background:var(--ink)}
+.flowbody{max-width:640px;margin:0 auto}
+.q{margin:26px 0 8px;font-size:clamp(28px,8vw,42px);line-height:1.02;letter-spacing:-.04em;font-weight:800;text-transform:uppercase}
+.sub{margin:0 0 22px;font-size:14px;line-height:1.55;color:var(--ink-2);max-width:40ch}
+.pick{width:100%;display:flex;align-items:center;gap:14px;text-align:left;margin-bottom:10px;padding:18px;border:1.5px solid var(--ink);background:var(--paper-2);transition:transform .1s,box-shadow .1s,background .12s}
+.pick:hover{background:#fff}
+.pick:active{transform:translate(3px,3px)}
+.pick{box-shadow:5px 5px 0 var(--ink)}
+.pick:active{box-shadow:2px 2px 0 var(--ink)}
+.pick .no{flex:none;width:44px;height:44px;border:1.5px solid var(--ink);display:grid;place-items:center;font-size:15px;font-weight:800}
+.pick.contact .no{background:var(--contact-bg);color:var(--contact)}
+.pick.member .no{background:var(--member-bg);color:var(--member)}
+.pick.other .no{background:var(--other-bg);color:var(--other)}
+.pick b{display:block;font-size:17px;letter-spacing:-.02em;text-transform:uppercase}
+.pick small{display:block;margin-top:4px;font-size:12px;color:var(--ink-2);text-transform:none;letter-spacing:0}
+.pick .rank{display:inline-block;margin-left:9px;font-size:9px;letter-spacing:.14em;border:1px solid var(--rule-2);padding:3px 6px;color:var(--ink-3);vertical-align:middle}
+.pick .go{margin-left:auto;font-size:17px}
+.otherbox{display:none;margin:-2px 0 12px;padding:16px;border:1.5px dashed var(--rule-2)}
+.otherbox.show{display:block}
+.otherbox input{width:100%;padding:14px;border:1.5px solid var(--ink);background:#fff;font-size:16px}
+.otherbox input::placeholder{color:var(--ink-3)}
+.timegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.timebtn{padding:16px 6px;border:1.5px solid var(--ink);background:var(--paper-2);font-size:15px;font-weight:700;box-shadow:4px 4px 0 var(--ink);transition:transform .1s,box-shadow .1s}
+.timebtn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.note{margin:16px 0 0;font-size:11.5px;line-height:1.6;color:var(--ink-3);letter-spacing:.02em}
+.ticket{border:2px solid var(--ink);background:var(--paper-2);margin-top:6px}
+.ticket .trow{display:flex;justify-content:space-between;gap:16px;padding:15px 17px;border-bottom:1px solid var(--rule);font-size:14px}
+.ticket .trow:last-child{border-bottom:0}
+.ticket span{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);padding-top:3px}
+.ticket b{text-align:right;font-weight:700}
+.confirm{width:100%;margin-top:18px;border:2px solid var(--ink);background:var(--go);color:#fff;padding:20px;font-size:17px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;box-shadow:6px 6px 0 var(--ink);transition:transform .1s,box-shadow .1s}
+.confirm:active{transform:translate(4px,4px);box-shadow:2px 2px 0 var(--ink)}
+.confirm.plain{background:transparent;color:var(--ink);box-shadow:none;margin-top:10px;font-size:12px;padding:14px;letter-spacing:.14em}
+.stamped{text-align:center;padding:22px 0 0}
+.stamped .seal{width:132px;height:132px;margin:8px auto 24px;border:3px solid var(--go);color:var(--go);border-radius:50%;display:grid;place-items:center;transform:rotate(-9deg);
+  font-size:15px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;line-height:1.25;animation:stamp .32s cubic-bezier(.2,1.6,.5,1) both}
+@keyframes stamp{from{transform:rotate(-9deg) scale(1.7);opacity:0}}
+.stamped h3{margin:0 0 12px;font-size:30px;letter-spacing:-.035em;text-transform:uppercase}
+.stamped p{margin:0 auto;max-width:34ch;font-size:14px;line-height:1.6;color:var(--ink-2)}
+
+@media(min-width:900px){
+  .wrap{padding-bottom:170px}
+  .masthead{padding:28px 0 14px}
+  .lede{padding:40px 0 30px}
+  .sheet-grid{min-width:0}
+  .gridrow{grid-template-columns:132px repeat(12,1fr)}
+  .flowpage{padding:0 40px 60px}
+  .q{margin-top:34px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms !important;transition-duration:.06s !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div><h1>LV Zion Rooms</h1><small>Study wing · day sheet</small></div>
+    <div class="stamp num" id="stamp">Sat 12 Sep · 6:12 PM</div>
+  </div>
+
+  <section class="lede">
+    <h2>Reserve a<br>room in <em>three taps.</em></h2>
+    <p>The whole evening, every room, printed on one sheet. Tap any open slot, or use the button at the bottom of the screen.</p>
+  </section>
+
+  <div class="tally">
+    <div><b class="num" id="tOpen">3</b><small>Open now</small></div>
+    <div><b class="num" id="tBooked">7</b><small>Reserved today</small></div>
+    <div><b class="num" id="tNext">6:30</b><small>Next opening</small></div>
+  </div>
+
+  <div class="bar">
+    <div class="tabs" role="tablist" aria-label="Resource">
+      <button role="tab" aria-selected="true" data-type="room">Rooms</button>
+      <button role="tab" aria-selected="false" data-type="tv">TV</button>
+      <button role="tab" aria-selected="false" data-type="whiteboard">Whiteboard</button>
+    </div>
+    <div class="key">
+      <span><i class="i-contact"></i>Contact</span>
+      <span><i class="i-member"></i>New member</span>
+      <span><i class="i-other"></i>Other</span>
+      <span><i class="i-open"></i>Available</span>
+    </div>
+  </div>
+
+  <div class="sheetwrap"><div class="sheet-grid" id="grid"></div></div>
+  <p class="scroll-note">Swipe the sheet sideways for the rest of the evening</p>
+  <p class="hint">Every block shows who holds the room and what it is for. Tap a dashed slot to reserve it from there.</p>
+
+  <div class="colophon"><span>LV Zion · Las Vegas</span><span>Sheet resets at midnight</span></div>
+</div>
+
+<div class="dock">
+  <button class="reserve" id="reserveNow" aria-haspopup="dialog"><span class="rule"></span>Reserve Now<span class="rule"></span></button>
+</div>
+
+<section class="flowpage" id="flowpage" role="dialog" aria-modal="true" aria-labelledby="q">
+  <div class="flowtop">
+    <div><div class="step-no" id="stepNo">Step 1 of 5</div><div class="rulerow" id="ruler"><i class="on"></i><i></i><i></i><i></i><i></i></div></div>
+    <button id="closeFlow">Close</button>
+  </div>
+  <div class="flowbody" id="flow"></div>
+</section>
+
+<script>
+/* -------------------------------------------------------------- data */
+const DAY_START = 16 * 60, DAY_END = 22 * 60, STEP = 30, COLS = (DAY_END - DAY_START) / STEP;
+const NOW = 18 * 60 + 12;
+const nextSlot = m => Math.ceil(m / STEP) * STEP;
+const t = (h, m) => h * 60 + m;
+
+const UNITS = {
+  room:       ['Room 1','Room 2','Room 3','Room 4','Room 5','Room 6'],
+  tv:         ['TV Lounge'],
+  whiteboard: ['Board A','Board B','Board C']
+};
+const SEATS = {
+  'Room 1':'4 seats','Room 2':'6 seats','Room 3':'4 seats','Room 4':'4 seats','Room 5':'8 seats','Room 6':'2 seats',
+  'TV Lounge':'8 seats','Board A':'Wall board','Board B':'Rolling','Board C':'Wall board'
+};
+const LABEL = {room:'room', tv:'TV', whiteboard:'whiteboard'};
+const KIND  = {contact:'Contact', member:'New member', other:'Other'};
+
+const BOOKINGS = [
+  {type:'room', unit:'Room 1', from:t(16,0),  to:t(17,30), who:'Daniel',  what:'Bible study',        rank:'contact'},
+  {type:'room', unit:'Room 3', from:t(17,0),  to:t(18,30), who:'Grace',   what:'New member study',   rank:'member'},
+  {type:'room', unit:'Room 2', from:t(18,0),  to:t(19,0),  who:'Samuel',  what:'Preaching practice', rank:'other'},
+  {type:'room', unit:'Room 4', from:t(19,0),  to:t(21,0),  who:'Esther',  what:'Bible study',        rank:'contact'},
+  {type:'room', unit:'Room 5', from:t(16,30), to:t(18,0),  who:'Joshua',  what:'New member study',   rank:'member'},
+  {type:'room', unit:'Room 6', from:t(20,0),  to:t(22,0),  who:'Hannah',  what:'Bible study',        rank:'contact'},
+  {type:'room', unit:'Room 3', from:t(20,0),  to:t(21,30), who:'Mark',    what:'Bible study',        rank:'contact'},
+  {type:'tv',   unit:'TV Lounge', from:t(17,0), to:t(18,30), who:'Media team', what:'Sermon review',   rank:'other'},
+  {type:'tv',   unit:'TV Lounge', from:t(20,0), to:t(21,30), who:'Peter',      what:'Bible study',     rank:'contact'},
+  {type:'whiteboard', unit:'Board A', from:t(16,0),  to:t(17,0), who:'Mary',   what:'Preaching prep',   rank:'other'},
+  {type:'whiteboard', unit:'Board B', from:t(18,30), to:t(20,0), who:'Andrew', what:'New member study', rank:'member'}
+];
+
+const fmt = m => { let h = Math.floor(m / 60); const mm = String(m % 60).padStart(2,'0'); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return h + ':' + mm + ' ' + ap; };
+const short = m => { let h = Math.floor(m / 60); const mm = String(m % 60).padStart(2,'0'); h = h % 12 || 12; return h + ':' + mm; };
+const col = m => Math.round((m - DAY_START) / STEP) + 1;
+
+const forUnit = unit => BOOKINGS.filter(b => b.unit === unit).sort((a, b) => a.from - b.from);
+const freeUnitsAt = (type, from, to) => UNITS[type].filter(u => !BOOKINGS.some(b => b.unit === u && from < b.to && to > b.from));
+
+function bestUnit(type, start){
+  let pick = null, best = -1;
+  freeUnitsAt(type, start, start + STEP).forEach(u => {
+    const next = forUnit(u).find(b => b.from >= start + STEP);
+    const runway = (next ? next.from : DAY_END) - start;
+    if (runway > best){ best = runway; pick = u; }
+  });
+  return pick;
+}
+function startTimes(type){
+  const out = [];
+  for (let m = nextSlot(NOW); m <= DAY_END - STEP; m += STEP)
+    if (freeUnitsAt(type, m, m + STEP).length) out.push(m);
+  return out;
+}
+function endTimes(unit, start){
+  const next = forUnit(unit).find(b => b.from >= start);
+  const ceiling = Math.min(next ? next.from : DAY_END, DAY_END);
+  const out = [];
+  for (let m = start + STEP; m <= ceiling; m += STEP) out.push(m);
+  return out;
+}
+
+/* ------------------------------------------------------- the day sheet */
+const $ = s => document.querySelector(s);
+let type = 'room';
+
+function renderGrid(){
+  let html = '<div class="gridrow times"><div class="rowlabel"><b>' + LABEL[type] + '</b></div>';
+  for (let i = 0; i < COLS; i++){
+    const m = DAY_START + i * STEP;
+    html += '<div class="tick' + (m % 60 === 0 ? ' hour' : '') + '">' + (m % 60 === 0 ? short(m) : '·') + '</div>';
+  }
+  html += '</div>';
+
+  UNITS[type].forEach(unit => {
+    const rows = forUnit(unit);
+    let cells = '', cur = DAY_START;
+    const gap = (from, to) => {
+      const past = to <= NOW;
+      cells += '<button class="open' + (past ? ' past' : '') + '" style="grid-column:' + col(from) + ' / ' + col(to) + '"' +
+               (past ? ' tabindex="-1"' : '') + ' data-open-unit="' + unit + '" data-open-from="' + Math.max(from, nextSlot(NOW)) + '">' +
+               (past ? '' : 'Open') + '</button>';
+    };
+    rows.forEach(b => {
+      if (b.from > cur) gap(cur, b.from);
+      const past = b.to <= NOW;
+      cells += '<div class="block ' + (b.mine ? 'mine' : b.rank) + (past ? ' past' : '') + '" style="grid-column:' + col(b.from) + ' / ' + col(b.to) + '">' +
+               '<b>' + b.who + '</b><small>' + (b.mine ? 'You · ' + b.what : KIND[b.rank]) + '</small></div>';
+      cur = Math.max(cur, b.to);
+    });
+    if (cur < DAY_END) gap(cur, DAY_END);
+
+    const freeNow = !rows.some(b => b.from <= NOW && b.to > NOW);
+    html += '<div class="gridrow"><div class="rowlabel"><b>' + unit + '</b><small>' + SEATS[unit] + ' · ' + (freeNow ? 'open' : 'in use') + '</small></div>' +
+            '<div class="lane">' + cells + '<span class="nowmark" style="left:' + ((NOW - DAY_START) / (DAY_END - DAY_START) * 100) + '%"></span></div></div>';
+  });
+
+  $('#grid').innerHTML = html;
+
+  const free = freeUnitsAt(type, NOW, NOW + STEP);
+  $('#tOpen').textContent = free.length;
+  $('#tBooked').textContent = BOOKINGS.filter(b => b.type === type).length;
+  const nextOpen = startTimes(type)[0];
+  $('#tNext').textContent = free.length ? 'Now' : (nextOpen ? short(nextOpen) : '—');
+  scrollToNow();
+}
+
+/* open the sheet on the current hour, not on 4 PM */
+function scrollToNow(){
+  const box = document.querySelector('.sheetwrap');
+  const lane = document.querySelector('.lane');
+  if (!box || !lane) return;
+  const labelW = document.querySelector('.rowlabel').getBoundingClientRect().width;
+  const x = (NOW - DAY_START) / (DAY_END - DAY_START) * lane.getBoundingClientRect().width;
+  box.scrollLeft = Math.max(0, x + labelW - box.clientWidth * 0.42);
+}
+
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', 'false'));
+  b.setAttribute('aria-selected', 'true');
+  type = b.dataset.type;
+  renderGrid();
+}));
+
+/* ------------------------------------------------------------ the flow */
+const page = $('#flowpage'), flow = $('#flow');
+let state = {};
+
+function openFlow(preset){
+  state = {step:0, type:null, unit:null, purpose:null, rank:null, start:null, end:null};
+  if (preset){
+    state.type = type;
+    state.unit = preset.unit;
+    state.start = preset.start;
+    state.step = type === 'room' ? 1 : 3;   /* a slot tap already answered "when do you start" */
+    state.fromSheet = true;
+  }
+  page.classList.add('on');
+  document.body.style.overflow = 'hidden';
+  render();
+}
+function closeFlow(){
+  page.classList.remove('on');
+  document.body.style.overflow = '';
+}
+$('#reserveNow').addEventListener('click', () => openFlow(null));
+$('#closeFlow').addEventListener('click', closeFlow);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && page.classList.contains('on')) closeFlow(); });
+
+function chrome(n){
+  $('#stepNo').textContent = 'Step ' + (n + 1) + ' of 5';
+  [...$('#ruler').children].forEach((i, idx) => i.classList.toggle('on', idx <= n));
+}
+const back = () => '<button class="confirm plain" data-back="1">← Back a step</button>';
+
+function render(){
+  const s = state.step;
+
+  if (s === 0){
+    chrome(0);
+    flow.innerHTML = '<h2 class="q" id="q">What do you need?</h2>' +
+      '<p class="sub">Pick a kind of space. Rooms ask what it is for, so priority is clear on the sheet.</p>' +
+      [['room','▦','Room','Six rooms, 2 to 8 seats'],
+       ['whiteboard','✎','Whiteboard','Three shared boards'],
+       ['tv','▣','TV','The lounge display']]
+      .map(o => '<button class="pick" data-type="' + o[0] + '"><span class="no">' + o[1] + '</span>' +
+        '<span><b>' + o[2] + '</b><small>' + o[3] + '</small></span><span class="go">→</span></button>').join('');
+    return;
+  }
+
+  if (s === 1){
+    chrome(1);
+    flow.innerHTML = '<h2 class="q" id="q">What is the room for?</h2>' +
+      '<p class="sub">This sets priority when the wing is full, and it is what everyone sees on the day sheet.</p>' +
+      '<button class="pick contact" data-rank="contact" data-purpose="Study with a contact"><span class="no">1</span><span><b>Contact<span class="rank">1st priority</span></b><small>Study or meeting with a contact</small></span><span class="go">→</span></button>' +
+      '<button class="pick member" data-rank="member" data-purpose="New member study"><span class="no">2</span><span><b>New Member<span class="rank">2nd priority</span></b><small>Study or meeting with a new member</small></span><span class="go">→</span></button>' +
+      '<button class="pick other" id="otherBtn"><span class="no">3</span><span><b>Other<span class="rank">Last priority</span></b><small>Type what it is for</small></span><span class="go">→</span></button>' +
+      '<div class="otherbox" id="otherbox"><input id="otherText" placeholder="What is the room for?" autocomplete="off">' +
+      '<button class="confirm" id="otherGo" style="margin-top:12px" disabled>Continue</button></div>' +
+      (state.fromSheet ? '<p class="note">You picked ' + state.unit + ' at ' + fmt(state.start) + ' from the sheet. Choosing a purpose keeps that slot.</p>' : '') +
+      back();
+
+    $('#otherBtn').addEventListener('click', () => { $('#otherbox').classList.add('show'); $('#otherText').focus(); });
+    const input = $('#otherText'), go = $('#otherGo');
+    input.addEventListener('input', () => go.disabled = !input.value.trim());
+    input.addEventListener('keydown', e => { if (e.key === 'Enter' && !go.disabled) go.click(); });
+    go.addEventListener('click', () => {
+      state.purpose = input.value.trim();
+      state.rank = 'other';
+      state.step = state.fromSheet ? 3 : 2;
+      render();
+    });
+    return;
+  }
+
+  if (s === 2){
+    chrome(2);
+    const times = startTimes(state.type);
+    flow.innerHTML = '<h2 class="q" id="q">When do you start?</h2>' +
+      '<p class="sub">Only slots with a free ' + LABEL[state.type] + ' are listed, so you cannot double book.</p>' +
+      '<div class="timegrid">' + times.map(m => '<button class="timebtn num" data-start="' + m + '">' + fmt(m) + '</button>').join('') + '</div>' +
+      '<p class="note">Times already taken are left off this list.</p>' + back();
+    return;
+  }
+
+  if (s === 3){
+    chrome(3);
+    const ends = endTimes(state.unit, state.start);
+    const ceiling = ends[ends.length - 1];
+    const why = ceiling >= DAY_END ? 'the wing closes at 10:00 PM' : 'the next reservation in ' + state.unit + ' starts then';
+    flow.innerHTML = '<h2 class="q" id="q">When do you end?</h2>' +
+      '<p class="sub">' + state.unit + ', starting ' + fmt(state.start) + '.</p>' +
+      '<div class="timegrid">' + ends.map(m => '<button class="timebtn num" data-end="' + m + '">' + fmt(m) + '</button>').join('') + '</div>' +
+      '<p class="note">The list stops at ' + fmt(ceiling) + ' because ' + why + '.</p>' + back();
+    return;
+  }
+
+  if (s === 4){
+    chrome(4);
+    flow.innerHTML = '<h2 class="q" id="q">Check the details</h2>' +
+      '<div class="ticket">' +
+        '<div class="trow"><span>Space</span><b>' + state.unit + '</b></div>' +
+        (state.type === 'room' ? '<div class="trow"><span>Purpose</span><b>' + state.purpose + '</b></div>' +
+                                 '<div class="trow"><span>Priority</span><b>' + KIND[state.rank] + '</b></div>' : '') +
+        '<div class="trow"><span>Time</span><b class="num">' + fmt(state.start) + ' – ' + fmt(state.end) + '</b></div>' +
+        '<div class="trow"><span>Length</span><b class="num">' + (state.end - state.start) + ' minutes</b></div>' +
+        '<div class="trow"><span>Date</span><b>Today, Sat 12 Sep</b></div>' +
+      '</div>' +
+      '<button class="confirm" id="confirm">Confirm reservation</button>' + back();
+    $('#confirm').addEventListener('click', confirmBooking);
+    return;
+  }
+
+  chrome(4);
+  flow.innerHTML = '<div class="stamped"><div class="seal">Reserved</div>' +
+    '<h3>' + state.unit + '</h3>' +
+    '<p class="num">' + fmt(state.start) + ' – ' + fmt(state.end) + '</p>' +
+    '<p>' + (state.type === 'room' ? state.purpose : LABEL[state.type] + ' reservation') +
+    '. It is on the day sheet now, under your name.</p>' +
+    '<button class="confirm" id="done" style="margin-top:26px">Back to the sheet</button></div>';
+  $('#done').addEventListener('click', () => {
+    closeFlow();
+    document.querySelector('.block.mine')?.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
+  });
+}
+
+function confirmBooking(){
+  BOOKINGS.push({
+    type:state.type, unit:state.unit, from:state.start, to:state.end,
+    who:'You', what:state.purpose || (LABEL[state.type] + ' reservation'),
+    rank:state.rank || 'other', mine:true
+  });
+  const tab = document.querySelector('.tabs button[data-type="' + state.type + '"]');
+  if (tab) tab.click(); else renderGrid();
+  state.step = 5;
+  render();
+}
+
+flow.addEventListener('click', e => {
+  const el = e.target.closest('[data-type],[data-rank],[data-start],[data-end],[data-back]');
+  if (!el) return;
+  if (el.dataset.back){
+    if (state.step === 1) state.step = state.fromSheet ? (closeFlow(), 0) : 0;
+    else if (state.step === 2) state.step = state.type === 'room' ? 1 : 0;
+    else if (state.step === 3) state.step = state.fromSheet ? (state.type === 'room' ? 1 : 0) : 2;
+    else state.step = 3;
+    if (page.classList.contains('on')) render();
+    return;
+  }
+  if (el.dataset.type){
+    state.type = el.dataset.type;
+    state.step = el.dataset.type === 'room' ? 1 : 2;
+    return render();
+  }
+  if (el.dataset.rank){
+    state.rank = el.dataset.rank;
+    state.purpose = el.dataset.purpose;
+    state.step = state.fromSheet ? 3 : 2;
+    return render();
+  }
+  if (el.dataset.start){
+    state.start = +el.dataset.start;
+    state.unit = bestUnit(state.type, state.start);
+    state.step = 3;
+    return render();
+  }
+  if (el.dataset.end){
+    state.end = +el.dataset.end;
+    state.step = 4;
+    return render();
+  }
+});
+
+/* tapping an open slot on the sheet starts the flow already answered */
+$('#grid').addEventListener('click', e => {
+  const slot = e.target.closest('[data-open-unit]');
+  if (!slot) return;
+  openFlow({unit:slot.dataset.openUnit, start:+slot.dataset.openFrom});
+});
+
+renderGrid();
+</script>
+</body>
+</html>
