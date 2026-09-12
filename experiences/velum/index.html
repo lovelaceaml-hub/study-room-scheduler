@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fcfaf7">
+  <title>Velum | LV Zion Study Rooms</title>
+  <link rel="stylesheet" href="./velum.css">
+</head>
+<body>
+  <header class="masthead">
+    <a class="wordmark" href="#main" aria-label="LV Zion Study Rooms, go to schedule"><span class="seal" aria-hidden="true">lv</span><span>LV Zion<span class="wordmark-sub">Study rooms</span></span></a>
+    <p class="masthead-note">For time spent together.</p>
+  </header>
+  <nav class="member-links" aria-label="Reservations and design"><a href="/?classic=1&amp;tab=mine">My reservations</a><a href="/?classic=1">Current app</a><a href="/?choose=1">Change design</a></nav>
+  <main id="main">
+    <div class="introduction">
+      <p class="eyebrow">Welcome. Make yourself at home.</p>
+      <h1>A little space.<br><em>A meaningful moment.</em></h1>
+      <p class="intro-note">Find a quiet place for what matters.</p>
+    </div>
+    <section class="calendar" aria-label="Daily availability">
+      <div class="date-line">
+        <div class="date-picker">
+          <button class="icon-button" id="previous-date" aria-label="Previous available date">&#8592;</button>
+          <div class="date-copy"><h2 id="selected-date"></h2><p id="date-detail"></p></div>
+          <button class="icon-button" id="next-date" aria-label="Next available date">&#8594;</button>
+        </div>
+        <p class="calendar-hours">10 AM to 11 PM <span>Pacific time</span></p>
+      </div>
+      <div class="resource-bar" role="group" aria-label="Choose a resource">
+        <button class="resource active" data-resource="room" aria-pressed="true">Study Rooms</button>
+        <button class="resource" data-resource="whiteboard" aria-pressed="false">Whiteboards</button>
+        <button class="resource" data-resource="tv" aria-pressed="false">TVs</button>
+      </div>
+      <div class="schedule-note"><span>Tap an open space to reserve.</span><span class="sample-note" id="connection-label" role="status"><i aria-hidden="true"></i>Connecting to schedule</span></div>
+      <div id="state-notice" aria-live="polite"></div>
+      <div id="schedule" aria-label="Daily schedule"></div>
+      <div class="schedule-foot"><span>A little room for everyone.</span><span>Reservations are confirmed after saving.</span></div>
+    </section>
+    <footer><span class="edition">Velum</span><span>A little room for LV Zion</span></footer>
+  </main>
+  <div class="invitation"><span class="invitation-note">Make time for a good thing.</span><button class="reserve-button" id="reserve-now">Reserve Now <span aria-hidden="true">&#8599;</span></button></div>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <dialog id="booking-dialog" aria-labelledby="step-title" aria-describedby="step-hint">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-top"><button class="icon-button" id="back-step" aria-label="Previous reservation step">&#8592;</button><span id="step-counter"></span><button class="icon-button" id="close-dialog" aria-label="Close reservation">&#215;</button></div>
+    <div id="dialog-connection" role="status"></div>
+    <div id="step-content"></div>
+    <p class="sheet-disclaimer">Your reservation saves only after you confirm.</p>
+  </dialog>
+  <script type="module" src="./velum.js"></script>
+</body>
+</html>
