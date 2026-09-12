@@ -10,3 +10,13 @@
 @media(max-width:600px){.override-indicator{font-size:8px;line-height:1.15}}
 .member-links{max-width:1016px;margin:auto;padding:5px 0 0;display:flex;justify-content:flex-end;align-items:center;gap:22px}.member-links a{display:flex;align-items:center;min-height:44px;font-size:10px;color:var(--muted)}.member-links a:hover{color:var(--plum)}.unavailable-slot{align-items:center;color:#82767e;font-size:10px;background:#f5f1f2}.reserved.blocked{background:#eeeae7;color:#7b7177;justify-content:center}.connection-warning{color:#825866!important}.dialog-status{padding:12px 14px;margin:0 0 18px;border-radius:8px;background:#f0e8ed;font-size:12px;display:flex;align-items:center;gap:12px}.dialog-status button{margin-left:auto;min-width:44px;min-height:44px;padding:0 10px;border:1px solid #cbbac6;border-radius:5px;background:var(--paper);flex-shrink:0;font-size:11px}.purpose-details{margin-top:20px}.purpose-details .field{margin-bottom:0}.purpose-choice.selected{background:#f0e7ed;border-color:#c7afbf}.submit-status{margin:12px 0 0;color:var(--plum);font-size:12px;text-align:center}.submit-status:empty{display:none}.calendar .state-card button{min-width:44px}.sheet-top button:disabled{opacity:.35}
 @media(max-width:600px){.member-links{padding:0 16px;justify-content:space-between;gap:10px}.member-links a{font-size:10px}.sample-note{max-width:48%;text-align:right;justify-content:flex-end}.dialog-status{font-size:11px}.unavailable-slot{font-size:8px}.schedule-note>span:first-child{max-width:48%}}
+
+button.booking{appearance:none;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.booking:hover,.booking:focus-visible{filter:brightness(.98);box-shadow:0 0 0 2px #6c4d6555}
+.detail-card{padding:18px 20px;background:#f1ebef;border-radius:8px}
+.detail-private{margin-top:3px;padding-top:13px;background:#f8f3ef}
+.detail-actions{display:grid;gap:8px;margin-top:15px}
+.detail-action{width:100%;margin-top:0}
+.detail-action[data-detail-action="cancel"]{background:#925269}
+#detail-status:empty{display:none}
+@media(max-width:600px){.detail-card{padding:17px}.detail-actions{margin-top:13px}}
