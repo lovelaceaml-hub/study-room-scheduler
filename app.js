@@ -1284,8 +1284,8 @@ function bookingDetailsHtml() {
   const canEndEarly = owner && b.status === 'approved' && endEarlyOptions(b).length > 0;
   return '<div class="modal-backdrop booking-details-backdrop" role="presentation"><section class="booking-dialog booking-details-dialog" role="dialog" aria-modal="true" aria-labelledby="booking-details-title">' +
     '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(b.date)) + '</div><h2 id="booking-details-title">Reservation details</h2></div><button type="button" class="modal-close" data-act="booking-details-close" aria-label="Close reservation details">&times;</button></div>' +
-    '<p class="booking-time-summary"><strong>' + esc(resource) + '</strong> / ' + esc(fmtTime(b.start) + ' to ' + fmtTime(b.end)) + '</p>' +
-    '<dl class="booking-detail-list"><div><dt>Name</dt><dd>' + esc(b.purpose === 'blocked' ? 'Reserved' : b.name) + '</dd></div><div><dt>Purpose</dt><dd>' + esc(purpose) + '</dd></div>' +
+    '<p class="booking-time-summary"><strong>' + esc(resource) + '</strong></p>' +
+    '<dl class="booking-detail-list"><div><dt>Reservation</dt><dd>' + esc(fmtTime(b.start) + ' to ' + fmtTime(b.end)) + '</dd></div><div><dt>Reserved</dt><dd>' + esc(b.purpose === 'blocked' ? 'Reserved' : b.name) + '</dd></div><div><dt>Purpose</dt><dd>' + esc(purpose) + '</dd></div>' +
     (reservedFor ? '<div><dt>' + esc(reservedForLabel(b.purpose)) + '</dt><dd>' + esc(reservedFor) + '</dd></div>' : '') +
     '</dl>' +
     (b.status !== 'approved' ? '<p class="hint">' + esc(STATUS_LABEL[b.status] || b.status || 'Unavailable') + '</p>' : '') +
