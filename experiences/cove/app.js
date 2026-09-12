@@ -253,7 +253,7 @@ async function save() {
   render();
   const submittedDemo=connection.demo;
   try {
-    const result=await submit({day:draft.day,type:draft.resource,unit:draft.unit,start:draft.start,end:draft.end,name:draft.name.trim(),purpose:draft.purpose,purposeOther:draft.purpose==='other'?draft.purposeOther.trim():''});
+    const result=await submit({day:draft.day,type:draft.resource,unit:draft.override?null:draft.unit,start:draft.start,end:draft.end,name:draft.name.trim(),purpose:draft.purpose,purposeOther:draft.purpose==='other'?draft.purposeOther.trim():''});
     const saved=normalizeBooking(result);
     if(!saved||result.status!=='approved')throw new Error('Confirmation was not received. Check My reservations before trying again.');
     bookings=bookings.filter(b=>b.key!==saved.key);

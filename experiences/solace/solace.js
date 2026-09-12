@@ -235,7 +235,7 @@ $('#step-body').addEventListener('click',async event=>{
     if(draft.purpose==='other'&&!visibleText(draft.purposeOther)){$('#save-error').textContent='Please go back and add a description for Other.';return;}
     pending=true;$('#save-error').textContent='';updateDialogAvailability();
     try{
-      const result=await submit({day:draft.date,type:draft.type,unit:draft.unit,start:draft.start,end:draft.end,name:draft.name.trim(),purpose:draft.purpose,purposeOther:draft.purpose==='other'?draft.purposeOther.trim():''});
+      const result=await submit({day:draft.date,type:draft.type,unit:draft.override?null:draft.unit,start:draft.start,end:draft.end,name:draft.name.trim(),purpose:draft.purpose,purposeOther:draft.purpose==='other'?draft.purposeOther.trim():''});
       if(!result||result.status!=='approved')throw new Error('The reservation could not be confirmed. Please try again.');
       saved=normalizeBooking(result);
       bookings=[...bookings.filter(booking=>booking.key!==saved.key),saved];

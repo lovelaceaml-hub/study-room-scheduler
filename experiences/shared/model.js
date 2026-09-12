@@ -57,7 +57,7 @@ export function validateInput(input,bookings,days=eligibleDays()) {
   if(!['contact','new','other'].includes(purpose))throw new Error('Choose a purpose.');
   if(purpose==='other'&&(!purposeOther||purposeOther.length>240))throw new Error('Describe the purpose in 240 characters or fewer.');
   const free=Array.from({length:units[type]},(_,i)=>i+1).filter(n=>(unit===null||unit===n)&&!bookings.some(b=>b.day===day&&b.type===type&&b.unit===n&&start<b.end&&end>b.start));
-  const overrideUnit=free.length?null:overrideUnitForRange(type,day,start,end,purpose,bookings,unit);
+  const overrideUnit=free.length||unit!==null?null:overrideUnitForRange(type,day,start,end,purpose,bookings,null);
   if(!free.length&&!overrideUnit)throw new Error('That space is no longer open for the whole time. Please choose another time.');
   return {day,type,start,end,unit,name,purpose,purposeOther,availableUnit:free[0]??overrideUnit,override:Boolean(overrideUnit)};
 }

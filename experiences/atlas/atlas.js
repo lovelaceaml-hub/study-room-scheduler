@@ -284,7 +284,7 @@ async function confirmReservation() {
   resetError();
   renderStep(false);
   try {
-    const result = await submit({ day: draft.day, type: draft.type, unit: draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? draft.purposeOther.trim() : '' });
+    const result = await submit({ day: draft.day, type: draft.type, unit: draft.override ? null : draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? draft.purposeOther.trim() : '' });
     if (!result || result.status !== 'approved' || !TYPES[result.type] || !Number.isInteger(result.unit)) throw new Error('The reservation could not be confirmed. Your details are still here.');
     saved = result;
     saving = false;

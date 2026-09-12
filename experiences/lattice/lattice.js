@@ -332,7 +332,7 @@ async function confirmReservation() {
   formError = '';
   renderStep(false);
   try {
-    saved = await submit({ day: draft.day, type: draft.type, unit: draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? draft.purposeOther.trim() : '' });
+    saved = await submit({ day: draft.day, type: draft.type, unit: draft.override ? null : draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? draft.purposeOther.trim() : '' });
     saving = false;
     step = 'success';
     renderStep();
