@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {eligibleDays,projectBookings,validateInput,validRange,publicName,overrideUnitForRange} from '../experiences/shared/model.js';
+import {eligibleDays,projectBookings,projectOwnedBookings,validateInput,validRange,publicName,parsePublicName,validateReservedFor,overrideUnitForRange} from '../experiences/shared/model.js';
 const days=eligibleDays(new Date('2026-09-12T20:00:00Z'));
 test('eligible days use Los Angeles calendar at UTC midnight',()=>{
  assert.deepEqual(eligibleDays(new Date('2026-09-13T01:00:00Z')).map(d=>d.key),['2026-09-12','2026-09-15']);
@@ -9,10 +9,25 @@ test('eligible days use Los Angeles calendar at UTC midnight',()=>{
 test('schedule projection exposes only safe names and renders private holds neutrally',()=>{
  const records=[{date:days[0].key,start:'11:00',end:'12:00',name:'Sister Jordan Example',purpose:'contact',status:'approved',needs:{room:true},assignments:{room:'room-2'},ownerUid:'private-owner',note:'private-note',bookingId:'private-id'}, {date:days[0].key,start:'12:00',end:'13:00',name:'Private Admin Name',purpose:'blocked',status:'approved',needs:{tv:true},assignments:{tv:'tv-1'}}];
  const projected=projectBookings(records,days);
- assert.equal(projected[0].name,'Jordan E.');assert.equal(projected[1].name,'Reserved');assert.equal(projected[1].blocked,true);
+ assert.equal(projected[0].name,'S Jordan');assert.equal(projected[1].name,'Reserved');assert.equal(projected[1].blocked,true);
  assert(!JSON.stringify(projected).includes('private-'));assert(!JSON.stringify(projected).includes('Private Admin'));
  assert.deepEqual(Object.keys(projected[0]).sort(),['key','day','type','unit','start','end','name','purpose','blocked'].sort());
  assert.equal(projectBookings([{...records[0],status:'cancelled'}],days).length,0);
+});
+test('normalizes leading titles and adds surname initials only for given-name collisions',()=>{
+ assert.equal(publicName('Sister Kiana Davis'),'S Kiana');
+ assert.equal(publicName('Sister Kiana D'),'S Kiana');
+ assert.equal(publicName('S. Kiana'),'S Kiana');
+ assert.equal(publicName('Kiana'),'Kiana');
+ assert.deepEqual(parsePublicName('Brother Kiana Davis').givenName,'Kiana');
+ const records=[
+  {date:days[0].key,start:'11:00',end:'12:00',name:'Sister Kiana Davis',purpose:'contact',status:'approved',needs:{room:true},assignments:{room:'room-1'}},
+  {date:days[0].key,start:'11:00',end:'12:00',name:'Kiana Rodriguez',purpose:'new-member',status:'approved',needs:{room:true},assignments:{room:'room-2'}},
+  {date:days[0].key,start:'11:00',end:'12:00',name:'Kiana Davis',purpose:'other',status:'approved',needs:{room:true},assignments:{room:'room-3'}},
+  {date:days[0].key,start:'11:00',end:'12:00',name:'Private Kiana Hold',purpose:'blocked',status:'approved',needs:{room:true},assignments:{room:'room-4'}}
+ ];
+ const names=projectBookings(records,days).map(row=>row.name);
+ assert.deepEqual(names,['S Kiana D','Kiana R','Kiana D','Reserved']);
 });
 test('direct unit availability never silently substitutes another room',()=>{
  const input={day:days[0].key,type:'room',unit:2,start:660,end:720,name:'Robin Test',purpose:'contact'};
@@ -40,4 +55,24 @@ test('time boundaries and Other details are enforced',()=>{
  const input={day:days[0].key,type:'tv',unit:3,start:660,end:690,name:'Robin Test',purpose:'other'};
  assert.throws(()=>validateInput(input,[],days),/Describe/);assert.equal(validateInput({...input,purposeOther:'Lesson review'},[],days).purposeOther,'Lesson review');
  assert.throws(()=>validateInput({...input,name:'\u200b',purpose:'contact'},[],days),/name/);
+});
+test('reserved-for values are validated and round-trip through the shared input model',()=>{
+ assert.equal(validateReservedFor('contact','  Sister Kiana  '),'Sister Kiana');
+ assert.equal(validateReservedFor('new','Member Kiana'),'Member Kiana');
+ assert.equal(validateReservedFor('other','  Bible study  '),'Bible study');
+ assert.throws(()=>validateReservedFor('contact','   '),/Contact name is required/);
+ assert.throws(()=>validateReservedFor('other','x'.repeat(241)),/240/);
+ const input={day:days[0].key,type:'tv',unit:3,start:660,end:690,name:'Robin Test',purpose:'contact',reservedFor:'Sister Kiana'};
+ assert.equal(validateInput(input,[],days).reservedFor,'Sister Kiana');
+ assert.equal(validateInput({...input,purpose:'other',reservedFor:'Bible study'},[],days).purposeOther,'Bible study');
+});
+test('owner projection keeps reserved-for details separate from the public projection',()=>{
+ const record={id:'mine',ownerUid:'owner-1',date:days[0].key,start:'11:00',end:'12:00',name:'Sister Kiana Davis',purpose:'other',purposeOther:'Bible study',reservedFor:'Bible study',status:'approved',needs:{room:true},assignments:{room:'room-1'},note:'private'};
+ const mine=projectOwnedBookings([record],days,'owner-1')[0];
+ assert.equal(mine.reservedFor,'Bible study');
+ assert.equal(mine.purposeOther,'Bible study');
+ const publicRows=projectBookings([record],days);
+ assert.equal(publicRows[0].name,'S Kiana');
+ assert.equal(Object.prototype.hasOwnProperty.call(publicRows[0],'reservedFor'),false);
+ assert.equal(Object.prototype.hasOwnProperty.call(publicRows[0],'ownerUid'),false);
 });

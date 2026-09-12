@@ -18,7 +18,8 @@ const {
   shorterAvailableEnd,
   upcomingTuesdayAndSaturday,
   validateBookingTime,
-  validateDirectBooking
+  validateDirectBooking,
+  validateReservedFor
 } = require('../lib/policy');
 
 test('returns only the upcoming Tuesday and Saturday, including today', () => {
@@ -281,4 +282,14 @@ test('requested units are honored and conflicts never substitute another unit', 
     assert.equal(availableUnitForType(type,candidate,[],prefix+'99'),null);
     assert.equal(availableUnitForType(type,candidate,[],'invalid-unit'),null);
   }
+});
+
+test('validates purpose-specific reserved-for values', () => {
+  assert.equal(validateReservedFor('contact', ' Sister Kiana '), 'Sister Kiana');
+  assert.equal(validateReservedFor('new-member', 'New member name'), 'New member name');
+  assert.equal(validateReservedFor('other', 'Bible study'), 'Bible study');
+  assert.throws(() => validateReservedFor('contact', '   '), /Contact name is required/);
+  assert.throws(() => validateReservedFor('new-member', 'x'.repeat(121)), /too long/);
+  assert.throws(() => validateReservedFor('other', 'x'.repeat(241)), /too long/);
+  assert.equal(validateReservedFor('contact', '', { required: false }), '');
 });

@@ -21,7 +21,8 @@ const {
   shorterAvailableEnd,
   shouldAutoApproveMemberBooking,
   validateBookingTime,
-  validateDirectBooking
+  validateDirectBooking,
+  validateReservedFor
 } = require('./lib/policy');
 const { publicLobbyBooking, publicLobbyScheduleDates } = require('./lib/public-lobby-schedule');
 
@@ -221,17 +222,38 @@ function memberRequestInput(input) {
   const purpose = ['contact', 'new-member', 'other'].includes(data.purpose) ? data.purpose : '';
   if (!purpose) throw new HttpsError('invalid-argument', 'Choose a purpose.');
   const purposeOther = requestText(data.purposeOther, 240, 'Purpose details');
-  if (purpose === 'other' && !purposeOther) throw new HttpsError('invalid-argument', 'Purpose details are required.');
+  const hasReservedFor = Object.prototype.hasOwnProperty.call(data, 'reservedFor');
+  let reservedFor;
+  try {
+    reservedFor = hasReservedFor
+      ? validateReservedFor(purpose, data.reservedFor)
+      : validateReservedFor(purpose, purpose === 'other' ? purposeOther : '', { required: false });
+  } catch (error) {
+    throw new HttpsError('invalid-argument', error.message);
+  }
+  if (purpose === 'other' && !reservedFor) {
+    throw new HttpsError('invalid-argument', 'Purpose details are required.');
+  }
   const requestedUnit = data.requestedUnit == null ? null : data.requestedUnit;
   if (requestedUnit !== null && !UNITS_BY_TYPE[resourceType].includes(requestedUnit)) {
     throw new HttpsError('invalid-argument', 'Choose a valid unit for this resource.');
   }
-  return { date, start: data.start, end: data.end, resourceType, name: requestText(data.name, 120, 'Name', true), purpose, purposeOther, requestedUnit };
+  return {
+    date,
+    start: data.start,
+    end: data.end,
+    resourceType,
+    name: requestText(data.name, 120, 'Name', true),
+    purpose,
+    purposeOther: purpose === 'other' ? reservedFor : purposeOther,
+    reservedFor,
+    requestedUnit
+  };
 }
 
 function memberBookingDocument(request, assignments, uid, now, automatic = true) {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     date: request.date,
     bookingDate: bookingDateTimestamp(request.date),
     start: request.start,
@@ -240,6 +262,7 @@ function memberBookingDocument(request, assignments, uid, now, automatic = true)
     needs: { room: request.resourceType === 'room', whiteboard: request.resourceType === 'whiteboard', tv: request.resourceType === 'tv' },
     purpose: request.purpose,
     purposeOther: request.purpose === 'other' ? request.purposeOther : '',
+    reservedFor: request.reservedFor || '',
     status: automatic ? 'approved' : 'pending',
     assignments,
     ownerUid: uid,

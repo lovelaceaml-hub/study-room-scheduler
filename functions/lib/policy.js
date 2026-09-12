@@ -18,6 +18,8 @@ const OVERRIDE_PURPOSES = Object.freeze(['contact', 'new-member']);
 const OVERRIDABLE_PURPOSE = 'other';
 const CERTAINTIES = Object.freeze(['confirmed', 'tentative']);
 const RESOURCE_TYPES = Object.freeze(['room', 'whiteboard', 'tv']);
+const RESERVED_FOR_LIMITS = Object.freeze({ contact: 120, 'new-member': 120, other: 240 });
+const RESERVED_FOR_LABELS = Object.freeze({ contact: 'Contact name', 'new-member': 'Member name', other: 'Purpose description' });
 
 function parseMinutes(value) {
   if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) return NaN;
@@ -281,6 +283,21 @@ function trimmedText(value, max, field, required = false) {
   return text;
 }
 
+function validateReservedFor(purpose, value, options = {}) {
+  if (!MEMBER_PURPOSES.includes(purpose)) return '';
+  const required = options.required !== false;
+  const text = typeof value === 'string' ? value.trim() : '';
+  const label = RESERVED_FOR_LABELS[purpose] || 'Reserved for';
+  if (!/[\p{L}\p{N}]/u.test(text)) {
+    if (required) throw new Error(`${label} is required.`);
+    return '';
+  }
+  if (text.length > RESERVED_FOR_LIMITS[purpose]) {
+    throw new Error(`${label} is too long.`);
+  }
+  return text;
+}
+
 function validateDirectBooking(input, now = new Date()) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Booking details are required.');
   const date = trimmedText(input.date, 10, 'Date', true);
@@ -335,6 +352,7 @@ module.exports = {
   shorterAvailableEnd,
   shouldAutoApproveMemberBooking,
   upcomingTuesdayAndSaturday,
+  validateReservedFor,
   validateBookingTime,
   validateDirectBooking,
   validateNeeds

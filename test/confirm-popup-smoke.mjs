@@ -85,6 +85,9 @@ try {
   }
   assert.match(await page.locator('.date-current strong').innerText(), /^Tuesday/, 'The Tuesday schedule is shown');
   await page.locator('.home-occupied-cell[data-start="11:00"]').first().click();
+  assert.ok(await page.locator('.booking-details-dialog').isVisible(), 'An occupied reservation opens its safe details sheet');
+  assert.equal(await page.locator('.booking-details-dialog').getByText('Reserved for', { exact: false }).count(), 0, 'Public details do not expose reserved-for details');
+  await page.getByRole('button', { name: 'See reservation options' }).click();
   await page.getByRole('button', { name: /End at 11:30 AM/ }).click();
   const fullDialog = page.locator('.selection-confirm-dialog');
   assert.match(await fullDialog.innerText(), /This time is full/);
