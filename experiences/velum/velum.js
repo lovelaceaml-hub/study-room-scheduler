@@ -3,12 +3,12 @@ import { subscribe, submit, retry } from '../shared/live.js';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const TYPES = {
-  room: {label:'Study Rooms',single:'Study Room',short:'Room',count:4,description:'A quiet place to study together.'},
-  whiteboard: {label:'Whiteboards',single:'Whiteboard',short:'Board',count:5,description:'Make room for ideas to take shape.'},
-  tv: {label:'TVs',single:'TV',short:'TV',count:3,description:'Share a lesson on a bigger screen.'}
+  room: {label:'Study Rooms',single:'Study Room',short:'Room',count:4,description:''},
+  whiteboard: {label:'Whiteboards',single:'Whiteboard',short:'Board',count:5,description:''},
+  tv: {label:'TVs',single:'TV',short:'TV',count:3,description:''}
 };
 const PURPOSES = {contact:'Contact',new:'New Member',other:'Other'};
-const purposeDescriptions = {contact:'A study with a contact.',new:'A study with a new member.',other:'Another meaningful gathering.'};
+const purposeDescriptions = {contact:'',new:'',other:''};
 const SERVICE = {6:[[600,660,'Morning service'],[870,930,'Afternoon service'],[1170,1230,'Evening service']],2:[[1170,1230,'Evening service']]};
 const time = minutes => `${(Math.floor(minutes/60)+11)%12+1}${minutes%60?':30':':00'} ${minutes<720?'AM':'PM'}`;
 const hour = minutes => time(minutes).replace(':00','');
@@ -52,7 +52,7 @@ function renderConnection(){
 }
 function renderSchedule(){
   const date=selectedDate(), type=TYPES[resource], bookable=canBook();
-  $('#selected-date').textContent=date?.label || 'Your day, soon.';
+  $('#selected-date').textContent=date?.label || 'Choose a day';
   $('#date-detail').textContent=date?'Tuesday and Saturday reservations':'Connecting to available dates';
   $('#previous-date').disabled=selectedDay===0||!date;
   $('#next-date').disabled=selectedDay>=days.length-1;
@@ -118,10 +118,10 @@ function reviewCard(saved=false){
   return `<div class="review-card"><h3>${TYPES[item.type].single} ${item.unit}</h3><div class="review-row"><span>Day</span><strong>${esc(dayLabel(item.day))}</strong></div><div class="review-row"><span>Time</span><strong>${range(item.start,item.end)}</strong></div><div class="review-row"><span>Purpose</span><strong>${label}</strong></div>${!saved&&item.purpose==='other'?`<div class="review-row"><span>Details</span><strong>${esc(item.purposeOther)}</strong></div>`:''}<div class="review-row"><span>For</span><strong>${esc(item.name)}</strong></div></div>`;
 }
 function renderStep(){
-  const step=flow[flowIndex];$('#step-counter').textContent=step==='success'?'A moment, reserved':`Reservation · ${flowIndex+1} of ${flow.length}`;
+  const step=flow[flowIndex];$('#step-counter').textContent=step==='success'?'Reservation confirmed':`Reservation · ${flowIndex+1} of ${flow.length}`;
   let html='';
-  if(step==='resource')html=titleBlock('What would you like<br>to reserve?','Choose the space or resource for your time together.')+`<div class="choices">${Object.entries(TYPES).map(([key,type])=>`<button class="choice" data-type="${key}" data-booking-action><span><b>${type.single}</b><small>${type.description}</small></span><span class="choice-arrow" aria-hidden="true">&#8594;</span></button>`).join('')}</div>`;
-  if(step==='purpose')html=titleBlock('What brings you<br>together?','Choose the purpose of your reservation.')+`<div class="choices">${Object.entries(PURPOSES).map(([key,label])=>`<button class="choice purpose-choice${draft.purpose===key?' selected':''}" data-purpose="${key}" data-booking-action><span class="purpose-dot ${key}" aria-hidden="true"></span><span><b>${label}</b><small>${purposeDescriptions[key]}</small></span><span class="choice-arrow" aria-hidden="true">&#8594;</span></button>`).join('')}</div>${draft.purpose==='other'?`<form class="purpose-details" id="purpose-form"><label class="field-label" for="purpose-other">What is the reservation for?</label><input class="field" id="purpose-other" name="purposeOther" maxlength="200" autocomplete="off" value="${esc(draft.purposeOther)}" placeholder="For example, Bible study preparation" required><button class="primary-action" id="purpose-next" type="submit" data-booking-action>Continue &#8594;</button></form>`:''}`;
+  if(step==='resource')html=titleBlock('What would you like<br>to reserve?','Select a resource.')+`<div class="choices">${Object.entries(TYPES).map(([key,type])=>`<button class="choice" data-type="${key}" data-booking-action><span><b>${type.single}</b>${type.description?`<small>${type.description}</small>`:''}</span><span class="choice-arrow" aria-hidden="true">&#8594;</span></button>`).join('')}</div>`;
+  if(step==='purpose')html=titleBlock('What is this<br>reservation for?','Select a purpose.')+`<div class="choices">${Object.entries(PURPOSES).map(([key,label])=>`<button class="choice purpose-choice${draft.purpose===key?' selected':''}" data-purpose="${key}" data-booking-action><span class="purpose-dot ${key}" aria-hidden="true"></span><span><b>${label}</b>${purposeDescriptions[key]?`<small>${purposeDescriptions[key]}</small>`:''}</span><span class="choice-arrow" aria-hidden="true">&#8594;</span></button>`).join('')}</div>${draft.purpose==='other'?`<form class="purpose-details" id="purpose-form"><label class="field-label" for="purpose-other">What is the reservation for?</label><input class="field" id="purpose-other" name="purposeOther" maxlength="200" autocomplete="off" value="${esc(draft.purposeOther)}" placeholder="For example, Bible study preparation" required><button class="primary-action" id="purpose-next" type="submit" data-booking-action>Continue &#8594;</button></form>`:''}`;
   if(step==='start'){
     const type=TYPES[draft.type];let options='';for(let unit=1;unit<=type.count;unit++)options+=`<option value="${unit}" ${unit===draft.unit?'selected':''}>${type.single} ${unit}${draft.type==='whiteboard'?` (${unit<=3?'Large':'Vertical'})`:''}</option>`;
     let times='';for(let start=600;start<1380;start+=30)if(free(draft.type,draft.unit,start,draft.day))times+=`<button class="time-choice" data-time-start="${start}" data-booking-action>${time(start)}</button>`;
@@ -132,8 +132,8 @@ function renderStep(){
     html=titleBlock('And when will<br>you finish?',ends.length?'These endings fit before the next reservation or service.':'This start is no longer open. Go back to choose another time.')+`<div class="time-choices">${ends.map(end=>`<button class="time-choice" data-time-end="${end}" data-booking-action>${time(end)}<small>${end-draft.start} minutes together</small></button>`).join('')}</div>`;
   }
   if(step==='name')html=titleBlock('Who is this for?',connection.demo?'Use a fictional name while you try this demo.':'Enter your name so your reservation can be recognized.')+`<form id="name-form"><label class="field-label" for="display-name">Your full name</label><input class="field" id="display-name" name="name" autocomplete="${connection.demo?'off':'name'}" maxlength="80" value="${esc(draft.name)}" placeholder="Your full name" required><p class="validation" id="name-error" hidden>Please enter a visible name.</p><button class="primary-action" type="submit" data-booking-action>Review reservation &#8594;</button></form>`;
-  if(step==='confirm')html=titleBlock('Everything in<br>its place.',connection.demo?'Review the details before saving your demo reservation.':'Review the details before confirming your reservation.')+reviewCard()+`<p class="validation" id="save-error" role="alert" ${draft.submitError?'':'hidden'}>${esc(draft.submitError)}</p><button class="primary-action" id="confirm-reservation" data-booking-action>Confirm reservation</button><p class="submit-status" id="submit-status" role="status"></p>`;
-  if(step==='success')html=`<div class="success-copy"><div class="success-mark" aria-hidden="true">&#10003;</div>${titleBlock('A moment,<br>made yours.',connection.demo?'Your demo reservation is now on the schedule.':'Your reservation is confirmed and on the schedule.')}${reviewCard(true)}<button class="primary-action" id="see-reservation">See it on the schedule</button><button class="secondary-action" id="reserve-another">Reserve something else</button></div>`;
+  if(step==='confirm')html=titleBlock('Review your<br>reservation.',connection.demo?'Review the details before saving your demo reservation.':'Review the details before confirming your reservation.')+reviewCard()+`<p class="validation" id="save-error" role="alert" ${draft.submitError?'':'hidden'}>${esc(draft.submitError)}</p><button class="primary-action" id="confirm-reservation" data-booking-action>Confirm reservation</button><p class="submit-status" id="submit-status" role="status"></p>`;
+  if(step==='success')html=`<div class="success-copy"><div class="success-mark" aria-hidden="true">&#10003;</div>${titleBlock('Reservation<br>confirmed.',connection.demo?'Your demo reservation is now on the schedule.':'Your reservation is confirmed and on the schedule.')}${reviewCard(true)}<button class="primary-action" id="see-reservation">See it on the schedule</button><button class="secondary-action" id="reserve-another">Reserve something else</button></div>`;
   $('#step-content').innerHTML=html;$('#step-content').classList.remove('page-turn');void $('#step-content').offsetWidth;$('#step-content').classList.add('page-turn');renderConnection();
 }
 async function saveReservation(){

@@ -3,8 +3,8 @@ import { subscribe, submit, retry } from '../shared/live.js';
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const icon = (type) => `<svg viewBox="0 0 24 24" aria-hidden="true">${{room:'<path d="M5 21V4l12-2v19M3 21h18M13 11v2"/>',whiteboard:'<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21l4-4 4 4M7 8h10M7 12h6"/>',tv:'<rect x="3" y="4" width="18" height="14" rx="3"/><path d="M8 22h8m-4-4v4"/>'}[type]}</svg>`;
-const types = {room:{label:'Study Rooms',one:'Room',count:4,description:'A quiet space for conversation'},whiteboard:{label:'Whiteboards',one:'Whiteboard',count:5,description:'Make a little room for ideas'},tv:{label:'TVs',one:'TV',count:3,description:'Share a lesson on screen'}};
-const purposes = {contact:{label:'Contact',description:'A conversation with a contact'},new:{label:'New Member',description:'Time to learn and grow together'},other:{label:'Other',description:'Another meaningful use of the space'}};
+const types = {room:{label:'Study Rooms',one:'Room',count:4,description:''},whiteboard:{label:'Whiteboards',one:'Whiteboard',count:5,description:''},tv:{label:'TVs',one:'TV',count:3,description:''}};
+const purposes = {contact:{label:'Contact',description:''},new:{label:'New Member',description:''},other:{label:'Other',description:''}};
 const serviceRules = {6:[[600,660,'Morning service'],[870,930,'Afternoon service'],[1170,1230,'Evening service']],2:[[1170,1230,'Evening service']]};
 const fmt = (minutes) => {const hour=Math.floor(minutes/60);return `${hour%12||12}:${String(minutes%60).padStart(2,'0')} ${hour<12?'AM':'PM'}`;};
 const hourLabel = (minutes) => fmt(minutes).replace(':00','');
@@ -48,9 +48,9 @@ function renderNavigation(){
 }
 
 function connectionMessage(){
-  if(connection.status==='loading')return '<div class="loading-spinner" aria-hidden="true"></div><h3>Preparing your day.</h3><p>Connecting to your schedule.</p><button type="button" class="text-button" data-recover>Retry connection</button>';
-  if(connection.status==='offline')return '<h3>Let’s reconnect.</h3><p>You are offline. Availability will return when the connection is restored.</p><button type="button" class="text-button" data-recover>Retry connection</button>';
-  if(connection.status==='error')return `<h3>A pause in the day.</h3><p>${esc(connection.error||'The schedule could not connect. Please try again.')}</p><button type="button" class="text-button" data-recover>Retry connection</button>`;
+  if(connection.status==='loading')return '<div class="loading-spinner" aria-hidden="true"></div><h3>Preparing schedule.</h3><p>Connecting to your schedule.</p><button type="button" class="text-button" data-recover>Retry connection</button>';
+  if(connection.status==='offline')return '<h3>Schedule unavailable.</h3><p>You are offline. Availability will return when the connection is restored.</p><button type="button" class="text-button" data-recover>Retry connection</button>';
+  if(connection.status==='error')return `<h3>Schedule unavailable.</h3><p>${esc(connection.error||'The schedule could not connect. Please try again.')}</p><button type="button" class="text-button" data-recover>Retry connection</button>`;
   if(!ready())return '<h3>Your schedule is getting ready.</h3><p>Reservations will open when the current schedule is available.</p><button type="button" class="text-button" data-recover>Retry connection</button>';
   if(connection.demo)return 'Demo mode. Try a reservation with fictional details.';
   return '';
@@ -86,7 +86,7 @@ function renderSchedule(){
       }
     }
   }
-  for(const [start,end,label] of dayServices(selectedDate))html+=`<div class="service-band" style="grid-row:${(start-600)/30+1}/span ${(end-start)/30}" aria-label="${label}, ${range(start,end)}, unavailable"><span aria-hidden="true">✧</span><span>${label}<small>Time set aside together</small></span></div>`;
+  for(const [start,end,label] of dayServices(selectedDate))html+=`<div class="service-band" style="grid-row:${(start-600)/30+1}/span ${(end-start)/30}" aria-label="${label}, ${range(start,end)}, unavailable"><span aria-hidden="true">✧</span><span>${label}</span></div>`;
   $('#schedule').innerHTML=html;
   updateDialogAvailability();
 }
@@ -113,14 +113,14 @@ function updateDialogAvailability(){
 function renderStep(){
   $('#back').style.visibility=history.length&&step!=='done'?'visible':'hidden';
   const steps=draft.direct?['purpose',...(draft.purpose==='other'?['other']:[]),'end','name','confirm']:['resource','purpose',...(draft.purpose==='other'?['other']:[]),'start','end','name','confirm'];
-  $('#step-count').textContent=step==='done'?'A little space, just for you':`Your reservation · ${Math.max(1,steps.indexOf(step)+1)} of ${steps.length}`;
+  $('#step-count').textContent=step==='done'?'Reservation confirmed':`Your reservation · ${Math.max(1,steps.indexOf(step)+1)} of ${steps.length}`;
   const crumbs=[dateLabel(draft.date)];
   if(draft.type)crumbs.push(`${types[draft.type].one}${draft.unit?` ${draft.unit}`:''}`);
   if(draft.start!=null)crumbs.push(fmt(draft.start));
   $('#selection-context').innerHTML=step==='done'?'':crumbs.map(value=>`<span>${esc(value)}</span>`).join('');
   let html='';
-  if(step==='resource')html=title('What would you like to reserve?','A place to meet, a way to share, a little room to grow.')+`<div class="choices">${Object.entries(types).map(([key,type])=>`<button class="choice" type="button" data-choose-type="${key}"><span class="choice-icon">${icon(key)}</span><span class="choice-copy"><b>${type.label}</b><small>${type.description}</small></span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div>`;
-  if(step==='purpose')html=title('What is this reservation for?',draft.direct?`Your ${types[draft.type].one.toLowerCase()} and ${fmt(draft.start)} start are selected.`:'Choose the purpose that feels right.')+`<div class="choices">${Object.entries(purposes).map(([key,purpose])=>`<button type="button" class="choice" data-purpose="${key}"><span class="purpose-dot ${key}" aria-hidden="true"></span><span class="choice-copy"><b>${purpose.label}</b><small>${purpose.description}</small></span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div>`;
+  if(step==='resource')html=title('What would you like to reserve?','Select a resource.')+`<div class="choices">${Object.entries(types).map(([key,type])=>`<button class="choice" type="button" data-choose-type="${key}"><span class="choice-icon">${icon(key)}</span><span class="choice-copy"><b>${type.label}</b>${type.description?`<small>${type.description}</small>`:''}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div>`;
+  if(step==='purpose')html=title('What is this reservation for?',draft.direct?`Your ${types[draft.type].one.toLowerCase()} and ${fmt(draft.start)} start are selected.`:'Select a purpose.')+`<div class="choices">${Object.entries(purposes).map(([key,purpose])=>`<button type="button" class="choice" data-purpose="${key}"><span class="purpose-dot ${key}" aria-hidden="true"></span><span class="choice-copy"><b>${purpose.label}</b>${purpose.description?`<small>${purpose.description}</small>`:''}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div>`;
   if(step==='other')html=title('Tell us a little more.','A short description helps explain what the reservation is for.')+`<form id="other-form"><label class="field-label" for="other-details">What will you use the space for?</label><textarea class="other-field" id="other-details" name="purposeOther" maxlength="120" placeholder="e.g. Family Bible study" required>${esc(draft.purposeOther||'')}</textarea><p class="field-note">The shared schedule displays only Other.</p><p class="inline-error" id="other-error" role="alert"></p><button type="submit" class="primary">Continue</button></form>`;
   if(step==='start'){
     const starts=[];for(let time=600;time<1380;time+=30)if(allUnits(draft.type).some(unit=>free(draft.date,draft.type,unit,time)))starts.push(time);
@@ -132,8 +132,8 @@ function renderStep(){
     html=title('When would you like to end?',`Starting at ${fmt(draft.start)}. Each ending fits around reservations and service.`)+(ends.length?`<div class="time-choices">${ends.map(time=>`<button type="button" class="time-choice" data-end-choice="${time}">${fmt(time)}<small>${duration(time-draft.start)}</small></button>`).join('')}</div>`:`<p class="inline-error">${draftReady()?'This opening has changed. Go back and choose another start.':'Available endings will appear when the connection returns.'}</p>`);
   }
   if(step==='name')html=title('Who is this for?',connection.demo?'Use a fictional name to try this practice reservation.':'Add your name so others know who is using the space.')+`<form id="name-form"><label class="field-label" for="guest-name">Your name</label><input class="name-field" id="guest-name" name="name" placeholder="Your full name" maxlength="40" autocomplete="${connection.demo?'off':'name'}" value="${esc(draft.name||'')}" required><p class="field-note">Shown as a first name and last initial on the schedule.</p><p class="inline-error" id="name-error" role="alert"></p><button class="primary" type="submit">Continue</button></form>`;
-  if(step==='confirm')html=title('Confirm your reservation.','A moment to make sure everything feels right.')+summary()+`<p class="summary-note">${connection.demo?'This practice reservation saves only in this browser tab.':'Your reservation is confirmed after the space is secured.'}</p><p class="inline-error" id="save-error" role="alert"></p><button type="button" class="primary" id="confirm-reservation">Confirm reservation</button>`;
-  if(step==='done')html='<div class="done-symbol" aria-hidden="true">✓</div>'+title(connection.demo?'Your practice space is saved.':'Your space is reserved.','A little room for a good moment. Your reservation is confirmed.')+summary()+`<p class="summary-note">${connection.demo?'Demo confirmation. Saved only in this browser tab.':'Find and manage this booking in My reservations.'}</p><button type="button" class="primary" id="see-reservation">See it on the schedule</button><button type="button" class="text-button" id="another-reservation">Reserve another space</button>`;
+  if(step==='confirm')html=title('Confirm your reservation.','Review the details before confirming.')+summary()+`<p class="summary-note">${connection.demo?'This practice reservation saves only in this browser tab.':'Your reservation is confirmed after the space is secured.'}</p><p class="inline-error" id="save-error" role="alert"></p><button type="button" class="primary" id="confirm-reservation">Confirm reservation</button>`;
+  if(step==='done')html='<div class="done-symbol" aria-hidden="true">✓</div>'+title(connection.demo?'Practice reservation saved.':'Reservation confirmed.','Your reservation is confirmed.')+summary()+`<p class="summary-note">${connection.demo?'Demo confirmation. Saved only in this browser tab.':'Find and manage this booking in My reservations.'}</p><button type="button" class="primary" id="see-reservation">See it on the schedule</button><button type="button" class="text-button" id="another-reservation">Reserve another space</button>`;
   $('#step-body').innerHTML=`<section class="step ${step==='done'?'done':''}">${html}</section>`;
   updateDialogAvailability();
   dialog.scrollTop=0;

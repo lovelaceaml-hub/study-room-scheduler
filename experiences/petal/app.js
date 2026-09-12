@@ -13,9 +13,9 @@ const types = {
   tv: {label:'TVs', single:'TV', short:'TV', count:3}
 };
 const purposes = {
-  contact: {label:'Contact', hint:'Time to get to know one another.'},
-  new: {label:'New Member', hint:'A warm welcome and a fresh beginning.'},
-  other: {label:'Other', hint:'For the other things that bring us together.'}
+  contact: {label:'Contact', hint:''},
+  new: {label:'New Member', hint:''},
+  other: {label:'Other', hint:''}
 };
 const documentKeys = new Map();
 let documentKeyCount = 0;
@@ -76,8 +76,8 @@ function normalizeBooking(value) {
     purpose:blocked ? 'blocked' : value.purpose, blocked:Boolean(blocked)};
 }
 function connectionCopy() {
-  if (connection.status === 'offline') return {title:'A moment to reconnect.', text:'You are offline. Availability will be checked again before you reserve.'};
-  if (connection.status === 'error') return {title:'The day needs another moment.', text:connection.error || 'The schedule could not connect. Please try again.'};
+  if (connection.status === 'offline') return {title:'Schedule unavailable.', text:'You are offline. Availability will be checked again before you reserve.'};
+  if (connection.status === 'error') return {title:'Schedule unavailable.', text:connection.error || 'The schedule could not connect. Please try again.'};
   if (connection.status === 'loading') return {title:'Unfolding your day...', text:'Connecting to the live schedule.'};
   if (!isReady()) return {title:'Checking availability.', text:connection.error || 'Reservations will be available when the schedule is ready.'};
   return null;
@@ -175,8 +175,8 @@ function renderStep(focus = true) {
   let content = '';
   $('#back').style.visibility = history.length && step !== 'success' ? 'visible' : 'hidden';
   $('#stepCounter').textContent = step === 'success' ? connection.demo ? 'Demo reservation added' : 'Reservation confirmed' : connection.demo ? 'Your demo reservation' : 'Your reservation';
-  if (step === 'resource') content = frame('What can we make room for?', 'Choose a resource for your reservation.', `<div class="choice-list">${Object.entries(types).map(([key, resource]) => `<button class="choice" type="button" data-pick-resource="${key}"><span class="choice-icon">${icons[key]}</span><span class="choice-copy"><b>${resource.label}</b><small>${resource.count} spaces to choose from</small></span><span class="next" aria-hidden="true">&#8250;</span></button>`).join('')}</div>`);
-  if (step === 'purpose') content = frame('What brings you together?', draft.locked ? 'Your exact space and start time are selected.' : 'Choose the purpose of your time together.', `<div class="choice-list">${Object.entries(purposes).map(([key, purpose]) => `<button type="button" class="choice purpose-choice ${key}" data-purpose="${key}"><span class="choice-copy"><b>${purpose.label}</b><small>${purpose.hint}</small></span><span class="next" aria-hidden="true">&#8250;</span></button>`).join('')}</div>`);
+  if (step === 'resource') content = frame('What would you like to reserve?', 'Select a resource.', `<div class="choice-list">${Object.entries(types).map(([key, resource]) => `<button class="choice" type="button" data-pick-resource="${key}"><span class="choice-icon">${icons[key]}</span><span class="choice-copy"><b>${resource.label}</b><small>${resource.count} spaces to choose from</small></span><span class="next" aria-hidden="true">&#8250;</span></button>`).join('')}</div>`);
+  if (step === 'purpose') content = frame('What is this reservation for?', draft.locked ? 'Your exact space and start time are selected.' : 'Select a purpose.', `<div class="choice-list">${Object.entries(purposes).map(([key, purpose]) => `<button type="button" class="choice purpose-choice ${key}" data-purpose="${key}"><span class="choice-copy"><b>${purpose.label}</b>${purpose.hint ? `<small>${purpose.hint}</small>` : ''}</span><span class="next" aria-hidden="true">&#8250;</span></button>`).join('')}</div>`);
   if (step === 'details') content = frame('Tell us a little more.', 'What will you use this space for?', `<form id="otherForm"><label class="field-label" for="purposeOther">Reservation details</label><input id="purposeOther" name="purpose-other" autocomplete="off" maxlength="120" required value="${esc(draft.purposeOther)}" placeholder="e.g. Family Bible study" aria-describedby="otherHelp otherError"><p class="field-help" id="otherHelp">These details are for the reservation team. The schedule shows Other.</p><p class="validation" id="otherError" role="alert"></p><button type="submit" class="primary wide">Continue <span aria-hidden="true">&#8594;</span></button></form>`);
   if (step === 'start') {
     const starts = [];
@@ -192,8 +192,8 @@ function renderStep(focus = true) {
     content = frame('And when will you finish?', 'These endings keep your whole visit in one space and clear of services.', `<div class="chips">${ends.map(minutes => `<button type="button" class="chip" data-end="${minutes}">${fmt(minutes)}<small>${duration(draft.start, minutes)}</small></button>`).join('')}</div>${ends.length ? '' : `<p class="step-hint">${draftReady() ? 'This time is no longer available. Close this sheet to choose another open time.' : 'Endings will appear when availability is confirmed.'}</p>`}`);
   }
   if (step === 'name') content = frame('Who should we expect?', connection.demo ? 'Use a fictional name while you try this demo.' : 'Add your name to the reservation.', `<form id="nameForm"><label class="field-label" for="guestName">${connection.demo ? 'Name for this demo' : 'Your name'}</label><input id="guestName" name="name" autocomplete="${connection.demo ? 'off' : 'name'}" maxlength="40" placeholder="e.g. Avery Lee" value="${esc(draft.name)}" required aria-describedby="nameHelp nameError"><p class="field-help" id="nameHelp">Only a first name and last initial will appear on the schedule.</p><p class="validation" id="nameError" role="alert"></p><button type="submit" class="primary wide">Review reservation <span aria-hidden="true">&#8594;</span></button></form>`);
-  if (step === 'confirm') content = frame('A moment to make sure.', connection.demo ? 'Confirm this demo reservation to see it on the schedule.' : 'Your space is reserved after you confirm and the save completes.', receipt() + `<button type="button" class="primary wide" id="confirm">${connection.demo ? 'Confirm demo reservation' : 'Confirm reservation'}</button>${connection.demo ? '<p class="field-help">Demo mode. This does not reserve a real resource.</p>' : ''}`);
-  if (step === 'success') content = `<div class="success"><div class="seal"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></svg></div><h2 class="step-title" id="stepTitle" tabindex="-1">A space is waiting.</h2><p class="step-hint" id="stepHint">${connection.demo ? 'Your demo reservation has been added.' : 'Your reservation is confirmed.'}</p><p class="success-details"><strong>${types[draft.type].single} ${draft.unit}</strong><br>${esc(dateLabel(draftDay()))}<br>${fmt(draft.start)} to ${fmt(draft.end)}</p><button type="button" class="primary wide" id="seeReservation">See it on the schedule <span aria-hidden="true">&#8594;</span></button><button type="button" class="quiet-button" id="reserveAnother">Make another reservation</button>${connection.demo ? '<p class="field-help">Demo mode. This is a simulated reservation.</p>' : '<a class="saved-link" href="/?classic=1&amp;tab=mine">Manage my reservations</a>'}</div>`;
+  if (step === 'confirm') content = frame('Review your reservation.', connection.demo ? 'Confirm this demo reservation to see it on the schedule.' : 'Your space is reserved after you confirm and the save completes.', receipt() + `<button type="button" class="primary wide" id="confirm">${connection.demo ? 'Confirm demo reservation' : 'Confirm reservation'}</button>${connection.demo ? '<p class="field-help">Demo mode. This does not reserve a real resource.</p>' : ''}`);
+  if (step === 'success') content = `<div class="success"><div class="seal"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></svg></div><h2 class="step-title" id="stepTitle" tabindex="-1">Reservation confirmed.</h2><p class="step-hint" id="stepHint">${connection.demo ? 'Your demo reservation has been added.' : 'Your reservation is confirmed.'}</p><p class="success-details"><strong>${types[draft.type].single} ${draft.unit}</strong><br>${esc(dateLabel(draftDay()))}<br>${fmt(draft.start)} to ${fmt(draft.end)}</p><button type="button" class="primary wide" id="seeReservation">See it on the schedule <span aria-hidden="true">&#8594;</span></button><button type="button" class="quiet-button" id="reserveAnother">Make another reservation</button>${connection.demo ? '<p class="field-help">Demo mode. This is a simulated reservation.</p>' : '<a class="saved-link" href="/?classic=1&amp;tab=mine">Manage my reservations</a>'}</div>`;
   $('#sheetBody').innerHTML = content;
   $('#bookingDialog').scrollTop = 0;
   updateDialogConnection();
