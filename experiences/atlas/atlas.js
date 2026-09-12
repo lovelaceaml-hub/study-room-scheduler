@@ -1,4 +1,5 @@
 import { subscribe, submit, retry } from '../shared/live.js';
+import { overrideUnitForRange } from '../shared/model.js';
 
 const TYPES = {
   room: { label: 'Study Room', short: 'Room', plural: 'Study Rooms', count: 4, icon: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 21V3M15 12h1"/>' },
@@ -57,14 +58,26 @@ function freeUnits(key, resource, start, end, unit = null) {
   const units = unit === null ? Array.from({ length: TYPES[resource].count }, (_, index) => index + 1) : [unit];
   return units.filter(number => Number.isInteger(number) && number > 0 && number <= TYPES[resource].count && !matchingBookings(key, resource, number, start, end).length);
 }
+function rangeAvailability(start, end) {
+  const free = freeUnits(draft.day, draft.type, start, end, draft.unit);
+  const overrideUnit = !free.length && draft.unit === null && ['contact', 'new'].includes(draft.purpose) && !serviceAt(draft.day, start, end)
+    ? overrideUnitForRange(draft.type, draft.day, start, end, draft.purpose, snapshot.bookings, draft.unit)
+    : null;
+  return { free, overrideUnit };
+}
+function selectableRange(start, end) {
+  const { free, overrideUnit } = rangeAvailability(start, end);
+  return free.length > 0 || Boolean(overrideUnit);
+}
 function availableStarts() {
-  return STARTS.filter(start => freeUnits(draft.day, draft.type, start, start + 30, draft.unit).length);
+  return STARTS.filter(start => selectableRange(start, start + 30));
 }
 function availableEnds() {
   if (!Number.isInteger(draft.start)) return [];
   const ends = [];
   for (let end = draft.start + 30; end <= CLOSE; end += 30) {
-    if (!freeUnits(draft.day, draft.type, draft.start, end, draft.unit).length) break;
+    const { free, overrideUnit } = rangeAvailability(draft.start, end);
+    if (!free.length && !overrideUnit) break;
     ends.push(end);
   }
   return ends;
@@ -203,6 +216,21 @@ function previousStep() {
 function heading(title, hint) {
   return `<h2 id="stepTitle" tabindex="-1">${title}</h2><p class="hint">${hint}</p>`;
 }
+function timeChip(kind, value, rangeStart, rangeEnd) {
+  const { free, overrideUnit } = rangeAvailability(rangeStart, rangeEnd);
+  const override = !free.length && Boolean(overrideUnit);
+  const selected = draft[kind] === value;
+  const accessible = `${timeLabel(value)}${override ? ', Priority override, may replace a lower-priority reservation' : ''}`;
+  const marker = override
+    ? `<span class="chipTime">${timeLabel(value)}</span><span class="chipBadge" aria-hidden="true">Priority override</span>`
+    : timeLabel(value);
+  return `<button class="chip${selected ? ' on' : ''}${override ? ' override' : ''}" type="button" data-${kind}="${value}" aria-label="${escapeHTML(accessible)}">${marker}</button>`;
+}
+function overrideNotice(start, end) {
+  const { free, overrideUnit } = rangeAvailability(start, end);
+  if (free.length || !overrideUnit) return '';
+  return '<div class="overrideNotice" role="note"><strong>Priority override</strong><span>This range is held by a lower-priority reservation and may replace it.</span></div>';
+}
 function summaryRows(booking = draft) {
   const purpose = booking === draft && draft.purpose === 'other' ? `Other: ${draft.purposeOther}` : purposeLabel(booking.purpose);
   return `<div class="sumrow"><span>Day</span><b>${escapeHTML(dayLabel(booking.day))}</b></div><div class="sumrow"><span>Purpose</span><b>${escapeHTML(purpose)}</b></div><div class="sumrow"><span>Time</span><b>${timeLabel(booking.start)} to ${timeLabel(booking.end)}</b></div>`;
@@ -223,14 +251,14 @@ function renderStep(focus = true) {
     content = heading('What do you have planned?', 'Add a short description for this reservation.') + `<form id="otherForm"><label class="fieldLabel" for="purposeOther">Reservation description</label><textarea class="field" id="purposeOther" name="purposeOther" required maxlength="300" placeholder="What is the reservation for?">${escapeHTML(draft.purposeOther)}</textarea><button class="continue" type="submit">Continue</button></form>`;
   } else if (step === 'start') {
     const starts = availableStarts();
-    content = heading('When would you like to start?', `${escapeHTML(dayLabel(draft.day))}. ${draft.unit === null ? 'We will assign one unit that is free for your full reservation.' : `${escapeHTML(selectedResource())} stays selected.`}`) + (starts.length ? `<div class="chips">${starts.map(start => `<button class="chip${draft.start === start ? ' on' : ''}" type="button" data-start="${start}">${timeLabel(start)}</button>`).join('')}</div>` : '<div class="emptyState">There are no open start times for this selection. Close this sheet to choose another day or unit.</div>');
+    content = heading('When would you like to start?', `${escapeHTML(dayLabel(draft.day))}. ${draft.unit === null ? 'We will assign one unit that is free for your full reservation.' : `${escapeHTML(selectedResource())} stays selected.`}`) + (starts.length ? `<div class="chips">${starts.map(start => timeChip('start', start, start, start + 30)).join('')}</div>` : '<div class="emptyState">There are no open start times for this selection. Close this sheet to choose another day or unit.</div>');
   } else if (step === 'end') {
     const ends = availableEnds();
-    content = heading('When would you like to end?', `Starting at ${timeLabel(draft.start)}. Every ending keeps ${draft.unit === null ? 'one unit' : escapeHTML(selectedResource())} free continuously, without crossing a service.`) + (ends.length ? `<div class="chips">${ends.map(end => `<button class="chip${draft.end === end ? ' on' : ''}" type="button" data-end="${end}">${timeLabel(end)}</button>`).join('')}</div>` : '<div class="emptyState">This start time is no longer available. Choose another time to keep going.</div><button class="secondary" type="button" data-edit-time>Choose another time</button>');
+    content = heading('When would you like to end?', `Starting at ${timeLabel(draft.start)}. Every ending keeps ${draft.unit === null ? 'one unit' : escapeHTML(selectedResource())} free continuously, without crossing a service.`) + (ends.length ? `<div class="chips">${ends.map(end => timeChip('end', end, draft.start, end)).join('')}</div>` : '<div class="emptyState">This start time is no longer available. Choose another time to keep going.</div><button class="secondary" type="button" data-edit-time>Choose another time</button>');
   } else if (step === 'name') {
     content = heading('Who is this reservation for?', 'Enter your full name. The public schedule displays an abbreviated name.') + `<form id="nameForm"><label class="fieldLabel" for="name">Full name</label><input class="field" id="name" name="name" autocomplete="name" maxlength="100" required value="${escapeHTML(draft.name)}" placeholder="Your full name"><button class="continue" type="submit">Review reservation</button></form>`;
   } else if (step === 'confirm') {
-    content = heading('Confirm your reservation', snapshot.demo ? 'This sample reservation will stay in the preview.' : 'One final check before it goes on the schedule.') + `<div class="summary"><h3>${escapeHTML(selectedResource())}</h3>${summaryRows()}<div class="sumrow"><span>Name</span><b>${escapeHTML(draft.name)}</b></div></div><button class="continue" id="confirm" type="button" ${saving || !snapshot.canBook ? 'disabled' : ''}>${saving ? 'Reserving...' : 'Confirm reservation'}</button><button class="secondary" type="button" data-edit-time ${saving ? 'disabled' : ''}>Change time</button>`;
+    content = heading('Confirm your reservation', snapshot.demo ? 'This sample reservation will stay in the preview.' : 'One final check before it goes on the schedule.') + `<div class="summary"><h3>${escapeHTML(selectedResource())}</h3>${summaryRows()}<div class="sumrow"><span>Name</span><b>${escapeHTML(draft.name)}</b></div></div>${overrideNotice(draft.start, draft.end)}<button class="continue" id="confirm" type="button" ${saving || !snapshot.canBook ? 'disabled' : ''}>${saving ? 'Reserving...' : 'Confirm reservation'}</button><button class="secondary" type="button" data-edit-time ${saving ? 'disabled' : ''}>Change time</button>`;
   } else if (step === 'success') {
     const resource = `${TYPES[saved.type].label} ${saved.unit}`;
     content = `<div class="done"><div class="check" aria-hidden="true">&#10003;</div>${heading(snapshot.demo ? 'Your sample is reserved.' : 'You are reserved.', `${escapeHTML(resource)} is reserved from ${timeLabel(saved.start)} to ${timeLabel(saved.end)}.`)}<div class="summary"><h3>${escapeHTML(resource)}</h3>${summaryRows(saved)}</div><button class="continue" id="finish" type="button">Return to schedule</button></div>`;
@@ -250,7 +278,8 @@ async function confirmReservation() {
   if (saving) return;
   if (!snapshot.canBook || !dayInfo(draft.day)) return setError('Reconnect to confirm. Your reservation details are still here.');
   if (!['contact', 'new', 'other'].includes(draft.purpose) || !hasVisibleText(draft.name) || (draft.purpose === 'other' && !hasVisibleText(draft.purposeOther))) return setError('Add your full name and reservation purpose before confirming.');
-  if (!freeUnits(draft.day, draft.type, draft.start, draft.end, draft.unit).length) return setError('This time is no longer available for the full reservation. Choose Change time to select another range.');
+  const availability = rangeAvailability(draft.start, draft.end);
+  if (!availability.free.length && !availability.overrideUnit) return setError('This time is no longer available for the full reservation. Choose Change time to select another range.');
   saving = true;
   resetError();
   renderStep(false);
@@ -319,13 +348,13 @@ body.addEventListener('click', event => {
     }
   } else if (button.hasAttribute('data-start')) {
     const start = Number(button.dataset.start);
-    if (!freeUnits(draft.day, draft.type, start, start + 30, draft.unit).length) return setError('That start time is no longer available. Choose another time.');
+    if (!selectableRange(start, start + 30)) return setError('That start time is no longer available. Choose another time.');
     draft.start = start;
     draft.end = null;
     nextStep('end');
   } else if (button.hasAttribute('data-end')) {
     const end = Number(button.dataset.end);
-    if (!freeUnits(draft.day, draft.type, draft.start, end, draft.unit).length) return setError('That ending is no longer available. Choose another ending.');
+    if (!selectableRange(draft.start, end)) return setError('That ending is no longer available. Choose another ending.');
     draft.end = end;
     nextStep('name');
   } else if (button.hasAttribute('data-edit-time')) {

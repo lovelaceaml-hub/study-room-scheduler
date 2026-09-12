@@ -30,7 +30,7 @@ async function connect(){
     if(!auth.currentUser)await authMod.signInAnonymously(auth);
     if(token!==generation)return;
     const functions=fn.getFunctions(app,'us-west1');
-    backend={auth,call:fn.httpsCallable(functions,'memberSubmitBooking'),overrideCall:fn.httpsCallable(functions,'memberOverrideBooking')};
+    backend={auth,call:fn.httpsCallable(functions,'memberSubmitBooking')};
     const query=fs.query(fs.collection(fs.getFirestore(app),'bookings'),fs.where('date','in',state.days.map(d=>d.key)));
     unsubscribe=fs.onSnapshot(query,{includeMetadataChanges:true},snap=>{
       if(token!==generation)return;
@@ -47,8 +47,7 @@ export async function submit(input){
   try{
     let unit=safe.availableUnit;
     if(!demo){
-      const call=safe.override?backend.overrideCall:backend.call;
-      const result=await call({date:safe.day,start:clock(safe.start),end:clock(safe.end),name:safe.name,resourceType:safe.type,purpose:safe.purpose==='new'?'new-member':safe.purpose,purposeOther:safe.purpose==='other'?safe.purposeOther:'',...(safe.override||safe.unit===null?{}:{requestedUnit:prefixes[safe.type]+safe.unit})});
+      const result=await backend.call({date:safe.day,start:clock(safe.start),end:clock(safe.end),name:safe.name,resourceType:safe.type,purpose:safe.purpose==='new'?'new-member':safe.purpose,purposeOther:safe.purpose==='other'?safe.purposeOther:'',...(safe.override||safe.unit===null?{}:{requestedUnit:prefixes[safe.type]+safe.unit})});
       const data=result.data;
       if(!data||typeof data.bookingId!=='string'||data.status!=='approved')throw new Error('The server could not confirm the reservation. Check My reservations before trying again.');
       try{const saved=JSON.parse(localStorage.getItem('srs-my-bookings')||'[]');const ids=Array.isArray(saved)?saved.filter(x=>typeof x==='string'):[];localStorage.setItem('srs-my-bookings',JSON.stringify([...new Set([...ids,data.bookingId])]));localStorage.setItem('srs-name',safe.name);}catch{}

@@ -253,6 +253,10 @@ async function memberSubmitBooking(input, uid) {
   let request;
   try { request = memberRequestInput(input); }
   catch (error) { throw errorFromValidation(error); }
+  // Keep all member writes on the explicitly deployed callable. Contact and
+  // New Member still use the transactional priority path when a full range
+  // requires taking a lower-priority reservation.
+  if (OVERRIDE_PURPOSES.includes(request.purpose)) return memberOverrideBooking(input, uid);
   const bookingRef = db.collection('bookings').doc();
   return db.runTransaction(async transaction => {
     const mine = await transaction.get(

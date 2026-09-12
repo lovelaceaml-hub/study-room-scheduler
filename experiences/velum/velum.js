@@ -1,4 +1,5 @@
 import { subscribe, submit, retry } from '../shared/live.js';
+import { overrideUnitForRange } from '../shared/model.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -26,8 +27,31 @@ function services(key=selectedDate()?.key){return SERVICE[days.find(day=>day.key
 function inService(start,key=selectedDate()?.key){return services(key).some(([from,to])=>start>=from&&start<to);}
 function occupant(type,unit,start,key=selectedDate()?.key){return bookings.find(item=>item.day===key&&item.type===type&&item.unit===unit&&start>=item.start&&start<item.end);}
 function free(type,unit,start,key=selectedDate()?.key){return start>=600&&start<1380&&!inService(start,key)&&!occupant(type,unit,start,key);}
-function availableEnds(){const ends=[];for(let current=draft.start;current<1380&&free(draft.type,draft.unit,current,draft.day);current+=30)ends.push(current+30);return ends;}
-function validDraft(){return canBookDay(draft.day)&&visibleText(draft.name)&&draft.end>draft.start&&availableEnds().includes(draft.end)&&Boolean(PURPOSES[draft.purpose])&&(draft.purpose!=='other'||visibleText(draft.purposeOther));}
+function freeRange(type,unit,start,end,key=draft.day){
+  for(let current=start;current<end;current+=30)if(!free(type,unit,current,key))return false;
+  return true;
+}
+function rangeOptions(start=draft.start){
+  if(!draft.type||!draft.day||!Number.isInteger(start))return [];
+  const options=[];
+  for(let end=start+30;end<=1380;end+=30){
+    if(inService(end-30,draft.day))break;
+    const normal=freeRange(draft.type,draft.unit,start,end,draft.day);
+    const override=!normal?overrideUnitForRange(draft.type,draft.day,start,end,draft.purpose,bookings,draft.unit):null;
+    if(normal||override)options.push({end,override:Boolean(override)});
+  }
+  return options;
+}
+function startOptions(){
+  const starts=[];
+  for(let start=600;start<1380;start+=30){
+    const options=rangeOptions(start);
+    if(options.length)starts.push({start,override:!free(draft.type,draft.unit,start,draft.day)&&options.some(option=>option.override)});
+  }
+  return starts;
+}
+function selectedRange(){return rangeOptions().find(option=>option.end===draft.end);}
+function validDraft(){return canBookDay(draft.day)&&visibleText(draft.name)&&draft.end>draft.start&&Boolean(selectedRange())&&Boolean(PURPOSES[draft.purpose])&&(draft.purpose!=='other'||visibleText(draft.purposeOther));}
 function errorText(error){return typeof error==='string'?error:error?.message||'The reservation could not be saved. Your details are kept. Please try again.';}
 function connectionMessage(){
   if(connection.status==='loading')return ['Connecting to the schedule','Booking will open when the connection is ready.'];
@@ -115,7 +139,8 @@ function updateBookingControls(){
 }
 function reviewCard(saved=false){
   const item=saved?draft.saved:draft, label=PURPOSES[item.purpose] || 'Other';
-  return `<div class="review-card"><h3>${TYPES[item.type].single} ${item.unit}</h3><div class="review-row"><span>Day</span><strong>${esc(dayLabel(item.day))}</strong></div><div class="review-row"><span>Time</span><strong>${range(item.start,item.end)}</strong></div><div class="review-row"><span>Purpose</span><strong>${label}</strong></div>${!saved&&item.purpose==='other'?`<div class="review-row"><span>Details</span><strong>${esc(item.purposeOther)}</strong></div>`:''}<div class="review-row"><span>For</span><strong>${esc(item.name)}</strong></div></div>`;
+  const override=saved?Boolean(item.override):Boolean(selectedRange()?.override);
+  return `<div class="review-card"><h3>${TYPES[item.type].single} ${item.unit}</h3><div class="review-row"><span>Day</span><strong>${esc(dayLabel(item.day))}</strong></div><div class="review-row"><span>Time</span><strong>${range(item.start,item.end)}</strong></div><div class="review-row"><span>Purpose</span><strong>${label}</strong></div>${override?'<div class="review-row"><span>Status</span><strong class="override-status">Priority override</strong></div>':''}${!saved&&item.purpose==='other'?`<div class="review-row"><span>Details</span><strong>${esc(item.purposeOther)}</strong></div>`:''}<div class="review-row"><span>For</span><strong>${esc(item.name)}</strong></div></div>`;
 }
 function renderStep(){
   const step=flow[flowIndex];$('#step-counter').textContent=step==='success'?'Reservation confirmed':`Reservation · ${flowIndex+1} of ${flow.length}`;
@@ -124,12 +149,12 @@ function renderStep(){
   if(step==='purpose')html=titleBlock('What is this<br>reservation for?','Select a purpose.')+`<div class="choices">${Object.entries(PURPOSES).map(([key,label])=>`<button class="choice purpose-choice${draft.purpose===key?' selected':''}" data-purpose="${key}" data-booking-action><span class="purpose-dot ${key}" aria-hidden="true"></span><span><b>${label}</b>${purposeDescriptions[key]?`<small>${purposeDescriptions[key]}</small>`:''}</span><span class="choice-arrow" aria-hidden="true">&#8594;</span></button>`).join('')}</div>${draft.purpose==='other'?`<form class="purpose-details" id="purpose-form"><label class="field-label" for="purpose-other">What is the reservation for?</label><input class="field" id="purpose-other" name="purposeOther" maxlength="200" autocomplete="off" value="${esc(draft.purposeOther)}" placeholder="For example, Bible study preparation" required><button class="primary-action" id="purpose-next" type="submit" data-booking-action>Continue &#8594;</button></form>`:''}`;
   if(step==='start'){
     const type=TYPES[draft.type];let options='';for(let unit=1;unit<=type.count;unit++)options+=`<option value="${unit}" ${unit===draft.unit?'selected':''}>${type.single} ${unit}${draft.type==='whiteboard'?` (${unit<=3?'Large':'Vertical'})`:''}</option>`;
-    let times='';for(let start=600;start<1380;start+=30)if(free(draft.type,draft.unit,start,draft.day))times+=`<button class="time-choice" data-time-start="${start}" data-booking-action>${time(start)}</button>`;
+    const starts=startOptions();let times=starts.map(({start,override})=>override?`<button class="time-choice override-choice" data-time-start="${start}" data-booking-action aria-label="Start at ${esc(time(start))}. Priority override available.">${time(start)}<span class="override-indicator">Priority override</span></button>`:`<button class="time-choice" data-time-start="${start}" data-booking-action>${time(start)}</button>`).join('');
     html=titleBlock('When shall we begin?','Choose your preferred unit, then an available start time.')+`<label class="field-label" for="unit-select">Your ${type.single.toLowerCase()}</label><select class="field" id="unit-select">${options}</select><div class="time-choices">${times||'<p>No open times. Choose another unit.</p>'}</div>`;
   }
   if(step==='end'){
-    const ends=availableEnds();
-    html=titleBlock('And when will<br>you finish?',ends.length?'These endings fit before the next reservation or service.':'This start is no longer open. Go back to choose another time.')+`<div class="time-choices">${ends.map(end=>`<button class="time-choice" data-time-end="${end}" data-booking-action>${time(end)}<small>${end-draft.start} minutes together</small></button>`).join('')}</div>`;
+    const ends=rangeOptions();
+    html=titleBlock('And when will<br>you finish?',ends.length?'These endings fit before the next reservation or service.':'This start is no longer open. Go back to choose another time.')+`<div class="time-choices">${ends.map(({end,override})=>override?`<button class="time-choice override-choice" data-time-end="${end}" data-booking-action aria-label="End at ${esc(time(end))}. Priority override required. ${end-draft.start} minutes together">${time(end)}<span class="override-indicator">Priority override</span></button>`:`<button class="time-choice" data-time-end="${end}" data-booking-action>${time(end)}<small>${end-draft.start} minutes together</small></button>`).join('')}</div>`;
   }
   if(step==='name')html=titleBlock('Who is this for?',connection.demo?'Use a fictional name while you try this demo.':'Enter your name so your reservation can be recognized.')+`<form id="name-form"><label class="field-label" for="display-name">Your full name</label><input class="field" id="display-name" name="name" autocomplete="${connection.demo?'off':'name'}" maxlength="80" value="${esc(draft.name)}" placeholder="Your full name" required><p class="validation" id="name-error" hidden>Please enter a visible name.</p><button class="primary-action" type="submit" data-booking-action>Review reservation &#8594;</button></form>`;
   if(step==='confirm')html=titleBlock('Review your<br>reservation.',connection.demo?'Review the details before saving your demo reservation.':'Review the details before confirming your reservation.')+reviewCard()+`<p class="validation" id="save-error" role="alert" ${draft.submitError?'':'hidden'}>${esc(draft.submitError)}</p><button class="primary-action" id="confirm-reservation" data-booking-action>Confirm reservation</button><p class="submit-status" id="submit-status" role="status"></p>`;
@@ -186,8 +211,8 @@ $('#step-content').addEventListener('click',event=>{
   if(!canBookDay(draft.day)||saving)return;
   const type=event.target.closest('[data-type]');if(type){draft.type=type.dataset.type;draft.unit=1;draft.start=null;draft.end=null;next();return;}
   const purpose=event.target.closest('[data-purpose]');if(purpose){draft.purpose=purpose.dataset.purpose;if(draft.purpose==='other'){renderStep();$('#purpose-other').focus();}else{draft.purposeOther='';next();}return;}
-  const start=event.target.closest('[data-time-start]');if(start){const value=Number(start.dataset.timeStart);if(!free(draft.type,draft.unit,value,draft.day)){renderStep();return;}draft.start=value;draft.end=null;next();return;}
-  const end=event.target.closest('[data-time-end]');if(end){const value=Number(end.dataset.timeEnd);if(!availableEnds().includes(value)){renderStep();return;}draft.end=value;next();return;}
+  const start=event.target.closest('[data-time-start]');if(start){const value=Number(start.dataset.timeStart);if(!startOptions().some(option=>option.start===value)){renderStep();return;}draft.start=value;draft.end=null;next();return;}
+  const end=event.target.closest('[data-time-end]');if(end){const value=Number(end.dataset.timeEnd),option=rangeOptions().find(item=>item.end===value);if(!option){renderStep();return;}draft.end=value;draft.override=option.override;next();return;}
   if(event.target.closest('#confirm-reservation'))saveReservation();
 });
 

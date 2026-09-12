@@ -1671,7 +1671,7 @@ async function submitSignup(form) {
   if (btn) btn.disabled = true; // belt & suspenders: dead until the re-render
   const id = uid();
   try {
-    const result = await callBackend(d.override ? 'memberOverrideBooking' : 'memberSubmitBooking', {
+    const result = await callBackend('memberSubmitBooking', {
       date: date,
       start: d.start,
       end: d.end,

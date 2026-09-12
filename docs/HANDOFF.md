@@ -1,5 +1,11 @@
 # Handoff notes — LV Zion Study Rooms
 
+## September 12, 2026: Priority override indicators ready for release
+
+All six member designs now keep a full lower-priority range visible in Reserve Now after Study Room and Contact are selected. The time choice is marked `Priority override` and the confirmation summary repeats the notice. Contact can take New Member or Other reservations, New Member can take Other reservations, and blocked or equal-or-higher priority reservations remain unavailable. The classic app uses the same deployed `memberSubmitBooking` callable for this path.
+
+The shared policy, validation, and live transport are covered by 22 focused model and policy checks. The complete project suite passed, including 17 policy checks, 8 shared/public schedule checks, six fictional member journeys, chooser, confirmation popup, and TV smoke. A dedicated browser fixture showed the visible indicator and `memberSubmitBooking` path in Atlas, Cove, Lattice, Petal, Solace, and Velum. Production deployment is still pending the controller commit and authorized Hosting plus `functions:memberSubmitBooking` release.
+
 ## September 12, 2026: Extra design copy removed
 
 The six member design experiences no longer show the unnecessary promotional welcome, hero, and booking-flow copy. Atlas, Cove, Lattice, Petal, Solace, and Velum keep their schedule, booking, status, accessibility, and navigation text. Lattice also no longer repeats the selected date as a separate schedule eyebrow. The final cleanup is live at https://lvrooms.web.app/?choose=1 from commit `76a4d5d`, released through Firebase Hosting target `app` only. Functions, rules, indexes, Authentication, and the legacy target were not deployed.

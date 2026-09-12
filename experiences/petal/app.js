@@ -1,4 +1,5 @@
 import {subscribe, submit, retry} from '../shared/live.js';
+import {overrideUnitForRange} from '../shared/model.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -17,6 +18,7 @@ const purposes = {
   new: {label:'New Member', hint:''},
   other: {label:'Other', hint:''}
 };
+const priorityOverrideLabel = 'Priority override';
 const documentKeys = new Map();
 let documentKeyCount = 0;
 let connection = {status:'loading', canBook:false, demo:false, error:''};
@@ -49,13 +51,32 @@ function freeRange(day, resource, unit, start, end) {
   return true;
 }
 const availableUnits = (day, resource, start, end) => units(resource).filter(unit => freeRange(day, resource, unit, start, end));
-function endTimes() {
+function rangeAvailability(day, resource, start, end, purpose, exactUnit = null) {
+  const free = exactUnit === null ? availableUnits(day, resource, start, end) : freeRange(day, resource, exactUnit, start, end) ? [exactUnit] : [];
+  if (free.length) return {unit:free[0], override:false};
+  if (!day || !Number.isInteger(start) || !Number.isInteger(end) || start >= end || start < 600 || end > 1380) return null;
+  for (let minutes = start; minutes < end; minutes += 30) if (serviceAt(day, minutes)) return null;
+  const overrideUnit = overrideUnitForRange(resource, day.key, start, end, purpose, bookings, exactUnit);
+  return overrideUnit === null ? null : {unit:overrideUnit, override:true};
+}
+function startOptions() {
   if (!draftReady()) return [];
+  const exactUnit = draft.locked ? draft.unit : null;
+  const result = [];
+  for (let start = 600; start < 1380; start += 30) {
+    const option = rangeAvailability(draftDay(), draft.type, start, start + 30, draft.purpose, exactUnit);
+    if (option) result.push({start, ...option});
+  }
+  return result;
+}
+function endOptions() {
+  if (!draftReady() || !Number.isInteger(draft.start) || !draft.purpose) return [];
+  const exactUnit = draft.locked ? draft.unit : null;
   const result = [];
   for (let end = draft.start + 30; end <= 1380; end += 30) {
-    const available = draft.locked ? freeRange(draftDay(), draft.type, draft.unit, draft.start, end) : availableUnits(draftDay(), draft.type, draft.start, end).length > 0;
-    if (!available) break;
-    result.push(end);
+    const option = rangeAvailability(draftDay(), draft.type, draft.start, end, draft.purpose, exactUnit);
+    if (!option) break;
+    result.push({end, ...option});
   }
   return result;
 }
@@ -149,7 +170,7 @@ function openBooking(preset) {
   returnFocus = document.activeElement;
   const day = days[dayIndex];
   draft = {day:day.key, dayInfo:day, type:preset ? type : null, unit:preset ? preset.unit : null,
-    start:preset ? preset.start : null, end:null, purpose:null, purposeOther:'', name:'', locked:Boolean(preset)};
+    start:preset ? preset.start : null, end:null, purpose:null, purposeOther:'', name:'', locked:Boolean(preset), override:false};
   history = []; draftError = ''; step = preset ? 'purpose' : 'resource';
   renderStep(false); $('#bookingDialog').showModal(); updateDialogConnection();
   requestAnimationFrame(() => $('#stepTitle').focus());
@@ -169,7 +190,9 @@ function frame(title, hint, content) {
   return `<p class="crumb">${esc(crumb())}</p><h2 id="stepTitle" class="step-title" tabindex="-1">${title}</h2><p class="step-hint" id="stepHint">${hint}</p>${content}<p id="draftError" class="validation form-error" role="alert">${esc(draftError)}</p>`;
 }
 function receipt() {
-  return `<div class="receipt"><h3 class="receipt-unit">${types[draft.type].single} ${draft.unit}</h3><div class="receipt-row"><span>Day</span><b>${esc(dateLabel(draftDay()))}</b></div><div class="receipt-row"><span>Time</span><b>${fmt(draft.start)} to ${fmt(draft.end)}<br>${duration(draft.start, draft.end)}</b></div><div class="receipt-row"><span>Purpose</span><b>${purposes[draft.purpose].label}</b></div>${draft.purpose === 'other' ? `<div class="receipt-row"><span>Details</span><b>${esc(draft.purposeOther)}</b></div>` : ''}<div class="receipt-row"><span>Name</span><b>${esc(draft.name)}</b></div></div>`;
+  const unit = draft.unit && !(draft.override && !draft.locked) ? ` ${draft.unit}` : '';
+  const overrideNote = draft.override ? `<div class="priority-note" role="note"><b>${priorityOverrideLabel}</b><span>This time replaces a lower-priority reservation.</span></div>` : '';
+  return `<div class="receipt"><h3 class="receipt-unit">${types[draft.type].single}${unit}</h3>${overrideNote}<div class="receipt-row"><span>Day</span><b>${esc(dateLabel(draftDay()))}</b></div><div class="receipt-row"><span>Time</span><b>${fmt(draft.start)} to ${fmt(draft.end)}<br>${duration(draft.start, draft.end)}</b></div><div class="receipt-row"><span>Purpose</span><b>${purposes[draft.purpose].label}</b></div>${draft.purpose === 'other' ? `<div class="receipt-row"><span>Details</span><b>${esc(draft.purposeOther)}</b></div>` : ''}<div class="receipt-row"><span>Name</span><b>${esc(draft.name)}</b></div></div>`;
 }
 function renderStep(focus = true) {
   let content = '';
@@ -179,17 +202,16 @@ function renderStep(focus = true) {
   if (step === 'purpose') content = frame('What is this reservation for?', draft.locked ? 'Your exact space and start time are selected.' : 'Select a purpose.', `<div class="choice-list">${Object.entries(purposes).map(([key, purpose]) => `<button type="button" class="choice purpose-choice ${key}" data-purpose="${key}"><span class="choice-copy"><b>${purpose.label}</b>${purpose.hint ? `<small>${purpose.hint}</small>` : ''}</span><span class="next" aria-hidden="true">&#8250;</span></button>`).join('')}</div>`);
   if (step === 'details') content = frame('Tell us a little more.', 'What will you use this space for?', `<form id="otherForm"><label class="field-label" for="purposeOther">Reservation details</label><input id="purposeOther" name="purpose-other" autocomplete="off" maxlength="120" required value="${esc(draft.purposeOther)}" placeholder="e.g. Family Bible study" aria-describedby="otherHelp otherError"><p class="field-help" id="otherHelp">These details are for the reservation team. The schedule shows Other.</p><p class="validation" id="otherError" role="alert"></p><button type="submit" class="primary wide">Continue <span aria-hidden="true">&#8594;</span></button></form>`);
   if (step === 'start') {
-    const starts = [];
-    if (draftReady()) for (let minutes = 600; minutes < 1380; minutes += 30) if (availableUnits(draftDay(), draft.type, minutes, minutes + 30).length) starts.push(minutes);
+    const starts = startOptions();
     const groups = [['Morning',600,720],['Afternoon',720,1020],['Evening',1020,1380]].map(([label, start, end]) => {
-      const list = starts.filter(minutes => minutes >= start && minutes < end);
-      return list.length ? `<h3 class="group-label">${label}</h3><div class="chips">${list.map(minutes => `<button type="button" class="chip" data-pick-start="${minutes}">${fmt(minutes)}</button>`).join('')}</div>` : '';
+      const list = starts.filter(option => option.start >= start && option.start < end);
+      return list.length ? `<h3 class="group-label">${label}</h3><div class="chips">${list.map(option => `<button type="button" class="chip${option.override ? ' override-option' : ''}" data-pick-start="${option.start}"${option.override ? ` aria-label="${fmt(option.start)}, ${priorityOverrideLabel}"` : ''}>${fmt(option.start)}${option.override ? `<span class="override-label">${priorityOverrideLabel}</span>` : ''}</button>`).join('')}</div>` : '';
     }).join('');
-    content = frame('When shall we begin?', 'Only times with a space available are shown. Service times are set aside.', groups || `<p class="step-hint">${draftReady() ? 'This resource is full for the day. Close this sheet to try another day.' : 'Times will appear when availability is confirmed.'}</p>`);
+    content = frame('When shall we begin?', 'Open times are shown. Times marked Priority override can replace a lower-priority reservation. Service times are set aside.', groups || `<p class="step-hint">${draftReady() ? 'This resource is full for the day. Close this sheet to try another day.' : 'Times will appear when availability is confirmed.'}</p>`);
   }
   if (step === 'end') {
-    const ends = endTimes();
-    content = frame('And when will you finish?', 'These endings keep your whole visit in one space and clear of services.', `<div class="chips">${ends.map(minutes => `<button type="button" class="chip" data-end="${minutes}">${fmt(minutes)}<small>${duration(draft.start, minutes)}</small></button>`).join('')}</div>${ends.length ? '' : `<p class="step-hint">${draftReady() ? 'This time is no longer available. Close this sheet to choose another open time.' : 'Endings will appear when availability is confirmed.'}</p>`}`);
+    const ends = endOptions();
+    content = frame('And when will you finish?', 'Choose an ending that keeps your whole visit in one space and clear of services. Priority override marks a lower-priority reservation.', `<div class="chips">${ends.map(option => `<button type="button" class="chip${option.override ? ' override-option' : ''}" data-end="${option.end}"${option.override ? ` aria-label="${fmt(draft.start)} to ${fmt(option.end)}, ${priorityOverrideLabel}"` : ''}>${fmt(option.end)}<small>${duration(draft.start, option.end)}</small>${option.override ? `<span class="override-label">${priorityOverrideLabel}</span>` : ''}</button>`).join('')}</div>${ends.length ? '' : `<p class="step-hint">${draftReady() ? 'This time is no longer available. Close this sheet to choose another open time.' : 'Endings will appear when availability is confirmed.'}</p>`}`);
   }
   if (step === 'name') content = frame('Who should we expect?', connection.demo ? 'Use a fictional name while you try this demo.' : 'Add your name to the reservation.', `<form id="nameForm"><label class="field-label" for="guestName">${connection.demo ? 'Name for this demo' : 'Your name'}</label><input id="guestName" name="name" autocomplete="${connection.demo ? 'off' : 'name'}" maxlength="40" placeholder="e.g. Avery Lee" value="${esc(draft.name)}" required aria-describedby="nameHelp nameError"><p class="field-help" id="nameHelp">Only a first name and last initial will appear on the schedule.</p><p class="validation" id="nameError" role="alert"></p><button type="submit" class="primary wide">Review reservation <span aria-hidden="true">&#8594;</span></button></form>`);
   if (step === 'confirm') content = frame('Review your reservation.', connection.demo ? 'Confirm this demo reservation to see it on the schedule.' : 'Your space is reserved after you confirm and the save completes.', receipt() + `<button type="button" class="primary wide" id="confirm">${connection.demo ? 'Confirm demo reservation' : 'Confirm reservation'}</button>${connection.demo ? '<p class="field-help">Demo mode. This does not reserve a real resource.</p>' : ''}`);
@@ -206,14 +228,17 @@ function showDraftError(message) {
 async function save() {
   if (saving) return;
   if (!draftReady()) { showDraftError('Reconnect and confirm availability before reserving. Your details are still here.'); updateDialogConnection(); return; }
-  if (!freeRange(draftDay(), draft.type, draft.unit, draft.start, draft.end)) {
-    showDraftError('This exact space is no longer open for the whole visit. Go back to choose another ending, or close this sheet to choose a different space.');
+  const selected = rangeAvailability(draftDay(), draft.type, draft.start, draft.end, draft.purpose, draft.locked ? draft.unit : null);
+  if (!selected || selected.override !== Boolean(draft.override)) {
+    showDraftError(selected ? 'Availability changed. Please go back and review this time again.' : 'This time is no longer available for the whole visit. Go back to choose another ending, or close this sheet to choose a different space.');
     return;
   }
+  draft.unit = selected.unit; draft.override = selected.override;
   if (draft.purpose === 'other' && !draft.purposeOther.trim()) { showDraftError('Add reservation details for Other before confirming.'); return; }
   saving = true; showDraftError(''); updateDialogConnection();
   try {
-    const saved = await submit({day:draft.day, type:draft.type, unit:draft.unit, start:draft.start, end:draft.end,
+    const submittedUnit = draft.override && !draft.locked ? null : draft.unit;
+    const saved = await submit({day:draft.day, type:draft.type, unit:submittedUnit, start:draft.start, end:draft.end,
       name:draft.name.trim(), purpose:draft.purpose, purposeOther:draft.purpose === 'other' ? draft.purposeOther.trim() : ''});
     const booking = normalizeBooking(saved);
     const existing = bookings.findIndex(item => item.key === booking.key);
@@ -280,15 +305,16 @@ $('#sheetBody').addEventListener('click', event => {
   const resource = event.target.closest('[data-pick-resource]');
   if (resource) { draft.type = resource.dataset.pickResource; draft.unit = null; draft.start = null; draft.end = null; go('purpose'); return; }
   const purpose = event.target.closest('[data-purpose]');
-  if (purpose) { draft.purpose = purpose.dataset.purpose; if (draft.purpose !== 'other') draft.purposeOther = ''; go(draft.purpose === 'other' ? 'details' : draft.locked ? 'end' : 'start'); return; }
+  if (purpose) { draft.purpose = purpose.dataset.purpose; draft.override = false; if (!draft.locked) draft.unit = null; if (draft.purpose !== 'other') draft.purposeOther = ''; go(draft.purpose === 'other' ? 'details' : draft.locked ? 'end' : 'start'); return; }
   const start = event.target.closest('[data-pick-start]');
-  if (start) { draft.start = Number(start.dataset.pickStart); draft.end = null; draft.unit = null; go('end'); return; }
+  if (start) { draft.start = Number(start.dataset.pickStart); draft.end = null; draft.unit = null; draft.override = false; go('end'); return; }
   const end = event.target.closest('[data-end]');
   if (end) {
     const ending = Number(end.dataset.end);
-    if (!endTimes().includes(ending)) { showDraftError('Availability changed. Please choose an available ending.'); return; }
+    const option = endOptions().find(candidate => candidate.end === ending);
+    if (!option) { showDraftError('Availability changed. Please choose an available ending.'); return; }
     draft.end = ending;
-    if (!draft.locked) draft.unit = availableUnits(draftDay(), draft.type, draft.start, draft.end)[0];
+    draft.unit = option.unit; draft.override = option.override;
     go('name'); return;
   }
   if (event.target.closest('#confirm')) save();

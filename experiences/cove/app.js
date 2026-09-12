@@ -1,4 +1,5 @@
 import { subscribe, submit, retry } from '../shared/live.js';
+import { overrideUnitForRange } from '../shared/model.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -45,7 +46,7 @@ function normalizeBooking(row) {
   const blocked = row.blocked === true || row.purpose === 'blocked';
   const key = String(row.key);
   if (!itemIds.has(key)) itemIds.set(key, 'reservation-' + (itemIds.size + 1));
-  return {key,id:itemIds.get(key),day:row.day,resource:row.type,unit:row.unit,start:row.start,end:row.end,name:blocked?'Reserved':String(row.name || 'Reserved'),purpose:blocked?'blocked':PURPOSES[row.purpose]?row.purpose:'other',blocked};
+  return {key,id:itemIds.get(key),day:row.day,resource:row.type,unit:row.unit,start:row.start,end:row.end,name:blocked?'Reserved':String(row.name || 'Reserved'),purpose:blocked?'blocked':PURPOSES[row.purpose]?row.purpose:'other',blocked,override:row.override===true};
 }
 
 function free(day, res, unit, start, end) {
@@ -58,6 +59,27 @@ function unitsFor(start,end) {
   if (!draftReady() || !TYPES[draft.resource]) return [];
   return Array.from({length:TYPES[draft.resource].count},(_,i)=>i+1)
     .filter(unit => (!draft.presetUnit || unit === draft.presetUnit) && free(draftDay(),draft.resource,unit,start,end));
+}
+
+function sharedBookings() {
+  return bookings.map(booking => ({...booking,type:booking.resource}));
+}
+
+function overrideFor(start,end,exactUnit=null) {
+  if (!draftReady() || draft.presetUnit != null || !['contact','new'].includes(draft.purpose) || services(draftDay()).some(service => overlaps(start,end,service[0],service[1]))) return null;
+  return overrideUnitForRange(draft.resource,draft.day,start,end,draft.purpose,sharedBookings(),exactUnit);
+}
+
+function rangeOption(start,end) {
+  const available=unitsFor(start,end);
+  if (available.length) return {unit:available[0],override:false};
+  const override=overrideFor(start,end);
+  return Number.isInteger(override)?{unit:override,override:true}:null;
+}
+
+function selectionAvailable() {
+  if (unitsFor(draft.start,draft.end).includes(draft.unit)) return true;
+  return Boolean(draft.override && overrideFor(draft.start,draft.end,draft.unit) === draft.unit);
 }
 
 function statusText() {
@@ -128,7 +150,7 @@ function showRetryError(error) {
 
 function createDraft(preset) {
   const day=days[dayIndex];
-  return {day:day.key,dayLabel:dateText(day),resource:preset?resource:null,presetUnit:preset?Number(preset.unit):null,unit:preset?Number(preset.unit):null,start:preset?Number(preset.start):null,end:null,purpose:null,purposeOther:'',name:'',publicName:''};
+  return {day:day.key,dayLabel:dateText(day),resource:preset?resource:null,presetUnit:preset?Number(preset.unit):null,unit:preset?Number(preset.unit):null,start:preset?Number(preset.start):null,end:null,purpose:null,purposeOther:'',name:'',publicName:'',override:false};
 }
 
 function openBooking(preset) {
@@ -157,7 +179,8 @@ function context() {
 }
 
 function summary() {
-  return '<div class="booking-summary"><div class="summary-unit">'+TYPES[draft.resource].single+' '+draft.unit+'</div><dl><dt>When</dt><dd>'+esc(draft.dayLabel)+'<br>'+fmt(draft.start)+' to '+fmt(draft.end)+'</dd><dt>For</dt><dd>'+PURPOSES[draft.purpose].label+'</dd><dt>Name</dt><dd>'+esc(draft.publicName)+'</dd></dl></div>';
+  const overrideNote=draft.override?'<p class="override-note" role="status"><strong>Priority override</strong><span>This range requires taking over a lower-priority reservation.</span></p>':'';
+  return '<div class="booking-summary"><div class="summary-unit">'+TYPES[draft.resource].single+' '+draft.unit+'</div><dl><dt>When</dt><dd>'+esc(draft.dayLabel)+'<br>'+fmt(draft.start)+' to '+fmt(draft.end)+'</dd><dt>For</dt><dd>'+PURPOSES[draft.purpose].label+'</dd><dt>Name</dt><dd>'+esc(draft.publicName)+'</dd></dl>'+overrideNote+'</div>';
 }
 
 function renderStep() {
@@ -172,12 +195,22 @@ function renderStep() {
   if(step==='details') html='<h2 id="step-title" tabindex="-1">Tell us a little more.</h2><p class="hint" id="step-hint">What will you use the '+type.single.toLowerCase()+' for?</p><form id="details-form"><label class="field-label" for="purpose-other">Reservation details</label><textarea id="purpose-other" class="details-field" maxlength="160" required aria-describedby="details-note" placeholder="e.g. Family Bible study">'+esc(draft.purposeOther)+'</textarea><p class="form-note" id="details-note">These details stay off the public schedule.</p><button class="primary full" type="submit" id="other-next">Continue</button></form>';
   if(step==='start') {
     let times='';
-    for(let t=600;t<1380;t+=30)if(unitsFor(t,t+30).length)times+='<button class="time-choice" data-pick-start="'+t+'">'+fmt(t)+'</button>';
+    for(let t=600;t<1380;t+=30){
+      const option=rangeOption(t,t+30);
+      if(!option)continue;
+      const override=option.override;
+      times+='<button class="time-choice'+(override?' priority-override':'')+'" data-pick-start="'+t+'"'+(override?' data-priority-override="true" aria-label="Start at '+fmt(t)+', Priority override"':'')+'>'+fmt(t)+(override?'<small class="override-label">Priority override</small>':'')+'</button>';
+    }
     html='<h2 id="step-title" tabindex="-1">When shall we begin?</h2><p class="hint" id="step-hint">Only times with an open '+type.single.toLowerCase()+' are shown. Services already have their space.</p><div class="time-choices">'+times+'</div>'+(times?'':draftReady()?'<p class="inline-error">Every space is reserved. Close this sheet and try the other eligible date.</p>':'');
   }
   if(step==='end') {
     let times='';
-    for(let t=draft.start+30;t<=1380;t+=30)if(unitsFor(draft.start,t).length)times+='<button class="time-choice" data-end="'+t+'">'+fmt(t)+'<small>'+duration(draft.start,t)+'</small></button>';
+    for(let t=draft.start+30;t<=1380;t+=30){
+      const option=rangeOption(draft.start,t);
+      if(!option)continue;
+      const override=option.override;
+      times+='<button class="time-choice'+(override?' priority-override':'')+'" data-end="'+t+'"'+(override?' data-priority-override="true" aria-label="Finish at '+fmt(t)+', Priority override"':'')+'>'+fmt(t)+'<small>'+duration(draft.start,t)+'</small>'+(override?'<span class="override-label">Priority override</span>':'')+'</button>';
+    }
     html='<h2 id="step-title" tabindex="-1">And when will<br>you finish?</h2><p class="hint" id="step-hint">Starting at '+fmt(draft.start)+'. These endings keep '+(draft.presetUnit?type.single+' '+draft.presetUnit:'one space')+' free for your whole reservation.</p><div class="time-choices">'+times+'</div>'+(times?'':draftReady()?'<p class="inline-error">This moment is no longer open. Go back to choose another start.</p>':'');
   }
   if(step==='name') html='<h2 id="step-title" tabindex="-1">Who is this<br>space for?</h2><p class="hint" id="step-hint">'+(connection.demo?'Try the demo with a fictional name.':'Enter the name for this reservation.')+'</p><form id="name-form"><label class="field-label" for="guest-name">Your name</label><input class="name-field" id="guest-name" name="guest" maxlength="60" autocomplete="name" placeholder="e.g. Alex Morgan" value="'+esc(draft.name)+'" required aria-describedby="name-note"><p class="form-note" id="name-note">Your first name and last initial appear on the '+(connection.demo?'sample':'public')+' schedule.</p><button class="primary full" type="submit" id="name-next">Review reservation</button></form>';
@@ -213,7 +246,7 @@ function syncSheetAvailability() {
 async function save() {
   if(saving||!draftReady()) {syncSheetAvailability();return;}
   if(!visibleText(draft.name)||(draft.purpose==='other'&&!visibleText(draft.purposeOther))) {showError('Add your name and reservation details before confirming.');return;}
-  if(!unitsFor(draft.start,draft.end).includes(draft.unit)) {showError('This space is no longer open for that full time. Go back and choose another ending.');return;}
+  if(!selectionAvailable()) {showError('This range is no longer available for that full time. Go back and choose another ending.');return;}
   clearError();
   saving=true;
   syncSheetAvailability();
@@ -234,6 +267,7 @@ async function save() {
     draft.end=saved.end;
     draft.publicName=saved.name;
     draft.purpose=saved.purpose;
+    draft.override=saved.override;
     resource=saved.resource;
     const savedDay=days.findIndex(day=>day.key===saved.day);
     if(savedDay>=0)dayIndex=savedDay;
@@ -313,20 +347,21 @@ $('#sheet-body').addEventListener('click',event=>{
   }
   if(!draftReady()){syncSheetAvailability();return;}
   let button=event.target.closest('[data-pick-resource]');
-  if(button){draft.resource=button.dataset.pickResource;draft.start=null;draft.end=null;draft.unit=null;return go('purpose');}
+  if(button){draft.resource=button.dataset.pickResource;draft.start=null;draft.end=null;draft.unit=null;draft.override=false;return go('purpose');}
   button=event.target.closest('[data-purpose]');
-  if(button){draft.purpose=button.dataset.purpose;if(draft.purpose!=='other')draft.purposeOther='';return go(draft.purpose==='other'?'details':draft.presetUnit?'end':'start');}
+  if(button){draft.purpose=button.dataset.purpose;draft.override=false;if(draft.purpose!=='other')draft.purposeOther='';return go(draft.purpose==='other'?'details':draft.presetUnit?'end':'start');}
   button=event.target.closest('[data-pick-start]');
   if(button){
     const start=Number(button.dataset.pickStart);
-    if(!unitsFor(start,start+30).length){showError('That start is no longer available. Choose another moment.');return;}
-    draft.start=start;draft.end=null;return go('end');
+    const option=rangeOption(start,start+30);
+    if(!option){showError('That start is no longer available. Choose another moment.');return;}
+    draft.start=start;draft.end=null;draft.unit=null;draft.override=false;return go('end');
   }
   button=event.target.closest('[data-end]');
   if(button){
-    const end=Number(button.dataset.end),available=unitsFor(draft.start,end);
-    if(!available.length){showError('That ending is no longer available. Choose a shorter time.');return;}
-    draft.end=end;draft.unit=available[0];return go('name');
+    const end=Number(button.dataset.end),option=rangeOption(draft.start,end);
+    if(!option){showError('That ending is no longer available. Choose a shorter time.');return;}
+    draft.end=end;draft.unit=option.unit;draft.override=option.override;return go('name');
   }
   if(event.target.closest('#confirm'))return save();
   if(event.target.closest('#reserve-another')){

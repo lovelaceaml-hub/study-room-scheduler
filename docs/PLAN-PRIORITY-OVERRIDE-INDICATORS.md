@@ -53,3 +53,4 @@ Each lane must preserve normal free-time behavior, use the override marker only 
 ## Build log
 
 - 2026-09-12: User reported that Reserve Now, Study Room, Contact hides or mishandles times already held by New Member and Other. Scope set to visible override-required indicators across all six designs, with priority policy extended consistently.
+- 2026-09-12: Shared policy and transport changes passed focused checks. All six design lanes landed their indicators, complete project smoke passed, and a dedicated fictional all-lower-priority browser fixture confirmed the visible indicator and `memberSubmitBooking` path. Production deployment remains pending.

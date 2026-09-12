@@ -1,3 +1,4 @@
+import { overrideUnitForRange } from '../shared/model.js';
 import { subscribe, submit, retry } from '../shared/live.js';
 
 const TYPES = {
@@ -57,10 +58,19 @@ function freeUnits(day, resource, start, end, exactUnit = null) {
       && booking.unit === unit && overlaps(start, end, booking.start, booking.end)));
 }
 
+function rangeOption(day, resource, start, end, purpose = draft.purpose, exactUnit = draft.unit) {
+  const free = freeUnits(day, resource, start, end, exactUnit);
+  if (free.length) return { override: false, unit: free[0] };
+  if (!state.canBook || !dayInfo(day) || serviceBlocks(day).some(([from, to]) => overlaps(start, end, from, to))) return null;
+  const overrideUnit = overrideUnitForRange(resource, day, start, end, purpose, state.bookings, exactUnit);
+  return overrideUnit == null ? null : { override: true, unit: overrideUnit };
+}
+
 function validStarts() {
   const values = [];
   for (let start = START; start < END; start += STEP) {
-    if (freeUnits(draft.day, draft.type, start, start + STEP, draft.unit).length) values.push(start);
+    const option = rangeOption(draft.day, draft.type, start, start + STEP);
+    if (option) values.push({ start, override: option.override });
   }
   return values;
 }
@@ -68,8 +78,9 @@ function validStarts() {
 function validEnds() {
   const values = [];
   for (let end = draft.start + STEP; end <= END; end += STEP) {
-    if (!freeUnits(draft.day, draft.type, draft.start, end, draft.unit).length) break;
-    values.push(end);
+    const option = rangeOption(draft.day, draft.type, draft.start, end);
+    if (!option) break;
+    values.push({ end, override: option.override });
   }
   return values;
 }
@@ -78,6 +89,30 @@ function resourceLabel(value = draft) {
   const config = TYPES[value.type];
   if (!config) return '';
   return value.unit == null ? `Any available ${config.label.toLowerCase()}` : `${config.label} ${value.unit}`;
+}
+
+function hasPriorityOverride(value = draft) {
+  if (value.override) return true;
+  if (!value.purpose || value.start == null || value.end == null) return false;
+  return Boolean(rangeOption(value.day, value.type, value.start, value.end, value.purpose, value.unit)?.override);
+}
+
+function timeChoiceMarkup(attribute, value, override, selected) {
+  const className = override ? ' class="override-choice"' : '';
+  const indicator = override ? '<span class="overrideIndicator">Priority override</span>' : '';
+  const label = `${time(value)}${override ? ', Priority override' : ''}`;
+  return `<button${className} type="button" ${attribute}="${value}" data-priority-override="${override}" aria-label="${label}" aria-pressed="${selected}">${time(value)}${indicator}</button>`;
+}
+
+function updateTimeChoice(button, value, option) {
+  const override = Boolean(option?.override);
+  button.disabled = !option;
+  button.classList.toggle('override-choice', override);
+  button.dataset.priorityOverride = String(override);
+  button.setAttribute('aria-label', `${time(value)}${override ? ', Priority override' : ''}`);
+  const indicator = button.querySelector('.overrideIndicator');
+  if (override && !indicator) button.insertAdjacentHTML('beforeend', '<span class="overrideIndicator">Priority override</span>');
+  if (!override) indicator?.remove();
 }
 
 function setType(next) {
@@ -192,7 +227,8 @@ function back() {
 }
 
 function summary(value = draft, includeName = false) {
-  return `<div class="summary"><div><span>Date</span><b>${html(dayLabel(value.day))}</b></div><div><span>Space</span><b>${html(resourceLabel(value))}</b></div><div><span>Purpose</span><b>${html(PURPOSES[value.purpose] || '')}</b></div><div><span>Time</span><b>${time(value.start)} to ${time(value.end)}</b></div>${includeName ? `<div><span>Full name</span><b>${html(value.name)}</b></div>` : ''}</div>`;
+  const override = hasPriorityOverride(value);
+  return `<div class="summary"><div><span>Date</span><b>${html(dayLabel(value.day))}</b></div><div><span>Space</span><b>${html(resourceLabel(value))}</b></div><div><span>Purpose</span><b>${html(PURPOSES[value.purpose] || '')}</b></div><div><span>Time</span><b>${time(value.start)} to ${time(value.end)}</b></div>${override ? '<div class="prioritySummary"><span>Booking note</span><b>Priority override</b></div>' : ''}${includeName ? `<div><span>Full name</span><b>${html(value.name)}</b></div>` : ''}</div>`;
 }
 
 function renderStep(focus = true) {
@@ -221,12 +257,12 @@ function renderStep(focus = true) {
     title = 'When should it start?';
     description = 'Choose a start time. Only available half-hour starts are shown.';
     const starts = validStarts();
-    content = starts.length ? `<div class="timeChoices">${starts.map((start) => `<button type="button" data-start-choice="${start}" aria-pressed="${draft.start === start}">${time(start)}</button>`).join('')}</div>` : '<p class="statusMessage">There are no available starts for this selection. Go back to choose a different resource, or close this window to change the date.</p>';
+    content = starts.length ? `<div class="timeChoices">${starts.map(({ start, override }) => timeChoiceMarkup('data-start-choice', start, override, draft.start === start)).join('')}</div>` : '<p class="statusMessage">There are no available starts for this selection. Go back to choose a different resource, or close this window to change the date.</p>';
   } else if (step === 'end') {
     title = 'When should it end?';
     description = `Starting at ${time(draft.start)}. Every offered range stays free in one space and ends before the next service.`;
     const ends = validEnds();
-    content = ends.length ? `<div class="timeChoices">${ends.map((end) => `<button type="button" data-end-choice="${end}" aria-pressed="${draft.end === end}">${time(end)}</button>`).join('')}</div>` : '<p class="statusMessage">This start is no longer available. Choose another time below.</p>';
+    content = ends.length ? `<div class="timeChoices">${ends.map(({ end, override }) => timeChoiceMarkup('data-end-choice', end, override, draft.end === end)).join('')}</div>` : '<p class="statusMessage">This start is no longer available. Choose another time below.</p>';
   } else if (step === 'name') {
     title = 'Who is reserving?';
     description = 'Enter your full name so this reservation is easy to recognize.';
@@ -251,13 +287,15 @@ function renderStep(focus = true) {
 function refreshFlowAvailability() {
   const connectionMissing = !state.canBook || !dayInfo(draft.day);
   const hasStart = draft.type && draft.start != null;
-  const rangeUnavailable = hasStart && !freeUnits(draft.day, draft.type, draft.start, draft.end ?? draft.start + STEP, draft.unit).length;
+  const currentOption = hasStart ? rangeOption(draft.day, draft.type, draft.start, draft.end ?? draft.start + STEP) : null;
+  const rangeUnavailable = Boolean(hasStart && !currentOption);
   panel.querySelectorAll('[data-start-choice]').forEach((button) => {
     const start = Number(button.dataset.startChoice);
-    button.disabled = !freeUnits(draft.day, draft.type, start, start + STEP, draft.unit).length;
+    updateTimeChoice(button, start, rangeOption(draft.day, draft.type, start, start + STEP));
   });
   panel.querySelectorAll('[data-end-choice]').forEach((button) => {
-    button.disabled = !freeUnits(draft.day, draft.type, draft.start, Number(button.dataset.endChoice), draft.unit).length;
+    const end = Number(button.dataset.endChoice);
+    updateTimeChoice(button, end, rangeOption(draft.day, draft.type, draft.start, end));
   });
   const confirm = $('#confirm');
   if (confirm) confirm.disabled = saving || connectionMissing || rangeUnavailable;
@@ -280,7 +318,7 @@ async function confirmReservation() {
     refreshFlowAvailability();
     return;
   }
-  if (!freeUnits(draft.day, draft.type, draft.start, draft.end, draft.unit).length) {
+  if (!rangeOption(draft.day, draft.type, draft.start, draft.end)) {
     formError = 'This time has just become unavailable. Choose another time to continue.';
     refreshFlowAvailability();
     return;
@@ -364,13 +402,13 @@ panel.addEventListener('click', (event) => {
     go(draft.purpose === 'other' ? 'details' : draft.start == null ? 'start' : 'end');
   } else if (button.dataset.startChoice) {
     const start = Number(button.dataset.startChoice);
-    if (!freeUnits(draft.day, draft.type, start, start + STEP, draft.unit).length) return;
+    if (!rangeOption(draft.day, draft.type, start, start + STEP)) return;
     draft.start = start;
     draft.end = null;
     go('end');
   } else if (button.dataset.endChoice) {
     const end = Number(button.dataset.endChoice);
-    if (!freeUnits(draft.day, draft.type, draft.start, end, draft.unit).length) return;
+    if (!rangeOption(draft.day, draft.type, draft.start, end)) return;
     draft.end = end;
     go('name');
   } else if (button.id === 'finish') closeFlow();
