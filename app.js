@@ -967,6 +967,96 @@ function dayMapGridHtml(date, type, options = {}) {
   return html + '</div>';
 }
 
+/* Atlas uses a dedicated Home map so Admin keeps its established compact
+   calendar. The same schedule facts and booking actions power both views. */
+function atlasUnitShortLabel(type, unit) {
+  if (type === 'room') return 'Room ' + unit.num;
+  if (type === 'whiteboard') return 'Board ' + unit.num;
+  return 'TV ' + unit.num;
+}
+
+function atlasScheduleMetrics(date, type, segments) {
+  const units = unitsForType(type);
+  const starts = [];
+  segments.forEach(segment => {
+    if (!segment.service) starts.push(...slotStarts(segment));
+  });
+  const unitStats = units.map(unit => {
+    let reserved = 0;
+    let firstOpen = null;
+    starts.forEach(start => {
+      const end = hhmmOfMins(minsOfDay(start) + 30);
+      if (unitOccupant(type, unit.id, date, start, end, null)) reserved += 1;
+      else if (firstOpen === null) firstOpen = start;
+    });
+    return { unit, total: starts.length, reserved, open: starts.length - reserved, firstOpen };
+  });
+  const totalBlocks = starts.length * units.length;
+  const openBlocks = unitStats.reduce((sum, item) => sum + item.open, 0);
+  const firstOpen = starts.find(start => {
+    const end = hhmmOfMins(minsOfDay(start) + 30);
+    return units.some(unit => !unitOccupant(type, unit.id, date, start, end, null));
+  }) || null;
+  return { units, starts, unitStats, totalBlocks, openBlocks, reservedBlocks: totalBlocks - openBlocks, firstOpen };
+}
+
+function atlasHomeDayMapGridHtml(date, type, segments, metrics) {
+  const units = metrics.units;
+  let html = '<div class="member-calendar-grid atlas-schedule-grid" style="--capacity:' + units.length + '">' +
+    '<div class="member-calendar-row unit-header atlas-lane-header"><div class="member-time atlas-time-heading"><strong>Time</strong><small>' + metrics.starts.length + ' starts</small></div>' +
+    '<div class="member-squares atlas-lane-heads" style="--capacity:' + units.length + '">' + metrics.unitStats.map(item => {
+      const stateClass = item.open === 0 ? ' full' : (item.reserved ? ' active' : ' clear');
+      return '<span class="atlas-lane-head' + stateClass + '" aria-label="' + esc(item.unit.label + ', ' + item.open + ' of ' + item.total + ' half-hour blocks open') + '">' +
+        '<b>' + esc(String(item.unit.num)) + '</b><strong>' + esc(atlasUnitShortLabel(type, item.unit)) + '</strong><small><i aria-hidden="true"></i><span class="atlas-open-count">' + item.open + '</span><span class="atlas-open-label"> open</span></small></span>';
+    }).join('') + '</div></div>';
+
+  segments.forEach(segment => {
+    if (segment.service) {
+      html += '<div class="member-service atlas-service-row"><div class="atlas-service-rail" aria-hidden="true"><span></span></div>' +
+        '<div class="atlas-service-band"><strong>' + esc(segment.label) + '</strong><span>' + esc(fmtTime(segment.start)) + ' to ' + esc(fmtTime(segment.end)) + '</span></div></div>';
+      return;
+    }
+    slotStarts(segment).forEach(start => {
+      const end = hhmmOfMins(minsOfDay(start) + 30);
+      const boundaryClass = minsOfDay(start) % 60 === 0 ? ' hour-boundary' : ' half-boundary';
+      html += '<div class="member-calendar-row atlas-time-row' + boundaryClass + '"><div class="member-time atlas-time-rail"><time datetime="' + esc(date + 'T' + start) + '">' + esc(fmtTime(start)) + '</time></div>' +
+        '<div class="member-squares atlas-room-lanes" style="--capacity:' + units.length + '">' + units.map(unit => {
+          const occupant = unitOccupant(type, unit.id, date, start, end, null);
+          const status = occupant ? 'taken' : 'open';
+          if (!occupant) {
+            const focusKey = 'home-open-' + date + '-' + type + '-' + start + '-' + unit.id;
+            return '<button type="button" class="member-square open home-open-cell atlas-reservation-block atlas-open-block" data-act="home-reserve-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + start + '" data-unit="' + esc(unit.id) + '" data-focus-key="' + esc(focusKey) + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ' is open. Reserve this time.') + '"><span class="atlas-slot-state">Open</span><small class="atlas-slot-action">Reserve</small></button>';
+          }
+          const adminHeld = occupant.purpose === 'blocked' || occupant.blocked === true;
+          const name = adminHeld ? 'Reserved' : occupant.name;
+          const purpose = adminHeld ? 'Reserved' : purposeLabel(occupant.purpose);
+          const tone = adminHeld ? 'purpose-held' : purposeToneClass(occupant.purpose);
+          const body = '<strong class="home-cell-name">' + esc(name) + '</strong><small class="home-cell-purpose">' + esc(purpose) + '</small>';
+          if (adminHeld) {
+            return '<div class="member-square ' + status + ' home-occupied-cell home-held-cell atlas-reservation-block atlas-held-block ' + tone + '" data-held="true" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved') + '">' + body + '</div>';
+          }
+          const takenKey = 'home-taken-' + date + '-' + type + '-' + start + '-' + unit.id;
+          return '<button type="button" class="member-square ' + status + ' home-occupied-cell atlas-reservation-block atlas-occupied-block ' + tone + '" data-act="home-taken-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + start + '" data-unit="' + esc(unit.id) + '" data-focus-key="' + esc(takenKey) + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved by ' + name + ', ' + purpose + '. Open this time to see your options.') + '">' + body + '</button>';
+        }).join('') + '</div></div>';
+    });
+  });
+  return html + '</div>';
+}
+
+function atlasScheduleContextHtml(date, type, metrics) {
+  const pending = bookingsForDate(date).filter(booking => booking.status === 'pending' && needsOf(booking)[type]).length;
+  const nextOpening = metrics.firstOpen ? fmtTime(metrics.firstOpen) : 'No opening';
+  return '<aside class="atlas-context-panel" aria-label="Schedule details"><details open>' +
+    '<summary><span><strong>Schedule details</strong><small>' + esc(fmtDate(date)) + '</small></span><span class="atlas-context-status"><i aria-hidden="true"></i>' + metrics.openBlocks + ' open</span></summary>' +
+    '<div class="atlas-context-body"><dl class="atlas-context-stats">' +
+    '<div><dt>Lanes</dt><dd>' + metrics.units.length + '</dd></div>' +
+    '<div><dt>Reserved</dt><dd>' + metrics.reservedBlocks + '</dd></div>' +
+    '<div><dt>Pending</dt><dd>' + pending + '</dd></div>' +
+    '</dl><div class="atlas-next-opening"><span>First opening</span><strong>' + esc(nextOpening) + '</strong></div>' +
+    '<p>Choose any open block to begin at that time. The next panel asks for the exact ending before any details are collected.</p></div>' +
+    '</details></aside>';
+}
+
 function homeDateControlsHtml(date) {
   const dates = upcomingBookingDates();
   const index = dates.indexOf(date);
@@ -1036,11 +1126,14 @@ function purposeLegendHtml() {
    schedule. The in-grid service rows already separate the day. */
 function homeDayOverviewHtml(date, type) {
   const cueId = 'home-scroll-cue-' + date + '-' + type;
+  const segments = scheduleSegments(date);
+  const metrics = atlasScheduleMetrics(date, type, segments);
   return '<section class="home-day-overview" aria-labelledby="home-day-overview-title">' +
-    '<div class="home-section-head"><div><div class="eyebrow">Plan a reservation</div><h2 id="home-day-overview-title">Day overview</h2></div></div>' +
-    homeDateControlsHtml(date) + memberResourceToggleHtml(type, 'home-overview-type') +
-    purposeLegendHtml() +
-    '<div class="home-day-map-wrap"><div class="member-calendar-scroll home-day-map" tabindex="0" role="region" aria-label="' + esc('Full day ' + needLabel(type).toLowerCase() + ' schedule') + '" aria-describedby="' + esc(cueId) + '">' + dayMapGridHtml(date, type, { clickOpen: true }) + '</div><span id="' + esc(cueId) + '" class="home-scroll-cue" aria-live="polite" aria-atomic="true"></span></div>' +
+    '<div class="home-section-head atlas-command-head"><div><div class="eyebrow">Atlas command center</div><h2 id="home-day-overview-title">Day overview</h2><p>One vertical schedule, every numbered resource, and a direct path from open block to reservation.</p></div><span class="atlas-command-badge">' + metrics.units.length + ' lanes</span></div>' +
+    '<div class="atlas-command-controls">' + homeDateControlsHtml(date) + memberResourceToggleHtml(type, 'home-overview-type') + '</div>' +
+    '<div class="atlas-map-toolbar"><div><strong>' + esc(needLabel(type)) + ' map</strong><span>' + metrics.starts.length + ' reservable start times</span></div>' + purposeLegendHtml() + '</div>' +
+    '<div class="atlas-command-layout"><div class="atlas-schedule-panel"><div class="home-day-map-wrap"><div class="member-calendar-scroll home-day-map" tabindex="0" role="region" aria-label="' + esc('Full day ' + needLabel(type).toLowerCase() + ' schedule') + '" aria-describedby="' + esc(cueId) + '">' + atlasHomeDayMapGridHtml(date, type, segments, metrics) + '</div><span id="' + esc(cueId) + '" class="home-scroll-cue" aria-live="polite" aria-atomic="true"></span></div></div>' +
+    atlasScheduleContextHtml(date, type, metrics) + '</div>' +
     homeRangeControlsHtml(date, type) +
     homePendingRequestsHtml(date, type) + '</section>';
 }
