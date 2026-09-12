@@ -80,7 +80,7 @@ cells, Reserved privacy, the scroll cue, the end-time sheet, and no page overflo
 the primary Hosting `app` target was deployed. Functions, Firestore rules, indexes,
 Authentication, and the legacy redirect were unchanged.
 
-**July 22 selection-bar update — superseded 11 September 2026.** The viewport-fixed
+**July 22 selection-bar update (superseded 11 September 2026).** The viewport-fixed
 **Clear**/**Continue** bar was removed. Choosing an end time now opens a confirmation
 popup stating the exact range and the resource, with **Clear** and **Continue** inside
 it, because members missed the bar and read the return to Home as a glitch. Its focused

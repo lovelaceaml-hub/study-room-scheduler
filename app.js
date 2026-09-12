@@ -567,7 +567,7 @@ function purposeToneClass(purpose) {
 
 /* Units of `type` that a higher priority could take for [start,end): every
    approved reservation touching that unit in the range must be an Other.
-   A unit with nothing on it is not listed here — it is simply free. */
+   A unit with nothing on it is not listed here, because it is simply free. */
 function reclaimableUnits(type, date, start, end) {
   return unitsForType(type).map(unit => {
     const holders = bookingsForDate(date).filter(b =>
@@ -989,7 +989,7 @@ function homeRangeControlsHtml(date, type) {
 }
 
 /* Confirming the chosen time used to happen in a small fixed bar at the
-   bottom of the page, which people missed entirely — the app looked like it
+   bottom of the page, which people missed entirely, so the app looked like it
    had swallowed their choice. The same two actions now arrive as a popup. */
 function selectionConfirmHtml() {
   const d = ui.selectionConfirm;
@@ -1127,7 +1127,7 @@ function activityFeedHtml(dateOrDates, dashboard, limit) {
   const dates = Array.isArray(dateOrDates) ? dateOrDates : [dateOrDates];
   const allEvents = bookingsList().filter(b => dates.includes(b.date) && ['pending', 'approved', 'cancelled'].includes(b.status)).map(b => {
     const status = b.status === 'cancelled' ? 'Cancelled'
-      : b.status === 'overridden' ? 'Priority update —'
+      : b.status === 'overridden' ? 'Priority update:'
         : b.status === 'pending' ? 'Requested'
           : endedEarly(b) ? 'Ended early —' : 'Reserved';
     const when = Math.max(timestampMillis(b.createdAt), timestampMillis(b.updatedAt), timestampMillis(b.decidedAt));
