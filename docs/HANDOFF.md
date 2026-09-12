@@ -80,6 +80,29 @@ cells, Reserved privacy, the scroll cue, the end-time sheet, and no page overflo
 the primary Hosting `app` target was deployed. Functions, Firestore rules, indexes,
 Authentication, and the legacy redirect were unchanged.
 
+**One whole schedule, new service times, and priority override (live 11 September
+2026).** Home shows the whole day in one scroll region. Service times moved to Saturday
+10:00-11:00 AM, 2:30-3:30 PM, 7:30-8:30 PM and Tuesday 7:30-8:30 PM, so Saturday's first
+reservable start is 11:00 AM. Meeting was retired as a purpose; Contact, New Member and
+Other are ranked in that order and colour-coded. Choosing an end time opens a
+confirmation popup. When a time is full and every reservation in the way is an Other, a
+Contact or New Member can take it through the new `memberOverrideBooking` callable,
+which in one transaction moves whoever is displaced to another free unit or sets their
+booking to `overridden` with `needsRebooking: true`; both cases write a `priorityNotice`
+map the member sees as a banner and a notice row.
+
+Verification: `npm test` 16/16, `npm run test:ui`, `npm run test:confirm-popup`,
+`npm run test:cutover`, `node test/tv-smoke.mjs`, `git diff --check`, plus a read-only
+live check of https://lvrooms.web.app (demo and real data) confirming the new service
+bands, the 11:00 AM first Saturday row, the confirmation popup and the override offer.
+Deployed `functions` first, then `hosting:app`. Firestore rules, indexes, Authentication
+and the legacy redirect were unchanged.
+
+Known data note: three reservations already on the books for Saturday 12 September
+started at 10:00 or 10:30 AM, now inside the new morning service. They still hold their
+rooms from 11:00 AM onward; the earlier part simply sits under the service band and
+cannot be shown or rebooked.
+
 **July 22 selection-bar update (superseded 11 September 2026).** The viewport-fixed
 **Clear**/**Continue** bar was removed. Choosing an end time now opens a confirmation
 popup stating the exact range and the resource, with **Clear** and **Continue** inside
