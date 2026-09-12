@@ -140,7 +140,7 @@ function renderSchedule() {
     return `<div class="column" style="--i:${index}">${html}</div>`;
   }).join('');
   const bands = services(day).map(([start, end, label]) => `<div class="service" style="--s:${(start - 600) / 30};--n:${(end - start) / 30}"><span class="service-label">${label}</span><small>${fmt(start)} to ${fmt(end)}</small></div>`).join('');
-  element.innerHTML = `<div class="grid-head"><span class="rail-title">Time</span>${units(type).map(unit => `<div class="unit-head" aria-label="${resource.single} ${unit}"><span class="unit-num">${unit}</span><span class="unit-kind">${resource.short}</span></div>`).join('')}</div><div class="timeline"><div class="rail">${rail}</div>${columns}${bands}</div><p class="schedule-end">A place for every good conversation.</p>`;
+  element.innerHTML = `<div class="grid-head"><span class="rail-title">Time</span>${units(type).map(unit => `<div class="unit-head" aria-label="${resource.single} ${unit}"><span class="unit-num">${unit}</span><span class="unit-kind">${resource.short}</span></div>`).join('')}</div><div class="timeline"><div class="rail">${rail}</div>${columns}${bands}</div>`;
 }
 function render() { renderDays(); renderResources(); renderSchedule(); renderConnection(); }
 
