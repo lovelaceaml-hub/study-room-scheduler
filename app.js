@@ -648,7 +648,16 @@ function friendlyFirebaseError(error) {
   return 'The change could not be saved. Check the connection and try again.';
 }
 
+function designPreviewReadOnly() {
+  return !!(window.LV_ROOMS_DESIGN_PREVIEW && window.LV_ROOMS_DESIGN_PREVIEW.readOnly);
+}
+
 async function callBackend(name, data) {
+  if (designPreviewReadOnly()) {
+    const error = new Error('Design preview is read only. No live data was changed.');
+    error.code = 'functions/permission-denied';
+    throw error;
+  }
   if (!fb || !fb.callables[name]) throw new Error('The secure connection is not ready yet.');
   const result = await fb.callables[name](data || {});
   return result.data;
@@ -2248,6 +2257,7 @@ function renderAdminHousekeeping() {
 
 async function cancelMyBooking(id) {
   if (demoMode()) { addBanner('Sample preview only — nothing was cancelled.'); return; }
+  if (designPreviewReadOnly()) { addBanner('Design preview is read only. No live data was changed.', true); return; }
   const b = bookingByIdSafe(id);
   if (!b || (b.status !== 'pending' && b.status !== 'approved')) return;
   if (!confirm(b.status === 'approved' ? 'Cancel this approved reservation?' : 'Cancel this request?')) return;

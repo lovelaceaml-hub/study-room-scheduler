@@ -14,8 +14,11 @@
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="preview-base.css">
+<link rel="stylesheet" href="preview-theme.css">
 </head>
 <body>
+<aside class="design-preview-banner" role="note"><strong id="design-preview-name">Design preview</strong><span>Live schedule, read only</span></aside>
 <header id="masthead">
   <div class="head-in">
     <button type="button" id="masthead-home" class="masthead-home" aria-label="Return to Home">
@@ -31,6 +34,7 @@
   <div id="banners" role="status" aria-live="polite" aria-atomic="true"></div>
   <main><div id="app" role="tabpanel"></div></main>
 </div>
+<script>window.LV_ROOMS_DESIGN_PREVIEW={readOnly:true};</script>
 <script src="firebase-config.js"></script>
 <script type="module" src="app.js"></script>
 </body>
