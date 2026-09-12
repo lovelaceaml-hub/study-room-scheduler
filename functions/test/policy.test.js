@@ -284,6 +284,19 @@ test('requested units are honored and conflicts never substitute another unit', 
   }
 });
 
+test('requested units remain exact during a priority override', () => {
+  const candidate = { date: '2026-09-12', start: '11:00', end: '12:00', purpose: 'contact' };
+  const approved = [
+    { id: 'contact-1', date: candidate.date, start: candidate.start, end: candidate.end, purpose: 'contact', status: 'approved', assignments: { room: 'room-1' } },
+    { id: 'other-1', date: candidate.date, start: candidate.start, end: candidate.end, purpose: 'other', status: 'approved', assignments: { room: 'room-2' } },
+    { id: 'other-2', date: candidate.date, start: candidate.start, end: candidate.end, purpose: 'other', status: 'approved', assignments: { room: 'room-3' } },
+    { id: 'other-3', date: candidate.date, start: candidate.start, end: candidate.end, purpose: 'other', status: 'approved', assignments: { room: 'room-4' } }
+  ];
+  assert.equal(overrideTarget('room', candidate, approved, null).unitId, 'room-2');
+  assert.equal(overrideTarget('room', candidate, approved, 'room-3').unitId, 'room-3');
+  assert.equal(overrideTarget('room', candidate, approved, 'room-1'), null);
+});
+
 test('validates purpose-specific reserved-for values', () => {
   assert.equal(validateReservedFor('contact', ' Sister Kiana '), 'Sister Kiana');
   assert.equal(validateReservedFor('new-member', 'New member name'), 'New member name');

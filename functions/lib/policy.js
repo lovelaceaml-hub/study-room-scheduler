@@ -228,8 +228,9 @@ function availableUnitForType(type, candidate, approvedBookings, requestedUnit =
    Contact may take New Member or Other, and a New Member may take Other. A
    unit with nothing on it is simply free and is never listed here. Ordered so
    the least disruptive comes first. */
-function reclaimableUnitsForType(type, candidate, approvedBookings) {
-  const units = ALLOWED_UNITS[type] || [];
+function reclaimableUnitsForType(type, candidate, approvedBookings, requestedUnit = null) {
+  const allowed = ALLOWED_UNITS[type] || [];
+  const units = requestedUnit == null ? allowed : allowed.filter(unitId => unitId === requestedUnit);
   const candidatePriority = priorityForPurpose(candidate.purpose);
   const canOverride = ['contact', 'new-member'].includes(candidate.purpose);
   return units.map(unitId => {
@@ -250,9 +251,9 @@ function reclaimableUnitsForType(type, candidate, approvedBookings) {
 
 /* The single unit an override would claim, or null when the caller should
    simply book a free unit (or has nothing to take). */
-function overrideTarget(type, candidate, approvedBookings) {
-  if (availableUnitForType(type, candidate, approvedBookings)) return null;
-  return reclaimableUnitsForType(type, candidate, approvedBookings)[0] || null;
+function overrideTarget(type, candidate, approvedBookings, requestedUnit = null) {
+  if (availableUnitForType(type, candidate, approvedBookings, requestedUnit)) return null;
+  return reclaimableUnitsForType(type, candidate, approvedBookings, requestedUnit)[0] || null;
 }
 
 function shorterAvailableEnd(type, candidate, approvedBookings) {

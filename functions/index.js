@@ -353,14 +353,14 @@ async function memberOverrideBooking(input, uid) {
     const now = FieldValue.serverTimestamp();
 
     // Something opened up while they were deciding: take it and displace no one.
-    const freeUnit = availableUnitForType(type, candidate, approved);
+    const freeUnit = availableUnitForType(type, candidate, approved, request.requestedUnit);
     if (freeUnit) {
       candidate.assignments[type] = freeUnit;
       transaction.create(bookingRef, memberBookingDocument(request, candidate.assignments, uid, now));
       return { bookingId: bookingRef.id, status: 'approved', assignment: freeUnit, priority: priorityForPurpose(request.purpose) };
     }
 
-    const target = overrideTarget(type, candidate, approved);
+    const target = overrideTarget(type, candidate, approved, request.requestedUnit);
     if (!target) {
       throw new HttpsError('failed-precondition', 'That time is fully reserved and nothing in it can be taken.');
     }
