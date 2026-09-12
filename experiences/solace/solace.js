@@ -69,7 +69,7 @@ const normalizeBooking = (booking) => {
   const purpose=booking.purpose==='new-member'?'new':booking.purpose;
   const blocked=!!booking.blocked||purpose==='blocked'||!purposes[purpose];
   const projectedName=publicProjection(booking);
-  return {key:String(booking.key??''),bookingId:booking.bookingId||booking.id||booking.key,day:booking.day??booking.date,date:booking.day??booking.date,type:booking.type,unit:Number(booking.unit),start:Number(booking.start),end:Number(booking.end),name:blocked?'Reserved':projectedName,publicName:blocked?'':projectedName,purpose:blocked?'blocked':purpose,blocked,ownerDetail:authorizedOwnerDetail(booking)};
+  return {key:String(booking.key??''),bookingId:booking.bookingId||booking.id||booking.key,day:booking.day??booking.date,date:booking.day??booking.date,type:booking.type,unit:Number(booking.unit),start:Number(booking.start),end:Number(booking.end),name:blocked?'Reserved':projectedName,publicName:blocked?'':projectedName,purpose:blocked?'blocked':purpose,reservedFor:typeof booking.reservedFor==='string'?booking.reservedFor:'',blocked,ownerDetail:authorizedOwnerDetail(booking)};
 };
 const publicProjection = (booking) => {const projected=booking?.publicName??booking?.displayName??booking?.name;const text=String(projected??'').trim();return text||'Reserved';};
 const authorizedOwnerDetail = (booking) => {const detail=booking?.ownerDetail??booking?.ownerDetails??booking?.detail;if(!detail||typeof detail!=='object'||Array.isArray(detail))return null;return detail.authorized===true||detail.ownerAuthorized===true||detail.authorizedForMember===true?detail:null;};
@@ -140,10 +140,10 @@ function renderDetail(booking,open=false){
   if(!booking)return;
   detailBooking=booking;
   const detail=booking.ownerDetail,purpose=booking.blocked?'':purposes[booking.purpose]?.label||'Other';
-  const privateValue=reservedForValue(detail,booking),privateLabel=reservedForLabels[booking.purpose]||'Reserved for';
+  const privateValue=reservedForValue(detail,booking)||booking.reservedFor||'',privateLabel=reservedForLabels[booking.purpose]||'Reserved for';
   const actionMarkup=`${detailActionMarkup('endEarly','End early')}${detailActionMarkup('cancel','Cancel')}`;
   const date=dateLabel(booking.date);
-  const ownerName=detail?.name||detail?.displayName||'';
+  const ownerName=detail?.name||detail?.displayName||booking.publicName||'';
   const rows=`<div class="detail-row"><span>Day</span><b>${esc(date)}</b></div><div class="detail-row"><span>Reservation</span><b>${range(booking.start,booking.end)}</b></div><div class="detail-row"><span>Public name</span><b>${esc(booking.blocked?'Reserved':booking.publicName||booking.name)}</b></div>${purpose?`<div class="detail-row"><span>Purpose</span><b>${esc(purpose)}</b></div>`:''}${ownerName?`<div class="detail-row detail-private"><span>Reserved</span><b>${esc(ownerName)}</b></div>`:''}`;
   $('#detail-body').innerHTML=`<p class="flow-context">${esc(types[booking.type]?.one||'Reservation')} ${booking.unit}</p><h2 id="detail-title" tabindex="-1">Reservation details</h2><div class="detail-card">${rows}${detail&&privateValue?`<div class="detail-row detail-private"><span>${esc(privateLabel)}</span><b>${esc(privateValue)}</b></div>`:''}</div>${actionMarkup?`<div class="detail-actions">${actionMarkup}</div>`:''}<p id="detail-status" class="validation" role="alert"></p>`;
   if(open&&!$('#detail-dialog').open){detailReturnFocus=document.activeElement;$('#detail-dialog').showModal();}

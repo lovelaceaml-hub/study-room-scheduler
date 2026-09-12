@@ -102,7 +102,7 @@ function normalizeBooking(value) {
   const projectedName = publicProjection(value);
   return {id:documentKeys.get(value.key), key:value.key, bookingId:value.bookingId || value.id || value.key, day:value.day, type:value.type, unit:value.unit,
     start:value.start, end:value.end, name:blocked ? '' : projectedName,
-    publicName:blocked ? '' : projectedName, purpose:blocked ? 'blocked' : purpose, blocked:Boolean(blocked), ownerDetail:authorizedOwnerDetail(value)};
+    publicName:blocked ? '' : projectedName, purpose:blocked ? 'blocked' : purpose, reservedFor:typeof value.reservedFor==='string' ? value.reservedFor : '', blocked:Boolean(blocked), ownerDetail:authorizedOwnerDetail(value)};
 }
 function publicProjection(value) {
   const projected = value?.publicName ?? value?.displayName ?? value?.name;
@@ -209,10 +209,10 @@ function renderDetail(booking, open = false) {
   const bookingDay = days.find(day => day.key === booking.day);
   const detail = booking.ownerDetail;
   const purpose = reservationPurpose(booking);
-  const privateValue = reservedForValue(detail, booking);
+  const privateValue = reservedForValue(detail, booking) || booking.reservedFor || '';
   const privateLabel = reservedForLabels[booking.purpose] || 'Reserved for';
   const actionMarkup = `${detailActionMarkup('endEarly', 'End early')}${detailActionMarkup('cancel', 'Cancel')}`;
-  const ownerName = detail?.name || detail?.displayName || '';
+  const ownerName = detail?.name || detail?.displayName || booking.publicName || '';
   const publicRows = `<div class="detail-row"><span>Day</span><b>${esc(bookingDay?.label || booking.day || 'Reservation day')}</b></div><div class="detail-row"><span>Reservation</span><b>${fmt(booking.start)} to ${fmt(booking.end)}</b></div><div class="detail-row"><span>Public name</span><b>${esc(booking.blocked ? 'Reserved' : booking.publicName || booking.name)}</b></div>${purpose ? `<div class="detail-row"><span>Purpose</span><b>${esc(purpose)}</b></div>` : ''}${ownerName ? `<div class="detail-row detail-private"><span>Reserved</span><b>${esc(ownerName)}</b></div>` : ''}`;
   $('#detailBody').innerHTML = `<p class="crumb">${esc(types[booking.type]?.single || 'Reservation')} ${booking.unit}</p><h2 id="detailTitle" class="step-title" tabindex="-1">Reservation details</h2><div class="detail-card">${publicRows}${detail && privateValue ? `<div class="detail-row detail-private"><span>${esc(privateLabel)}</span><b>${esc(privateValue)}</b></div>` : ''}</div>${actionMarkup ? `<div class="detail-actions">${actionMarkup}</div>` : ''}<p id="detailStatus" class="validation form-error" role="alert"></p>`;
   if (open && !$('#detailDialog').open) {

@@ -131,7 +131,7 @@ function showBookingDetails(booking, trigger) {
   const blocked = booking.blocked === true || booking.purpose === 'blocked';
   const purpose = blocked ? 'Reserved' : PURPOSES[booking.purpose] || 'Other';
   const detail = ownerDetailFor(booking);
-  const ownerRow = `${detail?.name ? `<div class="detailRow"><span>Reserved</span><b>${html(detail.name)}</b></div>` : ''}${detail?.reservedFor ? `<div class="detailRow"><span>Reserved for</span><b>${html(detail.reservedFor)}</b></div>` : ''}`;
+  const ownerRow = `<div class="detailRow"><span>Reserved</span><b>${html(detail?.name || publicNameFor(booking))}</b></div>${(detail?.reservedFor || booking.reservedFor) ? `<div class="detailRow"><span>Reserved for</span><b>${html(detail?.reservedFor || booking.reservedFor)}</b></div>` : ''}`;
   detailBody.innerHTML = `<div class="detailContent"><h2 id="detailTitle">${html(blocked ? 'Reserved' : publicNameFor(booking))}</h2><p id="detailDescription" class="detailHint">${html(TYPES[booking.type]?.label || 'Resource')} ${html(booking.unit)} · ${html(dayLabel(booking.day))}</p><div class="detailSummary"><div class="detailRow"><span>Reservation</span><b>${time(booking.start)} to ${time(booking.end)}</b></div><div class="detailRow"><span>Purpose</span><b>${html(purpose)}</b></div>${ownerRow}</div>${detailActionsMarkup(detail)}</div>`;
   detailReturnFocus = trigger;
   detailDialog.showModal();

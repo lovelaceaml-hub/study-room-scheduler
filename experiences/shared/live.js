@@ -21,7 +21,7 @@ function applyRecords(nextRecords){
   const withOwnerDetails=publicBookings.map(booking=>{
     const owner=byKey.get(booking.key);
     if(!owner)return booking;
-    return {...booking,ownerDetail:{authorized:true,bookingId:owner.id,name:owner.name,displayName:owner.name,reservedFor:owner.reservedFor,canCancel:owner.canCancel,canEndEarly:owner.canEndEarly}};
+    return {...booking,ownerDetail:{authorized:true,bookingId:owner.id,name:owner.displayName,displayName:owner.displayName,reservedFor:owner.reservedFor,canCancel:owner.canCancel,canEndEarly:owner.canEndEarly}};
   });
   emit({bookings:withOwnerDetails,myBookings:mine});
 }
@@ -81,7 +81,7 @@ export async function submit(input){
     }
     // The server result is authoritative. Avoid duplicating an already-arrived snapshot.
     const exists=state.bookings.some(b=>b.day===saved.day&&b.type===saved.type&&b.unit===saved.unit&&b.start===saved.start&&b.end===saved.end);
-    const publicWithOwner={...publicSaved,ownerDetail:{authorized:true,bookingId:mine.id,name:mine.name,displayName:mine.name,reservedFor:mine.reservedFor,canCancel:mine.canCancel,canEndEarly:mine.canEndEarly}};
+    const publicWithOwner={...publicSaved,ownerDetail:{authorized:true,bookingId:mine.id,name:mine.displayName,displayName:mine.displayName,reservedFor:mine.reservedFor,canCancel:mine.canCancel,canEndEarly:mine.canEndEarly}};
     emit({bookings:exists?state.bookings.map(booking=>booking.key===publicSaved.key?{...booking,ownerDetail:publicWithOwner.ownerDetail}:booking):[...state.bookings,publicWithOwner],myBookings:[...state.myBookings.filter(b=>b.id!==mine.id),mine]});
     return saved;
   }catch(error){

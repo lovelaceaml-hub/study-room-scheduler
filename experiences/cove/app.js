@@ -51,7 +51,7 @@ function normalizeBooking(row) {
   if (!itemIds.has(key)) itemIds.set(key, 'reservation-' + (itemIds.size + 1));
   // The current live projection calls its already-public-safe label `name`.
   const publicName = [row.publicName, row.displayName, row.name].find(value => typeof value === 'string' && visibleText(value))?.trim() || 'Reserved';
-  return {key,id:itemIds.get(key),day:row.day,resource:row.type,unit:row.unit,start:row.start,end:row.end,publicName:blocked?'Reserved':publicName,purpose:blocked?'blocked':PURPOSES[row.purpose]?row.purpose:'other',blocked,override:row.override===true,ownerDetail:row.ownerDetail && typeof row.ownerDetail === 'object' ? row.ownerDetail : row.ownerDetails && typeof row.ownerDetails === 'object' ? row.ownerDetails : row.owner && typeof row.owner === 'object' ? row.owner : null};
+  return {key,id:itemIds.get(key),day:row.day,resource:row.type,unit:row.unit,start:row.start,end:row.end,publicName:blocked?'Reserved':publicName,purpose:blocked?'blocked':PURPOSES[row.purpose]?row.purpose:'other',reservedFor:typeof row.reservedFor==='string'?row.reservedFor:'',blocked,override:row.override===true,ownerDetail:row.ownerDetail && typeof row.ownerDetail === 'object' ? row.ownerDetail : row.ownerDetails && typeof row.ownerDetails === 'object' ? row.ownerDetails : row.owner && typeof row.owner === 'object' ? row.owner : null};
 }
 
 function free(day, res, unit, start, end) {
@@ -253,7 +253,7 @@ function openReservationDetails(booking, trigger) {
   if(!detailDialog||!booking)return;
   const purpose=booking.blocked?'Reserved':PURPOSES[booking.purpose]?.label||'Other';
   const detail=bookingDetailFor(booking);
-  const ownerRow=(detail?.name?'<div class="detail-row"><span>Reserved</span><b>'+esc(detail.name)+'</b></div>':'')+(detail?.reservedFor?'<div class="detail-row"><span>Reserved for</span><b>'+esc(detail.reservedFor)+'</b></div>':'');
+  const ownerRow='<div class="detail-row"><span>Reserved</span><b>'+esc(detail?.name||booking.publicName)+'</b></div>'+((detail?.reservedFor||booking.reservedFor)?'<div class="detail-row"><span>Reserved for</span><b>'+esc(detail?.reservedFor||booking.reservedFor)+'</b></div>':'');
   detailBody.innerHTML='<div class="detail-content"><h2 id="reservation-detail-title">'+esc(booking.publicName)+'</h2><p id="reservation-detail-description" class="detail-hint">'+esc(TYPES[booking.resource].single)+' '+booking.unit+' · '+esc(dateText(days.find(day=>day.key===booking.day)))+'</p><div class="detail-summary"><div class="detail-row"><span>Reservation</span><b>'+fmt(booking.start)+' to '+fmt(booking.end)+'</b></div><div class="detail-row"><span>Purpose</span><b>'+esc(purpose)+'</b></div>'+ownerRow+'</div>'+detailActionsFor(detail)+'</div>';
   detailReturnFocus=trigger;
   detailDialog.showModal();

@@ -70,6 +70,7 @@ export function minutes(value) {return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)?N
 export function clock(value) {return `${String(Math.floor(value/60)).padStart(2,'0')}:${String(value%60).padStart(2,'0')}`;}
 export function priorityForPurpose(purpose) {return ({contact:0,new:1,'new-member':1,other:3,blocked:4}[purpose]??3);}
 function projectedPurpose(purpose) {return purpose==='blocked'?'blocked':purpose==='contact'?'contact':['new','new-member'].includes(purpose)?'new':'other';}
+function projectedReservedFor(booking,purpose=projectedPurpose(booking?.purpose)) {const value=typeof booking?.reservedFor==='string'&&booking.reservedFor.trim()?booking.reservedFor:purpose==='other'&&typeof booking?.purposeOther==='string'?booking.purposeOther:'';return String(value||'').trim();}
 export function overrideUnitForRange(type,day,start,end,purpose,bookings,exactUnit=null) {
   const candidatePriority=priorityForPurpose(purpose);
   if(!['contact','new'].includes(purpose))return null;
@@ -93,7 +94,7 @@ export function projectBookings(records,days=eligibleDays()) {
       const raw=b.assignments?.[type];const unit=typeof raw==='string'&&raw.startsWith(prefixes[type])?Number(raw.slice(prefixes[type].length)):NaN;
       if(!b.needs?.[type]||!Number.isInteger(unit)||unit<1||unit>count)continue;
       const blocked=b.purpose==='blocked';
-      output.push({key:`slot-${b.date}-${type}-${unit}-${start}-${end}`,day:b.date,type,unit,start,end,name:blocked?'Reserved':publicName(b.name,publicNames),purpose:projectedPurpose(b.purpose),blocked});
+      output.push({key:`slot-${b.date}-${type}-${unit}-${start}-${end}`,day:b.date,type,unit,start,end,name:blocked?'Reserved':publicName(b.name,publicNames),purpose:projectedPurpose(b.purpose),reservedFor:blocked?'':projectedReservedFor(b),blocked});
     }
   }
   return output;

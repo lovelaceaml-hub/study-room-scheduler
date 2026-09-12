@@ -62,7 +62,7 @@ function authorizedOwnerDetail(item){const detail=item?.ownerDetail??item?.owner
 function detailAllows(detail,action){return Boolean(detail&&(detail[action]===true||detail.permissions?.[action]===true||detail.actions?.[action]===true));}
 function actionHandler(action){const names=action==='cancel'?['cancelOwnedBooking','cancelBooking','memberCancelBooking','cancel']:['endOwnedBookingEarly','endBookingEarly','memberEndBookingEarly','endEarly'];return names.map(name=>live[name]).find(handler=>typeof handler==='function')||null;}
 function reservedForValue(detail,booking){if(!detail)return '';const value=booking?.purpose==='other'?detail.purposeOther??detail.purpose_other??detail.reservedFor??detail.reserved_for:detail.reservedFor??detail.reserved_for??detail.name;return String(value??'').trim();}
-function normalizeBooking(item){const purpose=item?.purpose==='new-member'?'new':item?.purpose;const blocked=Boolean(item?.blocked)||purpose==='blocked'||!PURPOSES[purpose];const projected=publicProjection(item);return {...item,key:String(item?.key??item?.bookingId??item?.id??''),bookingId:item?.bookingId??item?.id??item?.key,day:item?.day??item?.date,date:item?.day??item?.date,name:blocked?'Reserved':projected,publicName:blocked?'':projected,purpose:blocked?'blocked':purpose,blocked,ownerDetail:authorizedOwnerDetail(item)};}
+function normalizeBooking(item){const purpose=item?.purpose==='new-member'?'new':item?.purpose;const blocked=Boolean(item?.blocked)||purpose==='blocked'||!PURPOSES[purpose];const projected=publicProjection(item);return {...item,key:String(item?.key??item?.bookingId??item?.id??''),bookingId:item?.bookingId??item?.id??item?.key,day:item?.day??item?.date,date:item?.day??item?.date,name:blocked?'Reserved':projected,publicName:blocked?'':projected,purpose:blocked?'blocked':purpose,reservedFor:typeof item?.reservedFor==='string'?item.reservedFor:'',blocked,ownerDetail:authorizedOwnerDetail(item)};}
 function connectionMessage(){
   if(connection.status==='loading')return ['Connecting to the schedule','Booking will open when the connection is ready.'];
   if(connection.status==='offline')return ['You are offline. Booking is paused.','Your reservation details are kept. Reconnect to continue.'];
@@ -127,9 +127,9 @@ function renderDetail(booking,open=false){
   if(!booking)return;
   detailBooking=booking;
   const detail=booking.ownerDetail,purpose=booking.blocked?'':PURPOSES[booking.purpose]||'Other';
-  const privateValue=reservedForValue(detail,booking),privateLabel=RESERVED_FOR_LABELS[booking.purpose]||'Reserved for';
+  const privateValue=reservedForValue(detail,booking)||booking.reservedFor||'',privateLabel=RESERVED_FOR_LABELS[booking.purpose]||'Reserved for';
   const actionMarkup=`${detailActionMarkup('endEarly','End early')}${detailActionMarkup('cancel','Cancel')}`;
-  const ownerName=detail?.name||detail?.displayName||'';
+  const ownerName=detail?.name||detail?.displayName||booking.publicName||'';
   const rows=`<div class="review-row"><span>Day</span><strong>${esc(dayLabel(booking.day))}</strong></div><div class="review-row"><span>Reservation</span><strong>${range(booking.start,booking.end)}</strong></div><div class="review-row"><span>Public name</span><strong>${esc(booking.blocked?'Reserved':booking.publicName||booking.name)}</strong></div>${purpose?`<div class="review-row"><span>Purpose</span><strong>${esc(purpose)}</strong></div>`:''}${ownerName?`<div class="review-row detail-private"><span>Reserved</span><strong>${esc(ownerName)}</strong></div>`:''}`;
   $('#detail-body').innerHTML=`<div class="flow-context">${esc(TYPES[booking.type]?.single||'Reservation')} ${booking.unit}</div><h2 id="detail-title" tabindex="-1">Reservation details</h2><div class="detail-card">${rows}${detail&&privateValue?`<div class="review-row detail-private"><span>${esc(privateLabel)}</span><strong>${esc(privateValue)}</strong></div>`:''}</div>${actionMarkup?`<div class="detail-actions">${actionMarkup}</div>`:''}<p id="detail-status" class="validation" role="alert"></p>`;
   if(open&&!$('#detail-dialog').open){detailReturnFocus=document.activeElement;$('#detail-dialog').showModal();}

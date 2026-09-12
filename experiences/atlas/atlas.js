@@ -64,7 +64,7 @@ function showBookingDetails(booking, trigger) {
   const purpose = blocked ? 'Reserved' : purposeLabel(booking.purpose);
   const detail = ownerDetailFor(booking);
   const publicName = blocked ? 'Reserved' : publicNameFor(booking);
-  const ownerRow = `${detail?.name ? `<div class="detailRow"><span>Reserved</span><b>${escapeHTML(detail.name)}</b></div>` : ''}${detail?.reservedFor ? `<div class="detailRow"><span>Reserved for</span><b>${escapeHTML(detail.reservedFor)}</b></div>` : ''}`;
+  const ownerRow = `<div class="detailRow"><span>Reserved</span><b>${escapeHTML(detail?.name || publicName)}</b></div>${(detail?.reservedFor || booking.reservedFor) ? `<div class="detailRow"><span>Reserved for</span><b>${escapeHTML(detail?.reservedFor || booking.reservedFor)}</b></div>` : ''}`;
   detailBody.innerHTML = `<div class="detailContent"><h2 id="detailTitle">${escapeHTML(publicName)}</h2><p id="detailDescription" class="detailHint">${escapeHTML(resource)} ${escapeHTML(booking.unit)} · ${escapeHTML(dayLabel(booking.day))}</p><div class="detailSummary"><div class="detailRow"><span>Reservation</span><b>${timeLabel(booking.start)} to ${timeLabel(booking.end)}</b></div><div class="detailRow"><span>Purpose</span><b>${escapeHTML(purpose)}</b></div>${ownerRow}</div>${detailActionMarkup(detail)}</div>`;
   detailReturnFocus = trigger;
   detailDialog.showModal();
