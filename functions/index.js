@@ -25,6 +25,7 @@ const {
   validateReservedFor
 } = require('./lib/policy');
 const { publicLobbyBooking, publicLobbyScheduleDates } = require('./lib/public-lobby-schedule');
+const { projectMemberSchedule } = require('./lib/member-schedule');
 
 initializeApp();
 const db = getFirestore();
@@ -38,6 +39,13 @@ const MAX_FAILED_ATTEMPTS = 5;
 // never read Firestore booking documents from this endpoint: it returns only
 // the exact fields already visible in the four-room lobby timetable.
 exports.publicLobbySchedule = onRequest({ region: REGION }, async (_request, response) => {
+  response.set('Access-Control-Allow-Origin', '*');
+  response.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  response.set('Access-Control-Allow-Headers', 'Content-Type');
+  if (_request.method === 'OPTIONS') {
+    response.status(204).send('');
+    return;
+  }
   const displayDates = publicLobbyScheduleDates(new Date());
   const snapshot = await db.collection('bookings')
     .where('date', 'in', displayDates)
@@ -717,6 +725,52 @@ exports.memberEndBookingEarly = onCall({ region: REGION }, async request => {
   const uid = requireAuth(request);
   const data = request.data || {};
   return endBookingEarly(data.bookingId, data.end, uid, uid);
+});
+
+exports.memberSchedule = onCall({ region: REGION }, async request => {
+  const uid = requireAuth(request);
+  const dates = publicLobbyScheduleDates(new Date());
+  const snapshot = await db.collection('bookings')
+    .where('date', 'in', dates)
+    .orderBy('date')
+    .limit(350)
+    .get();
+  const records = snapshot.docs.map(document => ({ id: document.id, ...document.data() }));
+  return { ...projectMemberSchedule(records, dates, uid), days: dates };
+});
+
+exports.adminSchedule = onCall({ region: REGION, secrets: [ADMIN_PIN] }, async request => {
+  await requireAdminSession(request);
+  const dates = publicLobbyScheduleDates(new Date());
+  const snapshot = await db.collection('bookings')
+    .where('date', 'in', dates)
+    .orderBy('date')
+    .limit(350)
+    .get();
+  return {
+    version: 1,
+    days: dates,
+    bookings: snapshot.docs.map(document => ({ id: document.id, ...document.data() }))
+  };
+});
+
+exports.memberCancelBooking = onCall({ region: REGION }, async request => {
+  const uid = requireAuth(request);
+  const bookingId = typeof request.data?.bookingId === 'string' ? request.data.bookingId : '';
+  if (!bookingId || bookingId.length > 160) throw new HttpsError('invalid-argument', 'Booking ID is required.');
+  const bookingRef = db.collection('bookings').doc(bookingId);
+  await db.runTransaction(async transaction => {
+    const snapshot = await transaction.get(bookingRef);
+    if (!snapshot.exists || snapshot.data().ownerUid !== uid) {
+      throw new HttpsError('permission-denied', 'Only the device that made this reservation can cancel it.');
+    }
+    const status = snapshot.data().status;
+    if (status !== 'pending' && status !== 'approved') {
+      throw new HttpsError('failed-precondition', 'This reservation is no longer active.');
+    }
+    transaction.update(bookingRef, { status: 'cancelled', updatedAt: FieldValue.serverTimestamp() });
+  });
+  return { bookingId, status: 'cancelled' };
 });
 
 exports.adminNoteAction = onCall({ region: REGION, secrets: [ADMIN_PIN] }, async request => {

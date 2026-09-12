@@ -15,7 +15,7 @@ async function mock(context){
   if(part==='app.js')body='export const getApps=()=>[];export const getApp=()=>({});export const initializeApp=()=>({});';
   if(part==='auth.js')body="export const getAuth=()=>({currentUser:{uid:'fixture-current-owner'}});export const onAuthStateChanged=(a,cb)=>{queueMicrotask(()=>cb(a.currentUser));return ()=>{};};export const signInAnonymously=()=>{throw Error('Existing identity must be restored');};";
   if(part==='firestore.js')body="export const getFirestore=()=>({});export const collection=()=>({});export const where=(...a)=>a;export const query=(...a)=>a;export function onSnapshot(q,opts,cb){window.__snapshot=cb;window.__query=q;queueMicrotask(()=>cb({metadata:{fromCache:false},empty:true,docs:[]}));return ()=>{};}export const doc=()=>({});export const setDoc=()=>{throw Error('Unexpected direct write');};export const updateDoc=()=>{throw Error('Unexpected direct write');};export const serverTimestamp=()=>0;export const Timestamp={};";
-  if(part==='functions.js')body="export const getFunctions=()=>({});export const httpsCallable=(f,name)=>async payload=>{window.__calls.push({name,payload});await new Promise(r=>setTimeout(r,80));if(window.__rejectNext){window.__rejectNext=false;throw {code:'functions/already-exists'};}return {data:{bookingId:'fixture-owned-id-'+window.__calls.length,status:'approved',assignment:payload.requestedUnit||({room:'room-1',whiteboard:'wb-1',tv:'tv-1'})[payload.resourceType]}};};";
+  if(part==='functions.js')body="export const getFunctions=()=>({});export const httpsCallable=(f,name)=>async payload=>{window.__calls.push({name,payload});await new Promise(r=>setTimeout(r,80));if(name==='memberSubmitBooking'&&window.__rejectNext){window.__rejectNext=false;throw {code:'functions/already-exists'};}if(name==='memberSchedule')return {data:{version:1,days:[],bookings:[],myBookings:[]}};return {data:{bookingId:'fixture-owned-id-'+window.__calls.length,status:'approved',assignment:payload.requestedUnit||({room:'room-1',whiteboard:'wb-1',tv:'tv-1'})[payload.resourceType]}};};";
   return route.fulfill({contentType:'text/javascript',body});
  });
 }
@@ -36,7 +36,7 @@ for(const name of (process.argv.slice(2).length?process.argv.slice(2):Object.key
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('srs-my-bookings')).length),index+1);
     assert(await page.getByText('Robin',{exact:true}).count()>0);
   }
-  await page.evaluate(()=>window.__snapshot({metadata:{fromCache:true},empty:false,docs:[]}));assert.equal(await page.locator(c.open).count(),0);
+  await page.evaluate(()=>window.dispatchEvent(new Event('offline')));assert.equal(await page.locator(c.open).count(),0);
   assert.equal(await page.locator(c.reserve).isEnabled(),false);
   assert.equal(errors.length,0,errors.join('; '));
   await page.goto(`${base}/experiences/${name}/?demo=1`);await page.locator(c.open).first().waitFor();

@@ -25,6 +25,12 @@ function applyRecords(nextRecords){
   });
   emit({bookings:withOwnerDetails,myBookings:mine});
 }
+function applyProjectedSchedule(payload){
+  const rows=Array.isArray(payload?.bookings)?payload.bookings:[];
+  const mine=Array.isArray(payload?.myBookings)?payload.myBookings:[];
+  const days=eligibleDays().filter(day=>!Array.isArray(payload?.days)||payload.days.includes(day.key));
+  emit({bookings:rows,myBookings:mine,days:days.length?days:eligibleDays()});
+}
 async function connect(){
   const token=++generation;unsubscribe?.();unsubscribe=null;clearTimeout(timer);backend=null;records=[];viewerUid='';
   emit({status:'loading',canBook:false,error:'',days:eligibleDays(),bookings:[],myBookings:[]});
@@ -32,9 +38,8 @@ async function connect(){
   timer=setTimeout(()=>{if(token===generation&&!state.canBook)emit({status:'error',canBook:false,error:'The shared schedule is taking longer to connect. Please try again.'});},12000);
   try {
     await import('/firebase-config.js');
-    const [appMod,fs,authMod,fn]=await Promise.all([
+    const [appMod,authMod,fn]=await Promise.all([
       import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js'),
-      import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'),
       import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js'),
       import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js')]);
     if(token!==generation)return;
@@ -44,15 +49,24 @@ async function connect(){
     if(!auth.currentUser)await authMod.signInAnonymously(auth);
     if(token!==generation)return;
     const functions=fn.getFunctions(app,'us-west1');
-    const db=fs.getFirestore(app);
-    backend={auth,db,call:fn.httpsCallable(functions,'memberSubmitBooking'),endEarly:fn.httpsCallable(functions,'memberEndBookingEarly'),doc:fs.doc,updateDoc:fs.updateDoc,serverTimestamp:fs.serverTimestamp};
+    backend={auth,call:fn.httpsCallable(functions,'memberSubmitBooking'),schedule:fn.httpsCallable(functions,'memberSchedule'),cancel:fn.httpsCallable(functions,'memberCancelBooking'),endEarly:fn.httpsCallable(functions,'memberEndBookingEarly')};
     viewerUid=auth.currentUser?.uid||'';
-    const query=fs.query(fs.collection(db,'bookings'),fs.where('date','in',state.days.map(d=>d.key)));
-    unsubscribe=fs.onSnapshot(query,{includeMetadataChanges:true},snap=>{
-      if(token!==generation)return;
-      if(snap.metadata.fromCache){emit({status:'offline',canBook:false,error:'Reconnecting to the shared schedule. Reservations are paused until it is live.'});return;}
-      clearTimeout(timer);applyRecords(snap.docs.map(d=>({id:d.id,...d.data()})));emit({status:'live',canBook:true,error:''});
-    },()=>{clearTimeout(timer);emit({status:'error',canBook:false,error:'The shared schedule could not connect. Please try again.'});});
+    let stopped=false;
+    const refresh=async()=>{
+      if(stopped||token!==generation)return;
+      try{
+        const result=await backend.schedule({});
+        if(stopped||token!==generation)return;
+        clearTimeout(timer);applyProjectedSchedule(result.data);emit({status:'live',canBook:true,error:''});
+        timer=setTimeout(refresh,15000);
+      }catch{
+        if(stopped||token!==generation)return;
+        clearTimeout(timer);emit({status:'error',canBook:false,error:'The shared schedule could not connect. Please try again.'});
+        timer=setTimeout(refresh,15000);
+      }
+    };
+    unsubscribe=()=>{stopped=true;clearTimeout(timer);};
+    refresh();
   }catch{if(token===generation){clearTimeout(timer);emit({status:'error',canBook:false,error:'Could not establish a secure connection. Please try again.'});}}
 }
 export async function submit(input){
@@ -96,15 +110,15 @@ export async function cancelOwnedBooking(bookingId){
     emit({bookings:state.bookings.filter(booking=>booking.key!==mine.key),myBookings:state.myBookings.map(booking=>booking.id===bookingId?{...booking,status:'cancelled',canCancel:false,canEndEarly:false}:booking)});
     return {...mine,status:'cancelled',canCancel:false,canEndEarly:false};
   }
-  if(!backend?.auth.currentUser||!backend.updateDoc)throw new Error('The shared schedule is reconnecting. Please wait until it is live.');
+  if(!backend?.auth.currentUser||!backend.cancel)throw new Error('The shared schedule is reconnecting. Please wait until it is live.');
   try{
-    await backend.updateDoc(backend.doc(backend.db,'bookings',bookingId),{status:'cancelled',updatedAt:backend.serverTimestamp()});
+    await backend.cancel({bookingId});
   }catch(error){
     if(error?.code?.includes('permission-denied'))throw new Error('Only the device that made this reservation can cancel it.');
     throw new Error('The reservation could not be cancelled. Please try again.');
   }
   const cancelled={...mine,status:'cancelled',canCancel:false,canEndEarly:false};
-  emit({myBookings:state.myBookings.map(booking=>booking.id===bookingId?cancelled:booking)});
+  emit({bookings:state.bookings.filter(booking=>booking.ownerDetail?.bookingId!==bookingId),myBookings:state.myBookings.map(booking=>booking.id===bookingId?cancelled:booking)});
   return cancelled;
 }
 export async function endOwnedBookingEarly(bookingId,end){

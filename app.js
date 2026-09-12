@@ -114,6 +114,7 @@ let ui = {
 let fb = null; // Firebase modules, authenticated user, Firestore, and callable functions
 let scheduleReady = false; // unverified empty data must never look like real availability
 let adminExpiryTimer = null;
+let scheduleRefreshTimer = null;
 let subscribedDateKey = '';
 let rolloverWarningShown = false;
 
@@ -386,17 +387,20 @@ function rawBookingsList() {
     .filter(isValidBooking);
   return demoMode() ? demoBookings() : live;
 }
+function publicScheduleRows(raw) {
+  const publicRows = raw.filter(booking => !booking.ownerOnlyRecord);
+  return publicRows.concat(raw.filter(booking => booking.ownerOnlyRecord && !publicRows.some(row => row.ownerDetail?.bookingId === booking.id)));
+}
 function ownsBooking(b) {
   if (!b) return false;
   if (demoMode()) return myBookingIds().indexOf(b.id) !== -1;
-  return !!(fb && fb.auth && fb.auth.currentUser && b.ownerUid === fb.auth.currentUser.uid);
+  return b.ownerDetail?.authorized === true || !!(fb && fb.auth && fb.auth.currentUser && b.ownerUid === fb.auth.currentUser.uid);
 }
 function publicBookingView(b, peers) {
   const view = Object.assign({}, b);
   view.name = b.purpose === 'blocked' || b.blocked === true ? 'Reserved' : publicDisplayName(b.name, peers);
   delete view.ownerUid;
   delete view.purposeOther;
-  delete view.reservedFor;
   delete view.note;
   delete view.privateNote;
   delete view.priorityNotice;
@@ -412,13 +416,13 @@ function ownerBookingView(b) {
   return view;
 }
 function bookingsList() {
-  const raw = rawBookingsList();
+  const raw = publicScheduleRows(rawBookingsList());
   if (ui.tab === 'admin' && adminUnlocked()) return raw;
   const peers = raw.filter(b => b.status === 'approved' && b.purpose !== 'blocked').map(b => b.name).filter(Boolean);
   return raw.map(b => publicBookingView(b, peers));
 }
 function bookingByIdSafe(id) {
-  const b = rawBookingsList().find(booking => booking.id === id);
+  const b = rawBookingsList().find(booking => booking.id === id) || rawBookingsList().find(booking => booking.ownerDetail?.bookingId === id);
   if (!b) return null;
   if (ui.tab === 'admin' && adminUnlocked()) return b;
   if (ownsBooking(b)) return ownerBookingView(b);
@@ -703,7 +707,16 @@ function certaintyHint(booking, date) {
 function loadLocal() {
   try {
     const raw = localStorage.getItem(DATA_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const cached = raw ? JSON.parse(raw) : null;
+    if (!cached || !cached.bookings || typeof cached.bookings !== 'object') return null;
+    const values = Object.values(cached.bookings).filter(Boolean);
+    const peers = values.filter(booking => booking.status === 'approved' && booking.purpose !== 'blocked').map(booking => booking.name).filter(Boolean);
+    const bookings = {};
+    Object.entries(cached.bookings).forEach(([id, booking]) => {
+      if (!isValidBooking(booking)) return;
+      bookings[id] = publicBookingView(booking, peers);
+    });
+    return { bookings, queryDates: Array.isArray(cached.queryDates) ? cached.queryDates : [] };
   } catch (e) { return null; }
 }
 function saveLocal() {
@@ -727,6 +740,79 @@ async function callBackend(name, data) {
   return result.data;
 }
 
+async function refreshSchedule() {
+  if (!fb || !fb.auth.currentUser) throw new Error('The secure connection is not ready yet.');
+  const admin = adminUnlocked() && ui.tab === 'admin';
+  const data = await callBackend(admin ? 'adminSchedule' : 'memberSchedule', admin ? { sessionToken: adminSessionToken() } : {});
+  const next = {};
+  (Array.isArray(data?.bookings) ? data.bookings : []).forEach(sourceBooking => {
+    const booking = !admin && typeof sourceBooking?.start === 'number'
+      ? { ...sourceBooking, start: hhmmOfMins(sourceBooking.start), end: hhmmOfMins(sourceBooking.end) }
+      : sourceBooking;
+    const id = typeof booking?.id === 'string' && booking.id ? booking.id : String(booking?.key || '');
+    if (id) next[id] = booking;
+  });
+  if (!admin) {
+    (Array.isArray(data?.myBookings) ? data.myBookings : []).forEach(booking => {
+      const id = typeof booking?.id === 'string' && booking.id ? booking.id : '';
+      if (!id) return;
+      const publicRow = Object.values(next).find(row => row.bookingId === id || row.ownerDetail?.bookingId === id);
+      if (publicRow) {
+        publicRow.ownerDetail = {
+          authorized: true,
+          bookingId: id,
+          name: booking.displayName || booking.name || 'Reserved',
+          displayName: booking.displayName || booking.name || 'Reserved',
+          reservedFor: booking.reservedFor || '',
+          canCancel: booking.canCancel === true,
+          canEndEarly: booking.canEndEarly === true
+        };
+      } else {
+        next[id] = { ...booking, ownerOnlyRecord: true, ownerDetail: {
+          authorized: true,
+          bookingId: id,
+          name: booking.displayName || booking.name || 'Reserved',
+          displayName: booking.displayName || booking.name || 'Reserved',
+          reservedFor: booking.reservedFor || '',
+          canCancel: booking.canCancel === true,
+          canEndEarly: booking.canEndEarly === true
+        }};
+      }
+    });
+  }
+  const previousStatuses = {};
+  const previousNotices = {};
+  myBookingIds().forEach(id => {
+    if (!state.bookings[id]) return;
+    previousStatuses[id] = state.bookings[id].status;
+    previousNotices[id] = priorityNoticeKey(state.bookings[id]);
+  });
+  state.bookings = next;
+  subscribedDateKey = upcomingBookingDates().join('|');
+  scheduleReady = true;
+  myBookingIds().forEach(id => {
+    const now = state.bookings[id] && state.bookings[id].status;
+    if (previousStatuses[id] !== 'pending' || !now || now === 'pending') return;
+    if (now === 'approved') addBanner('Your reservation was approved. See My reservations for details.');
+    else if (now === 'declined') addBanner('Your reservation request was declined. See My reservations.', true);
+  });
+  myBookingIds().forEach(id => {
+    const booking = state.bookings[id];
+    const key = priorityNoticeKey(booking);
+    if (!key || key === previousNotices[id]) return;
+    const message = priorityNoticeText(booking);
+    if (message) addBanner(message, booking.priorityNotice.kind === 'released');
+  });
+  if (!admin) saveLocal();
+  setSyncPill(true, admin ? 'Admin live' : 'Live');
+  render();
+  if (scheduleRefreshTimer) clearTimeout(scheduleRefreshTimer);
+  scheduleRefreshTimer = setTimeout(() => {
+    if (fb && !demoMode()) refreshSchedule().catch(() => {});
+  }, 15000);
+  return data;
+}
+
 async function adminCall(name, data) {
   return callBackend(name, Object.assign({ sessionToken: adminSessionToken() }, data || {}));
 }
@@ -742,7 +828,6 @@ function setSyncPill(on, label) {
 
 async function initFirebase(config) {
   const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
-  const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   const authMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
   const fnMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
   const app = appMod.initializeApp(config);
@@ -750,16 +835,9 @@ async function initFirebase(config) {
   const auth = authMod.getAuth(app);
   if (!auth.currentUser) await authMod.signInAnonymously(auth);
 
-  const db = fsMod.getFirestore(app);
   const functions = fnMod.getFunctions(app, 'us-west1');
   fb = {
-    db, auth,
-    doc: fsMod.doc,
-    setDoc: fsMod.setDoc,
-    updateDoc: fsMod.updateDoc,
-    serverTimestamp: fsMod.serverTimestamp,
-    Timestamp: fsMod.Timestamp,
-    collection: fsMod.collection,
+    auth,
     callables: {
       adminStartSession: fnMod.httpsCallable(functions, 'adminStartSession'),
       adminEndSession: fnMod.httpsCallable(functions, 'adminEndSession'),
@@ -768,54 +846,21 @@ async function initFirebase(config) {
       adminMigrateNotes: fnMod.httpsCallable(functions, 'adminMigrateNotes'),
       memberSubmitBooking: fnMod.httpsCallable(functions, 'memberSubmitBooking'),
       memberOverrideBooking: fnMod.httpsCallable(functions, 'memberOverrideBooking'),
+      memberSchedule: fnMod.httpsCallable(functions, 'memberSchedule'),
+      adminSchedule: fnMod.httpsCallable(functions, 'adminSchedule'),
+      memberCancelBooking: fnMod.httpsCallable(functions, 'memberCancelBooking'),
       memberEndBookingEarly: fnMod.httpsCallable(functions, 'memberEndBookingEarly'),
       memberSetPrivateNote: fnMod.httpsCallable(functions, 'memberSetPrivateNote')
     }
   };
-  const bookingQuery = fsMod.query(
-    fsMod.collection(db, 'bookings'),
-    fsMod.where('date', 'in', upcomingBookingDates())
-  );
-  subscribedDateKey = upcomingBookingDates().join('|');
-  fsMod.onSnapshot(bookingQuery, { includeMetadataChanges: true }, snap => {
-    // A cache-only empty snapshot (no server contact yet) must not wipe the
-    // device's saved bookings — wait for a real server answer.
-    if (snap.metadata.fromCache && snap.empty) return;
-    const previousStatuses = {};
-    const previousNotices = {};
-    myBookingIds().forEach(id => {
-      if (!state.bookings[id]) return;
-      previousStatuses[id] = state.bookings[id].status;
-      previousNotices[id] = priorityNoticeKey(state.bookings[id]);
-    });
-    state.bookings = {};
-    snap.docs.forEach(d => { state.bookings[d.id] = d.data(); });
-    scheduleReady = true;
-    // Tell this device's owner (visibly and via the aria-live banner region)
-    // when the approver decides one of their pending requests.
-    myBookingIds().forEach(id => {
-      const now = state.bookings[id] && state.bookings[id].status;
-      if (previousStatuses[id] !== 'pending' || !now || now === 'pending') return;
-      if (now === 'approved') addBanner('Your reservation was approved. See My reservations for details.');
-      else if (now === 'declined') addBanner('Your reservation request was declined. See My reservations.', true);
-    });
-    // A priority update: someone with a higher purpose took this time, so the
-    // reservation either moved to another unit or was released.
-    myBookingIds().forEach(id => {
-      const booking = state.bookings[id];
-      const key = priorityNoticeKey(booking);
-      if (!key || key === previousNotices[id]) return;
-      const message = priorityNoticeText(booking);
-      if (message) addBanner(message, booking.priorityNotice.kind === 'released');
-    });
-    saveLocal(); render();
-    setSyncPill(!snap.metadata.fromCache, snap.metadata.fromCache ? 'Reconnecting' : 'Live');
-  }, err => {
-    addBanner('Could not connect to the shared database (' + (err.code || 'error') + '). Showing this device’s copy.', true);
+  setSyncPill(false, 'Connecting');
+  try {
+    await refreshSchedule();
+  } catch (error) {
+    addBanner('Could not connect to the shared schedule. Showing this device’s copy.', true);
     setSyncPill(false, 'Reconnecting');
     render();
-  });
-  setSyncPill(false, 'Connecting');
+  }
 }
 
 /* ================= banners ================= */
@@ -1284,6 +1329,7 @@ function bookingDetailsHtml() {
   const purpose = b.purpose === 'blocked' || b.blocked === true ? 'Reserved' : bookingPurposeText(b);
   const resource = resourceLabelFor(b);
   const canEndEarly = owner && b.status === 'approved' && endEarlyOptions(b).length > 0;
+  const actionId = owner ? (b.ownerDetail?.bookingId || b.bookingId || b.id) : b.id;
   return '<div class="modal-backdrop booking-details-backdrop" role="presentation"><section class="booking-dialog booking-details-dialog" role="dialog" aria-modal="true" aria-labelledby="booking-details-title">' +
     '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(b.date)) + '</div><h2 id="booking-details-title">Reservation details</h2></div><button type="button" class="modal-close" data-act="booking-details-close" aria-label="Close reservation details">&times;</button></div>' +
     '<p class="booking-time-summary"><strong>' + esc(resource) + '</strong></p>' +
@@ -1292,8 +1338,8 @@ function bookingDetailsHtml() {
     '</dl>' +
     (b.status !== 'approved' ? '<p class="hint">' + esc(STATUS_LABEL[b.status] || b.status || 'Unavailable') + '</p>' : '') +
     (owner && active ? '<div class="modal-actions booking-details-actions">' +
-      (canEndEarly ? '<button type="button" class="btn" data-act="booking-details-end-early" data-id="' + esc(b.id) + '">End early</button>' : '') +
-      '<button type="button" class="btn danger" data-act="booking-details-cancel" data-id="' + esc(b.id) + '">' + (b.status === 'approved' ? 'Cancel reservation' : 'Cancel request') + '</button></div>' :
+      (canEndEarly ? '<button type="button" class="btn" data-act="booking-details-end-early" data-id="' + esc(actionId) + '">End early</button>' : '') +
+      '<button type="button" class="btn danger" data-act="booking-details-cancel" data-id="' + esc(actionId) + '">' + (b.status === 'approved' ? 'Cancel reservation' : 'Cancel request') + '</button></div>' :
       (!owner && b.status === 'approved' && b.purpose !== 'blocked' ? '<div class="modal-actions booking-details-actions"><button type="button" class="btn primary" data-act="booking-details-reserve" data-date="' + esc(details.date) + '" data-type="' + esc(details.type) + '" data-start="' + esc(details.start) + '">See reservation options</button></div>' : '')) +
     '</section></div>';
 }
@@ -2400,13 +2446,13 @@ async function cancelMyBooking(id) {
   const b = bookingByIdSafe(id);
   if (!b || (b.status !== 'pending' && b.status !== 'approved')) return;
   if (!confirm(b.status === 'approved' ? 'Cancel this approved reservation?' : 'Cancel this request?')) return;
-  if (!fb || !fb.auth.currentUser || b.ownerUid !== fb.auth.currentUser.uid) {
+  if (!fb || !fb.auth.currentUser || !ownsBooking(b)) {
     addBanner('Only the device that made this new request can cancel it. Ask an Admin for help with an older request.', true);
     return;
   }
   try {
     setSyncPill(false, 'Saving');
-    await fb.updateDoc(fb.doc(fb.db, 'bookings', id), { status: 'cancelled', updatedAt: fb.serverTimestamp() });
+    await callBackend('memberCancelBooking', { bookingId: id });
     setSyncPill(true, 'Saved');
   } catch (error) {
     addBanner(friendlyFirebaseError(error), true);
@@ -2421,7 +2467,7 @@ async function endMyBookingEarly(id, end) {
   if (ui.submitting) return;
   const b = bookingByIdSafe(id);
   if (!b || b.status !== 'approved' || !endEarlyOptions(b).includes(end)) return;
-  if (!fb || !fb.auth.currentUser || b.ownerUid !== fb.auth.currentUser.uid) {
+  if (!fb || !fb.auth.currentUser || !ownsBooking(b)) {
     addBanner('Only the device that made this reservation can end it early. Ask an Admin for help with an older one.', true);
     return;
   }
@@ -2452,7 +2498,9 @@ async function startAdminSession(pin) {
     ui.adminNotesDate = null;
     setSyncPill(true, 'Admin unlocked');
     render();
+    await refreshSchedule();
     await runAdminMigrations();
+    await refreshSchedule();
   } catch (error) {
     ui.pinError = friendlyFirebaseError(error);
     setSyncPill(false, 'Locked');
@@ -2480,6 +2528,7 @@ async function endAdminSession() {
   render();
   if (token && fb) {
     try { await callBackend('adminEndSession', { sessionToken: token }); } catch (error) { /* already locked */ }
+    try { await refreshSchedule(); } catch (error) { /* safe cached copy remains */ }
   }
 }
 
@@ -2532,6 +2581,7 @@ function handleAction(act, el) {
       const activeTab = document.querySelector('.tab[data-id="' + ui.tab + '"]');
       if (activeTab) activeTab.focus();
     });
+    if (fb && !demoMode()) refreshSchedule().catch(() => {});
     return;
   }
 

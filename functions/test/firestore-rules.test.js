@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { after, before, beforeEach } = require('node:test');
-const { initializeTestEnvironment, assertFails, assertSucceeds } = require('@firebase/rules-unit-testing');
+const { initializeTestEnvironment, assertFails } = require('@firebase/rules-unit-testing');
 const {
   Timestamp,
   doc,
@@ -56,9 +56,9 @@ function booking(date, ownerUid) {
   };
 }
 
-test('the public can read schedules but cannot read private notes', async () => {
+test('browsers cannot read booking documents or private notes', async () => {
   const publicDb = environment.unauthenticatedContext().firestore();
-  await assertSucceeds(getDoc(doc(publicDb, 'bookings', 'any')));
+  await assertFails(getDoc(doc(publicDb, 'bookings', 'any')));
   await assertFails(getDoc(doc(publicDb, 'privateBookingNotes', 'any')));
 });
 
@@ -74,7 +74,7 @@ test('clients can no longer create bookings directly — only the backend can', 
   }));
 });
 
-test('owner may cancel without changing details; other member may not', async () => {
+test('clients cannot update bookings; owner cancellation uses the callable', async () => {
   const date = nextEligibleDate();
   await environment.withSecurityRulesDisabled(async context => {
     await setDoc(doc(context.firestore(), 'bookings', 'owned'), {
@@ -82,7 +82,7 @@ test('owner may cancel without changing details; other member may not', async ()
     });
   });
   const ownerDb = environment.authenticatedContext('member-a').firestore();
-  await assertSucceeds(updateDoc(doc(ownerDb, 'bookings', 'owned'), { status: 'cancelled', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(ownerDb, 'bookings', 'owned'), { status: 'cancelled', updatedAt: serverTimestamp() }));
 
   await environment.withSecurityRulesDisabled(async context => {
     await updateDoc(doc(context.firestore(), 'bookings', 'owned'), { status: 'pending' });
