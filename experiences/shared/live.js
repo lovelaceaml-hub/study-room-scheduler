@@ -78,7 +78,7 @@ export async function submit(input){
     let unit=safe.availableUnit;
     let serverBookingId='';
     if(!demo){
-      const result=await backend.call({date:safe.day,start:clock(safe.start),end:clock(safe.end),name:safe.name,resourceType:safe.type,purpose:safe.purpose==='new'?'new-member':safe.purpose,purposeOther:safe.purpose==='other'?safe.purposeOther:'',reservedFor:safe.reservedFor,...(safe.override||safe.unit===null?{}:{requestedUnit:prefixes[safe.type]+safe.unit})});
+      const result=await backend.call({date:safe.day,start:clock(safe.start),end:clock(safe.end),name:safe.name,resourceType:safe.type,purpose:safe.purpose==='new'?'new-member':safe.purpose,purposeOther:safe.purpose==='other'?safe.purposeOther:'',reservedFor:safe.reservedFor,...(safe.unit===null?{}:{requestedUnit:prefixes[safe.type]+safe.unit})});
       const data=result.data;
       if(!data||typeof data.bookingId!=='string'||data.status!=='approved')throw new Error('The server could not confirm the reservation. Check My reservations before trying again.');
       serverBookingId=data.bookingId;

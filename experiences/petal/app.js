@@ -328,7 +328,7 @@ async function save() {
   if (draft.purpose === 'other' && !draft.purposeOther.trim()) { showDraftError('Add reservation details for Other before confirming.'); return; }
   saving = true; showDraftError(''); updateDialogConnection();
   try {
-    const submittedUnit = draft.override && !draft.locked ? null : draft.unit;
+    const submittedUnit = draft.unit;
     const saved = await submit({day:draft.day, type:draft.type, unit:submittedUnit, start:draft.start, end:draft.end,
       name:(draft.name || draft.reservedFor).trim(), reservedFor:draft.reservedFor.trim(), purpose:draft.purpose,
       purposeOther:draft.purpose === 'other' ? draft.reservedFor.trim() : ''});

@@ -48,7 +48,9 @@ test('Contact sees a lower-priority occupied range as an override candidate',()=
  assert.equal(overrideUnitForRange('room',day,660,720,'new',bookings),2);
  assert.equal(overrideUnitForRange('room',day,660,720,'other',bookings),null);
  assert.equal(validateInput({day,type:'room',unit:null,start:660,end:720,name:'Robin Test',purpose:'contact'},bookings,days).override,true);
- assert.throws(()=>validateInput({day,type:'room',unit:1,start:660,end:720,name:'Robin Test',purpose:'contact'},bookings,days),/no longer open/);
+ const exactOverride=validateInput({day,type:'room',unit:1,start:660,end:720,name:'Robin Test',purpose:'contact'},bookings,days);
+ assert.equal(exactOverride.availableUnit,1);
+ assert.equal(exactOverride.override,true);
 });
 test('time boundaries and Other details are enforced',()=>{
  assert(validRange(days[0].key,660,690,days));assert(!validRange(days[0].key,840,900,days));assert(validRange(days[0].key,1350,1380,days));

@@ -71,14 +71,14 @@ function sharedBookings() {
 }
 
 function overrideFor(start,end,exactUnit=null) {
-  if (!draftReady() || draft.presetUnit != null || !['contact','new'].includes(draft.purpose) || services(draftDay()).some(service => overlaps(start,end,service[0],service[1]))) return null;
+  if (!draftReady() || !['contact','new'].includes(draft.purpose) || services(draftDay()).some(service => overlaps(start,end,service[0],service[1]))) return null;
   return overrideUnitForRange(draft.resource,draft.day,start,end,draft.purpose,sharedBookings(),exactUnit);
 }
 
 function rangeOption(start,end) {
   const available=unitsFor(start,end);
   if (available.length) return {unit:available[0],override:false};
-  const override=overrideFor(start,end);
+  const override=overrideFor(start,end,draft.presetUnit ?? draft.unit);
   return Number.isInteger(override)?{unit:override,override:true}:null;
 }
 
@@ -288,7 +288,7 @@ async function save() {
   const submittedDemo=connection.demo;
   try {
     const reservedFor=draft.reservedFor.trim();
-    const result=await submit({day:draft.day,type:draft.resource,unit:draft.override?null:draft.unit,start:draft.start,end:draft.end,name:draft.name.trim(),reservedFor,purpose:draft.purpose,purposeOther:draft.purpose==='other'?reservedFor:''});
+    const result=await submit({day:draft.day,type:draft.resource,unit:draft.unit,start:draft.start,end:draft.end,name:draft.name.trim(),reservedFor,purpose:draft.purpose,purposeOther:draft.purpose==='other'?reservedFor:''});
     const saved=normalizeBooking(result);
     if(!saved||result.status!=='approved')throw new Error('Confirmation was not received. Check My reservations before trying again.');
     bookings=bookings.filter(b=>b.key!==saved.key);

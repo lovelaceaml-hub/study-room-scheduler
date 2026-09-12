@@ -5,6 +5,7 @@
     "checks": [
       "resource-first",
       "three exact-unit backend payloads",
+      "exact-unit priority override indicator and payload",
       "Other details",
       "failed save retained draft",
       "canonical success",
@@ -21,6 +22,7 @@
     "checks": [
       "resource-first",
       "three exact-unit backend payloads",
+      "exact-unit priority override indicator and payload",
       "Other details",
       "failed save retained draft",
       "canonical success",
@@ -37,6 +39,7 @@
     "checks": [
       "resource-first",
       "three exact-unit backend payloads",
+      "exact-unit priority override indicator and payload",
       "Other details",
       "failed save retained draft",
       "canonical success",
@@ -53,6 +56,7 @@
     "checks": [
       "resource-first",
       "three exact-unit backend payloads",
+      "exact-unit priority override indicator and payload",
       "Other details",
       "failed save retained draft",
       "canonical success",
@@ -69,6 +73,7 @@
     "checks": [
       "resource-first",
       "three exact-unit backend payloads",
+      "exact-unit priority override indicator and payload",
       "Other details",
       "failed save retained draft",
       "canonical success",
@@ -85,6 +90,7 @@
     "checks": [
       "resource-first",
       "three exact-unit backend payloads",
+      "exact-unit priority override indicator and payload",
       "Other details",
       "failed save retained draft",
       "canonical success",

@@ -107,7 +107,7 @@ function freeUnits(key, resource, start, end, unit = null) {
 }
 function rangeAvailability(start, end) {
   const free = freeUnits(draft.day, draft.type, start, end, draft.unit);
-  const overrideUnit = !free.length && draft.unit === null && ['contact', 'new'].includes(draft.purpose) && !serviceAt(draft.day, start, end)
+  const overrideUnit = !free.length && ['contact', 'new'].includes(draft.purpose) && !serviceAt(draft.day, start, end)
     ? overrideUnitForRange(draft.type, draft.day, start, end, draft.purpose, snapshot.bookings, draft.unit)
     : null;
   return { free, overrideUnit };
@@ -344,7 +344,9 @@ async function confirmReservation() {
   renderStep(false);
   try {
     const reservedFor = draft.reservedFor.trim();
-    const result = await submit({ day: draft.day, type: draft.type, unit: draft.override ? null : draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), reservedFor, purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? reservedFor : '' });
+    draft.unit = availability.overrideUnit ?? draft.unit;
+    draft.override = Boolean(availability.overrideUnit);
+    const result = await submit({ day: draft.day, type: draft.type, unit: draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), reservedFor, purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? reservedFor : '' });
     if (!result || result.status !== 'approved' || !TYPES[result.type] || !Number.isInteger(result.unit)) throw new Error('The reservation could not be confirmed. Your details are still here.');
     saved = { ...result, reservedFor: typeof result.reservedFor === 'string' ? result.reservedFor : reservedFor };
     saving = false;
@@ -423,14 +425,20 @@ body.addEventListener('click', event => {
     nextStep(draft.direct && draft.start !== null ? 'end' : 'start');
   } else if (button.hasAttribute('data-start')) {
     const start = Number(button.dataset.start);
-    if (!selectableRange(start, start + 30)) return setError('That start time is no longer available. Choose another time.');
+    const availability = rangeAvailability(start, start + 30);
+    if (!availability.free.length && !availability.overrideUnit) return setError('That start time is no longer available. Choose another time.');
     draft.start = start;
     draft.end = null;
+    if (draft.unit === null && availability.overrideUnit) draft.unit = availability.overrideUnit;
+    draft.override = Boolean(availability.overrideUnit);
     nextStep('end');
   } else if (button.hasAttribute('data-end')) {
     const end = Number(button.dataset.end);
-    if (!selectableRange(draft.start, end)) return setError('That ending is no longer available. Choose another ending.');
+    const availability = rangeAvailability(draft.start, end);
+    if (!availability.free.length && !availability.overrideUnit) return setError('That ending is no longer available. Choose another ending.');
     draft.end = end;
+    if (draft.unit === null && availability.overrideUnit) draft.unit = availability.overrideUnit;
+    draft.override = Boolean(availability.overrideUnit);
     nextStep('reservedFor');
   } else if (button.hasAttribute('data-edit-time')) {
     nextStep('start');

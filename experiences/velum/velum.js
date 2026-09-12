@@ -202,7 +202,7 @@ async function saveReservation(){
   }
   saving=true;$('#save-error').hidden=true;updateBookingControls();$('#reserve-now').disabled=true;
   try{
-    const saved=await submit({day:draft.day,type:draft.type,unit:draft.override?null:draft.unit,start:draft.start,end:draft.end,name:(draft.name||draft.reservedFor).trim(),reservedFor:draft.reservedFor.trim(),purpose:draft.purpose,purposeOther:draft.purpose==='other'?draft.reservedFor.trim():''});
+    const saved=await submit({day:draft.day,type:draft.type,unit:draft.unit,start:draft.start,end:draft.end,name:(draft.name||draft.reservedFor).trim(),reservedFor:draft.reservedFor.trim(),purpose:draft.purpose,purposeOther:draft.purpose==='other'?draft.reservedFor.trim():''});
     const booking=normalizeBooking(saved);draft.saved=booking;savedName=draft.name;resource=booking.type;const index=days.findIndex(day=>day.key===booking.day);if(index>=0)selectedDay=index;
     bookings=[...bookings.filter(item=>item.key!==booking.key),booking];
     flow=['success'];flowIndex=0;saving=false;renderSchedule();renderStep();focusStep();

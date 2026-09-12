@@ -9,13 +9,13 @@ const configs={solace:{reserve:'#reserve',resource:'#resources [data-type]',open
 configs.atlas={reserve:'#reserve',resource:'.meter[data-type]',open:'.roomSlot.open',end:'[data-end]',name:'#name',reservedFor:'#reservedFor',form:'#reservedForForm',confirm:'#confirm',success:'#finish',error:'#dialogError'};
 configs.lattice={reserve:'#reserve',resource:'.overview [data-type]',open:'button.slot.open',end:'[data-end-choice]',name:'#name',reservedFor:'#reservedFor',form:'#reservedForForm',confirm:'#confirm',success:'#finish',error:'#flowNotice'};
 async function mock(context){
- await context.addInitScript(()=>{window.__calls=[];window.__rejectNext=true;});
+ await context.addInitScript(()=>{window.__calls=[];window.__rejectNext=localStorage.getItem('srs-override-fixture')!=='1';});
  await context.route('**/firebasejs/10.12.2/firebase-*.js',route=>{
   const part=route.request().url().split('firebase-').pop();let body='';
   if(part==='app.js')body='export const getApps=()=>[];export const getApp=()=>({});export const initializeApp=()=>({});';
   if(part==='auth.js')body="export const getAuth=()=>({currentUser:{uid:'fixture-current-owner'}});export const onAuthStateChanged=(a,cb)=>{queueMicrotask(()=>cb(a.currentUser));return ()=>{};};export const signInAnonymously=()=>{throw Error('Existing identity must be restored');};";
   if(part==='firestore.js')body="export const getFirestore=()=>({});export const collection=()=>({});export const where=(...a)=>a;export const query=(...a)=>a;export function onSnapshot(q,opts,cb){window.__snapshot=cb;window.__query=q;queueMicrotask(()=>cb({metadata:{fromCache:false},empty:true,docs:[]}));return ()=>{};}export const doc=()=>({});export const setDoc=()=>{throw Error('Unexpected direct write');};export const updateDoc=()=>{throw Error('Unexpected direct write');};export const serverTimestamp=()=>0;export const Timestamp={};";
-  if(part==='functions.js')body="export const getFunctions=()=>({});export const httpsCallable=(f,name)=>async payload=>{window.__calls.push({name,payload});await new Promise(r=>setTimeout(r,80));if(name==='memberSubmitBooking'&&window.__rejectNext){window.__rejectNext=false;throw {code:'functions/already-exists'};}if(name==='memberSchedule')return {data:{version:1,days:[],bookings:[],myBookings:[]}};return {data:{bookingId:'fixture-owned-id-'+window.__calls.length,status:'approved',assignment:payload.requestedUnit||({room:'room-1',whiteboard:'wb-1',tv:'tv-1'})[payload.resourceType]}};};";
+  if(part==='functions.js')body="export const getFunctions=()=>({});export const httpsCallable=(f,name)=>async payload=>{window.__calls.push({name,payload});await new Promise(r=>setTimeout(r,80));if(name==='memberSubmitBooking'&&window.__rejectNext){window.__rejectNext=false;throw {code:'functions/already-exists'};}if(name==='memberSchedule'){const bookings=(window.__overrideFixture||localStorage.getItem('srs-override-fixture')==='1')?[{id:'fixture-lower-priority',day:'2026-09-12',type:'room',unit:2,start:750,end:810,name:'Lower Priority Holder',purpose:'other',reservedFor:'Fixture purpose',status:'approved'}]:[];window.__fixtureCount=bookings.length;return {data:{version:1,days:[],bookings,myBookings:[]}};}return {data:{bookingId:'fixture-owned-id-'+window.__calls.length,status:'approved',assignment:payload.requestedUnit||({room:'room-1',whiteboard:'wb-1',tv:'tv-1'})[payload.resourceType]}};};";
   return route.fulfill({contentType:'text/javascript',body});
  });
 }
@@ -39,10 +39,16 @@ for(const name of (process.argv.slice(2).length?process.argv.slice(2):Object.key
   await page.evaluate(()=>window.dispatchEvent(new Event('offline')));assert.equal(await page.locator(c.open).count(),0);
   assert.equal(await page.locator(c.reserve).isEnabled(),false);
   assert.equal(errors.length,0,errors.join('; '));
+  await page.goto(`${base}/experiences/${name}/`);await page.evaluate(()=>{localStorage.setItem('srs-override-fixture','1');window.__rejectNext=false;});await page.reload();await page.locator(c.open+'[data-unit="2"][data-start="720"]').waitFor();
+  await page.locator(c.open+'[data-unit="2"][data-start="720"]').click();await page.locator('[data-purpose="contact"]').click();
+  const overrideEnd=page.locator('[data-end="810"],[data-end-choice="810"],[data-time-end="810"]').first();await overrideEnd.waitFor();assert(await overrideEnd.getByText('Priority override',{exact:true}).count()>0);
+  await overrideEnd.click();await page.locator(c.name).fill('Robin Exact');await page.locator(c.reservedFor).fill('Exact contact');await page.locator(c.form+' button[type=submit]').click();await page.locator(c.confirm).click();await page.locator(c.success).waitFor();
+  const exactCall=await page.evaluate(()=>window.__calls.at(-1));assert.equal(exactCall.name,'memberSubmitBooking');assert.equal(exactCall.payload.requestedUnit,'room-2');
+  await page.locator(c.success).click();
   await page.goto(`${base}/experiences/${name}/?demo=1`);await page.locator(c.open).first().waitFor();
   assert(!await page.getByText('Private administrative hold',{exact:true}).count());
   const evidence=resolve(root,'docs/live-design-evidence');await mkdir(evidence,{recursive:true});await page.screenshot({path:resolve(evidence,name+'-phone.png')});await page.setViewportSize({width:1280,height:720});await page.screenshot({path:resolve(evidence,name+'-desktop.png')});
-  results.push({name,passed:true,checks:['resource-first','three exact-unit backend payloads','Other details','failed save retained draft','canonical success','ownership preserved','offline blocks Open and submit','390px no overflow','phone and desktop captures'],errors});
+  results.push({name,passed:true,checks:['resource-first','three exact-unit backend payloads','exact-unit priority override indicator and payload','Other details','failed save retained draft','canonical success','ownership preserved','offline blocks Open and submit','390px no overflow','phone and desktop captures'],errors});
  }catch(e){results.push({name,passed:false,error:e.message,errors});}
  await context.close();
 }

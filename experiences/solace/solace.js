@@ -34,7 +34,7 @@ const allUnits = (type) => Array.from({length:types[type].count},(_,i)=>i+1);
 const validUnits = (date,type,start,end) => start>=600&&end<=1380&&end>start&&start%30===0&&end%30===0?allUnits(type).filter(unit=>freeUntil(date,type,unit,start)>=end):[];
 const rangeAllowed = (date,start,end) => start>=600&&end<=1380&&end>start&&start%30===0&&end%30===0&&!dayServices(date).some(([serviceStart,serviceEnd])=>start<serviceEnd&&end>serviceStart);
 const rangeChoice = (date,type,start,end,purpose,exactUnit=null) => {
-  const freeUnits=validUnits(date,type,start,end);
+  const freeUnits=validUnits(date,type,start,end).filter(unit=>exactUnit===null||unit===exactUnit);
   if(freeUnits.length){
     const unit=exactUnit===null?freeUnits[0]:freeUnits.includes(exactUnit)?exactUnit:null;
     return unit===null?null:{unit,override:false};
@@ -47,20 +47,20 @@ const reserveStartChoices = (date,type,purpose) => {
   const choices=[];
   for(let start=600;start<1380;start+=30){
     if(serviceAt(date,start))continue;
-    let normal=false,override=false;
+    let normal=false,override=false,overrideUnit=null;
     for(let end=start+30;end<=1380;end+=30){
       const choice=rangeChoice(date,type,start,end,purpose);
       if(!choice)continue;
-      if(choice.override)override=true;else normal=true;
+      if(choice.override){override=true;overrideUnit??=choice.unit;}else normal=true;
     }
-    if(normal||override)choices.push({time:start,override:!normal&&override});
+    if(normal||override)choices.push({time:start,override:!normal&&override,unit:!normal&&override?overrideUnit:null});
   }
   return choices;
 };
 const reserveEndChoices = (date,type,start,purpose) => {
   const choices=[];
   for(let end=start+30;end<=1380;end+=30){
-    const choice=rangeChoice(date,type,start,end,purpose);
+    const choice=rangeChoice(date,type,start,end,purpose,draft.unit);
     if(choice)choices.push({time:end,override:choice.override});
   }
   return choices;
@@ -195,7 +195,7 @@ function renderStep(){
     html=title('When would you like to start?','Choose a beginning. Only available times appear below.')+(starts.length?`<div class="time-choices">${starts.map(({time,override})=>`<button type="button" class="time-choice${override?' override':''}" data-start-choice="${time}"${override?` aria-label="${esc(`${fmt(time)}, Priority override`)}"`:''}>${fmt(time)}${override?'<small class="override-indicator">Priority override</small>':''}</button>`).join('')}</div>`:`<p class="hint">${draftReady()?'Every space is reserved. Close this sheet to choose the other day.':'Available times will appear when the connection returns.'}</p>`);
   }
   if(step==='end'){
-    const ends=draft.direct?Array.from({length:Math.max(0,(freeUntil(draft.date,draft.type,draft.unit,draft.start)-draft.start)/30)},(_,index)=>({time:draft.start+30*(index+1),override:false})):reserveEndChoices(draft.date,draft.type,draft.start,draft.purpose);
+    const ends=reserveEndChoices(draft.date,draft.type,draft.start,draft.purpose);
     html=title('When would you like to end?',`Starting at ${fmt(draft.start)}. Each ending fits around reservations and service.`)+(ends.length?`<div class="time-choices">${ends.map(({time,override})=>`<button type="button" class="time-choice${override?' override':''}" data-end-choice="${time}"${override?` aria-label="${esc(`${fmt(time)}, Priority override`)}"`:''}>${fmt(time)}<small>${duration(time-draft.start)}</small>${override?'<small class="override-indicator">Priority override</small>':''}</button>`).join('')}</div>`:`<p class="inline-error">${draftReady()?'This opening has changed. Go back and choose another start.':'Available endings will appear when the connection returns.'}</p>`);
   }
   if(step==='confirm')html=title('Confirm your reservation.','Review the details before confirming.')+summary()+`<p class="summary-note">${connection.demo?'This practice reservation saves only in this browser tab.':'Your reservation is confirmed after the space is secured.'}</p><p class="inline-error" id="save-error" role="alert"></p><button type="button" class="primary" id="confirm-reservation">Confirm reservation</button>`;
@@ -255,20 +255,20 @@ $('#step-body').addEventListener('click',async event=>{
   if(pending||!draftReady())return;
   const type=event.target.closest('[data-choose-type]');if(type){draft.type=type.dataset.chooseType;go('purpose');return;}
   const purpose=event.target.closest('[data-purpose]');if(purpose){draft.purpose=purpose.dataset.purpose;draft.purposeOther='';go(draft.direct?'end':'start');return;}
-  const start=event.target.closest('[data-start-choice]');if(start){draft.start=Number(start.dataset.startChoice);draft.unit=null;draft.end=null;go('end');return;}
+  const start=event.target.closest('[data-start-choice]');if(start){const value=Number(start.dataset.startChoice),choice=reserveStartChoices(draft.date,draft.type,draft.purpose).find(item=>item.time===value);draft.start=value;draft.unit=choice?.unit??null;draft.override=Boolean(choice?.override);draft.end=null;go('end');return;}
   const end=event.target.closest('[data-end-choice]');if(end){
     const requestedEnd=Number(end.dataset.endChoice);
-    const choice=draft.direct?(validUnits(draft.date,draft.type,draft.start,requestedEnd).includes(draft.unit)?{unit:draft.unit,override:false}:null):rangeChoice(draft.date,draft.type,draft.start,requestedEnd,draft.purpose);
+    const choice=rangeChoice(draft.date,draft.type,draft.start,requestedEnd,draft.purpose,draft.direct?draft.unit:null);
     if(!choice){renderStep();return;}
     draft.end=requestedEnd;draft.unit=choice.unit;draft.override=choice.override;go('reservedFor');return;
   }
   if(event.target.closest('#confirm-reservation')){
-    const choice=draft.direct?(validUnits(draft.date,draft.type,draft.start,draft.end).includes(draft.unit)?{unit:draft.unit,override:false}:null):rangeChoice(draft.date,draft.type,draft.start,draft.end,draft.purpose,draft.unit);
+    const choice=rangeChoice(draft.date,draft.type,draft.start,draft.end,draft.purpose,draft.unit);
     if(!choice||choice.unit!==draft.unit||choice.override!==Boolean(draft.override)){$('#save-error').textContent='This space is no longer open for the full time. Go back to choose another time.';return;}
     if(!visibleText(draft.name)||!visibleText(draft.reservedFor)){$('#save-error').textContent='Please go back and add your name and the reserved-for detail.';return;}
     pending=true;$('#save-error').textContent='';updateDialogAvailability();
     try{
-      const result=await submit({day:draft.date,type:draft.type,unit:draft.override?null:draft.unit,start:draft.start,end:draft.end,name:(draft.name||draft.reservedFor).trim(),reservedFor:draft.reservedFor.trim(),purpose:draft.purpose,purposeOther:draft.purpose==='other'?draft.reservedFor.trim():''});
+      const result=await submit({day:draft.date,type:draft.type,unit:draft.unit,start:draft.start,end:draft.end,name:(draft.name||draft.reservedFor).trim(),reservedFor:draft.reservedFor.trim(),purpose:draft.purpose,purposeOther:draft.purpose==='other'?draft.reservedFor.trim():''});
       if(!result||result.status!=='approved')throw new Error('The reservation could not be confirmed. Please try again.');
       saved=normalizeBooking(result);
       bookings=[...bookings.filter(booking=>booking.key!==saved.key),saved];

@@ -394,7 +394,7 @@ async function confirmReservation() {
   renderStep(false);
   try {
     const reservedFor = draft.reservedFor.trim();
-    saved = await submit({ day: draft.day, type: draft.type, unit: draft.override ? null : draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), reservedFor, purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? reservedFor : '' });
+    saved = await submit({ day: draft.day, type: draft.type, unit: draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), reservedFor, purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? reservedFor : '' });
     saved = { ...saved, reservedFor: typeof saved.reservedFor === 'string' ? saved.reservedFor : reservedFor };
     saving = false;
     step = 'success';
