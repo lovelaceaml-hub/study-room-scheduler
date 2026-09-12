@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#eeeee4">
+  <title>Solace | LV Zion Study Rooms</title>
+  <link rel="stylesheet" href="./solace.css">
+</head>
+<body>
+  <main class="folio">
+    <aside class="welcome">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>LV Zion<br><b>Study Rooms</b></span><span class="sample-label">Sample data</span></div>
+      <div class="welcome-copy"><p class="eyebrow">A place for a good moment</p><h1>Room to<br><em>be present.</em></h1><p class="introduction">A quiet space. A meaningful conversation.<br> Find a little room for what matters.</p></div>
+      <div class="invitation"><p>Your next conversation<br>starts with a little space.</p><button class="reserve-button" id="reserve" type="button"><span>Reserve Now</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button><small>A few simple steps. A place for you.</small></div>
+      <div class="welcome-bottom"><div class="quiet-arch" aria-hidden="true"><span></span><i></i></div><p>Solace <span>01</span><br><small>A hospitality study</small></p></div>
+    </aside>
+
+    <section class="day-folio" aria-label="Daily reservation schedule">
+      <header class="folio-heading"><div><p class="eyebrow">Make yourself at home</p><h2>Your day, in view.</h2></div><span class="folio-flower" aria-hidden="true">✳</span></header>
+      <div id="dates" class="date-switch" aria-label="Choose a reservation date"></div>
+      <div class="schedule-surface">
+        <div class="schedule-top">
+          <div class="resources" id="resources" aria-label="Choose a resource"></div>
+          <div class="schedule-caption"><span id="day-caption"></span><span><i class="open-dot"></i> Tap an open space</span></div>
+          <div class="unit-headings" id="unit-headings"></div>
+        </div>
+        <div class="state-message" id="state-message" aria-live="polite"></div>
+        <div id="schedule" class="schedule" aria-label="10 AM to 11 PM daily schedule"></div>
+        <div class="schedule-footer"><span><i class="legend-dot contact"></i> Contact</span><span><i class="legend-dot new"></i> New Member</span><span><i class="legend-dot other"></i> Other</span><p>Fictional names and sample bookings.<br>Your reservations stay in this browser tab.</p></div>
+      </div>
+      <p class="closing-note">A little space can make all the difference.</p>
+    </section>
+  </main>
+
+  <dialog id="booking-dialog" aria-labelledby="step-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-toolbar"><button class="round-button" id="back" type="button" aria-label="Back one step"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><span id="step-count"></span><button class="round-button" id="close" type="button" aria-label="Close reservation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
+    <div id="selection-context" class="selection-context"></div>
+    <div id="step-body"></div>
+  </dialog>
+  <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>
+  <script src="./solace.js"></script>
+</body>
+</html>
