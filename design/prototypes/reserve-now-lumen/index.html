@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07090f">
+<title>LV Rooms — Reserve Now</title>
+<style>
+:root{
+  --void:#07090f; --deep:#0b1018; --ink:#f4f7fb; --dim:#9aa8bd; --faint:#63718a;
+  --amber:#ffb15c; --coral:#ff7e5f; --gold:#ffd98a; --jade:#4fe3b0; --ice:#7fd1ff;
+  --glass:linear-gradient(163deg,rgba(255,255,255,.085),rgba(255,255,255,.022));
+  --edge:rgba(255,255,255,.10);
+  --lift:0 30px 60px -34px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.14);
+  --pad:18px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--void);color:var(--ink)}
+body{font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,Inter,system-ui,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,input{font:inherit;color:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+
+/* ---------- animated architecture backdrop ---------- */
+.backdrop{position:fixed;inset:0;z-index:-2;overflow:hidden;background:
+  radial-gradient(1100px 700px at 78% -8%,#16203a 0%,transparent 62%),
+  radial-gradient(900px 620px at 4% 8%,#1a1626 0%,transparent 58%),
+  linear-gradient(180deg,#080b12 0%,#070910 46%,#05070c 100%)}
+.blob{position:absolute;border-radius:50%;filter:blur(68px);opacity:.5;will-change:transform}
+.b1{width:58vw;height:58vw;left:-16vw;top:-12vw;background:radial-gradient(circle at 34% 34%,#ff9a5a,#c2482f 46%,transparent 70%);animation:drift1 26s ease-in-out infinite alternate}
+.b2{width:64vw;height:64vw;right:-22vw;top:14vh;background:radial-gradient(circle at 60% 40%,#2ad6a4,#0f6f7d 48%,transparent 72%);opacity:.36;animation:drift2 31s ease-in-out infinite alternate}
+.b3{width:52vw;height:52vw;left:12vw;bottom:-20vh;background:radial-gradient(circle at 50% 50%,#7a7bff,#2d2a6e 50%,transparent 74%);opacity:.34;animation:drift3 37s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate3d(9vw,7vh,0) scale(1.14)}}
+@keyframes drift2{to{transform:translate3d(-11vw,-6vh,0) scale(1.1)}}
+@keyframes drift3{to{transform:translate3d(7vw,-9vh,0) scale(1.16)}}
+/* vanishing-point floor grid */
+.grid-floor{position:fixed;left:-25%;right:-25%;bottom:-8vh;height:52vh;z-index:-1;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.11) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.11) 1px,transparent 1px);
+  background-size:74px 74px;
+  transform:perspective(340px) rotateX(70deg);transform-origin:bottom center;
+  -webkit-mask-image:linear-gradient(to top,#000,transparent 72%);mask-image:linear-gradient(to top,#000,transparent 72%);opacity:.5}
+
+/* ---------- shell ---------- */
+.wrap{max-width:720px;margin:0 auto;padding:0 var(--pad) calc(168px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:22px 0 8px}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:42px;height:42px;border-radius:14px;position:relative;background:linear-gradient(150deg,var(--amber),var(--coral) 58%,#8b5cf6);box-shadow:0 12px 26px -12px var(--coral),inset 0 1px 0 rgba(255,255,255,.5)}
+.mark::after{content:"";position:absolute;inset:7px;border-radius:8px;background:rgba(7,9,15,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
+.brand b{display:block;font-size:15px;letter-spacing:-.01em}
+.brand small{display:block;margin-top:3px;font-size:9.5px;letter-spacing:.2em;color:var(--faint)}
+.chip{border:1px solid var(--edge);background:var(--glass);backdrop-filter:blur(14px);border-radius:999px;padding:9px 14px;font-size:12px;color:var(--dim);box-shadow:inset 0 1px 0 rgba(255,255,255,.1)}
+
+.hero{padding:26px 0 22px}
+.kicker{font-size:10px;letter-spacing:.24em;color:var(--faint);font-weight:700}
+h1{margin:14px 0 0;font-size:clamp(38px,11vw,56px);line-height:.97;letter-spacing:-.045em;font-weight:700}
+h1 .lit{background:linear-gradient(96deg,var(--gold),var(--amber) 38%,var(--coral) 72%,#ff6fae);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:16px 0 0;color:var(--dim);font-size:15px;line-height:1.6;max-width:38ch}
+
+/* ---------- glass primitives ---------- */
+.card{position:relative;border:1px solid var(--edge);border-radius:24px;background:var(--glass);backdrop-filter:blur(20px) saturate(140%);-webkit-backdrop-filter:blur(20px) saturate(140%);box-shadow:var(--lift);overflow:hidden}
+.card::before{content:"";position:absolute;left:12%;right:12%;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent)}
+
+.next{padding:22px;margin-top:8px}
+.next-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.next-top span{font-size:10px;letter-spacing:.2em;color:var(--faint);font-weight:700}
+.pulse{display:inline-flex;align-items:center;gap:8px;font-size:10.5px;font-weight:800;letter-spacing:.08em;color:#062a1f;background:linear-gradient(120deg,var(--jade),#9df5cf);border-radius:999px;padding:7px 12px;box-shadow:0 10px 24px -12px var(--jade)}
+.pulse i{width:7px;height:7px;border-radius:50%;background:#063d2c;animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{50%{opacity:.25}}
+.next b{display:block;margin:16px 0 6px;font-size:clamp(34px,10vw,44px);letter-spacing:-.04em;line-height:1}
+.next small{color:var(--dim);font-size:13px}
+.meter{margin-top:18px;height:7px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.meter i{display:block;height:100%;width:62%;border-radius:99px;background:linear-gradient(90deg,var(--ice),var(--jade) 46%,var(--gold));box-shadow:0 0 18px rgba(79,227,176,.6)}
+
+/* ---------- availability ---------- */
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:34px 0 4px}
+.sec-head h2{margin:0;font-size:23px;letter-spacing:-.03em}
+.sec-head span{font-size:11px;color:var(--faint)}
+.sec-sub{margin:8px 0 16px;color:var(--dim);font-size:13px}
+
+.toggles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:6px;border:1px solid var(--edge);border-radius:18px;background:var(--glass);backdrop-filter:blur(14px);position:sticky;top:10px;z-index:6}
+.toggles button{position:relative;border:0;background:transparent;color:var(--dim);border-radius:13px;padding:12px 8px;font-size:13px;font-weight:600;transition:color .2s}
+.toggles button.on{color:#0a0d14;font-weight:800}
+.toggles .slider{position:absolute;z-index:-1;top:6px;bottom:6px;border-radius:13px;background:linear-gradient(150deg,#fff,#d9e6f5);box-shadow:0 12px 26px -14px #000,inset 0 1px 0 #fff;transition:transform .34s cubic-bezier(.22,1,.36,1),width .34s cubic-bezier(.22,1,.36,1)}
+
+.day{margin-top:16px;display:grid;gap:12px}
+.ucard{position:relative;padding:18px;border-radius:22px;border:1px solid var(--edge);background:var(--glass);backdrop-filter:blur(16px);box-shadow:var(--lift);animation:rise .45s cubic-bezier(.22,1,.36,1) both;overflow:hidden}
+.ucard::before{content:"";position:absolute;left:14%;right:14%;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent)}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}}
+.uhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.uhead b{font-size:16px;letter-spacing:-.02em}
+.state{font-size:10px;font-weight:800;letter-spacing:.12em;padding:6px 10px;border-radius:999px;white-space:nowrap}
+.state.free{color:#052a1e;background:linear-gradient(120deg,var(--jade),#9df5cf);box-shadow:0 8px 20px -10px var(--jade)}
+.state.busy{color:var(--dim);background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px var(--edge)}
+.bar{position:relative;display:flex;height:34px;margin:14px 0 6px;border-radius:12px;overflow:hidden;background:rgba(0,0,0,.32);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.seg{position:relative;min-width:2px}
+.seg.free{background:linear-gradient(180deg,rgba(79,227,176,.42),rgba(79,227,176,.16));box-shadow:inset 0 1px 0 rgba(190,255,230,.5)}
+.seg.busy{background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.16),inset -1px 0 0 rgba(0,0,0,.4)}
+.seg.mine{background:linear-gradient(180deg,var(--gold),var(--coral));box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+.seg.now{box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)}
+.nowline{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;box-shadow:0 0 12px 2px rgba(255,255,255,.7);border-radius:2px}
+.ticks{display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);font-variant-numeric:tabular-nums;margin-bottom:12px}
+.line{display:grid;grid-template-columns:96px 1fr;gap:12px;padding:9px 0;border-top:1px solid rgba(255,255,255,.07);font-size:12.5px;align-items:start}
+.line:first-of-type{border-top:0}
+.line .when{color:var(--dim);font-variant-numeric:tabular-nums}
+.line strong{font-size:13.5px;font-weight:600}
+.line p{margin:3px 0 0;color:var(--faint);font-size:11.5px}
+.line.open .when,.line.open strong{color:var(--jade)}
+.line.mine strong{color:var(--gold)}
+.tag{display:inline-block;margin-top:6px;font-size:9px;font-weight:800;letter-spacing:.14em;padding:5px 9px;border-radius:999px}
+.tag.contact{background:rgba(255,177,92,.16);color:var(--amber);box-shadow:inset 0 0 0 1px rgba(255,177,92,.32)}
+.tag.member{background:rgba(127,209,255,.14);color:var(--ice);box-shadow:inset 0 0 0 1px rgba(127,209,255,.3)}
+.tag.other{background:rgba(255,255,255,.08);color:var(--dim);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:16px 2px 0;font-size:11px;color:var(--faint)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px}
+.foot{margin:26px 0 0;font-size:11.5px;color:var(--faint);text-align:center;line-height:1.6}
+
+/* ---------- the one button ---------- */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:18px var(--pad) calc(20px + env(safe-area-inset-bottom));display:flex;justify-content:center;pointer-events:none;
+  background:linear-gradient(to top,rgba(5,7,12,.94) 34%,rgba(5,7,12,0))}
+.reserve{pointer-events:auto;position:relative;width:min(100%,520px);border:0;border-radius:22px;padding:21px 26px;font-size:18px;font-weight:800;letter-spacing:-.01em;color:#25130a;overflow:hidden;
+  background:linear-gradient(104deg,var(--gold),var(--amber) 42%,var(--coral) 100%);
+  box-shadow:0 22px 50px -18px rgba(255,126,95,.7),0 0 0 1px rgba(255,255,255,.22) inset,0 1px 0 rgba(255,255,255,.6) inset;
+  transition:transform .16s cubic-bezier(.22,1,.36,1),box-shadow .2s}
+.reserve:active{transform:scale(.975);box-shadow:0 12px 30px -18px rgba(255,126,95,.7),0 0 0 1px rgba(255,255,255,.2) inset}
+.reserve .sheen{position:absolute;top:-60%;bottom:-60%;width:44%;left:-60%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-18deg);animation:sweep 4.6s ease-in-out infinite}
+@keyframes sweep{0%,62%{left:-60%}88%,100%{left:120%}}
+.reserve .lbl{position:relative;display:flex;align-items:center;justify-content:center;gap:10px}
+.reserve .arrow{font-size:15px;opacity:.72}
+
+/* ---------- step sheet ---------- */
+.scrim{position:fixed;inset:0;z-index:30;background:rgba(4,6,11,.72);backdrop-filter:blur(7px);opacity:0;pointer-events:none;transition:opacity .28s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:40;transform:translateY(101%);transition:transform .42s cubic-bezier(.22,1,.36,1);
+  border-radius:30px 30px 0 0;border:1px solid var(--edge);border-bottom:0;
+  background:linear-gradient(170deg,rgba(23,28,42,.96),rgba(10,13,21,.98));backdrop-filter:blur(26px) saturate(150%);
+  box-shadow:0 -34px 80px -30px #000,inset 0 1px 0 rgba(255,255,255,.16);
+  padding:14px var(--pad) calc(26px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+.sheet.on{transform:translateY(0)}
+.grab{width:46px;height:5px;border-radius:99px;background:rgba(255,255,255,.2);margin:0 auto 16px}
+.sheet-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.sheet-top span{font-size:10px;letter-spacing:.2em;color:var(--faint);font-weight:700}
+.sheet-top h2{margin:9px 0 0;font-size:clamp(26px,7.4vw,33px);letter-spacing:-.035em;line-height:1.08}
+.x{flex:none;width:38px;height:38px;border-radius:50%;border:1px solid var(--edge);background:rgba(255,255,255,.05);font-size:19px;line-height:1;color:var(--dim)}
+.dots{display:flex;gap:6px;margin:18px 0 4px}
+.dots i{height:3px;flex:1;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
+.dots i.on{background:linear-gradient(90deg,var(--amber),var(--gold))}
+.step{padding-top:18px;animation:stepin .4s cubic-bezier(.22,1,.36,1) both}
+@keyframes stepin{from{opacity:0;transform:translateY(12px)}}
+.hint{margin:0 0 16px;color:var(--dim);font-size:13.5px;line-height:1.55}
+.back{border:0;background:transparent;color:var(--dim);padding:0 0 14px;font-size:13px}
+
+.opt{position:relative;width:100%;display:flex;align-items:center;gap:14px;text-align:left;margin-bottom:10px;padding:17px;border-radius:20px;border:1px solid var(--edge);background:var(--glass);box-shadow:inset 0 1px 0 rgba(255,255,255,.1);transition:transform .16s,border-color .2s,background .2s}
+.opt:active{transform:scale(.985)}
+.opt:hover{border-color:rgba(255,255,255,.22)}
+.opt .ic{flex:none;width:46px;height:46px;border-radius:15px;display:grid;place-items:center;font-size:19px;background:linear-gradient(150deg,rgba(255,255,255,.14),rgba(255,255,255,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.24)}
+.opt b{display:block;font-size:16px;letter-spacing:-.01em}
+.opt small{display:block;margin-top:4px;font-size:12px;color:var(--dim)}
+.opt .go{margin-left:auto;color:var(--faint);font-size:15px}
+.opt.p1 .ic{background:linear-gradient(150deg,var(--gold),var(--coral));color:#2a1408}
+.opt.p2 .ic{background:linear-gradient(150deg,#a9e2ff,#4aa6ff);color:#04223b}
+.opt.p3 .ic{background:linear-gradient(150deg,rgba(255,255,255,.2),rgba(255,255,255,.06))}
+.rank{display:inline-block;margin-left:8px;font-size:9px;font-weight:800;letter-spacing:.12em;color:var(--faint);border:1px solid var(--edge);border-radius:999px;padding:4px 7px;vertical-align:middle}
+.other-wrap{display:none;margin:-2px 0 12px;padding:16px;border-radius:18px;border:1px dashed rgba(255,255,255,.18);background:rgba(255,255,255,.03)}
+.other-wrap.show{display:block;animation:stepin .3s both}
+.other-wrap input{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--edge);border-radius:13px;padding:14px;font-size:15px}
+.other-wrap input::placeholder{color:var(--faint)}
+
+.times{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:9px}
+.time{padding:16px 8px;border-radius:16px;border:1px solid var(--edge);background:var(--glass);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;box-shadow:inset 0 1px 0 rgba(255,255,255,.1);transition:transform .14s,border-color .2s}
+.time:active{transform:scale(.96)}
+.time.pick{background:linear-gradient(140deg,var(--gold),var(--amber));color:#2a1408;border-color:transparent}
+.cap{margin:14px 2px 0;font-size:11.5px;color:var(--faint);line-height:1.6}
+
+.summary{border:1px solid var(--edge);border-radius:20px;overflow:hidden;background:rgba(255,255,255,.035)}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:15px 17px;border-top:1px solid rgba(255,255,255,.07);font-size:14px}
+.summary .srow:first-child{border-top:0}
+.srow span{color:var(--dim);font-size:12.5px}
+.srow b{font-weight:700;text-align:right}
+.cta{width:100%;margin-top:16px;border:0;border-radius:20px;padding:19px;font-size:16.5px;font-weight:800;color:#25130a;background:linear-gradient(104deg,var(--gold),var(--amber) 44%,var(--coral));box-shadow:0 20px 44px -20px rgba(255,126,95,.72),inset 0 1px 0 rgba(255,255,255,.55)}
+.cta.ghost{background:transparent;color:var(--dim);border:1px solid var(--edge);box-shadow:none;font-weight:600}
+
+.done{text-align:center;padding:12px 0 4px}
+.orb{width:96px;height:96px;margin:6px auto 22px;border-radius:50%;display:grid;place-items:center;font-size:38px;color:#062a1f;
+  background:radial-gradient(circle at 34% 30%,#bdf7dd,var(--jade) 58%,#12a377);
+  box-shadow:0 26px 60px -22px rgba(79,227,176,.8),inset 0 2px 0 rgba(255,255,255,.7);animation:pop .5s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+.done h3{margin:0 0 10px;font-size:27px;letter-spacing:-.03em}
+.done p{margin:0 auto;color:var(--dim);font-size:14px;line-height:1.6;max-width:32ch}
+
+@media(min-width:900px){
+  .wrap{max-width:860px;padding-bottom:180px}
+  .hero{padding:40px 0 26px}
+  .hero p{font-size:16px}
+  .day{grid-template-columns:1fr 1fr}
+  .sheet{left:50%;right:auto;transform:translate(-50%,101%);width:min(560px,94vw);border-radius:30px;bottom:26px;border-bottom:1px solid var(--edge);max-height:84vh}
+  .sheet.on{transform:translate(-50%,0)}
+  .grab{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.08s !important}
+  .blob{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="grid-floor" aria-hidden="true"></div>
+
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="mark"></div><div><b>LV Zion Rooms</b><small>STUDY WING</small></div></div>
+    <button class="chip" id="dateChip">Sat, Sep 12</button>
+  </header>
+
+  <section class="hero">
+    <div class="kicker">TONIGHT · LIVE</div>
+    <h1>One space.<br><span class="lit">One tap.</span></h1>
+    <p>Everything open right now, and one button that books it. Nothing else to learn.</p>
+  </section>
+
+  <section class="card next" aria-live="polite">
+    <div class="next-top"><span>NEXT OPENING</span><em class="pulse"><i></i><span id="openCount">3 OPEN NOW</span></em></div>
+    <b id="nextTime">6:30 PM</b>
+    <small id="nextLine">Room 2 · open for 90 minutes</small>
+    <div class="meter"><i id="meterFill"></i></div>
+  </section>
+
+  <div class="sec-head"><h2>Today's availability</h2><span id="dayRange">4:00 – 10:00 PM</span></div>
+  <p class="sec-sub">Who has what, and every window still open.</p>
+
+  <div class="toggles" role="tablist" aria-label="Resource type">
+    <div class="slider" id="slider" aria-hidden="true"></div>
+    <button class="on" role="tab" aria-selected="true" data-type="room">Rooms</button>
+    <button role="tab" aria-selected="false" data-type="tv">TV</button>
+    <button role="tab" aria-selected="false" data-type="whiteboard">Whiteboard</button>
+  </div>
+
+  <div class="day" id="day"></div>
+
+  <div class="legend">
+    <span><i style="background:linear-gradient(140deg,#4fe3b0,#1d9d78)"></i>Open</span>
+    <span><i style="background:rgba(255,255,255,.18)"></i>Reserved</span><span><i style="background:#fff"></i>Now, 6:12 PM</span>
+    <span><i style="background:linear-gradient(140deg,#ffd98a,#ff7e5f)"></i>Yours</span>
+  </div>
+  <p class="foot">Reservations end on time automatically.<br>Need longer? Extend from your reservation.</p>
+</div>
+
+<div class="dock">
+  <button class="reserve" id="reserveNow" aria-haspopup="dialog">
+    <span class="sheen" aria-hidden="true"></span>
+    <span class="lbl">Reserve Now <span class="arrow">→</span></span>
+  </button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="grab"></div>
+  <div class="sheet-top">
+    <div><span id="sheetEyebrow">NEW RESERVATION</span><h2 id="sheetTitle">What do you need?</h2></div>
+    <button class="x" id="closeSheet" aria-label="Close">×</button>
+  </div>
+  <div class="dots" id="dots" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  <div id="flow"></div>
+</section>
+
+<script>
+/* ------------------------------------------------------------------ data */
+const DAY_START = 16 * 60, DAY_END = 22 * 60, STEP = 30;
+const NOW = 18 * 60 + 12;            /* the mockup is frozen at 6:12 PM */
+const nextSlot = m => Math.ceil(m / STEP) * STEP;
+
+const UNITS = {
+  room:       ['Room 1','Room 2','Room 3','Room 4','Room 5','Room 6'],
+  tv:         ['TV Lounge'],
+  whiteboard: ['Board A','Board B','Board C']
+};
+const LABEL = {room:'Room', tv:'TV', whiteboard:'Whiteboard'};
+
+const t = (h, m) => h * 60 + m;
+const BOOKINGS = [
+  {type:'room', unit:'Room 1', from:t(16,0),  to:t(17,30), who:'Daniel',  what:'Bible study',        rank:'contact'},
+  {type:'room', unit:'Room 3', from:t(17,0),  to:t(18,30), who:'Grace',   what:'New member study',   rank:'member'},
+  {type:'room', unit:'Room 2', from:t(18,0),  to:t(19,0),  who:'Samuel',  what:'Preaching practice', rank:'other'},
+  {type:'room', unit:'Room 4', from:t(19,0),  to:t(21,0),  who:'Esther',  what:'Bible study',        rank:'contact'},
+  {type:'room', unit:'Room 5', from:t(16,30), to:t(18,0),  who:'Joshua',  what:'New member study',   rank:'member'},
+  {type:'room', unit:'Room 6', from:t(20,0),  to:t(22,0),  who:'Hannah',  what:'Bible study',        rank:'contact'},
+  {type:'tv',   unit:'TV Lounge', from:t(17,0), to:t(18,30), who:'Media team', what:'Sermon review', rank:'other'},
+  {type:'tv',   unit:'TV Lounge', from:t(20,0), to:t(21,30), who:'Peter',      what:'Bible study',   rank:'contact'},
+  {type:'whiteboard', unit:'Board A', from:t(16,0), to:t(17,0), who:'Mary',   what:'Preaching prep', rank:'other'},
+  {type:'whiteboard', unit:'Board B', from:t(18,30), to:t(20,0), who:'Andrew', what:'New member study', rank:'member'}
+];
+
+const fmt = m => {
+  let h = Math.floor(m / 60), mm = String(m % 60).padStart(2, '0');
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return h + ':' + mm + ' ' + ap;
+};
+const RANK_LABEL = {contact:'CONTACT · 1ST', member:'NEW MEMBER · 2ND', other:'OTHER'};
+
+const bookingsFor = type => BOOKINGS.filter(b => b.type === type).sort((a, b) => a.from - b.from);
+const freeUnitsAt = (type, from, to) =>
+  UNITS[type].filter(u => !BOOKINGS.some(b => b.unit === u && from < b.to && to > b.from));
+
+/* the unit that stays free the longest from a given start */
+function bestUnit(type, start){
+  const free = freeUnitsAt(type, start, start + STEP);
+  let pick = null, best = -1;
+  free.forEach(u => {
+    const next = BOOKINGS.filter(b => b.unit === u && b.from >= start + STEP).sort((a, b) => a.from - b.from)[0];
+    const runway = (next ? next.from : DAY_END) - start;
+    if (runway > best){ best = runway; pick = u; }
+  });
+  return pick;
+}
+function startTimes(type){
+  const out = [];
+  for (let m = nextSlot(NOW); m <= DAY_END - STEP; m += STEP)
+    if (freeUnitsAt(type, m, m + STEP).length) out.push(m);
+  return out;
+}
+/* end times stop at the next booking on the chosen unit */
+function endTimes(type, start){
+  const unit = bestUnit(type, start);
+  const next = BOOKINGS.filter(b => b.unit === unit && b.from >= start).sort((a, b) => a.from - b.from)[0];
+  const ceiling = Math.min(next ? next.from : DAY_END, DAY_END);
+  const out = [];
+  for (let m = start + STEP; m <= ceiling; m += STEP) out.push(m);
+  return out;
+}
+
+/* ------------------------------------------------- today's availability */
+const $ = s => document.querySelector(s);
+let type = 'room';
+
+function unitTimeline(unit){
+  const mine = BOOKINGS.filter(b => b.unit === unit).sort((a, b) => a.from - b.from);
+  const out = [];
+  let cur = DAY_START;
+  mine.forEach(b => {
+    if (b.from > cur) out.push({kind:'open', from:cur, to:b.from});
+    out.push({kind:'booked', from:b.from, to:b.to, b});
+    cur = Math.max(cur, b.to);
+  });
+  if (cur < DAY_END) out.push({kind:'open', from:cur, to:DAY_END});
+  return out;
+}
+const pct = m => ((m - DAY_START) / (DAY_END - DAY_START)) * 100;
+
+function renderDay(){
+  const span = DAY_END - DAY_START;
+
+  $('#day').innerHTML = UNITS[type].map((unit, i) => {
+    const rows = unitTimeline(unit);
+    const freeNow = !BOOKINGS.some(b => b.unit === unit && b.from <= NOW && b.to > NOW);
+    const nextFree = rows.find(r => r.kind === 'open' && r.to > NOW);
+
+    const bar = rows.map(r => {
+      const w = ((r.to - r.from) / span) * 100;
+      const cls = r.kind === 'open' ? 'free' : (r.b.mine ? 'busy mine' : 'busy');
+      const title = r.kind === 'open' ? fmt(r.from) + ' to ' + fmt(r.to) + ' open'
+                                      : r.b.what + ' · ' + r.b.who;
+      return '<span class="seg ' + cls + '" style="width:' + w + '%" title="' + title + '"></span>';
+    }).join('');
+
+    const lines = rows.map(r => {
+      if (r.kind === 'open'){
+        if (r.to <= NOW) return '';
+        const from = Math.max(r.from, nextSlot(NOW));
+        if (r.to - from < STEP) return '';
+        return '<div class="line open"><span class="when">' + fmt(from) + ' – ' + fmt(r.to) + '</span>' +
+               '<div><strong>Open</strong><p>Free to reserve for the whole window.</p></div></div>';
+      }
+      const b = r.b;
+      return '<div class="line' + (b.mine ? ' mine' : '') + '"><span class="when">' + fmt(b.from) + ' – ' + fmt(b.to) + '</span>' +
+             '<div><strong>' + b.what + '</strong><p>' + b.who + '</p>' +
+             '<span class="tag ' + b.rank + '">' + (b.mine ? 'YOUR RESERVATION' : RANK_LABEL[b.rank]) + '</span></div></div>';
+    }).join('');
+
+    return '<article class="ucard" style="animation-delay:' + (i * 55) + 'ms">' +
+      '<div class="uhead"><b>' + unit + '</b><span class="state ' + (freeNow ? 'free' : 'busy') + '">' +
+        (freeNow ? 'OPEN NOW' : 'FREE AT ' + fmt(nextFree ? nextFree.from : DAY_END)) + '</span></div>' +
+      '<div class="bar">' + bar + '<span class="nowline" style="left:' + pct(NOW) + '%"></span></div>' +
+      '<div class="ticks"><span>4 PM</span><span>6 PM</span><span>8 PM</span><span>10 PM</span></div>' +
+      lines + '</article>';
+  }).join('');
+
+  /* hero card */
+  const freeUnits = freeUnitsAt(type, NOW, NOW + STEP);
+  $('#openCount').textContent = freeUnits.length + (freeUnits.length === 1 ? ' OPEN NOW' : ' OPEN NOW');
+  if (freeUnits.length){
+    const unit = bestUnit(type, nextSlot(NOW));
+    const next = BOOKINGS.filter(b => b.unit === unit && b.from >= NOW).sort((a, b) => a.from - b.from)[0];
+    const runway = (next ? next.from : DAY_END) - nextSlot(NOW);
+    $('#nextTime').textContent = 'Now';
+    $('#nextLine').textContent = unit + ' · free for ' + (runway >= 60 ? (Math.round(runway / 6) / 10) + ' hours' : runway + ' minutes');
+    $('#meterFill').style.width = Math.max(12, Math.min(100, Math.round(runway / span * 100))) + '%';
+  } else {
+    const soonest = Math.min(...UNITS[type].map(u => {
+      const r = unitTimeline(u).find(x => x.kind === 'open' && x.to > NOW);
+      return r ? Math.max(r.from, NOW) : DAY_END;
+    }));
+    $('#nextTime').textContent = fmt(soonest);
+    $('#nextLine').textContent = 'Everything is in use until then';
+    $('#meterFill').style.width = '8%';
+  }
+  $('#dayRange').textContent = fmt(DAY_START) + ' – ' + fmt(DAY_END);
+}
+
+function moveSlider(btn){
+  const s = $('#slider'), host = btn.parentElement.getBoundingClientRect(), r = btn.getBoundingClientRect();
+  s.style.width = r.width + 'px';
+  s.style.transform = 'translateX(' + (r.left - host.left - 6) + 'px)';
+}
+document.querySelectorAll('.toggles button').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.toggles button').forEach(b => { b.classList.remove('on'); b.setAttribute('aria-selected', 'false'); });
+  btn.classList.add('on'); btn.setAttribute('aria-selected', 'true');
+  type = btn.dataset.type;
+  moveSlider(btn);
+  renderDay();
+}));
+
+/* ------------------------------------------------------------ the flow */
+const sheet = $('#sheet'), scrim = $('#scrim'), flow = $('#flow');
+let state = {step:0, type:null, purpose:null, rank:null, start:null, end:null, unit:null};
+let lastFocus = null;
+
+function openSheet(){
+  lastFocus = document.activeElement;
+  state = {step:0, type:null, purpose:null, rank:null, start:null, end:null, unit:null};
+  sheet.classList.add('on'); scrim.classList.add('on');
+  render();
+}
+function closeSheet(){
+  sheet.classList.remove('on'); scrim.classList.remove('on');
+  if (lastFocus) lastFocus.focus();
+}
+$('#reserveNow').addEventListener('click', openSheet);
+$('#closeSheet').addEventListener('click', closeSheet);
+scrim.addEventListener('click', closeSheet);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheet.classList.contains('on')) closeSheet(); });
+
+function head(eyebrow, title, dot){
+  $('#sheetEyebrow').textContent = eyebrow;
+  $('#sheetTitle').textContent = title;
+  [...$('#dots').children].forEach((d, i) => d.classList.toggle('on', i <= dot));
+}
+const back = () => '<button class="back" data-back="1">← Back</button>';
+
+function render(){
+  const s = state.step;
+
+  if (s === 0){
+    head('NEW RESERVATION', 'What do you need?', 0);
+    flow.innerHTML = '<div class="step"><p class="hint">Pick the kind of space. Rooms ask one more question, the others go straight to times.</p>' +
+      [['room','▦','Room','Six study rooms in the wing'],
+       ['whiteboard','✎','Whiteboard','Three shared boards'],
+       ['tv','▣','TV','The lounge display']]
+      .map(o => '<button class="opt" data-type="' + o[0] + '"><span class="ic">' + o[1] + '</span>' +
+        '<span><b>' + o[2] + '</b><small>' + o[3] + '</small></span><span class="go">→</span></button>').join('') + '</div>';
+    return;
+  }
+
+  if (s === 1){
+    head('STEP 2 OF 5 · PRIORITY', 'What is the room for?', 1);
+    flow.innerHTML = '<div class="step">' + back() +
+      '<p class="hint">Purpose sets priority when rooms are tight.</p>' +
+      '<button class="opt p1" data-rank="contact" data-purpose="Bible study with a contact"><span class="ic">★</span><span><b>Contact<span class="rank">1ST PRIORITY</span></b><small>Study or meeting with a contact</small></span><span class="go">→</span></button>' +
+      '<button class="opt p2" data-rank="member" data-purpose="New member study"><span class="ic">◆</span><span><b>New Member<span class="rank">2ND PRIORITY</span></b><small>Study or meeting with a new member</small></span><span class="go">→</span></button>' +
+      '<button class="opt p3" id="otherBtn"><span class="ic">＋</span><span><b>Other<span class="rank">LAST PRIORITY</span></b><small>Tell us what it is for</small></span><span class="go">→</span></button>' +
+      '<div class="other-wrap" id="otherWrap"><input id="otherText" placeholder="What is the room for?" autocomplete="off">' +
+      '<button class="cta" id="otherGo" style="margin-top:12px" disabled>Continue</button></div></div>';
+
+    $('#otherBtn').addEventListener('click', () => {
+      $('#otherWrap').classList.add('show');
+      $('#otherText').focus();
+    });
+    const txt = $('#otherText'), go = $('#otherGo');
+    txt.addEventListener('input', () => { go.disabled = txt.value.trim().length === 0; });
+    txt.addEventListener('keydown', e => { if (e.key === 'Enter' && !go.disabled) go.click(); });
+    go.addEventListener('click', () => {
+      state.purpose = txt.value.trim();
+      state.rank = 'other';
+      state.step = 2;
+      render();
+    });
+    return;
+  }
+
+  if (s === 2){
+    head('STEP 3 OF 5 · START', 'When would you like to start?', 2);
+    const times = startTimes(state.type);
+    flow.innerHTML = '<div class="step">' + back() +
+      '<p class="hint">Only times with a free ' + LABEL[state.type].toLowerCase() + ' are shown.</p>' +
+      '<div class="times">' + times.map(m => '<button class="time" data-start="' + m + '">' + fmt(m) + '</button>').join('') + '</div>' +
+      '<p class="cap">Times already taken are left out, so you cannot double book.</p></div>';
+    return;
+  }
+
+  if (s === 3){
+    head('STEP 4 OF 5 · END', 'When would you like to end?', 3);
+    const ends = endTimes(state.type, state.start);
+    const ceiling = ends[ends.length - 1];
+    const why = ceiling >= DAY_END ? 'when the study wing closes for the night.'
+                                   : 'when the next reservation in ' + state.unit + ' begins.';
+    flow.innerHTML = '<div class="step">' + back() +
+      '<p class="hint">Starting ' + fmt(state.start) + ' in ' + state.unit + '.</p>' +
+      '<div class="times">' + ends.map(m => '<button class="time" data-end="' + m + '">' + fmt(m) + '</button>').join('') + '</div>' +
+      '<p class="cap">The list stops at ' + fmt(ceiling) + ', ' + why + '</p></div>';
+    return;
+  }
+
+  if (s === 4){
+    head('STEP 5 OF 5 · REVIEW', 'Confirm your reservation', 4);
+    flow.innerHTML = '<div class="step">' + back() +
+      '<div class="summary">' +
+        '<div class="srow"><span>Space</span><b>' + state.unit + '</b></div>' +
+        (state.type === 'room' ? '<div class="srow"><span>Purpose</span><b>' + state.purpose + '</b></div>' : '') +
+        '<div class="srow"><span>Time</span><b>' + fmt(state.start) + ' – ' + fmt(state.end) + '</b></div>' +
+        '<div class="srow"><span>Length</span><b>' + (state.end - state.start) + ' minutes</b></div>' +
+        '<div class="srow"><span>Date</span><b>Today, Sat Sep 12</b></div>' +
+      '</div><button class="cta" id="confirm">Confirm Reservation</button>' +
+      '<button class="cta ghost" data-back="1" style="margin-top:9px">Change something</button></div>';
+    $('#confirm').addEventListener('click', confirmBooking);
+    return;
+  }
+
+  head('RESERVED', 'You are all set', 4);
+  flow.innerHTML = '<div class="step done"><div class="orb">✓</div>' +
+    '<h3>' + state.unit + ' is yours</h3>' +
+    '<p>' + fmt(state.start) + ' – ' + fmt(state.end) +
+    (state.type === 'room' ? ' · ' + state.purpose : '') +
+    '<br>It is on tonight\'s schedule now.</p>' +
+    '<button class="cta" id="done" style="margin-top:22px">See it on the schedule</button></div>';
+  $('#done').addEventListener('click', () => {
+    closeSheet();
+    document.querySelector('.line.mine')?.closest('.ucard')?.scrollIntoView({behavior:'smooth', block:'center'});
+  });
+}
+
+function confirmBooking(){
+  BOOKINGS.push({
+    type:state.type, unit:state.unit, from:state.start, to:state.end,
+    who:'You', what:state.purpose || LABEL[state.type] + ' reservation',
+    rank:state.rank || 'other', mine:true
+  });
+  state.step = 5;
+  render();
+  const btn = document.querySelector('.toggles button[data-type="' + state.type + '"]');
+  if (btn) btn.click(); else renderDay();
+}
+
+/* one delegated handler for every step */
+flow.addEventListener('click', e => {
+  const el = e.target.closest('[data-type],[data-rank],[data-start],[data-end],[data-back]');
+  if (!el) return;
+
+  if (el.dataset.back){
+    state.step = state.step === 2 ? (state.type === 'room' ? 1 : 0)
+               : state.step === 4 ? 3
+               : state.step - 1;
+    return render();
+  }
+  if (el.dataset.type){
+    state.type = el.dataset.type;
+    state.step = el.dataset.type === 'room' ? 1 : 2;
+    return render();
+  }
+  if (el.dataset.rank){
+    state.rank = el.dataset.rank;
+    state.purpose = el.dataset.purpose;
+    state.step = 2;
+    return render();
+  }
+  if (el.dataset.start){
+    state.start = +el.dataset.start;
+    state.unit = bestUnit(state.type, state.start);
+    state.step = 3;
+    return render();
+  }
+  if (el.dataset.end){
+    state.end = +el.dataset.end;
+    state.step = 4;
+    return render();
+  }
+});
+
+$('#dateChip').addEventListener('click', () => { $('#dateChip').textContent = 'Today only in this mockup'; });
+
+/* ---------------------------------------------------------------- init */
+renderDay();
+requestAnimationFrame(() => moveSlider(document.querySelector('.toggles button.on')));
+window.addEventListener('resize', () => moveSlider(document.querySelector('.toggles button.on')));
+</script>
+</body>
+</html>
