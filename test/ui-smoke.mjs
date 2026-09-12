@@ -215,6 +215,8 @@ try {
   assert.match(await page.locator('.booking-approval-hint').innerText(), /confirmed right away/);
   assert.equal(await page.locator('.home-dashboard').evaluate(node => node.inert), true, 'Home is inert behind the reservation dialog');
   await page.locator('#su-name').fill('Sample Member');
+  assert.equal(await page.locator('#su-reserved-for').count(), 1, 'Reservation form collects a purpose-specific reserved-for value');
+  await page.locator('#su-reserved-for').fill('Sample contact');
   await page.getByRole('button', { name: 'Reserve now' }).click();
   assert.equal(await page.getByText('Sample preview only — no reservation was saved.', { exact: true }).count(), 1, 'The demo form completes safely without Firebase');
   page.once('dialog', dialog => dialog.accept());
@@ -316,6 +318,7 @@ try {
   assert.ok(await page.locator('.reservation-card').count() > 0, 'My reservations keeps compact cards');
   assert.equal(await page.locator('.reservation-card .req-sub').count(), 0, 'Card details are condensed into one concise metadata row');
   assert.ok(await page.locator('.reservation-card .reservation-meta').count() > 0);
+  assert.ok(await page.getByText(/Reserved for:/).count() > 0, 'Own reservation cards show reserved-for details');
   assert.ok(await page.getByRole('button', { name: /Cancel (reservation|request)/ }).count() > 0, 'Active items have a clear cancel action');
   assert.equal(await page.locator('.cancel-request-btn').first().evaluate(node => node.tagName), 'BUTTON');
   const cancelTarget = await page.locator('.cancel-request-btn').first().evaluate(node => node.getBoundingClientRect().height);

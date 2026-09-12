@@ -93,6 +93,7 @@ let ui = {
   endPrompt: null, // { date, type, start, windowIdx }; shown after choosing a start
   selectionConfirm: null, // { date, type, start, end }; confirmation popup after choosing an end
   availabilityDetails: null, // { date, type, start, end }; read-only availability sheet
+  bookingDetails: null, // { id, date, type, start, unit }; public or owner reservation sheet
   endEarly: null,       // { id }; "finished early" sheet for one of this device's reservations
   availabilityConflict: null, // rejected range plus optional shorter ending
   pinError: '',
@@ -339,18 +340,90 @@ function needLabel(type) {
 function isValidBooking(b) {
   return !!b && typeof b === 'object' && !('resourceId' in b) && b.needs && typeof b.needs === 'object';
 }
-function bookingsList() {
+const PUBLIC_TITLE_INITIALS = { brother: 'B', sister: 'S', elder: 'E', missionary: 'M', deacon: 'D', deaconess: 'D', pastor: 'P' };
+function publicNameKey(value) {
+  return String(value || '').normalize('NFKC').trim().toLocaleLowerCase('en-US');
+}
+function parsePublicName(value) {
+  const tokens = String(value || '').trim().split(/\s+/).filter(Boolean);
+  let titleInitial = '';
+  if (tokens.length) {
+    const candidate = tokens[0].replace(/[.,]+$/g, '');
+    const title = PUBLIC_TITLE_INITIALS[candidate.toLocaleLowerCase('en-US')];
+    if (title) titleInitial = title;
+    else if (/^[BSEMDP]$/i.test(candidate)) titleInitial = candidate.toUpperCase();
+    if (titleInitial) tokens.shift();
+  }
+  const givenName = tokens.shift() || '';
+  const surname = tokens.join(' ');
+  const surnameParts = surname.split(/\s+/).filter(Boolean);
+  const surnameText = surnameParts.join(' ');
+  const cleanedSurname = surnameText.replace(/[.,]+/g, '');
+  const surnameKey = surnameParts.length === 1 && /^[\p{L}]$/u.test(cleanedSurname)
+    ? 'initial:' + publicNameKey(cleanedSurname)
+    : 'name:' + publicNameKey(surnameText);
+  const surnameInitialMatch = String(surnameText).replace(/^[^\p{L}\p{N}]+/u, '').match(/^./u);
+  return {
+    titleInitial,
+    givenName,
+    givenKey: publicNameKey(givenName),
+    surnameKey,
+    surnameInitial: surnameInitialMatch ? surnameInitialMatch[0].toLocaleUpperCase('en-US') : ''
+  };
+}
+function publicDisplayName(value, peers) {
+  const parsed = parsePublicName(value);
+  if (!parsed.givenName) return 'Reserved';
+  const collision = (Array.isArray(peers) ? peers : []).some(peer => {
+    const other = parsePublicName(peer);
+    return other.givenKey === parsed.givenKey && other.surnameKey !== parsed.surnameKey;
+  });
+  return [parsed.titleInitial, parsed.givenName, collision ? parsed.surnameInitial : ''].filter(Boolean).join(' ');
+}
+function rawBookingsList() {
   const live = Object.keys(state.bookings)
     .map(id => Object.assign({ id: id }, state.bookings[id]))
     .filter(isValidBooking);
   return demoMode() ? demoBookings() : live;
 }
+function ownsBooking(b) {
+  if (!b) return false;
+  if (demoMode()) return myBookingIds().indexOf(b.id) !== -1;
+  return !!(fb && fb.auth && fb.auth.currentUser && b.ownerUid === fb.auth.currentUser.uid);
+}
+function publicBookingView(b, peers) {
+  const view = Object.assign({}, b);
+  view.name = b.purpose === 'blocked' || b.blocked === true ? 'Reserved' : publicDisplayName(b.name, peers);
+  delete view.ownerUid;
+  delete view.purposeOther;
+  delete view.reservedFor;
+  delete view.note;
+  delete view.privateNote;
+  delete view.priorityNotice;
+  delete view.needsRebooking;
+  delete view.overrodeBookingIds;
+  return view;
+}
+function ownerBookingView(b) {
+  const view = Object.assign({}, b);
+  if (!view.reservedFor && view.purpose === 'other' && typeof view.purposeOther === 'string') {
+    view.reservedFor = view.purposeOther.trim();
+  }
+  return view;
+}
+function bookingsList() {
+  const raw = rawBookingsList();
+  if (ui.tab === 'admin' && adminUnlocked()) return raw;
+  const peers = raw.filter(b => b.status === 'approved' && b.purpose !== 'blocked').map(b => b.name).filter(Boolean);
+  return raw.map(b => publicBookingView(b, peers));
+}
 function bookingByIdSafe(id) {
-  const sample = demoBookings().find(b => b.id === id);
-  if (demoMode()) return sample || null;
-  if (sample) return sample;
-  const b = state.bookings[id];
-  return isValidBooking(b) ? Object.assign({ id: id }, b) : null;
+  const b = rawBookingsList().find(booking => booking.id === id);
+  if (!b) return null;
+  if (ui.tab === 'admin' && adminUnlocked()) return b;
+  if (ownsBooking(b)) return ownerBookingView(b);
+  const peers = rawBookingsList().filter(booking => booking.status === 'approved' && booking.purpose !== 'blocked').map(booking => booking.name).filter(Boolean);
+  return publicBookingView(b, peers);
 }
 
 function demoBookings() {
@@ -361,7 +434,7 @@ function demoBookings() {
   const created = Date.now() - 45 * 60 * 1000;
   return [
     // Tuesday: confirmed examples, a full short interval, equipment, and late slots.
-    { id: 'demo-room-4', date: tuesday, start: '10:00', end: '13:30', name: 'Anthony', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-4', whiteboard: null, tv: null }, createdAt: created, decidedAt: created + 1000 },
+    { id: 'demo-room-4', date: tuesday, start: '10:00', end: '13:30', name: 'Anthony', purpose: 'contact', purposeOther: '', reservedFor: 'Sample contact', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-4', whiteboard: null, tv: null }, createdAt: created, decidedAt: created + 1000 },
     // ISO decision time verifies that Live updates uses the actual latest update, not fixture order.
     { id: 'demo-room-1-full', date: tuesday, start: '11:00', end: '11:30', name: 'Jordan A.', purpose: 'other', purposeOther: 'Catching up', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2000, decidedAt: new Date(created + 3000).toISOString() },
     { id: 'demo-room-2-full', date: tuesday, start: '11:00', end: '11:30', name: 'Taylor B.', purpose: 'other', purposeOther: 'Catching up', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 3000, decidedAt: created - 2000 },
@@ -375,13 +448,13 @@ function demoBookings() {
     { id: 'demo-tv-2', date: tuesday, start: '14:00', end: '15:00', name: 'Maria R.', purpose: 'new-member', purposeOther: '', status: 'cancelled', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: null }, lastAssignments: { room: null, whiteboard: null, tv: 'tv-2' }, createdAt: created - 600000, updatedAt: created - 300000 },
     // The two priority updates: one that kept its time in another room, one
     // that had to be released because nothing else was open.
-    { id: 'demo-room-moved', date: tuesday, start: '18:00', end: '19:00', name: 'Anthony', purpose: 'other', purposeOther: 'Catching up', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 800000, decidedAt: created - 800000, updatedAt: created - 60000, priorityNotice: { kind: 'moved', type: 'room', fromUnit: 'room-2', toUnit: 'room-3', byPurpose: 'new-member', at: created - 60000 } },
-    { id: 'demo-room-released', date: tuesday, start: '11:00', end: '11:30', name: 'Anthony', purpose: 'other', purposeOther: 'Catching up', status: 'overridden', needsRebooking: true, needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 500000, updatedAt: created - 30000, priorityNotice: { kind: 'released', type: 'room', fromUnit: 'room-2', toUnit: null, byPurpose: 'contact', at: created - 30000 } },
-    { id: 'demo-room-cancelled', date: tuesday, start: '17:00', end: '18:00', name: 'Anthony', purpose: 'meeting', purposeOther: '', status: 'cancelled', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1500000, updatedAt: created - 1400000 },
+    { id: 'demo-room-moved', date: tuesday, start: '18:00', end: '19:00', name: 'Anthony', purpose: 'other', purposeOther: 'Catching up', reservedFor: 'Catching up', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 800000, decidedAt: created - 800000, updatedAt: created - 60000, priorityNotice: { kind: 'moved', type: 'room', fromUnit: 'room-2', toUnit: 'room-3', byPurpose: 'new-member', at: created - 60000 } },
+    { id: 'demo-room-released', date: tuesday, start: '11:00', end: '11:30', name: 'Anthony', purpose: 'other', purposeOther: 'Catching up', reservedFor: 'Catching up', status: 'overridden', needsRebooking: true, needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 500000, updatedAt: created - 30000, priorityNotice: { kind: 'released', type: 'room', fromUnit: 'room-2', toUnit: null, byPurpose: 'contact', at: created - 30000 } },
+    { id: 'demo-room-cancelled', date: tuesday, start: '17:00', end: '18:00', name: 'Anthony', purpose: 'meeting', purposeOther: '', reservedFor: '', status: 'cancelled', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: null, whiteboard: null, tv: null }, createdAt: created - 1500000, updatedAt: created - 1400000 },
     // Saturday: confirmed on submission, exactly like Tuesday.
     { id: 'demo-sat-room-1', date: saturday, start: '11:00', end: '13:00', name: 'Elena M.', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 2400000, decidedAt: created - 2300000 },
     { id: 'demo-sat-room-2', date: saturday, start: '11:30', end: '12:30', name: 'Isaac V.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-2', whiteboard: null, tv: null }, createdAt: created - 2500000, decidedAt: created - 2400000 },
-    { id: 'demo-sat-room-mine', date: saturday, start: '11:00', end: '12:30', name: 'Grace L.', purpose: 'new-member', purposeOther: '', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 900000, decidedAt: created - 900000 },
+    { id: 'demo-sat-room-mine', date: saturday, start: '11:00', end: '12:30', name: 'Grace L.', purpose: 'new-member', purposeOther: '', reservedFor: 'Grace new member', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-3', whiteboard: null, tv: null }, createdAt: created - 900000, decidedAt: created - 900000 },
     { id: 'demo-sat-tv-1', date: saturday, start: '16:00', end: '17:30', name: 'Micah S.', purpose: 'meeting', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: 'tv-1' }, createdAt: created - 850000, decidedAt: created - 850000 },
     { id: 'demo-sat-wb-2', date: saturday, start: '17:30', end: '19:00', name: 'Hannah C.', purpose: 'contact', purposeOther: '', status: 'approved', needs: { room: false, whiteboard: true, tv: false }, assignments: { room: null, whiteboard: 'wb-2', tv: null }, createdAt: created - 2600000, decidedAt: created - 2500000 },
     { id: 'demo-sat-room-late', date: saturday, start: '22:30', end: '23:00', name: 'Samuel D.', purpose: 'other', purposeOther: 'Review meeting', status: 'approved', needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, createdAt: created - 700000, decidedAt: created - 700000 }
@@ -403,7 +476,7 @@ const PURPOSE_MAP = {};
 PURPOSES.concat(ADMIN_PURPOSES, LEGACY_PURPOSES).forEach(p => { PURPOSE_MAP[p.id] = p.label; });
 function purposeLabel(p) { return PURPOSE_MAP[p] || p || ''; }
 function bookingPurposeText(b) {
-  if (b.purpose === 'other' && b.purposeOther) return 'Other — ' + b.purposeOther;
+  if (b.purpose === 'other' && b.purposeOther) return 'Other: ' + b.purposeOther;
   return purposeLabel(b.purpose);
 }
 const STATUS_LABEL = { pending: 'Pending review', approved: 'Approved', declined: 'Declined', cancelled: 'Cancelled', overridden: 'Given to a higher priority' };
@@ -768,7 +841,7 @@ function render() {
   // live updates never erase unsaved member details.
   const activeBeforeRender = document.activeElement;
   const adminPinDraft = activeBeforeRender && activeBeforeRender.id === 'admin-pin-input' ? activeBeforeRender.value : '';
-  const popupFocus = (ui.signup || ui.endPrompt || ui.availabilityDetails || ui.endEarly) && activeBeforeRender && activeBeforeRender.closest('.booking-dialog')
+  const popupFocus = (ui.signup || ui.endPrompt || ui.availabilityDetails || ui.bookingDetails || ui.endEarly) && activeBeforeRender && activeBeforeRender.closest('.booking-dialog')
     ? { id: activeBeforeRender.id || '', act: activeBeforeRender.dataset.act || '', item: activeBeforeRender.dataset.id || '' }
     : null;
   const actionNode = activeBeforeRender && !activeBeforeRender.closest('.booking-dialog') && !activeBeforeRender.closest('#tabs')
@@ -786,7 +859,7 @@ function render() {
   syncMastheadScheduleLink();
   syncSignupDraft();
   syncAdminFormDraft();
-  document.body.classList.toggle('modal-open', !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails || !!ui.endEarly);
+  document.body.classList.toggle('modal-open', !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails || !!ui.bookingDetails || !!ui.endEarly);
   document.body.classList.toggle('admin-workspace-open', ui.tab === 'admin' && adminUnlocked());
 
   const date = selectedDate();
@@ -811,7 +884,7 @@ function render() {
 
   const masthead = document.querySelector('#masthead .head-in');
   const primaryNav = document.querySelector('nav[aria-label="Primary"]');
-  const sheetOpen = !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails || !!ui.selectionConfirm || !!ui.endEarly;
+  const sheetOpen = !!ui.signup || !!ui.endPrompt || !!ui.availabilityDetails || !!ui.bookingDetails || !!ui.selectionConfirm || !!ui.endEarly;
   if (masthead) masthead.inert = sheetOpen;
   if (primaryNav) primaryNav.inert = sheetOpen;
   // My reservations renders its list and feed as siblings of the intro, so
@@ -949,7 +1022,7 @@ function dayMapGridHtml(date, type, options = {}) {
             return '<div class="member-square ' + status + ' home-occupied-cell home-held-cell ' + tone + '" data-held="true" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved') + '">' + body + '</div>';
           }
           const takenKey = 'home-taken-' + date + '-' + type + '-' + start + '-' + unit.id;
-          return '<button type="button" class="member-square ' + status + ' home-occupied-cell ' + tone + '" data-act="home-taken-slot" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + start + '" data-focus-key="' + esc(takenKey) + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved by ' + name + ', ' + purpose + '. Open this time to see your options.') + '">' + body + '</button>';
+          return '<button type="button" class="member-square ' + status + ' home-occupied-cell ' + tone + '" data-act="home-taken-slot" data-booking="' + esc(occupant.id || '') + '" data-date="' + esc(date) + '" data-type="' + esc(type) + '" data-start="' + start + '" data-unit="' + esc(unit.id) + '" data-focus-key="' + esc(takenKey) + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', reserved by ' + name + ', ' + purpose + '. Open this time to see your options.') + '">' + body + '</button>';
         }
         return '<div class="member-square ' + status + '" aria-label="' + esc(fmtTime(start) + ', ' + unit.label + ', ' + (occupant ? 'reserved by ' + occupant.name : status)) + '">' + (occupant ? esc(occupant.name) : '') + '</div>';
       }).join('') + '</div></div>';
@@ -1047,6 +1120,7 @@ function renderHome() {
   if (ui.signup) html += bookingModalHtml();
   else if (ui.endPrompt) html += endTimePromptHtml();
   else if (ui.availabilityDetails) html += availabilityDetailsHtml();
+  else if (ui.bookingDetails) html += bookingDetailsHtml();
   else if (ui.selectionConfirm) html += selectionConfirmHtml();
   return html;
 }
@@ -1187,6 +1261,41 @@ function availabilityDetailsHtml() {
     '<div class="modal-actions"><button type="button" class="btn primary" data-act="member-close-sheet">Done</button></div></section></div>';
 }
 
+function reservedForValue(b) {
+  if (!b) return '';
+  if (typeof b.reservedFor === 'string' && b.reservedFor.trim()) return b.reservedFor.trim();
+  return b.purpose === 'other' && typeof b.purposeOther === 'string' ? b.purposeOther.trim() : '';
+}
+function reservedForLabel(purpose) {
+  if (purpose === 'contact') return 'Contact name';
+  if (purpose === 'new-member') return 'Member name';
+  if (purpose === 'other') return 'Purpose description';
+  return 'Reserved for';
+}
+function bookingDetailsHtml() {
+  const details = ui.bookingDetails;
+  const b = details ? bookingByIdSafe(details.id) : null;
+  if (!b) return '';
+  const owner = ownsBooking(b);
+  const active = b.status === 'pending' || b.status === 'approved';
+  const reservedFor = owner ? reservedForValue(b) : '';
+  const purpose = b.purpose === 'blocked' || b.blocked === true ? 'Reserved' : bookingPurposeText(b);
+  const resource = resourceLabelFor(b);
+  const canEndEarly = owner && b.status === 'approved' && endEarlyOptions(b).length > 0;
+  return '<div class="modal-backdrop booking-details-backdrop" role="presentation"><section class="booking-dialog booking-details-dialog" role="dialog" aria-modal="true" aria-labelledby="booking-details-title">' +
+    '<div class="booking-dialog-head"><div><div class="booking-kicker">' + esc(fmtDate(b.date)) + '</div><h2 id="booking-details-title">Reservation details</h2></div><button type="button" class="modal-close" data-act="booking-details-close" aria-label="Close reservation details">&times;</button></div>' +
+    '<p class="booking-time-summary"><strong>' + esc(resource) + '</strong> / ' + esc(fmtTime(b.start) + ' to ' + fmtTime(b.end)) + '</p>' +
+    '<dl class="booking-detail-list"><div><dt>Name</dt><dd>' + esc(b.purpose === 'blocked' ? 'Reserved' : b.name) + '</dd></div><div><dt>Purpose</dt><dd>' + esc(purpose) + '</dd></div>' +
+    (reservedFor ? '<div><dt>' + esc(reservedForLabel(b.purpose)) + '</dt><dd>' + esc(reservedFor) + '</dd></div>' : '') +
+    '</dl>' +
+    (b.status !== 'approved' ? '<p class="hint">' + esc(STATUS_LABEL[b.status] || b.status || 'Unavailable') + '</p>' : '') +
+    (owner && active ? '<div class="modal-actions booking-details-actions">' +
+      (canEndEarly ? '<button type="button" class="btn" data-act="booking-details-end-early" data-id="' + esc(b.id) + '">End early</button>' : '') +
+      '<button type="button" class="btn danger" data-act="booking-details-cancel" data-id="' + esc(b.id) + '">' + (b.status === 'approved' ? 'Cancel reservation' : 'Cancel request') + '</button></div>' :
+      (!owner && b.status === 'approved' && b.purpose !== 'blocked' ? '<div class="modal-actions booking-details-actions"><button type="button" class="btn primary" data-act="booking-details-reserve" data-date="' + esc(details.date) + '" data-type="' + esc(details.type) + '" data-start="' + esc(details.start) + '">See reservation options</button></div>' : '')) +
+    '</section></div>';
+}
+
 function endTimePromptHtml() {
   const d = ui.endPrompt;
   const period = d && bookingWindows(d.date)[d.windowIdx];
@@ -1304,12 +1413,13 @@ function priorityNoticeHtml(b) {
 function myRequestRowHtml(b, date, featured) {
   const active = b.status === 'pending' || b.status === 'approved';
   const featureClass = featured ? (b.status === 'approved' ? ' featured-approved' : b.status === 'pending' ? ' featured-pending' : '') : '';
+  const reservedFor = reservedForValue(b);
   // A reservation that is only one 30-minute block long cannot be shortened;
   // finishing that early simply means cancelling it.
   const canEndEarly = b.status === 'approved' && endEarlyOptions(b).length > 0;
   return '<article class="req-row reservation-card' + featureClass + '">' +
     '<div class="reservation-card-head"><time class="reservation-time">' + esc(fmtDate(b.date)) + ' · ' + esc(fmtTime(b.start)) + '–' + esc(fmtTime(b.end)) + '</time>' + myRequestStatusHtml(b, date) + '</div>' +
-    '<div class="reservation-meta"><span>' + esc(needsSummary(b)) + '</span><span aria-hidden="true">·</span><span>' + esc(bookingPurposeText(b)) + '</span></div>' +
+    '<div class="reservation-meta"><span>' + esc(needsSummary(b)) + '</span><span aria-hidden="true">/</span><span>' + esc(bookingPurposeText(b)) + '</span>' + (reservedFor ? '<span>Reserved for: ' + esc(reservedFor) + '</span>' : '') + '</div>' +
     (endedEarly(b) ? '<p class="reservation-note">Ended early · originally booked until ' + esc(fmtTime(b.endedEarlyFrom)) + '</p>' : '') +
     priorityNoticeHtml(b) +
     (b.status === 'overridden' ? '<div class="req-actions"><button type="button" class="btn small primary" data-act="my-rebook" data-id="' + esc(b.id) + '">Reserve another time</button></div>' : '') +
@@ -1333,6 +1443,7 @@ function ensureSignupDraft() {
     windowIdx: null,
     purpose: 'contact',
     purposeOther: '',
+    reservedFor: '',
     certainty: null,
     note: ''
   };
@@ -1346,10 +1457,13 @@ function syncSignupDraft() {
   if (!d) return;
   const name = document.getElementById('su-name');
   const note = document.getElementById('su-note');
-  const other = document.getElementById('su-other');
+  const reservedFor = document.getElementById('su-reserved-for');
   if (name) d.name = name.value;
   if (note) d.note = note.value;
-  if (other) d.purposeOther = other.value;
+  if (reservedFor) {
+    d.reservedFor = reservedFor.value;
+    if (d.purpose === 'other') d.purposeOther = reservedFor.value;
+  }
 }
 
 function signupComparable(d) {
@@ -1357,7 +1471,7 @@ function signupComparable(d) {
   return JSON.stringify({
     date: d.date || '', name: d.name || '', needs: d.needs, preferredRoom: d.preferredRoom || null,
     start: d.start, end: d.end, windowIdx: d.windowIdx,
-    purpose: d.purpose, purposeOther: d.purposeOther || '', certainty: d.certainty,
+    purpose: d.purpose, purposeOther: d.purposeOther || '', reservedFor: d.reservedFor || '', certainty: d.certainty,
     note: d.note || ''
   });
 }
@@ -1420,6 +1534,14 @@ function closeAvailabilityDetails() {
   restoreFocusKey(key);
 }
 
+function closeBookingDetails() {
+  const key = ui.returnFocusKey;
+  ui.bookingDetails = null;
+  ui.returnFocusKey = null;
+  render();
+  restoreFocusKey(key);
+}
+
 function restoreFocusKey(key) {
   requestAnimationFrame(() => {
     const target = key ? Array.from(document.querySelectorAll('[data-focus-key]')).find(node => node.dataset.focusKey === key) : null;
@@ -1438,6 +1560,25 @@ function showAvailabilityDetails(el) {
   render();
 }
 
+function openBookingDetails(el) {
+  const date = el.dataset.date;
+  const type = el.dataset.type;
+  const start = el.dataset.start;
+  const booking = el.dataset.booking ? bookingByIdSafe(el.dataset.booking) : null;
+  if (!booking || !upcomingBookingDates().includes(date) || !NEED_TYPES.some(item => item.id === type) || !start) return;
+  ui.bookingDetails = { id: booking.id, date, type, start, unit: el.dataset.unit || '' };
+  ui.returnFocusKey = el.dataset.focusKey || null;
+  render();
+}
+
+function reserveFromBookingDetails() {
+  const details = ui.bookingDetails;
+  if (!details) return;
+  const focusKey = ui.returnFocusKey;
+  ui.bookingDetails = null;
+  reserveFromHomeOverview({ dataset: { date: details.date, type: details.type, start: details.start, focusKey } });
+}
+
 function reserveFromHomeOverview(el) {
   const date = el.dataset.date;
   const type = el.dataset.type;
@@ -1447,6 +1588,7 @@ function reserveFromHomeOverview(el) {
   ui.selectedDate = date;
   ui.memberSelection = { date, type, start, end: null, windowIdx: periodIdx };
   ui.availabilityConflict = null;
+  ui.bookingDetails = null;
   ui.selectionConfirm = null;
   ui.endPrompt = { date, type, start, windowIdx: periodIdx };
   ui.returnFocusKey = el.dataset.focusKey || null;
@@ -1460,6 +1602,7 @@ function clearHomeReservationState() {
   ui.selectionConfirm = null;
   ui.endPrompt = null;
   ui.availabilityDetails = null;
+  ui.bookingDetails = null;
   ui.returnFocusKey = null;
 }
 
@@ -1492,6 +1635,7 @@ function openMemberDetails(override) {
     end: selected.end,
     purpose: 'contact',
     purposeOther: '',
+    reservedFor: '',
     override: takeover
   };
   ui.signupBaseline = signupComparable(ui.signup);
@@ -1588,12 +1732,13 @@ function signupExistingHtml(d, date) {
 
 function purposeChipsHtml(d) {
   const choices = d.override ? PURPOSES.filter(p => OVERRIDE_PURPOSES.includes(p.id)) : PURPOSES;
+  const limit = d.purpose === 'other' ? 240 : 120;
+  const label = reservedForLabel(d.purpose);
+  const placeholder = d.purpose === 'other' ? 'Short description' : 'Name';
   return '<div class="purpose-grid">' + choices.map(p =>
     '<button type="button" class="purpose-chip purpose-' + esc(p.id) + (d.purpose === p.id ? ' active' : '') + '" data-act="su-purpose" data-id="' + p.id + '" aria-pressed="' + (d.purpose === p.id ? 'true' : 'false') + '"><span class="purpose-swatch" aria-hidden="true"></span>' + esc(p.rank + '. ' + p.label) + '</button>'
   ).join('') + '</div>' +
-  (d.purpose === 'other'
-    ? '<label class="fld purpose-other-label" for="su-other">Describe the purpose</label><input class="purpose-other-field" type="text" id="su-other" value="' + esc(d.purposeOther) + '" placeholder="Short description" required>'
-    : '');
+  '<label class="fld purpose-other-label" for="su-reserved-for">' + esc(label) + '</label><input class="purpose-other-field" type="text" id="su-reserved-for" value="' + esc(d.reservedFor || (d.purpose === 'other' ? d.purposeOther : '')) + '" placeholder="' + esc(placeholder) + '" maxlength="' + limit + '" required>';
 }
 
 function certaintyButtonsHtml(d) {
@@ -1643,7 +1788,7 @@ async function submitSignup(form) {
   const d = ui.signup;
   const date = d.date || selectedDate();
   const name = (d.name || '').trim();
-  const purposeOther = (d.purposeOther || '').trim();
+  const reservedFor = (d.reservedFor || (d.purpose === 'other' ? d.purposeOther : '') || '').trim();
 
   if (!subscribedDateKey || subscribedDateKey !== upcomingBookingDates().join('|') || !upcomingBookingDates().includes(date)) {
     addBanner('The schedule changed overnight. Reload the app and choose the time again.', true);
@@ -1654,7 +1799,8 @@ async function submitSignup(form) {
   if (!d.start || !d.end) { addBanner('Please choose a start and end time.', true); return; }
   if (!isValidBookingRange(date, d.start, d.end)) { addBanner('That time is outside the available reservation periods. Please choose a new time.', true); return; }
   if (!d.purpose) { addBanner('Please choose a purpose.', true); return; }
-  if (d.purpose === 'other' && !purposeOther) { addBanner('Please describe the purpose.', true); return; }
+  if (!/[\p{L}\p{N}]/u.test(reservedFor)) { addBanner(reservedForLabel(d.purpose) + ' is required.', true); return; }
+  if (reservedFor.length > (d.purpose === 'other' ? 240 : 120)) { addBanner(reservedForLabel(d.purpose) + ' is too long.', true); return; }
   if (!fb || !fb.auth.currentUser) {
     addBanner('The shared schedule is still connecting. Wait a moment, then try again.', true);
     return;
@@ -1678,7 +1824,8 @@ async function submitSignup(form) {
       name: name,
       resourceType: d.resourceType,
       purpose: d.purpose,
-      purposeOther: d.purpose === 'other' ? purposeOther : ''
+      purposeOther: d.purpose === 'other' ? reservedFor : '',
+      reservedFor: reservedFor
     });
     addMyBookingId(result.bookingId || id);
     try { localStorage.setItem(NAME_KEY, name); } catch (e) { /* storage full/blocked */ }
@@ -2405,6 +2552,7 @@ function handleAction(act, el) {
     ui.memberSelection = null;
     ui.endPrompt = null;
     ui.availabilityDetails = null;
+    ui.bookingDetails = null;
     ui.availabilityConflict = null;
     ui.adminSelectedId = null;
     ui.adminAssign = {};
@@ -2431,11 +2579,28 @@ function handleAction(act, el) {
     return;
   }
   if (act === 'home-reserve-slot') { reserveFromHomeOverview(el); return; }
-  if (act === 'home-taken-slot') { reserveFromHomeOverview(el); return; }
+  if (act === 'home-taken-slot') { openBookingDetails(el); return; }
   if (act === 'member-end-time') { selectMemberEnd(el); return; }
   if (act === 'member-close-end-prompt') { closeEndPrompt(); return; }
   if (act === 'member-range-details') { showAvailabilityDetails(el); return; }
   if (act === 'member-close-sheet') { closeAvailabilityDetails(); return; }
+  if (act === 'booking-details-close') { closeBookingDetails(); return; }
+  if (act === 'booking-details-reserve') { reserveFromBookingDetails(); return; }
+  if (act === 'booking-details-end-early') {
+    const booking = bookingByIdSafe(el.dataset.id);
+    if (!booking || !ownsBooking(booking) || booking.status !== 'approved' || !endEarlyOptions(booking).length) return;
+    ui.bookingDetails = null;
+    ui.endEarly = { id: booking.id };
+    render();
+    return;
+  }
+  if (act === 'booking-details-cancel') {
+    const id = el.dataset.id;
+    ui.bookingDetails = null;
+    render();
+    cancelMyBooking(id);
+    return;
+  }
   if (act === 'admin-type') {
     if (!NEED_TYPES.some(type => type.id === el.dataset.id)) return;
     ui.adminType = el.dataset.id;
@@ -2510,7 +2675,7 @@ function handleAction(act, el) {
     return;
   }
   if (act === 'su-pref') { syncSignupDraft(); ensureSignupDraft(); ui.signup.preferredRoom = el.dataset.id || null; render(); return; }
-  if (act === 'su-purpose') { syncSignupDraft(); ensureSignupDraft(); ui.signup.purpose = el.dataset.id; render(); return; }
+  if (act === 'su-purpose') { syncSignupDraft(); ensureSignupDraft(); ui.signup.purpose = el.dataset.id; ui.signup.reservedFor = ''; ui.signup.purposeOther = ''; render(); return; }
   if (act === 'su-certainty') { syncSignupDraft(); ensureSignupDraft(); ui.signup.certainty = el.dataset.id; render(); return; }
   if (act === 'su-submit') { submitSignup(el); return; }
 
@@ -2647,11 +2812,12 @@ document.addEventListener('change', e => {
   }
 });
 document.addEventListener('keydown', e => {
-  if (!ui.signup && !ui.endPrompt && !ui.availabilityDetails && !ui.endEarly) return;
+  if (!ui.signup && !ui.endPrompt && !ui.availabilityDetails && !ui.bookingDetails && !ui.endEarly) return;
   if (e.key === 'Escape') {
     e.preventDefault();
     if (ui.signup) closeBookingModal(false);
     else if (ui.endPrompt) closeEndPrompt();
+    else if (ui.bookingDetails) closeBookingDetails();
     else if (ui.endEarly) { ui.endEarly = null; render(); }
     else closeAvailabilityDetails();
     return;
