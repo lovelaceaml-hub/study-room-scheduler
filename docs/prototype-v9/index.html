@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>LV Rooms — Floor Map</title>
+<link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <div><small>LV ZION</small><h1>Floor Map</h1></div>
+    <button class="pill" id="dateBtn">Tue, Sep 15 · 7:12 PM</button>
+  </header>
+
+  <nav class="views">
+    <button class="active" data-view="map">Map</button>
+    <button data-view="mine">Mine</button>
+    <button data-view="admin">Admin</button>
+    <button data-view="lobby">Lobby</button>
+  </nav>
+
+  <!-- ================= MAP ================= -->
+  <section class="view active" id="view-map">
+    <div class="intro">
+      <span class="eyebrow">RIGHT NOW</span>
+      <h2>Three rooms open on this floor.</h2>
+      <p>Tap a space on the plan to see what it fits and reserve it.</p>
+    </div>
+
+    <div class="resource-switch" id="resSwitch">
+      <button class="active" data-res="rooms">Study Rooms</button>
+      <button data-res="boards">Whiteboards</button>
+      <button data-res="tv">TV</button>
+    </div>
+
+    <div class="plan-wrap">
+      <div class="plan-scroll">
+        <svg viewBox="0 0 640 440" class="plan" id="plan" role="img" aria-label="Floor plan of the study wing">
+          <rect class="shell" x="8" y="8" width="624" height="424" rx="18"/>
+          <text class="plan-label" x="320" y="238">CORRIDOR</text>
+          <text class="plan-label small" x="320" y="424">ENTRANCE</text>
+          <path class="door" d="M290 432 h60"/>
+
+          <!-- north wing -->
+          <g class="room open" data-room="Room 1" data-state="open" data-until="8:30 PM" data-seats="4 seats · window">
+            <rect x="28" y="28" width="170" height="150" rx="12"/>
+            <text class="rm-no" x="48" y="66">01</text>
+            <text class="rm-state" x="48" y="92">Open</text>
+            <text class="rm-meta" x="48" y="116">until 8:30</text>
+          </g>
+          <g class="room busy" data-room="Room 2" data-state="busy" data-until="8:00 PM" data-seats="6 seats · long table">
+            <rect x="212" y="28" width="216" height="150" rx="12"/>
+            <text class="rm-no" x="232" y="66">02</text>
+            <text class="rm-state" x="232" y="92">In use</text>
+            <text class="rm-meta" x="232" y="116">free at 8:00</text>
+          </g>
+          <g class="room open" data-room="Room 3" data-state="open" data-until="11:00 PM" data-seats="4 seats · whiteboard wall">
+            <rect x="442" y="28" width="170" height="150" rx="12"/>
+            <text class="rm-no" x="462" y="66">03</text>
+            <text class="rm-state" x="462" y="92">Open</text>
+            <text class="rm-meta" x="462" y="116">rest of night</text>
+          </g>
+
+          <!-- south wing -->
+          <g class="room busy" data-room="Room 4" data-state="busy" data-until="9:00 PM" data-seats="4 seats · quiet corner">
+            <rect x="28" y="266" width="170" height="146" rx="12"/>
+            <text class="rm-no" x="48" y="304">04</text>
+            <text class="rm-state" x="48" y="330">In use</text>
+            <text class="rm-meta" x="48" y="354">free at 9:00</text>
+          </g>
+          <g class="room soon" data-room="Room 5" data-state="soon" data-until="7:30 PM" data-seats="8 seats · projector">
+            <rect x="212" y="266" width="216" height="146" rx="12"/>
+            <text class="rm-no" x="232" y="304">05</text>
+            <text class="rm-state" x="232" y="330">Opens 7:30</text>
+            <text class="rm-meta" x="232" y="354">study ending</text>
+          </g>
+          <g class="room open" data-room="Room 6" data-state="open" data-until="11:00 PM" data-seats="2 seats · booth">
+            <rect x="442" y="266" width="170" height="146" rx="12"/>
+            <text class="rm-no" x="462" y="304">06</text>
+            <text class="rm-state" x="462" y="330">Open</text>
+            <text class="rm-meta" x="462" y="354">until 11:00</text>
+          </g>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="k-open"></i>Open</span>
+        <span><i class="k-soon"></i>Opening soon</span>
+        <span><i class="k-busy"></i>In use</span>
+        <span><i class="k-sel"></i>Selected</span>
+      </div>
+    </div>
+
+    <div class="live">
+      <div><i></i><div><b>Room 3 just opened</b><small>Study ended early · 2 min ago</small></div></div>
+      <button>Activity</button>
+    </div>
+
+    <div class="list-head"><h3>Same spaces, as a list</h3><small>Sorted by walk distance</small></div>
+    <div class="cluster" id="roomList"></div>
+  </section>
+
+  <!-- ================= MINE ================= -->
+  <section class="view" id="view-mine">
+    <div class="intro"><span class="eyebrow">YOUR EVENING</span><h2>My reservations</h2></div>
+    <article class="res-card now">
+      <div class="res-when"><b>7:30</b><small>TONIGHT</small></div>
+      <div>
+        <strong>Room 3 · Bible study</strong>
+        <p>7:30–9:00 PM · North wing, far end of the corridor</p>
+        <div class="res-actions"><button class="ghost">Change end time</button><button class="ghost danger">Release</button></div>
+      </div>
+    </article>
+    <article class="res-card">
+      <div class="res-when"><b>Thu</b><small>SEP 17</small></div>
+      <div>
+        <strong>Whiteboard B · Preaching prep</strong>
+        <p>6:00–7:00 PM · South wing</p>
+        <div class="res-actions"><button class="ghost">Change end time</button><button class="ghost danger">Release</button></div>
+      </div>
+    </article>
+    <p class="empty-note">Past reservations older than 30 days are cleared automatically.</p>
+  </section>
+
+  <!-- ================= ADMIN ================= -->
+  <section class="view" id="view-admin">
+    <div class="intro"><span class="eyebrow">COORDINATOR</span><h2>Floor control</h2><p>Everything on one plan, with the overrides you actually use.</p></div>
+    <div class="stat-row">
+      <div class="stat"><b>3</b><small>open now</small></div>
+      <div class="stat"><b>2</b><small>in use</small></div>
+      <div class="stat"><b>1</b><small>opening soon</small></div>
+    </div>
+    <div class="admin-list">
+      <div class="admin-row"><div><strong>Room 5</strong><small>Held for the 7:30 study</small></div><button class="ghost">Release early</button></div>
+      <div class="admin-row"><div><strong>Room 2</strong><small>Running 10 minutes long</small></div><button class="ghost">Extend</button></div>
+      <div class="admin-row"><div><strong>Room 4</strong><small>No purpose listed</small></div><button class="ghost">Add note</button></div>
+    </div>
+    <div class="admin-row block"><div><strong>Close the north wing</strong><small>Blocks Rooms 1–3 for the rest of tonight</small></div><button class="ghost danger">Block</button></div>
+  </section>
+
+  <!-- ================= LOBBY ================= -->
+  <section class="view lobby" id="view-lobby">
+    <div class="lobby-head"><span class="eyebrow">LOBBY DISPLAY</span><h2>Open right now</h2><b id="lobbyClock">7:12 PM</b></div>
+    <div class="lobby-grid">
+      <div class="lobby-tile open"><b>01</b><span>Open</span><small>until 8:30</small></div>
+      <div class="lobby-tile busy"><b>02</b><span>In use</span><small>free at 8:00</small></div>
+      <div class="lobby-tile open"><b>03</b><span>Open</span><small>all evening</small></div>
+      <div class="lobby-tile busy"><b>04</b><span>In use</span><small>free at 9:00</small></div>
+      <div class="lobby-tile soon"><b>05</b><span>Opens 7:30</span><small>study ending</small></div>
+      <div class="lobby-tile open"><b>06</b><span>Open</span><small>until 11:00</small></div>
+    </div>
+    <p class="lobby-foot">Reserve at the front desk or on your phone · lvrooms.web.app</p>
+  </section>
+
+  <!-- booking sheet / desktop panel -->
+  <aside id="sheet" aria-label="Reservation builder">
+    <div class="handle"></div>
+    <button id="close" aria-label="Close">×</button>
+    <span class="eyebrow">RESERVE</span>
+    <h2 id="sheetRoom">Room 3</h2>
+    <p id="sheetMeta">4 seats · whiteboard wall</p>
+    <div class="range-summary"><b id="sheetRange">7:30–9:00 PM</b><small id="sheetNote">Open for the whole range</small></div>
+    <label>Ends at
+      <div class="end-times" id="endTimes">
+        <button class="active">9:00</button><button>9:30</button><button>10:00</button><button>10:30</button><button>11:00</button>
+      </div>
+    </label>
+    <label>Purpose<input id="purpose" placeholder="Bible study"></label>
+    <button class="confirm" id="confirm">Reserve this room</button>
+    <p class="sheet-foot">You can change the end time or release the room any time.</p>
+  </aside>
+  <div id="shade"></div>
+  <div id="toast" role="status"></div>
+</div>
+<script src="prototype.js"></script>
+</body>
+</html>
