@@ -1,0 +1,3 @@
+Standalone prototype: index.html
+Corrected prompt: PROMPT.md
+Implementation specification: SPEC.md
