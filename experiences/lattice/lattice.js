@@ -114,7 +114,8 @@ function ownerDetailFor(booking) {
   const actions = detail.actions && typeof detail.actions === 'object' ? detail.actions : {};
   const allowed = (...names) => names.some(name => detail[name] === true || actions[name] === true || actions[name]?.allowed === true);
   const reservedFor = typeof detail.reservedFor === 'string' && hasVisibleText(detail.reservedFor) ? detail.reservedFor.trim() : '';
-  return { reservedFor, canEndEarly: allowed('canEndEarly', 'endEarly', 'end'), canCancel: allowed('canCancel', 'cancel') };
+  const name = typeof detail.name === 'string' && hasVisibleText(detail.name) ? detail.name.trim() : typeof detail.displayName === 'string' && hasVisibleText(detail.displayName) ? detail.displayName.trim() : '';
+  return { name, reservedFor, canEndEarly: allowed('canEndEarly', 'endEarly', 'end'), canCancel: allowed('canCancel', 'cancel') };
 }
 
 function detailActionsMarkup(detail) {
@@ -130,8 +131,8 @@ function showBookingDetails(booking, trigger) {
   const blocked = booking.blocked === true || booking.purpose === 'blocked';
   const purpose = blocked ? 'Reserved' : PURPOSES[booking.purpose] || 'Other';
   const detail = ownerDetailFor(booking);
-  const ownerRow = detail?.reservedFor ? `<div class="detailRow"><span>Reserved for</span><b>${html(detail.reservedFor)}</b></div>` : '';
-  detailBody.innerHTML = `<div class="detailContent"><h2 id="detailTitle">${html(blocked ? 'Reserved' : publicNameFor(booking))}</h2><p id="detailDescription" class="detailHint">${html(TYPES[booking.type]?.label || 'Resource')} ${html(booking.unit)} · ${html(dayLabel(booking.day))}</p><div class="detailSummary"><div class="detailRow"><span>Time</span><b>${time(booking.start)} to ${time(booking.end)}</b></div><div class="detailRow"><span>Purpose</span><b>${html(purpose)}</b></div>${ownerRow}</div>${detailActionsMarkup(detail)}</div>`;
+  const ownerRow = `${detail?.name ? `<div class="detailRow"><span>Reserved</span><b>${html(detail.name)}</b></div>` : ''}${detail?.reservedFor ? `<div class="detailRow"><span>Reserved for</span><b>${html(detail.reservedFor)}</b></div>` : ''}`;
+  detailBody.innerHTML = `<div class="detailContent"><h2 id="detailTitle">${html(blocked ? 'Reserved' : publicNameFor(booking))}</h2><p id="detailDescription" class="detailHint">${html(TYPES[booking.type]?.label || 'Resource')} ${html(booking.unit)} · ${html(dayLabel(booking.day))}</p><div class="detailSummary"><div class="detailRow"><span>Reservation</span><b>${time(booking.start)} to ${time(booking.end)}</b></div><div class="detailRow"><span>Purpose</span><b>${html(purpose)}</b></div>${ownerRow}</div>${detailActionsMarkup(detail)}</div>`;
   detailReturnFocus = trigger;
   detailDialog.showModal();
   $('#detailTitle')?.focus({ preventScroll: true });
@@ -253,7 +254,7 @@ function openFlow(selection) {
   if (!state.canBook || !selectedDay || dialog.open) return;
   if (selection && !freeUnits(selectedDay, type, selection.start, selection.start + STEP, selection.unit).length) return;
   opener = document.activeElement;
-  draft = { day: selectedDay, type: selection ? type : '', unit: selection?.unit ?? null, start: selection?.start ?? null, end: null, reservedFor: '', purpose: '', purposeOther: '', direct: Boolean(selection) };
+  draft = { day: selectedDay, type: selection ? type : '', unit: selection?.unit ?? null, start: selection?.start ?? null, end: null, name: localStorage.getItem('srs-name') || '', reservedFor: '', purpose: '', purposeOther: '', direct: Boolean(selection) };
   step = selection ? 'purpose' : 'resource';
   history = [];
   saved = null;
@@ -288,7 +289,7 @@ function summary(value = draft) {
   const override = hasPriorityOverride(value);
   const reservedLabel = value.purpose === 'contact' ? 'Contact Name' : value.purpose === 'new' ? 'Member Name' : 'Purpose';
   const reservedFor = value.reservedFor || (value.purpose === 'other' ? value.purposeOther : '');
-  return `<div class="summary"><div><span>Date</span><b>${html(dayLabel(value.day))}</b></div><div><span>Space</span><b>${html(resourceLabel(value))}</b></div><div><span>Purpose</span><b>${html(PURPOSES[value.purpose] || '')}</b></div><div><span>Time</span><b>${time(value.start)} to ${time(value.end)}</b></div><div><span>${reservedLabel}</span><b>${html(reservedFor)}</b></div>${override ? '<div class="prioritySummary"><span>Booking note</span><b>Priority override</b></div>' : ''}</div>`;
+  return `<div class="summary"><div><span>Date</span><b>${html(dayLabel(value.day))}</b></div><div><span>Space</span><b>${html(resourceLabel(value))}</b></div><div><span>Purpose</span><b>${html(PURPOSES[value.purpose] || '')}</b></div><div><span>Time</span><b>${time(value.start)} to ${time(value.end)}</b></div><div><span>Name</span><b>${html(value.name || '')}</b></div><div><span>${reservedLabel}</span><b>${html(reservedFor)}</b></div>${override ? '<div class="prioritySummary"><span>Booking note</span><b>Priority override</b></div>' : ''}</div>`;
 }
 
 function renderStep(focus = true) {
@@ -326,7 +327,7 @@ function renderStep(focus = true) {
     const field = draft.purpose === 'other'
       ? `<textarea class="field" id="reservedFor" name="reservedFor" maxlength="300" required>${html(draft.reservedFor)}</textarea>`
       : `<input class="field" id="reservedFor" name="reservedFor" type="text" autocomplete="off" maxlength="120" value="${html(draft.reservedFor)}" required>`;
-    content = `<form id="reservedForForm"><label class="fieldLabel" for="reservedFor">${label}</label>${field}<button class="continue" type="submit">Review reservation</button></form>`;
+    content = `<form id="reservedForForm"><label class="fieldLabel" for="name">Your name</label><input class="field" id="name" name="name" type="text" autocomplete="name" maxlength="120" required value="${html(draft.name)}" placeholder="Your full name"><label class="fieldLabel" for="reservedFor">${label}</label>${field}<button class="continue" type="submit">Review reservation</button></form>`;
   } else if (step === 'confirm') {
     title = 'Confirm your reservation';
     description = state.demo ? 'This is a sample reservation for practice.' : 'One final check before it is placed on the schedule.';
@@ -383,8 +384,8 @@ async function confirmReservation() {
     refreshFlowAvailability();
     return;
   }
-  if (!draft.reservedFor.trim() || !PURPOSES[draft.purpose]) {
-    formError = 'Please go back and complete the reserved-for field.';
+  if (!draft.name.trim() || !draft.reservedFor.trim() || !PURPOSES[draft.purpose]) {
+    formError = 'Please go back and complete your name and the reserved-for field.';
     refreshFlowAvailability();
     return;
   }
@@ -393,7 +394,7 @@ async function confirmReservation() {
   renderStep(false);
   try {
     const reservedFor = draft.reservedFor.trim();
-    saved = await submit({ day: draft.day, type: draft.type, unit: draft.override ? null : draft.unit, start: draft.start, end: draft.end, name: reservedFor, reservedFor, purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? reservedFor : '' });
+    saved = await submit({ day: draft.day, type: draft.type, unit: draft.override ? null : draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), reservedFor, purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? reservedFor : '' });
     saved = { ...saved, reservedFor: typeof saved.reservedFor === 'string' ? saved.reservedFor : reservedFor };
     saving = false;
     step = 'success';
@@ -462,6 +463,7 @@ dialog.addEventListener('click', (event) => {
   if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeFlow();
 });
 panel.addEventListener('input', (event) => {
+  if (event.target.id === 'name') draft.name = event.target.value;
   if (event.target.id === 'reservedFor') {
     draft.reservedFor = event.target.value;
     if (draft.purpose === 'other') draft.purposeOther = event.target.value;
@@ -499,8 +501,9 @@ panel.addEventListener('submit', (event) => {
   event.preventDefault();
   if (saving) return;
   if (event.target.id === 'reservedForForm') {
+    draft.name = $('#name').value.trim();
     draft.reservedFor = $('#reservedFor').value.trim();
-    if (!draft.reservedFor) {
+    if (!draft.name || !draft.reservedFor) {
       $('#reservedFor').setCustomValidity('Please complete this field.');
       $('#reservedFor').reportValidity();
       return;

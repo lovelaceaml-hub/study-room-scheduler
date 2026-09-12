@@ -83,7 +83,7 @@ try {
   assert.equal(await page.locator('.home-day-overview .section-note').count(), 0);
   assert.ok(await page.locator('.dashboard-feed .activity-row').count() > 2, 'Home keeps every live update in the scrollable feed');
   assert.equal(await page.locator('.dashboard-feed .activity-list').evaluate(node => node.scrollHeight > node.clientHeight), true, 'Live updates has an independent vertical scroller');
-  assert.match(await page.locator('.dashboard-feed .activity-row').first().innerText(), /Jordan A\./, 'The visually first live update is the latest decision, including ISO timestamps');
+  assert.match(await page.locator('.dashboard-feed .activity-row').first().innerText(), /Jordan/, 'The visually first live update is the latest decision, including ISO timestamps');
   const fullyVisibleUpdates = await page.locator('.dashboard-feed .activity-list').evaluate(node => {
     const bounds = node.getBoundingClientRect();
     return [...node.querySelectorAll('.activity-row')].filter(row => {

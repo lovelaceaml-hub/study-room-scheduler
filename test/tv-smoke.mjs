@@ -45,8 +45,8 @@ try {
     leadingInitial: window.__SRS_TV_TEST_HELPERS__.publicName('D Chloe Daniels'),
     titledName: window.__SRS_TV_TEST_HELPERS__.publicName('B. Anthony Lovelace')
   })), {
-    leadingInitial: 'D Chloe D.',
-    titledName: 'Anthony L.'
+    leadingInitial: 'D Chloe',
+    titledName: 'B Anthony'
   }, 'TV names preserve a bare leading initial while keeping titles private');
   assert.equal(await page.getByText('Choose day', { exact: true }).count(), 1);
   assert.ok(await page.locator('.day-choice').count() >= 2);
@@ -66,7 +66,7 @@ try {
   assert.equal(await page.locator('.pending-row, .booking.pending').count(), 0, 'Pending requests are never displayed on the lobby screen');
   assert.equal(await page.locator('section[aria-label="Whiteboards"], section[aria-label="TVs"]').count(), 0, 'Shared-equipment sections are removed from the TV display');
   assert.doesNotMatch(await page.locator('body').innerText(), /Whiteboard requests|TV requests|Requested — awaiting approval/, 'No request lane text remains');
-  assert.equal(await page.locator('.booking[aria-label*="Anthony L."]').count(), 1, 'TV names use first name and last initial');
+  assert.equal(await page.locator('.booking[aria-label*="B Anthony"]').count(), 1, 'TV names keep title initials and omit surnames unless needed');
   assert.equal(await page.locator('text=Anthony Lovelace').count(), 0, 'TV never exposes a full name');
   assert.match(await page.locator('.room-card').first().innerText(), /First reservation|Open all day/, 'A selected future day uses a day summary instead of a false live status');
   assert.ok(await page.locator('.service-block').count() > 0, 'Service bands remain visible in the room timeline');
@@ -112,9 +112,9 @@ try {
       await scenarioContext.close();
     }
   };
-  await checkRoomCardAt('2026-07-21T08:00:00-07:00', 0, /Available when rooms open/, /Next: Anthony L\. · 10:00 AM–12:00 PM/);
+  await checkRoomCardAt('2026-07-21T08:00:00-07:00', 0, /Available when rooms open/, /Next: B Anthony · 10:00 AM–12:00 PM/);
   // Tuesday's service moved to 7:30-8:30 PM on 12 September 2026.
-  await checkRoomCardAt('2026-07-21T20:00:00-07:00', 2, /Service in progress/, /Next: Marcus G\. · 10:00 PM–10:30 PM/);
+  await checkRoomCardAt('2026-07-21T20:00:00-07:00', 2, /Service in progress/, /Next: Marcus · 10:00 PM–10:30 PM/);
   assert.deepEqual(errors, []);
   console.log('TV demo/date selector smoke checks passed');
 } finally {

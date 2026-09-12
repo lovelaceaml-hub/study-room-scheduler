@@ -1,5 +1,11 @@
 # Handoff notes — LV Zion Study Rooms
 
+## September 12, 2026: Booking details and public names, verified pending release
+
+The current branch `change/booking-details-and-name-display` contains the completed booking-detail refinement for all six member designs, the classic app, and the lobby TV name projection. It collects reserver name plus Contact Name, Member Name, or Other Purpose, connects consecutive schedule slots, opens clickable reservation details, keeps full owner-only details private, and preserves priority override indicators. The local browser fixture passed all six designs, chooser, home UI, confirmation popup, and TV checks. The exact release mode still needs the owner choice before production is touched.
+
+See [booking details plan](PLAN-BOOKING-DRAWER-AND-NAME-DISPLAY.md) and [run record](runs/2026-09-12-booking-details-and-name-display/INDEX.md).
+
 ## September 12, 2026: Priority override indicators live
 
 All six member designs now keep a full lower-priority range visible in Reserve Now after Study Room and Contact are selected. The time choice is marked `Priority override` and the confirmation summary repeats the notice. Contact can take New Member or Other reservations, New Member can take Other reservations, and blocked or equal-or-higher priority reservations remain unavailable. The classic app uses the same deployed `memberSubmitBooking` callable for this path.

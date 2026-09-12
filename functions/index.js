@@ -44,8 +44,10 @@ exports.publicLobbySchedule = onRequest({ region: REGION }, async (_request, res
     .orderBy('date')
     .limit(240)
     .get();
-  const bookings = snapshot.docs
-    .map(document => publicLobbyBooking(document.data()))
+  const source = snapshot.docs.map(document => document.data());
+  const peers = source.filter(booking => booking.status === 'approved' && booking.purpose !== 'blocked' && booking.needs?.room === true).map(booking => booking.name).filter(Boolean);
+  const bookings = source
+    .map(booking => publicLobbyBooking(booking, peers))
     .filter(Boolean);
   response.set('Cache-Control', 'public, max-age=60, s-maxage=60');
   response.set('X-Content-Type-Options', 'nosniff');

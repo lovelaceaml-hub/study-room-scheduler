@@ -15,7 +15,15 @@ function sampleBookings(){return state.days.flatMap(d=>[
  ].map((booking,index)=>({...booking,id:`demo-${d.key}-${index}`})));}
 function applyRecords(nextRecords){
   records=nextRecords;
-  emit({bookings:projectBookings(records,state.days),myBookings:projectOwnedBookings(records,state.days,viewerUid)});
+  const publicBookings=projectBookings(records,state.days);
+  const mine=projectOwnedBookings(records,state.days,viewerUid);
+  const byKey=new Map(mine.map(booking=>[booking.key,booking]));
+  const withOwnerDetails=publicBookings.map(booking=>{
+    const owner=byKey.get(booking.key);
+    if(!owner)return booking;
+    return {...booking,ownerDetail:{authorized:true,bookingId:owner.id,name:owner.name,displayName:owner.name,reservedFor:owner.reservedFor,canCancel:owner.canCancel,canEndEarly:owner.canEndEarly}};
+  });
+  emit({bookings:withOwnerDetails,myBookings:mine});
 }
 async function connect(){
   const token=++generation;unsubscribe?.();unsubscribe=null;clearTimeout(timer);backend=null;records=[];viewerUid='';
@@ -73,7 +81,8 @@ export async function submit(input){
     }
     // The server result is authoritative. Avoid duplicating an already-arrived snapshot.
     const exists=state.bookings.some(b=>b.day===saved.day&&b.type===saved.type&&b.unit===saved.unit&&b.start===saved.start&&b.end===saved.end);
-    emit({bookings:exists?state.bookings:[...state.bookings,publicSaved],myBookings:[...state.myBookings.filter(b=>b.id!==mine.id),mine]});
+    const publicWithOwner={...publicSaved,ownerDetail:{authorized:true,bookingId:mine.id,name:mine.name,displayName:mine.name,reservedFor:mine.reservedFor,canCancel:mine.canCancel,canEndEarly:mine.canEndEarly}};
+    emit({bookings:exists?state.bookings.map(booking=>booking.key===publicSaved.key?{...booking,ownerDetail:publicWithOwner.ownerDetail}:booking):[...state.bookings,publicWithOwner],myBookings:[...state.myBookings.filter(b=>b.id!==mine.id),mine]});
     return saved;
   }catch(error){
     if(error?.code){const code=String(error.code);if(code.includes('already-exists'))throw new Error('That space was just reserved. Please choose another time.');if(code.includes('resource-exhausted'))throw new Error('The reservation limit was reached. Please wait or check My reservations.');if(code.includes('deadline')||code.includes('unavailable'))throw new Error('The connection was interrupted. Check My reservations before submitting again.');throw new Error('The reservation was not confirmed. Please check your details and try again.');}

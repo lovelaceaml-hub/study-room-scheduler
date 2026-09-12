@@ -74,7 +74,7 @@ const normalizeBooking = (booking) => {
 const publicProjection = (booking) => {const projected=booking?.publicName??booking?.displayName??booking?.name;const text=String(projected??'').trim();return text||'Reserved';};
 const authorizedOwnerDetail = (booking) => {const detail=booking?.ownerDetail??booking?.ownerDetails??booking?.detail;if(!detail||typeof detail!=='object'||Array.isArray(detail))return null;return detail.authorized===true||detail.ownerAuthorized===true||detail.authorizedForMember===true?detail:null;};
 const detailAllows = (detail,action) => Boolean(detail&&(detail[action]===true||detail.permissions?.[action]===true||detail.actions?.[action]===true));
-const actionHandler = (action) => {const names=action==='cancel'?['cancelBooking','memberCancelBooking','cancel']:['endBookingEarly','memberEndBookingEarly','endEarly'];return names.map(name=>live[name]).find(handler=>typeof handler==='function')||null;};
+const actionHandler = (action) => {const names=action==='cancel'?['cancelOwnedBooking','cancelBooking','memberCancelBooking','cancel']:['endOwnedBookingEarly','endBookingEarly','memberEndBookingEarly','endEarly'];return names.map(name=>live[name]).find(handler=>typeof handler==='function')||null;};
 const reservedForValue = (detail,booking) => {if(!detail)return '';const value=booking?.purpose==='other'?detail.purposeOther??detail.purpose_other??detail.reservedFor??detail.reserved_for:detail.reservedFor??detail.reserved_for??detail.name;return String(value??'').trim();};
 
 function renderNavigation(){
@@ -135,7 +135,7 @@ function renderSchedule(){
   updateDialogAvailability();
 }
 
-function detailActionMarkup(action,label){return detailAllows(detailBooking?.ownerDetail,action)&&actionHandler(action)?`<button type="button" class="primary detail-action" data-detail-action="${action}">${label}</button>`:'';}
+function detailActionMarkup(action,label){return detailAllows(detailBooking?.ownerDetail,action)?`<a class="primary detail-action" href="/?classic=1&amp;tab=mine">${label}</a>`:'';}
 function renderDetail(booking,open=false){
   if(!booking)return;
   detailBooking=booking;
@@ -143,7 +143,8 @@ function renderDetail(booking,open=false){
   const privateValue=reservedForValue(detail,booking),privateLabel=reservedForLabels[booking.purpose]||'Reserved for';
   const actionMarkup=`${detailActionMarkup('endEarly','End early')}${detailActionMarkup('cancel','Cancel')}`;
   const date=dateLabel(booking.date);
-  const rows=`<div class="detail-row"><span>Day</span><b>${esc(date)}</b></div><div class="detail-row"><span>Time</span><b>${range(booking.start,booking.end)}</b></div><div class="detail-row"><span>Public name</span><b>${esc(booking.blocked?'Reserved':booking.publicName||booking.name)}</b></div>${purpose?`<div class="detail-row"><span>Purpose</span><b>${esc(purpose)}</b></div>`:''}`;
+  const ownerName=detail?.name||detail?.displayName||'';
+  const rows=`<div class="detail-row"><span>Day</span><b>${esc(date)}</b></div><div class="detail-row"><span>Reservation</span><b>${range(booking.start,booking.end)}</b></div><div class="detail-row"><span>Public name</span><b>${esc(booking.blocked?'Reserved':booking.publicName||booking.name)}</b></div>${purpose?`<div class="detail-row"><span>Purpose</span><b>${esc(purpose)}</b></div>`:''}${ownerName?`<div class="detail-row detail-private"><span>Reserved</span><b>${esc(ownerName)}</b></div>`:''}`;
   $('#detail-body').innerHTML=`<p class="flow-context">${esc(types[booking.type]?.one||'Reservation')} ${booking.unit}</p><h2 id="detail-title" tabindex="-1">Reservation details</h2><div class="detail-card">${rows}${detail&&privateValue?`<div class="detail-row detail-private"><span>${esc(privateLabel)}</span><b>${esc(privateValue)}</b></div>`:''}</div>${actionMarkup?`<div class="detail-actions">${actionMarkup}</div>`:''}<p id="detail-status" class="validation" role="alert"></p>`;
   if(open&&!$('#detail-dialog').open){detailReturnFocus=document.activeElement;$('#detail-dialog').showModal();}
   requestAnimationFrame(()=>$('#detail-title')?.focus({preventScroll:true}));
@@ -159,7 +160,7 @@ async function runDetailAction(action){
 }
 
 function title(text,hint){return `<h2 id="step-title" tabindex="-1">${text}</h2><p class="hint">${hint}</p>`;}
-function summary(){const label=reservedForLabels[draft.purpose]||'Reserved for';return `<div class="summary"><h3>${types[draft.type].one} ${draft.unit}</h3><dl><div><dt>Day</dt><dd>${esc(dateLabel(draft.date))}</dd></div><div><dt>Time</dt><dd>${range(draft.start,draft.end)}</dd></div><div><dt>Purpose</dt><dd>${purposes[draft.purpose].label}</dd></div><div><dt>${label}</dt><dd>${esc(draft.reservedFor||'')}</dd></div></dl>${draft.override?'<p class="override-note" role="note"><strong>Priority override</strong>This time is held by a lower-priority reservation.</p>':''}</div>`;}
+function summary(){const label=reservedForLabels[draft.purpose]||'Reserved for';return `<div class="summary"><h3>${types[draft.type].one} ${draft.unit}</h3><dl><div><dt>Day</dt><dd>${esc(dateLabel(draft.date))}</dd></div><div><dt>Time</dt><dd>${range(draft.start,draft.end)}</dd></div><div><dt>Purpose</dt><dd>${purposes[draft.purpose].label}</dd></div><div><dt>Name</dt><dd>${esc(draft.name||'')}</dd></div><div><dt>${label}</dt><dd>${esc(draft.reservedFor||'')}</dd></div></dl>${draft.override?'<p class="override-note" role="note"><strong>Priority override</strong>This time is held by a lower-priority reservation.</p>':''}</div>`;}
 
 function updateDialogAvailability(){
   const status=$('#dialog-status');
@@ -188,7 +189,7 @@ function renderStep(){
   let html='';
   if(step==='resource')html=title('What would you like to reserve?','Select a resource.')+`<div class="choices">${Object.entries(types).map(([key,type])=>`<button class="choice" type="button" data-choose-type="${key}"><span class="choice-icon">${icon(key)}</span><span class="choice-copy"><b>${type.label}</b>${type.description?`<small>${type.description}</small>`:''}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div>`;
   if(step==='purpose')html=title('What is this reservation for?',draft.direct?`Your ${types[draft.type].one.toLowerCase()} and ${fmt(draft.start)} start are selected.`:'Select a purpose.')+`<div class="choices">${Object.entries(purposes).map(([key,purpose])=>`<button type="button" class="choice" data-purpose="${key}"><span class="purpose-dot ${key}" aria-hidden="true"></span><span class="choice-copy"><b>${purpose.label}</b>${purpose.description?`<small>${purpose.description}</small>`:''}</span><span class="choice-arrow" aria-hidden="true">›</span></button>`).join('')}</div>`;
-  if(step==='reservedFor'){const label=reservedForLabels[draft.purpose]||'Reserved for';const heading=draft.purpose==='other'?'What is this for?':'Who is this for?';const hint=draft.purpose==='other'?'Add a short purpose for this reservation.':'Add the person this reservation is for.';html=title(heading,hint)+`<form id="name-form"><label class="field-label" for="guest-name">${label}</label><input class="name-field" id="guest-name" name="reservedFor" placeholder="${reservedForPlaceholders[draft.purpose]||'Add a detail'}" maxlength="120" autocomplete="off" value="${esc(draft.reservedFor||'')}" required><p class="field-note">Only the shared public name and purpose appear on the schedule.</p><p class="inline-error" id="name-error" role="alert"></p><button class="primary" type="submit">Continue</button></form>`;}
+  if(step==='reservedFor'){const label=reservedForLabels[draft.purpose]||'Reserved for';const heading=draft.purpose==='other'?'What is this for?':'Who is this for?';const hint=draft.purpose==='other'?'Add a short purpose for this reservation.':'Add the person this reservation is for.';html=title(heading,hint)+`<form id="name-form"><label class="field-label" for="guest-name">Your name</label><input class="name-field" id="guest-name" name="name" placeholder="Your full name" maxlength="120" autocomplete="name" value="${esc(draft.name||'')}" required><label class="field-label" for="reserved-for">${label}</label><input class="name-field" id="reserved-for" name="reservedFor" placeholder="${reservedForPlaceholders[draft.purpose]||'Add a detail'}" maxlength="120" autocomplete="off" value="${esc(draft.reservedFor||'')}" required><p class="field-note">Only the shared public name and purpose appear on the schedule.</p><p class="inline-error" id="name-error" role="alert"></p><button class="primary" type="submit">Continue</button></form>`;}
   if(step==='start'){
     const starts=reserveStartChoices(draft.date,draft.type,draft.purpose);
     html=title('When would you like to start?','Choose a beginning. Only available times appear below.')+(starts.length?`<div class="time-choices">${starts.map(({time,override})=>`<button type="button" class="time-choice${override?' override':''}" data-start-choice="${time}"${override?` aria-label="${esc(`${fmt(time)}, Priority override`)}"`:''}>${fmt(time)}${override?'<small class="override-indicator">Priority override</small>':''}</button>`).join('')}</div>`:`<p class="hint">${draftReady()?'Every space is reserved. Close this sheet to choose the other day.':'Available times will appear when the connection returns.'}</p>`);
@@ -206,7 +207,7 @@ function renderStep(){
 }
 
 function go(next){history.push(step);step=next;renderStep();}
-function blankDraft(preset){return {date:selectedDate,name:'',reservedFor:'',purposeOther:'',type:preset?selectedType:null,unit:preset?.unit||null,start:preset?.start??null,end:null,purpose:null,override:false,direct:!!preset};}
+function blankDraft(preset){return {date:selectedDate,name:localStorage.getItem('srs-name')||'',reservedFor:'',purposeOther:'',type:preset?selectedType:null,unit:preset?.unit||null,start:preset?.start??null,end:null,purpose:null,override:false,direct:!!preset};}
 function openBooking(preset){
   if(!ready()||pending)return;
   if(preset&&!free(selectedDate,selectedType,preset.unit,preset.start))return;
@@ -242,11 +243,11 @@ $('#detail-close').addEventListener('click',closeDetail);
 $('#detail-dialog').addEventListener('cancel',event=>{event.preventDefault();closeDetail();});
 $('#detail-dialog').addEventListener('click',event=>{if(event.target!==$('#detail-dialog'))return;const rect=event.target.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeDetail();});
 $('#detail-body').addEventListener('click',event=>{const action=event.target.closest('[data-detail-action]')?.dataset.detailAction;if(action)runDetailAction(action);});
-$('#step-body').addEventListener('input',event=>{if(event.target.id==='guest-name'){draft.reservedFor=event.target.value;draft.purposeOther=draft.purpose==='other'?event.target.value:'';}});
+$('#step-body').addEventListener('input',event=>{if(event.target.id==='guest-name')draft.name=event.target.value;if(event.target.id==='reserved-for'){draft.reservedFor=event.target.value;draft.purposeOther=draft.purpose==='other'?event.target.value:'';}});
 $('#step-body').addEventListener('submit',event=>{
   event.preventDefault();if(pending||!draftReady())return;
   if(event.target.id==='name-form'){
-    const value=$('#guest-name').value.trim();if(!visibleText(value)){$('#name-error').textContent=`Please add a ${reservedForLabels[draft.purpose]?.toLowerCase()||'detail'}.`;$('#guest-name').focus();return;}draft.reservedFor=value;draft.purposeOther=draft.purpose==='other'?value:'';go('confirm');
+    const name=$('#guest-name').value.trim(),value=$('#reserved-for').value.trim();if(!visibleText(name)||!visibleText(value)){$('#name-error').textContent='Please add your name and the reserved-for detail.';$('#reserved-for').focus();return;}draft.name=name;draft.reservedFor=value;draft.purposeOther=draft.purpose==='other'?value:'';go('confirm');
   }
 });
 $('#step-body').addEventListener('click',async event=>{
@@ -264,7 +265,7 @@ $('#step-body').addEventListener('click',async event=>{
   if(event.target.closest('#confirm-reservation')){
     const choice=draft.direct?(validUnits(draft.date,draft.type,draft.start,draft.end).includes(draft.unit)?{unit:draft.unit,override:false}:null):rangeChoice(draft.date,draft.type,draft.start,draft.end,draft.purpose,draft.unit);
     if(!choice||choice.unit!==draft.unit||choice.override!==Boolean(draft.override)){$('#save-error').textContent='This space is no longer open for the full time. Go back to choose another time.';return;}
-    if(!visibleText(draft.reservedFor)){$('#save-error').textContent=`Please go back and add a ${reservedForLabels[draft.purpose]?.toLowerCase()||'reserved-for detail'}.`;return;}
+    if(!visibleText(draft.name)||!visibleText(draft.reservedFor)){$('#save-error').textContent='Please go back and add your name and the reserved-for detail.';return;}
     pending=true;$('#save-error').textContent='';updateDialogAvailability();
     try{
       const result=await submit({day:draft.date,type:draft.type,unit:draft.override?null:draft.unit,start:draft.start,end:draft.end,name:(draft.name||draft.reservedFor).trim(),reservedFor:draft.reservedFor.trim(),purpose:draft.purpose,purposeOther:draft.purpose==='other'?draft.reservedFor.trim():''});

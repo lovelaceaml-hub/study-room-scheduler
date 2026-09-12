@@ -1,6 +1,6 @@
 # LV Zion Study Rooms
 
-Production: https://lvrooms.web.app. Read README.md, docs/HANDOFF.md, and docs/PLAN-MEMBER-DESIGN-CHOICE.md first. The active plan and Build log cover the six member design choices.
+Production: https://lvrooms.web.app. Read README.md, docs/HANDOFF.md, and docs/PLAN-BOOKING-DRAWER-AND-NAME-DISPLAY.md first. The active plan and Build log cover booking details and public name display.
 
 The original app remains available at /?classic=1. /?choose=1 opens the design chooser. Live designs live in experiences/<name>/ and share experiences/shared/live.js. All new booking writes go through the existing memberSubmitBooking callable, with an optional validated requestedUnit. Never write Firestore bookings directly from a design.
 

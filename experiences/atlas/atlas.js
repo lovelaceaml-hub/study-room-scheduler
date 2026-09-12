@@ -47,7 +47,8 @@ function ownerDetailFor(booking) {
   const actions = detail.actions && typeof detail.actions === 'object' ? detail.actions : {};
   const allowed = (...names) => names.some(name => detail[name] === true || actions[name] === true || actions[name]?.allowed === true);
   const reservedFor = typeof detail.reservedFor === 'string' && hasVisibleText(detail.reservedFor) ? detail.reservedFor.trim() : '';
-  return { reservedFor, canEndEarly: allowed('canEndEarly', 'endEarly', 'end'), canCancel: allowed('canCancel', 'cancel') };
+  const name = typeof detail.name === 'string' && hasVisibleText(detail.name) ? detail.name.trim() : typeof detail.displayName === 'string' && hasVisibleText(detail.displayName) ? detail.displayName.trim() : '';
+  return { name, reservedFor, canEndEarly: allowed('canEndEarly', 'endEarly', 'end'), canCancel: allowed('canCancel', 'cancel') };
 }
 function detailActionMarkup(detail) {
   if (!detail || (!detail.canEndEarly && !detail.canCancel)) return '';
@@ -63,8 +64,8 @@ function showBookingDetails(booking, trigger) {
   const purpose = blocked ? 'Reserved' : purposeLabel(booking.purpose);
   const detail = ownerDetailFor(booking);
   const publicName = blocked ? 'Reserved' : publicNameFor(booking);
-  const ownerRow = detail?.reservedFor ? `<div class="detailRow"><span>Reserved for</span><b>${escapeHTML(detail.reservedFor)}</b></div>` : '';
-  detailBody.innerHTML = `<div class="detailContent"><h2 id="detailTitle">${escapeHTML(publicName)}</h2><p id="detailDescription" class="detailHint">${escapeHTML(resource)} ${escapeHTML(booking.unit)} · ${escapeHTML(dayLabel(booking.day))}</p><div class="detailSummary"><div class="detailRow"><span>Time</span><b>${timeLabel(booking.start)} to ${timeLabel(booking.end)}</b></div><div class="detailRow"><span>Purpose</span><b>${escapeHTML(purpose)}</b></div>${ownerRow}</div>${detailActionMarkup(detail)}</div>`;
+  const ownerRow = `${detail?.name ? `<div class="detailRow"><span>Reserved</span><b>${escapeHTML(detail.name)}</b></div>` : ''}${detail?.reservedFor ? `<div class="detailRow"><span>Reserved for</span><b>${escapeHTML(detail.reservedFor)}</b></div>` : ''}`;
+  detailBody.innerHTML = `<div class="detailContent"><h2 id="detailTitle">${escapeHTML(publicName)}</h2><p id="detailDescription" class="detailHint">${escapeHTML(resource)} ${escapeHTML(booking.unit)} · ${escapeHTML(dayLabel(booking.day))}</p><div class="detailSummary"><div class="detailRow"><span>Reservation</span><b>${timeLabel(booking.start)} to ${timeLabel(booking.end)}</b></div><div class="detailRow"><span>Purpose</span><b>${escapeHTML(purpose)}</b></div>${ownerRow}</div>${detailActionMarkup(detail)}</div>`;
   detailReturnFocus = trigger;
   detailDialog.showModal();
   $('#detailTitle')?.focus({ preventScroll: true });
@@ -240,7 +241,7 @@ function openSheet(selection = null, trigger = $('#reserve')) {
   if (!canBook()) return;
   if (selection && !freeUnits(selectedDay, selection.type, selection.start, selection.start + 30, selection.unit).length) return;
   returnFocus = trigger;
-  draft = { day: selectedDay, type: selection?.type || null, unit: selection?.unit ?? null, start: selection?.start ?? null, end: null, purpose: null, purposeOther: '', reservedFor: '', direct: Boolean(selection) };
+  draft = { day: selectedDay, type: selection?.type || null, unit: selection?.unit ?? null, start: selection?.start ?? null, end: null, purpose: null, purposeOther: '', name: localStorage.getItem('srs-name') || '', reservedFor: '', direct: Boolean(selection) };
   step = selection ? 'purpose' : 'resource';
   history = [];
   saved = null;
@@ -288,7 +289,7 @@ function summaryRows(booking = draft) {
   const purpose = purposeLabel(booking.purpose);
   const reservedForLabel = booking.purpose === 'contact' ? 'Contact Name' : booking.purpose === 'new' ? 'Member Name' : 'Purpose';
   const reservedFor = booking.reservedFor || (booking === draft && booking.purpose === 'other' ? booking.purposeOther : '');
-  return `<div class="sumrow"><span>Day</span><b>${escapeHTML(dayLabel(booking.day))}</b></div><div class="sumrow"><span>Purpose</span><b>${escapeHTML(purpose)}</b></div><div class="sumrow"><span>Time</span><b>${timeLabel(booking.start)} to ${timeLabel(booking.end)}</b></div><div class="sumrow"><span>${reservedForLabel}</span><b>${escapeHTML(reservedFor)}</b></div>`;
+  return `<div class="sumrow"><span>Day</span><b>${escapeHTML(dayLabel(booking.day))}</b></div><div class="sumrow"><span>Purpose</span><b>${escapeHTML(purpose)}</b></div><div class="sumrow"><span>Time</span><b>${timeLabel(booking.start)} to ${timeLabel(booking.end)}</b></div><div class="sumrow"><span>Name</span><b>${escapeHTML(booking.name || '')}</b></div><div class="sumrow"><span>${reservedForLabel}</span><b>${escapeHTML(reservedFor)}</b></div>`;
 }
 function renderStep(focus = true) {
   const progressSteps = draft.direct ? ['purpose', 'end', 'reservedFor', 'confirm'] : ['resource', 'purpose', 'start', 'end', 'reservedFor', 'confirm'];
@@ -314,7 +315,7 @@ function renderStep(focus = true) {
     const field = draft.purpose === 'other'
       ? `<textarea class="field" id="reservedFor" name="reservedFor" required maxlength="300" placeholder="What is the reservation for?">${escapeHTML(draft.reservedFor)}</textarea>`
       : `<input class="field" id="reservedFor" name="reservedFor" type="text" autocomplete="off" maxlength="100" required value="${escapeHTML(draft.reservedFor)}" placeholder="${escapeHTML(label)}">`;
-    content = heading('Who or what is this for?', description) + `<form id="reservedForForm"><label class="fieldLabel" for="reservedFor">${label}</label>${field}<button class="continue" type="submit">Review reservation</button></form>`;
+    content = heading('Who or what is this for?', description) + `<form id="reservedForForm"><label class="fieldLabel" for="name">Your name</label><input class="field" id="name" name="name" type="text" autocomplete="name" maxlength="120" required value="${escapeHTML(draft.name)}" placeholder="Your full name"><label class="fieldLabel" for="reservedFor">${label}</label>${field}<button class="continue" type="submit">Review reservation</button></form>`;
   } else if (step === 'confirm') {
     content = heading('Confirm your reservation', snapshot.demo ? 'This sample reservation will stay in the preview.' : 'One final check before it goes on the schedule.') + `<div class="summary"><h3>${escapeHTML(selectedResource())}</h3>${summaryRows()}</div>${overrideNotice(draft.start, draft.end)}<button class="continue" id="confirm" type="button" ${saving || !snapshot.canBook ? 'disabled' : ''}>${saving ? 'Reserving...' : 'Confirm reservation'}</button><button class="secondary" type="button" data-edit-time ${saving ? 'disabled' : ''}>Change time</button>`;
   } else if (step === 'success') {
@@ -335,7 +336,7 @@ function hasVisibleText(value) {
 async function confirmReservation() {
   if (saving) return;
   if (!snapshot.canBook || !dayInfo(draft.day)) return setError('Reconnect to confirm. Your reservation details are still here.');
-  if (!['contact', 'new', 'other'].includes(draft.purpose) || !hasVisibleText(draft.reservedFor)) return setError('Complete the reserved-for field before confirming.');
+  if (!['contact', 'new', 'other'].includes(draft.purpose) || !hasVisibleText(draft.name) || !hasVisibleText(draft.reservedFor)) return setError('Complete your name and the reserved-for field before confirming.');
   const availability = rangeAvailability(draft.start, draft.end);
   if (!availability.free.length && !availability.overrideUnit) return setError('This time is no longer available for the full reservation. Choose Change time to select another range.');
   saving = true;
@@ -343,7 +344,7 @@ async function confirmReservation() {
   renderStep(false);
   try {
     const reservedFor = draft.reservedFor.trim();
-    const result = await submit({ day: draft.day, type: draft.type, unit: draft.override ? null : draft.unit, start: draft.start, end: draft.end, name: reservedFor, reservedFor, purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? reservedFor : '' });
+    const result = await submit({ day: draft.day, type: draft.type, unit: draft.override ? null : draft.unit, start: draft.start, end: draft.end, name: draft.name.trim(), reservedFor, purpose: draft.purpose, purposeOther: draft.purpose === 'other' ? reservedFor : '' });
     if (!result || result.status !== 'approved' || !TYPES[result.type] || !Number.isInteger(result.unit)) throw new Error('The reservation could not be confirmed. Your details are still here.');
     saved = { ...result, reservedFor: typeof result.reservedFor === 'string' ? result.reservedFor : reservedFor };
     saving = false;
@@ -438,6 +439,7 @@ body.addEventListener('click', event => {
   } else if (button.id === 'finish') closeSheet();
 });
 body.addEventListener('input', event => {
+  if (event.target.id === 'name') draft.name = event.target.value;
   if (event.target.id === 'reservedFor') {
     draft.reservedFor = event.target.value;
     if (draft.purpose === 'other') draft.purposeOther = event.target.value;
@@ -447,8 +449,9 @@ body.addEventListener('submit', event => {
   event.preventDefault();
   if (saving) return;
   if (event.target.id === 'reservedForForm') {
+    draft.name = $('#name').value.trim();
     draft.reservedFor = $('#reservedFor').value.trim();
-    if (!hasVisibleText(draft.reservedFor)) return setError('Complete this field before continuing.');
+    if (!hasVisibleText(draft.name) || !hasVisibleText(draft.reservedFor)) return setError('Complete your name and this field before continuing.');
     if (draft.purpose === 'other') draft.purposeOther = draft.reservedFor;
     nextStep('confirm');
   }

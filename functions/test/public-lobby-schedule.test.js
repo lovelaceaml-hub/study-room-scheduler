@@ -25,7 +25,7 @@ test('reduces a public room booking to the lobby-safe fields only', () => {
     start: '10:00',
     end: '11:30',
     room: 'room-2',
-    name: 'Maria R.',
+    name: 'S Maria',
   });
 });
 
@@ -33,7 +33,7 @@ test('rejects every non-public-room booking and safely abbreviates names', () =>
   assert.equal(publicLobbyBooking({ status: 'pending', needs: { room: true } }), null);
   assert.equal(publicLobbyBooking({ status: 'approved', needs: { tv: true }, assignments: { tv: 'tv-1' } }), null);
   assert.equal(publicLobbyBooking({ status: 'approved', needs: { room: true }, assignments: { room: 'room-baptism' } }), null);
-  assert.equal(publicName('B. Anthony Lovelace'), 'Anthony L.');
+  assert.equal(publicName('B. Anthony Lovelace'), 'B Anthony');
   assert.equal(publicName(''), 'Reserved');
 });
 

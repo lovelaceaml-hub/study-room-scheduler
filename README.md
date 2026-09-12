@@ -1,12 +1,23 @@
 # LV Zion Study Rooms — Firebase scheduler
 
+## September 12, 2026: Booking details and public names
+
+The six member designs and the classic app now collect both the reserver's name and the purpose-specific reserved-for detail. Schedule reservations show the public name and purpose, connect consecutive slots into one block, and open a detail view. The owning member can see the full reserved-for detail and authorized End early or Cancel actions. Public viewers never receive private reservation details.
+
+Names normalize leading title words or initials, so `Sister Kiana Davis`, `Sister Kiana D`, and `S. Kiana` display as `S Kiana`. A surname initial appears only when another booking has the same given name with a different surname. The implementation is verified locally and is pending the release-mode choice.
+
+- [Active plan](docs/PLAN-BOOKING-DRAWER-AND-NAME-DISPLAY.md)
+- [Run record](docs/runs/2026-09-12-booking-details-and-name-display/INDEX.md)
+- [Chooser](https://lvrooms.web.app/?choose=1)
+- [Current app](https://lvrooms.web.app/?classic=1)
+
 ## September 12, 2026: Member design choice
 
 Live at https://lvrooms.web.app/?choose=1. Members can keep the current app or choose Atlas, Lattice, Solace, Velum, Cove, or Petal. The device remembers the selection; Change design reopens the chooser. All six use the existing live schedule, anonymous member identity, and protected memberSubmitBooking service. My reservations returns to the current app without losing the selected design or booking ownership.
 
 The existing backend now accepts an optional requestedUnit. A directly selected room, board, or TV is honored inside the existing conflict transaction; clients that omit it retain the existing allocation behavior. Only memberSubmitBooking and Hosting target app are in the release scope. Functions other than memberSubmitBooking, Firestore rules/indexes, Authentication, the legacy redirect, and the original Atlas/Lattice prototypes are unchanged.
 
-- [Active plan](docs/PLAN-MEMBER-DESIGN-CHOICE.md)
+- [Previous plan](docs/PLAN-MEMBER-DESIGN-CHOICE.md)
 - [Chooser](https://lvrooms.web.app/?choose=1)
 - [Current app](https://lvrooms.web.app/?classic=1)
 

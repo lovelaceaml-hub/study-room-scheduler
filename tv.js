@@ -117,23 +117,37 @@ function selectedConfig() {
   return dayConfig[dateFromISO(selectedDate).getDay()];
 }
 
-function publicName(name) {
-  const parts = String(name || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .filter(part => !/^(brother|sister|elder|missionary|deacon|deaconess|pastor)$/i.test(part));
-  // A title initial (for example, "B. Anthony L.") is not the first name.
-  if (parts.length > 1 && /^[BSEMDP]\.$/i.test(parts[0])) parts.shift();
-  if (!parts.length) return 'Reserved';
-  if (parts.length === 1) return parts[0];
-  // Some names use a bare first initial before the first name (for example,
-  // "D Chloe Daniels"). Keep that initial so the public label is not reduced
-  // to the same initial twice.
-  if (parts.length >= 3 && /^[A-Z]$/i.test(parts[0])) {
-    return parts[0].toUpperCase() + ' ' + parts[1] + ' ' + parts[parts.length - 1].charAt(0).toUpperCase() + '.';
+function publicName(name, peers = []) {
+  const tokens = String(name || '').trim().split(/\s+/).filter(Boolean);
+  const titles = {brother:'B', sister:'S', elder:'E', missionary:'M', deacon:'D', deaconess:'D', pastor:'P'};
+  let titleInitial = '';
+  if (tokens.length) {
+    const candidate = tokens[0].replace(/[.,]+$/g, '').toLowerCase();
+    titleInitial = titles[candidate] || (/^[BSEMDP]$/i.test(candidate) ? candidate.toUpperCase() : '');
+    if (titleInitial) tokens.shift();
   }
-  return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+  const givenName = tokens.shift() || '';
+  const surname = tokens.join(' ');
+  const surnameParts = surname.split(/\s+/).filter(Boolean);
+  const surnameKey = surnameParts.length === 1 && /^[\p{L}]$/u.test(surname.replace(/[.,]+/g, '')) ? `initial:${surname.toLowerCase()}` : `name:${surname.toLowerCase()}`;
+  const collision = peers.some(peer => {
+    const other = publicNameParts(peer);
+    return other.givenName.toLowerCase() === givenName.toLowerCase() && other.surnameKey !== surnameKey;
+  });
+  return [titleInitial, givenName, collision ? surname.replace(/^[^\p{L}\p{N}]+/u, '').charAt(0).toUpperCase() : ''].filter(Boolean).join(' ') || 'Reserved';
+}
+function publicNameParts(name) {
+  const tokens = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (tokens.length && (/^(brother|sister|elder|missionary|deacon|deaconess|pastor)$/i.test(tokens[0]) || /^[BSEMDP][.]?$/i.test(tokens[0]))) tokens.shift();
+  const givenName = tokens.shift() || '';
+  const surname = tokens.join(' ');
+  const clean = surname.replace(/[.,]+/g, '');
+  return {givenName, surnameKey: clean.length === 1 ? `initial:${clean.toLowerCase()}` : `name:${clean.toLowerCase()}`};
+}
+
+function toPublicBookings(entries) {
+  const peers = entries.map(entry => entry.name).filter(Boolean);
+  return entries.map(entry => toPublicBooking(entry.id, entry, peers));
 }
 
 // Keep the privacy formatter directly verifiable in the browser smoke test
@@ -154,13 +168,13 @@ function isDisplayableBooking(booking) {
 
 // Keep the lobby model intentionally narrow. Names are reduced before they
 // reach storage or rendering; private notes, owners, and purpose text never do.
-function toPublicBooking(id, booking) {
+function toPublicBooking(id, booking, peers = []) {
   return {
     id,
     date: booking.date,
     start: booking.start,
     end: booking.end,
-    name: publicName(booking.name),
+    name: publicName(booking.name, peers),
     needs: booking.needs || {},
     status: booking.status,
     assignments: booking.assignments || {},
@@ -415,7 +429,7 @@ function loadCacheForDate(date) {
   const entry = readCache()[date];
   if (!entry || !Array.isArray(entry.bookings)) return { bookings: [], updatedAt: 0 };
   return {
-    bookings: entry.bookings.map(booking => toPublicBooking(booking.id, booking)),
+    bookings: toPublicBookings(entry.bookings),
     updatedAt: Number(entry.updatedAt) || 0
   };
 }
@@ -494,7 +508,7 @@ function subscribeForSelectedDate(context, date, generation) {
     snapshot => {
       if (generation !== subscriptionGeneration || date !== selectedDate) return;
       if (!(snapshot.metadata.fromCache && snapshot.empty && bookings.length)) {
-        bookings = snapshot.docs.map(doc => toPublicBooking(doc.id, doc.data()));
+        bookings = toPublicBookings(snapshot.docs.map(doc => ({id:doc.id, ...doc.data()})));
         render();
       }
       if (snapshot.metadata.fromCache) {
@@ -561,7 +575,7 @@ function demoBookingsFor(date) {
     { id: 'demo-sa-pending-2', date: saturday, start: '21:00', end: '22:00', name: 'Ava Nelson', status: 'pending', needs: { whiteboard: true, tv: true }, assignments: {}, createdAt: created + 4 },
     { id: 'demo-sa-late', date: saturday, start: '22:30', end: '23:00', name: 'Mia Ortiz', status: 'approved', needs: { room: true }, assignments: { room: 'room-4' } }
   ];
-  return fixtures.filter(booking => booking.date === date).map(booking => toPublicBooking(booking.id, booking));
+  return toPublicBookings(fixtures.filter(booking => booking.date === date));
 }
 
 function updateClock() {

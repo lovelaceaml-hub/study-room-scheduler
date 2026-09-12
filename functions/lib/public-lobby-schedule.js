@@ -9,19 +9,30 @@ function publicLobbyScheduleDates(now = new Date()) {
   return [...new Set([today, ...upcomingTuesdayAndSaturday(now)])].sort();
 }
 
-function publicName(value) {
-  const parts = String(value || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .filter(part => !/^(brother|sister|elder|missionary|deacon|deaconess|pastor)$/i.test(part));
-  if (parts.length > 1 && /^[BSEMDP]\.$/i.test(parts[0])) parts.shift();
-  if (!parts.length) return 'Reserved';
-  if (parts.length === 1) return parts[0];
-  if (parts.length >= 3 && /^[A-Z]$/i.test(parts[0])) {
-    return `${parts[0].toUpperCase()} ${parts[1]} ${parts.at(-1).charAt(0).toUpperCase()}.`;
+function parsePublicName(value) {
+  const tokens = String(value || '').trim().split(/\s+/).filter(Boolean);
+  let titleInitial = '';
+  if (tokens.length) {
+    const candidate = tokens[0].replace(/[.,]+$/g, '').toLowerCase();
+    const titles = { brother: 'B', sister: 'S', elder: 'E', missionary: 'M', deacon: 'D', deaconess: 'D', pastor: 'P' };
+    titleInitial = titles[candidate] || (/^[BSEMDP]$/i.test(candidate) ? candidate.toUpperCase() : '');
+    if (titleInitial) tokens.shift();
   }
-  return `${parts[0]} ${parts.at(-1).charAt(0).toUpperCase()}.`;
+  const givenName = tokens.shift() || '';
+  const surname = tokens.join(' ');
+  const surnameParts = surname.split(/\s+/).filter(Boolean);
+  const surnameKey = surnameParts.length === 1 && /^[\p{L}]$/u.test(surname.replace(/[.,]+/g, '')) ? `initial:${surname.toLowerCase()}` : `name:${surname.toLowerCase()}`;
+  return { titleInitial, givenName, givenKey: givenName.toLowerCase(), surnameKey, surnameInitial: surname.replace(/^[^\p{L}\p{N}]+/u, '').charAt(0).toUpperCase() };
+}
+
+function publicName(value, peers = []) {
+  const parsed = parsePublicName(value);
+  if (!parsed.givenName) return 'Reserved';
+  const collision = peers.some(peer => {
+    const other = parsePublicName(peer);
+    return other.givenKey === parsed.givenKey && other.surnameKey !== parsed.surnameKey;
+  });
+  return [parsed.titleInitial, parsed.givenName, collision ? parsed.surnameInitial : ''].filter(Boolean).join(' ');
 }
 
 function isTime(value) {
@@ -33,7 +44,7 @@ function isTime(value) {
  * It deliberately omits Firestore ids, full names, owner ids, purposes, notes,
  * equipment requests, timestamps, and every other private booking field.
  */
-function publicLobbyBooking(booking) {
+function publicLobbyBooking(booking, peers = []) {
   const room = booking?.assignments?.room;
   if (
     !booking ||
@@ -51,7 +62,7 @@ function publicLobbyBooking(booking) {
     start: booking.start,
     end: booking.end,
     room,
-    name: publicName(booking.name),
+    name: publicName(booking.name, peers),
   };
 }
 

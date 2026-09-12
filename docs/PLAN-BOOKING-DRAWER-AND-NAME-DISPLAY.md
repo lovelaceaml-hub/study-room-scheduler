@@ -43,3 +43,4 @@ Run focused tests first, then `npm test`, `node --test test/live-model.test.mjs 
 ## Build log
 
 - 2026-09-12: Started on branch `change/booking-details-and-name-display` from `ade7a79`. Preserved pre-existing untracked `docs/prototype-reserve-now.html` with SHA-256 `98a5cf059e3ff678231ed2d7f85e66fbdf827dbe517c6db47dffc037c3a6c9fa`.
+- 2026-09-12: Integrated L1 `87da374`, L2 `a1a4b6d`, and L3 `b640f1d`. Controller patches completed the two-field member flow, owner detail rows, TV and public-lobby normalization, and updated fictional browser assertions. Focused checks passed: 18 backend policy tests, 11 shared/public schedule tests, all six member-design journeys, chooser, home UI, confirmation popup, and TV smoke. Production release is pending the required full-replace or opt-in choice.

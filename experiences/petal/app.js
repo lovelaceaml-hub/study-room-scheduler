@@ -5,6 +5,7 @@ const {subscribe, submit, retry} = live;
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+const visibleText = value => String(value || '').replace(/[\p{Z}\p{C}]/gu, '').length > 0;
 const icons = {
   room: '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 21V4h14v17M3 21h18M9 4v17M15 12h.01"/></svg>',
   whiteboard: '<svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 21l2-4m8 4-2-4M7 9h10M7 12h6"/></svg>',
@@ -117,7 +118,7 @@ function detailAllows(detail, action) {
   return Boolean(detail && (detail[action] === true || detail.permissions?.[action] === true || detail.actions?.[action] === true));
 }
 function actionHandler(action) {
-  const names = action === 'cancel' ? ['cancelBooking','memberCancelBooking','cancel'] : ['endBookingEarly','memberEndBookingEarly','endEarly'];
+  const names = action === 'cancel' ? ['cancelOwnedBooking','cancelBooking','memberCancelBooking','cancel'] : ['endOwnedBookingEarly','endBookingEarly','memberEndBookingEarly','endEarly'];
   return names.map(name => live[name]).find(handler => typeof handler === 'function') || null;
 }
 function reservedForValue(detail, booking) {
@@ -198,8 +199,8 @@ function renderSchedule() {
   element.innerHTML = `<div class="grid-head"><span class="rail-title">Time</span>${units(type).map(unit => `<div class="unit-head" aria-label="${resource.single} ${unit}"><span class="unit-num">${unit}</span><span class="unit-kind">${resource.short}</span></div>`).join('')}</div><div class="timeline"><div class="rail">${rail}</div>${columns}${bands}</div>`;
 }
 function detailActionMarkup(action, label) {
-  return detailAllows(detailBooking?.ownerDetail, action) && actionHandler(action)
-    ? `<button type="button" class="primary wide detail-action" data-detail-action="${action}">${label}</button>`
+  return detailAllows(detailBooking?.ownerDetail, action)
+    ? `<a class="primary wide detail-action" href="/?classic=1&amp;tab=mine">${label}</a>`
     : '';
 }
 function renderDetail(booking, open = false) {
@@ -211,7 +212,8 @@ function renderDetail(booking, open = false) {
   const privateValue = reservedForValue(detail, booking);
   const privateLabel = reservedForLabels[booking.purpose] || 'Reserved for';
   const actionMarkup = `${detailActionMarkup('endEarly', 'End early')}${detailActionMarkup('cancel', 'Cancel')}`;
-  const publicRows = `<div class="detail-row"><span>Day</span><b>${esc(bookingDay?.label || booking.day || 'Reservation day')}</b></div><div class="detail-row"><span>Time</span><b>${fmt(booking.start)} to ${fmt(booking.end)}</b></div><div class="detail-row"><span>Public name</span><b>${esc(booking.blocked ? 'Reserved' : booking.publicName || booking.name)}</b></div>${purpose ? `<div class="detail-row"><span>Purpose</span><b>${esc(purpose)}</b></div>` : ''}`;
+  const ownerName = detail?.name || detail?.displayName || '';
+  const publicRows = `<div class="detail-row"><span>Day</span><b>${esc(bookingDay?.label || booking.day || 'Reservation day')}</b></div><div class="detail-row"><span>Reservation</span><b>${fmt(booking.start)} to ${fmt(booking.end)}</b></div><div class="detail-row"><span>Public name</span><b>${esc(booking.blocked ? 'Reserved' : booking.publicName || booking.name)}</b></div>${purpose ? `<div class="detail-row"><span>Purpose</span><b>${esc(purpose)}</b></div>` : ''}${ownerName ? `<div class="detail-row detail-private"><span>Reserved</span><b>${esc(ownerName)}</b></div>` : ''}`;
   $('#detailBody').innerHTML = `<p class="crumb">${esc(types[booking.type]?.single || 'Reservation')} ${booking.unit}</p><h2 id="detailTitle" class="step-title" tabindex="-1">Reservation details</h2><div class="detail-card">${publicRows}${detail && privateValue ? `<div class="detail-row detail-private"><span>${esc(privateLabel)}</span><b>${esc(privateValue)}</b></div>` : ''}</div>${actionMarkup ? `<div class="detail-actions">${actionMarkup}</div>` : ''}<p id="detailStatus" class="validation form-error" role="alert"></p>`;
   if (open && !$('#detailDialog').open) {
     detailReturnFocus = document.activeElement;
@@ -254,7 +256,7 @@ function openBooking(preset) {
   returnFocus = document.activeElement;
   const day = days[dayIndex];
   draft = {day:day.key, dayInfo:day, type:preset ? type : null, unit:preset ? preset.unit : null,
-    start:preset ? preset.start : null, end:null, purpose:null, purposeOther:'', reservedFor:'', name:'', locked:Boolean(preset), override:false};
+    start:preset ? preset.start : null, end:null, purpose:null, purposeOther:'', reservedFor:'', name:localStorage.getItem('srs-name') || '', locked:Boolean(preset), override:false};
   history = []; draftError = ''; step = preset ? 'purpose' : 'resource';
   renderStep(false); $('#bookingDialog').showModal(); updateDialogConnection();
   requestAnimationFrame(() => $('#stepTitle').focus());
@@ -276,7 +278,7 @@ function frame(title, hint, content) {
 function receipt() {
   const unit = draft.unit && !(draft.override && !draft.locked) ? ` ${draft.unit}` : '';
   const overrideNote = draft.override ? `<div class="priority-note" role="note"><b>${priorityOverrideLabel}</b><span>This time replaces a lower-priority reservation.</span></div>` : '';
-  return `<div class="receipt"><h3 class="receipt-unit">${types[draft.type].single}${unit}</h3>${overrideNote}<div class="receipt-row"><span>Day</span><b>${esc(dateLabel(draftDay()))}</b></div><div class="receipt-row"><span>Time</span><b>${fmt(draft.start)} to ${fmt(draft.end)}<br>${duration(draft.start, draft.end)}</b></div><div class="receipt-row"><span>Purpose</span><b>${purposes[draft.purpose].label}</b></div><div class="receipt-row"><span>${esc(reservedForLabels[draft.purpose])}</span><b>${esc(draft.reservedFor)}</b></div></div>`;
+  return `<div class="receipt"><h3 class="receipt-unit">${types[draft.type].single}${unit}</h3>${overrideNote}<div class="receipt-row"><span>Day</span><b>${esc(dateLabel(draftDay()))}</b></div><div class="receipt-row"><span>Time</span><b>${fmt(draft.start)} to ${fmt(draft.end)}<br>${duration(draft.start, draft.end)}</b></div><div class="receipt-row"><span>Purpose</span><b>${purposes[draft.purpose].label}</b></div><div class="receipt-row"><span>Name</span><b>${esc(draft.name)}</b></div><div class="receipt-row"><span>${esc(reservedForLabels[draft.purpose])}</span><b>${esc(draft.reservedFor)}</b></div></div>`;
 }
 function renderStep(focus = true) {
   let content = '';
@@ -288,7 +290,7 @@ function renderStep(focus = true) {
     const label = reservedForLabels[draft.purpose] || 'Reserved for';
     const title = draft.purpose === 'other' ? 'What is this for?' : 'Who is this for?';
     const hint = draft.purpose === 'other' ? 'Add a short purpose for this reservation.' : 'Add the person this reservation is for.';
-    content = frame(title, hint, `<form id="nameForm"><label class="field-label" for="guestName">${label}</label><input id="guestName" name="reservedFor" autocomplete="off" maxlength="120" required value="${esc(draft.reservedFor)}" placeholder="${reservedForPlaceholders[draft.purpose] || 'Add a detail'}" aria-describedby="nameHelp nameError"><p class="field-help" id="nameHelp">Only the shared public name and purpose appear on the schedule.</p><p class="validation" id="nameError" role="alert"></p><button type="submit" class="primary wide">Continue <span aria-hidden="true">&#8594;</span></button></form>`);
+    content = frame(title, hint, `<form id="nameForm"><label class="field-label" for="guestName">Your name</label><input id="guestName" name="name" autocomplete="name" maxlength="120" required value="${esc(draft.name)}" placeholder="Your full name"><label class="field-label" for="reservedFor">${label}</label><input id="reservedFor" name="reservedFor" autocomplete="off" maxlength="120" required value="${esc(draft.reservedFor)}" placeholder="${reservedForPlaceholders[draft.purpose] || 'Add a detail'}" aria-describedby="nameHelp nameError"><p class="field-help" id="nameHelp">Only the shared public name and purpose appear on the schedule.</p><p class="validation" id="nameError" role="alert"></p><button type="submit" class="primary wide">Continue <span aria-hidden="true">&#8594;</span></button></form>`);
   }
   if (step === 'start') {
     const starts = startOptions();
@@ -316,7 +318,7 @@ function showDraftError(message) {
 async function save() {
   if (saving) return;
   if (!draftReady()) { showDraftError('Reconnect and confirm availability before reserving. Your details are still here.'); updateDialogConnection(); return; }
-  if (!visibleText(draft.reservedFor)) { showDraftError(`Add a ${reservedForLabels[draft.purpose]?.toLowerCase() || 'reserved-for detail'} before confirming.`); return; }
+  if (!visibleText(draft.name) || !visibleText(draft.reservedFor)) { showDraftError('Add your name and the reserved-for detail before confirming.'); return; }
   const selected = rangeAvailability(draftDay(), draft.type, draft.start, draft.end, draft.purpose, draft.locked ? draft.unit : null);
   if (!selected || selected.override !== Boolean(draft.override)) {
     showDraftError(selected ? 'Availability changed. Please go back and review this time again.' : 'This time is no longer available for the whole visit. Go back to choose another ending, or close this sheet to choose a different space.');
@@ -430,12 +432,14 @@ $('#sheetBody').addEventListener('submit', event => {
   if (event.target.id !== 'nameForm') return;
   event.preventDefault();
   if (!draftReady() || saving) { updateDialogConnection(); return; }
-  const field = $('#guestName'), value = field.value.trim();
-  if (!/[\p{L}\p{N}]/u.test(value)) { $('#nameError').textContent = `Add a ${reservedForLabels[draft.purpose]?.toLowerCase() || 'detail'} to continue.`; field.setAttribute('aria-invalid','true'); field.focus(); return; }
-  draft.reservedFor = value; draft.purposeOther = draft.purpose === 'other' ? value : ''; go('confirm');
+  const field = $('#guestName'), reserved = $('#reservedFor'), value = field.value.trim(), reservedValue = reserved.value.trim();
+  if (!visibleText(value) || !visibleText(reservedValue)) { $('#nameError').textContent = 'Add your name and the reserved-for detail to continue.'; reserved.setAttribute('aria-invalid','true'); reserved.focus(); return; }
+  draft.name = value; draft.reservedFor = reservedValue; draft.purposeOther = draft.purpose === 'other' ? reservedValue : ''; go('confirm');
 });
 $('#sheetBody').addEventListener('input', event => {
-  if (event.target.id === 'guestName') { draft.reservedFor = event.target.value; draft.purposeOther = draft.purpose === 'other' ? event.target.value : ''; event.target.removeAttribute('aria-invalid'); $('#nameError').textContent = ''; }
+  if (event.target.id === 'guestName') draft.name = event.target.value;
+  if (event.target.id === 'reservedFor') { draft.reservedFor = event.target.value; draft.purposeOther = draft.purpose === 'other' ? event.target.value : ''; }
+  if (event.target.id === 'guestName' || event.target.id === 'reservedFor') { event.target.removeAttribute('aria-invalid'); $('#nameError').textContent = ''; }
 });
 
 render();

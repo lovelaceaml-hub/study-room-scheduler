@@ -156,7 +156,7 @@ function showRetryError(error) {
 
 function createDraft(preset) {
   const day=days[dayIndex];
-  return {day:day.key,dayLabel:dateText(day),resource:preset?resource:null,presetUnit:preset?Number(preset.unit):null,unit:preset?Number(preset.unit):null,start:preset?Number(preset.start):null,end:null,purpose:null,purposeOther:'',reservedFor:'',override:false};
+  return {day:day.key,dayLabel:dateText(day),resource:preset?resource:null,presetUnit:preset?Number(preset.unit):null,unit:preset?Number(preset.unit):null,start:preset?Number(preset.start):null,end:null,purpose:null,purposeOther:'',name:localStorage.getItem('srs-name')||'',reservedFor:'',override:false};
 }
 
 function openBooking(preset) {
@@ -187,7 +187,7 @@ function context() {
 function summary() {
   const overrideNote=draft.override?'<p class="override-note" role="status"><strong>Priority override</strong><span>This range requires taking over a lower-priority reservation.</span></p>':'';
   const reservedLabel=draft.purpose==='contact'?'Contact Name':draft.purpose==='new'?'Member Name':'Purpose';
-  return '<div class="booking-summary"><div class="summary-unit">'+TYPES[draft.resource].single+' '+draft.unit+'</div><dl><dt>When</dt><dd>'+esc(draft.dayLabel)+'<br>'+fmt(draft.start)+' to '+fmt(draft.end)+'</dd><dt>Purpose</dt><dd>'+PURPOSES[draft.purpose].label+'</dd><dt>'+reservedLabel+'</dt><dd>'+esc(draft.reservedFor)+'</dd></dl>'+overrideNote+'</div>';
+  return '<div class="booking-summary"><div class="summary-unit">'+TYPES[draft.resource].single+' '+draft.unit+'</div><dl><dt>When</dt><dd>'+esc(draft.dayLabel)+'<br>'+fmt(draft.start)+' to '+fmt(draft.end)+'</dd><dt>Purpose</dt><dd>'+PURPOSES[draft.purpose].label+'</dd><dt>Your name</dt><dd>'+esc(draft.name)+'</dd><dt>'+reservedLabel+'</dt><dd>'+esc(draft.reservedFor)+'</dd></dl>'+overrideNote+'</div>';
 }
 
 function renderStep() {
@@ -224,7 +224,7 @@ function renderStep() {
     const other=draft.purpose==='other';
     const description=other?'Describe what this reservation is for.':'Enter the '+label.toLowerCase()+' for this reservation.';
     const field=other?'<textarea class="details-field" id="reserved-for" name="reservedFor" maxlength="160" required aria-describedby="reserved-for-note" placeholder="What is the reservation for?">'+esc(draft.reservedFor)+'</textarea>':'<input class="name-field" id="reserved-for" name="reservedFor" type="text" maxlength="60" autocomplete="off" placeholder="'+esc(label)+'" value="'+esc(draft.reservedFor)+'" required aria-describedby="reserved-for-note">';
-    html='<h2 id="step-title" tabindex="-1">Who or what is this<br>for?</h2><p class="hint" id="step-hint">'+description+'</p><form id="reserved-for-form"><label class="field-label" for="reserved-for">'+label+'</label>'+field+'<p class="form-note" id="reserved-for-note">Only a public-safe name and purpose appear on the schedule.</p><button class="primary full" type="submit" id="reserved-for-next">Review reservation</button></form>';
+    html='<h2 id="step-title" tabindex="-1">Who or what is this<br>for?</h2><p class="hint" id="step-hint">'+description+'</p><form id="reserved-for-form"><label class="field-label" for="guest-name">Your name</label><input class="name-field" id="guest-name" name="name" type="text" maxlength="120" autocomplete="name" placeholder="Your full name" value="'+esc(draft.name)+'" required><label class="field-label" for="reserved-for">'+label+'</label>'+field+'<p class="form-note" id="reserved-for-note">Only a public-safe name and purpose appear on the schedule.</p><button class="primary full" type="submit" id="reserved-for-next">Review reservation</button></form>';
   }
   if(step==='confirm') html='<h2 id="step-title" tabindex="-1">Review your<br>reservation.</h2><p class="hint" id="step-hint">Check the details, then confirm your '+(connection.demo?'test ':'')+'reservation.</p>'+summary()+'<p class="form-note">'+(connection.demo?'Demo only. This creates a test reservation in this page. No real booking is made.':'Your reservation is confirmed once the full time is checked and saved.')+'</p><button class="primary full" id="confirm">'+(connection.demo?'Confirm test reservation':'Confirm reservation')+'</button>';
   if(step==='success') html='<div class="success-ring" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><h2 id="step-title" tabindex="-1">Reservation confirmed.</h2><p class="hint" id="step-hint">'+(draft.savedDemo?'Your test reservation is now on the sample schedule. No real booking was made.':'Your reservation is confirmed and now on the schedule.')+'</p>'+summary()+'<button class="primary full" id="view-booking">See it on the schedule</button><button class="secondary" id="reserve-another">Reserve another space</button>';
@@ -239,7 +239,8 @@ function bookingDetailFor(booking) {
   const actions=detail.actions&&typeof detail.actions==='object'?detail.actions:{};
   const allowed=(...names)=>names.some(name=>detail[name]===true||actions[name]===true||actions[name]?.allowed===true);
   const reservedFor=typeof detail.reservedFor==='string'&&visibleText(detail.reservedFor)?detail.reservedFor.trim():'';
-  return {reservedFor,canEndEarly:allowed('canEndEarly','endEarly','end'),canCancel:allowed('canCancel','cancel')};
+  const name=typeof detail.name==='string'&&visibleText(detail.name)?detail.name.trim():typeof detail.displayName==='string'&&visibleText(detail.displayName)?detail.displayName.trim():'';
+  return {name,reservedFor,canEndEarly:allowed('canEndEarly','endEarly','end'),canCancel:allowed('canCancel','cancel')};
 }
 function detailActionsFor(detail) {
   if(!detail||(!detail.canEndEarly&&!detail.canCancel))return '';
@@ -252,8 +253,8 @@ function openReservationDetails(booking, trigger) {
   if(!detailDialog||!booking)return;
   const purpose=booking.blocked?'Reserved':PURPOSES[booking.purpose]?.label||'Other';
   const detail=bookingDetailFor(booking);
-  const ownerRow=detail?.reservedFor?'<div class="detail-row"><span>Reserved for</span><b>'+esc(detail.reservedFor)+'</b></div>':'';
-  detailBody.innerHTML='<div class="detail-content"><h2 id="reservation-detail-title">'+esc(booking.publicName)+'</h2><p id="reservation-detail-description" class="detail-hint">'+esc(TYPES[booking.resource].single)+' '+booking.unit+' · '+esc(dateText(days.find(day=>day.key===booking.day)))+'</p><div class="detail-summary"><div class="detail-row"><span>Time</span><b>'+fmt(booking.start)+' to '+fmt(booking.end)+'</b></div><div class="detail-row"><span>Purpose</span><b>'+esc(purpose)+'</b></div>'+ownerRow+'</div>'+detailActionsFor(detail)+'</div>';
+  const ownerRow=(detail?.name?'<div class="detail-row"><span>Reserved</span><b>'+esc(detail.name)+'</b></div>':'')+(detail?.reservedFor?'<div class="detail-row"><span>Reserved for</span><b>'+esc(detail.reservedFor)+'</b></div>':'');
+  detailBody.innerHTML='<div class="detail-content"><h2 id="reservation-detail-title">'+esc(booking.publicName)+'</h2><p id="reservation-detail-description" class="detail-hint">'+esc(TYPES[booking.resource].single)+' '+booking.unit+' · '+esc(dateText(days.find(day=>day.key===booking.day)))+'</p><div class="detail-summary"><div class="detail-row"><span>Reservation</span><b>'+fmt(booking.start)+' to '+fmt(booking.end)+'</b></div><div class="detail-row"><span>Purpose</span><b>'+esc(purpose)+'</b></div>'+ownerRow+'</div>'+detailActionsFor(detail)+'</div>';
   detailReturnFocus=trigger;
   detailDialog.showModal();
   document.getElementById('reservation-detail-title')?.focus({preventScroll:true});
@@ -278,7 +279,7 @@ function syncSheetAvailability() {
 
 async function save() {
   if(saving||!draftReady()) {syncSheetAvailability();return;}
-  if(!visibleText(draft.reservedFor)) {showError('Complete the reserved-for field before confirming.');return;}
+  if(!visibleText(draft.name)||!visibleText(draft.reservedFor)) {showError('Complete your name and the reserved-for field before confirming.');return;}
   if(!selectionAvailable()) {showError('This range is no longer available for that full time. Go back and choose another ending.');return;}
   clearError();
   saving=true;
@@ -287,7 +288,7 @@ async function save() {
   const submittedDemo=connection.demo;
   try {
     const reservedFor=draft.reservedFor.trim();
-    const result=await submit({day:draft.day,type:draft.resource,unit:draft.override?null:draft.unit,start:draft.start,end:draft.end,name:reservedFor,reservedFor,purpose:draft.purpose,purposeOther:draft.purpose==='other'?reservedFor:''});
+    const result=await submit({day:draft.day,type:draft.resource,unit:draft.override?null:draft.unit,start:draft.start,end:draft.end,name:draft.name.trim(),reservedFor,purpose:draft.purpose,purposeOther:draft.purpose==='other'?reservedFor:''});
     const saved=normalizeBooking(result);
     if(!saved||result.status!=='approved')throw new Error('Confirmation was not received. Check My reservations before trying again.');
     bookings=bookings.filter(b=>b.key!==saved.key);
@@ -409,6 +410,7 @@ $('#sheet-body').addEventListener('click',event=>{
   }
 });
 $('#sheet-body').addEventListener('input',event=>{
+  if(event.target.id==='guest-name')draft.name=event.target.value;
   if(event.target.id==='reserved-for'){
     draft.reservedFor=event.target.value;
     if(draft.purpose==='other')draft.purposeOther=event.target.value;
@@ -418,7 +420,9 @@ $('#sheet-body').addEventListener('input',event=>{
 $('#sheet-body').addEventListener('submit',event=>{
   event.preventDefault();
   if(saving||!draftReady()){syncSheetAvailability();return;}
-  if(event.target.id!=='reserved-for-form'||!visibleText(draft.reservedFor))return;
+  if(event.target.id!=='reserved-for-form')return;
+  draft.name=$('#guest-name').value.trim();
+  if(!visibleText(draft.name)||!visibleText(draft.reservedFor))return;
   if(draft.purpose==='other')draft.purposeOther=draft.reservedFor.trim();
   go('confirm');
 });

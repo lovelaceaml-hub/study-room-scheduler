@@ -55,12 +55,12 @@ function startOptions(){
   return starts;
 }
 function selectedRange(){return rangeOptions().find(option=>option.end===draft.end);}
-function validDraft(){return canBookDay(draft.day)&&visibleText(draft.reservedFor)&&draft.end>draft.start&&Boolean(selectedRange())&&Boolean(PURPOSES[draft.purpose]);}
+function validDraft(){return canBookDay(draft.day)&&visibleText(draft.name)&&visibleText(draft.reservedFor)&&draft.end>draft.start&&Boolean(selectedRange())&&Boolean(PURPOSES[draft.purpose]);}
 function errorText(error){return typeof error==='string'?error:error?.message||'The reservation could not be saved. Your details are kept. Please try again.';}
 function publicProjection(item){const projected=item?.publicName??item?.displayName??item?.name;const text=String(projected??'').trim();return text||'Reserved';}
 function authorizedOwnerDetail(item){const detail=item?.ownerDetail??item?.ownerDetails??item?.detail;if(!detail||typeof detail!=='object'||Array.isArray(detail))return null;return detail.authorized===true||detail.ownerAuthorized===true||detail.authorizedForMember===true?detail:null;}
 function detailAllows(detail,action){return Boolean(detail&&(detail[action]===true||detail.permissions?.[action]===true||detail.actions?.[action]===true));}
-function actionHandler(action){const names=action==='cancel'?['cancelBooking','memberCancelBooking','cancel']:['endBookingEarly','memberEndBookingEarly','endEarly'];return names.map(name=>live[name]).find(handler=>typeof handler==='function')||null;}
+function actionHandler(action){const names=action==='cancel'?['cancelOwnedBooking','cancelBooking','memberCancelBooking','cancel']:['endOwnedBookingEarly','endBookingEarly','memberEndBookingEarly','endEarly'];return names.map(name=>live[name]).find(handler=>typeof handler==='function')||null;}
 function reservedForValue(detail,booking){if(!detail)return '';const value=booking?.purpose==='other'?detail.purposeOther??detail.purpose_other??detail.reservedFor??detail.reserved_for:detail.reservedFor??detail.reserved_for??detail.name;return String(value??'').trim();}
 function normalizeBooking(item){const purpose=item?.purpose==='new-member'?'new':item?.purpose;const blocked=Boolean(item?.blocked)||purpose==='blocked'||!PURPOSES[purpose];const projected=publicProjection(item);return {...item,key:String(item?.key??item?.bookingId??item?.id??''),bookingId:item?.bookingId??item?.id??item?.key,day:item?.day??item?.date,date:item?.day??item?.date,name:blocked?'Reserved':projected,publicName:blocked?'':projected,purpose:blocked?'blocked':purpose,blocked,ownerDetail:authorizedOwnerDetail(item)};}
 function connectionMessage(){
@@ -122,14 +122,15 @@ function renderSchedule(){
   $('#schedule').innerHTML=`<div class="schedule-head" style="--units:${type.count}">${headers}</div><div class="schedule-body${connection.status==='loading'?' loading-schedule':''}" style="--units:${type.count}" ${connection.status==='loading'?'aria-busy="true"':''}>${rules}<div class="time-rail">${rail}</div>${columns}${bands}</div>`;
   renderConnection();
 }
-function detailActionMarkup(action,label){return detailAllows(detailBooking?.ownerDetail,action)&&actionHandler(action)?`<button type="button" class="primary-action detail-action" data-detail-action="${action}">${label}</button>`:'';}
+function detailActionMarkup(action,label){return detailAllows(detailBooking?.ownerDetail,action)?`<a class="primary-action detail-action" href="/?classic=1&amp;tab=mine">${label}</a>`:'';}
 function renderDetail(booking,open=false){
   if(!booking)return;
   detailBooking=booking;
   const detail=booking.ownerDetail,purpose=booking.blocked?'':PURPOSES[booking.purpose]||'Other';
   const privateValue=reservedForValue(detail,booking),privateLabel=RESERVED_FOR_LABELS[booking.purpose]||'Reserved for';
   const actionMarkup=`${detailActionMarkup('endEarly','End early')}${detailActionMarkup('cancel','Cancel')}`;
-  const rows=`<div class="review-row"><span>Day</span><strong>${esc(dayLabel(booking.day))}</strong></div><div class="review-row"><span>Time</span><strong>${range(booking.start,booking.end)}</strong></div><div class="review-row"><span>Public name</span><strong>${esc(booking.blocked?'Reserved':booking.publicName||booking.name)}</strong></div>${purpose?`<div class="review-row"><span>Purpose</span><strong>${esc(purpose)}</strong></div>`:''}`;
+  const ownerName=detail?.name||detail?.displayName||'';
+  const rows=`<div class="review-row"><span>Day</span><strong>${esc(dayLabel(booking.day))}</strong></div><div class="review-row"><span>Reservation</span><strong>${range(booking.start,booking.end)}</strong></div><div class="review-row"><span>Public name</span><strong>${esc(booking.blocked?'Reserved':booking.publicName||booking.name)}</strong></div>${purpose?`<div class="review-row"><span>Purpose</span><strong>${esc(purpose)}</strong></div>`:''}${ownerName?`<div class="review-row detail-private"><span>Reserved</span><strong>${esc(ownerName)}</strong></div>`:''}`;
   $('#detail-body').innerHTML=`<div class="flow-context">${esc(TYPES[booking.type]?.single||'Reservation')} ${booking.unit}</div><h2 id="detail-title" tabindex="-1">Reservation details</h2><div class="detail-card">${rows}${detail&&privateValue?`<div class="review-row detail-private"><span>${esc(privateLabel)}</span><strong>${esc(privateValue)}</strong></div>`:''}</div>${actionMarkup?`<div class="detail-actions">${actionMarkup}</div>`:''}<p id="detail-status" class="validation" role="alert"></p>`;
   if(open&&!$('#detail-dialog').open){detailReturnFocus=document.activeElement;$('#detail-dialog').showModal();}
   requestAnimationFrame(()=>$('#detail-title')?.focus({preventScroll:true}));
@@ -147,7 +148,7 @@ function animateSchedule(){const schedule=$('#schedule');schedule.classList.remo
 function begin(preset){
   if(!canBook()||saving)return;
   opener=document.activeElement;
-  draft={day:selectedDate().key,dateLabel:selectedDate().label,type:preset?.type||null,unit:preset?.unit||1,start:preset?.start??null,end:null,purpose:null,purposeOther:'',reservedFor:'',name:savedName,direct:Boolean(preset),submitError:''};
+  draft={day:selectedDate().key,dateLabel:selectedDate().label,type:preset?.type||null,unit:preset?.unit||1,start:preset?.start??null,end:null,purpose:null,purposeOther:'',reservedFor:'',name:savedName||localStorage.getItem('srs-name')||'',direct:Boolean(preset),submitError:''};
   flow=preset?['purpose','end','reservedFor','confirm']:['resource','purpose','start','end','reservedFor','confirm'];flowIndex=0;
   renderStep();$('#booking-dialog').showModal();focusStep();
 }
@@ -171,7 +172,7 @@ function updateBookingControls(){
 function reviewCard(saved=false){
   const item=saved?draft.saved:draft, label=PURPOSES[item.purpose] || 'Other', reservedForLabel=RESERVED_FOR_LABELS[item.purpose]||'Reserved for';
   const override=saved?Boolean(item.override):Boolean(selectedRange()?.override);
-  return `<div class="review-card"><h3>${TYPES[item.type].single} ${item.unit}</h3><div class="review-row"><span>Day</span><strong>${esc(dayLabel(item.day))}</strong></div><div class="review-row"><span>Time</span><strong>${range(item.start,item.end)}</strong></div><div class="review-row"><span>Purpose</span><strong>${label}</strong></div>${override?'<div class="review-row"><span>Status</span><strong class="override-status">Priority override</strong></div>':''}<div class="review-row"><span>${reservedForLabel}</span><strong>${esc(saved?draft.reservedFor:item.reservedFor||'')}</strong></div></div>`;
+  return `<div class="review-card"><h3>${TYPES[item.type].single} ${item.unit}</h3><div class="review-row"><span>Day</span><strong>${esc(dayLabel(item.day))}</strong></div><div class="review-row"><span>Time</span><strong>${range(item.start,item.end)}</strong></div><div class="review-row"><span>Name</span><strong>${esc(item.name||'')}</strong></div><div class="review-row"><span>Purpose</span><strong>${label}</strong></div>${override?'<div class="review-row"><span>Status</span><strong class="override-status">Priority override</strong></div>':''}<div class="review-row"><span>${reservedForLabel}</span><strong>${esc(saved?draft.saved: item.reservedFor||'')}</strong></div></div>`;
 }
 function renderStep(){
   const step=flow[flowIndex];$('#step-counter').textContent=step==='success'?'Reservation confirmed':`Reservation · ${flowIndex+1} of ${flow.length}`;
@@ -187,7 +188,7 @@ function renderStep(){
     const ends=rangeOptions();
     html=titleBlock('And when will<br>you finish?',ends.length?'These endings fit before the next reservation or service.':'This start is no longer open. Go back to choose another time.')+`<div class="time-choices">${ends.map(({end,override})=>override?`<button class="time-choice override-choice" data-time-end="${end}" data-booking-action aria-label="End at ${esc(time(end))}. Priority override required. ${end-draft.start} minutes together">${time(end)}<span class="override-indicator">Priority override</span></button>`:`<button class="time-choice" data-time-end="${end}" data-booking-action>${time(end)}<small>${end-draft.start} minutes together</small></button>`).join('')}</div>`;
   }
-  if(step==='reservedFor'){const label=RESERVED_FOR_LABELS[draft.purpose]||'Reserved for';const heading=draft.purpose==='other'?'What is this for?':'Who is this for?';const hint=draft.purpose==='other'?'Add a short purpose for this reservation.':'Add the person this reservation is for.';html=titleBlock(heading,hint)+`<form id="name-form"><label class="field-label" for="display-name">${label}</label><input class="field" id="display-name" name="reservedFor" autocomplete="off" maxlength="120" value="${esc(draft.reservedFor||'')}" placeholder="${RESERVED_FOR_PLACEHOLDERS[draft.purpose]||'Add a detail'}" required><p class="validation" id="name-error" hidden>Please enter a visible detail.</p><button class="primary-action" type="submit" data-booking-action>Review reservation &#8594;</button></form>`;}
+  if(step==='reservedFor'){const label=RESERVED_FOR_LABELS[draft.purpose]||'Reserved for';const heading=draft.purpose==='other'?'What is this for?':'Who is this for?';const hint=draft.purpose==='other'?'Add a short purpose for this reservation.':'Add the person this reservation is for.';html=titleBlock(heading,hint)+`<form id="name-form"><label class="field-label" for="display-name">Your name</label><input class="field" id="display-name" name="name" autocomplete="name" maxlength="120" value="${esc(draft.name||'')}" placeholder="Your full name" required><label class="field-label" for="reserved-for">${label}</label><input class="field" id="reserved-for" name="reservedFor" autocomplete="off" maxlength="120" value="${esc(draft.reservedFor||'')}" placeholder="${RESERVED_FOR_PLACEHOLDERS[draft.purpose]||'Add a detail'}" required><p class="validation" id="name-error" hidden>Please enter both your name and the reservation detail.</p><button class="primary-action" type="submit" data-booking-action>Review reservation &#8594;</button></form>`;}
   if(step==='confirm')html=titleBlock('Review your<br>reservation.',connection.demo?'Review the details before saving your demo reservation.':'Review the details before confirming your reservation.')+reviewCard()+`<p class="validation" id="save-error" role="alert" ${draft.submitError?'':'hidden'}>${esc(draft.submitError)}</p><button class="primary-action" id="confirm-reservation" data-booking-action>Confirm reservation</button><p class="submit-status" id="submit-status" role="status"></p>`;
   if(step==='success')html=`<div class="success-copy"><div class="success-mark" aria-hidden="true">&#10003;</div>${titleBlock('Reservation<br>confirmed.',connection.demo?'Your demo reservation is now on the schedule.':'Your reservation is confirmed and on the schedule.')}${reviewCard(true)}<button class="primary-action" id="see-reservation">See it on the schedule</button><button class="secondary-action" id="reserve-another">Reserve something else</button></div>`;
   $('#step-content').innerHTML=html;$('#step-content').classList.remove('page-turn');void $('#step-content').offsetWidth;$('#step-content').classList.add('page-turn');renderConnection();
@@ -226,12 +227,13 @@ $('#state-notice').addEventListener('click',event=>{if(event.target.closest('#re
 $('#dialog-connection').addEventListener('click',event=>{if(event.target.closest('#dialog-retry'))reconnect();});
 $('#step-content').addEventListener('change',event=>{if(event.target.id==='unit-select'){draft.unit=Number(event.target.value);draft.start=null;draft.end=null;renderStep();$('#unit-select').focus();}});
 $('#step-content').addEventListener('input',event=>{
-  if(event.target.id==='display-name'){draft.reservedFor=event.target.value;draft.purposeOther=draft.purpose==='other'?event.target.value:'';}
+  if(event.target.id==='display-name')draft.name=event.target.value;
+  if(event.target.id==='reserved-for'){draft.reservedFor=event.target.value;draft.purposeOther=draft.purpose==='other'?event.target.value:'';}
 });
 $('#step-content').addEventListener('submit',event=>{
   if(event.target.id!=='name-form')return;event.preventDefault();if(!canBookDay(draft.day)||saving)return;
-  draft.reservedFor=$('#display-name').value.trim();draft.purposeOther=draft.purpose==='other'?draft.reservedFor:'';
-  if(!visibleText(draft.reservedFor)){$('#name-error').hidden=false;$('#display-name').setAttribute('aria-invalid','true');$('#display-name').focus();return;}next();
+  draft.name=$('#display-name').value.trim();draft.reservedFor=$('#reserved-for').value.trim();draft.purposeOther=draft.purpose==='other'?draft.reservedFor:'';
+  if(!visibleText(draft.name)||!visibleText(draft.reservedFor)){$('#name-error').hidden=false;(!visibleText(draft.name)?$('#display-name'):$('#reserved-for')).focus();return;}next();
 });
 $('#step-content').addEventListener('click',event=>{
   if(event.target.closest('#see-reservation')){
