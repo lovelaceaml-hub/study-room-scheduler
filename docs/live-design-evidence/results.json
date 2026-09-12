@@ -1,0 +1,110 @@
+[
+  {
+    "name": "solace",
+    "passed": true,
+    "checks": [
+      "resource-first",
+      "three exact-unit backend payloads",
+      "Other details",
+      "failed save retained draft",
+      "canonical success",
+      "ownership preserved",
+      "offline blocks Open and submit",
+      "390px no overflow",
+      "phone and desktop captures"
+    ],
+    "errors": []
+  },
+  {
+    "name": "velum",
+    "passed": true,
+    "checks": [
+      "resource-first",
+      "three exact-unit backend payloads",
+      "Other details",
+      "failed save retained draft",
+      "canonical success",
+      "ownership preserved",
+      "offline blocks Open and submit",
+      "390px no overflow",
+      "phone and desktop captures"
+    ],
+    "errors": []
+  },
+  {
+    "name": "cove",
+    "passed": true,
+    "checks": [
+      "resource-first",
+      "three exact-unit backend payloads",
+      "Other details",
+      "failed save retained draft",
+      "canonical success",
+      "ownership preserved",
+      "offline blocks Open and submit",
+      "390px no overflow",
+      "phone and desktop captures"
+    ],
+    "errors": []
+  },
+  {
+    "name": "petal",
+    "passed": true,
+    "checks": [
+      "resource-first",
+      "three exact-unit backend payloads",
+      "Other details",
+      "failed save retained draft",
+      "canonical success",
+      "ownership preserved",
+      "offline blocks Open and submit",
+      "390px no overflow",
+      "phone and desktop captures"
+    ],
+    "errors": []
+  },
+  {
+    "name": "atlas",
+    "passed": true,
+    "checks": [
+      "resource-first",
+      "three exact-unit backend payloads",
+      "Other details",
+      "failed save retained draft",
+      "canonical success",
+      "ownership preserved",
+      "offline blocks Open and submit",
+      "390px no overflow",
+      "phone and desktop captures"
+    ],
+    "errors": []
+  },
+  {
+    "name": "lattice",
+    "passed": true,
+    "checks": [
+      "resource-first",
+      "three exact-unit backend payloads",
+      "Other details",
+      "failed save retained draft",
+      "canonical success",
+      "ownership preserved",
+      "offline blocks Open and submit",
+      "390px no overflow",
+      "phone and desktop captures"
+    ],
+    "errors": []
+  },
+  {
+    "name": "chooser",
+    "passed": true,
+    "checks": [
+      "six choices plus current",
+      "remembered design redirects",
+      "My reservations retains existing preference and opens mine",
+      "remain current persists",
+      "change design remains reachable",
+      "phone no overflow"
+    ]
+  }
+]

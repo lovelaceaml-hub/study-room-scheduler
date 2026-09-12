@@ -2676,6 +2676,8 @@ function init() {
     location.replace('tv.html' + location.search + location.hash);
     return;
   }
+  const requestedTab = new URLSearchParams(location.search).get('tab');
+  if (['mine', 'admin'].includes(requestedTab)) ui.tab = requestedTab;
   const cachedState = loadLocal();
   const cacheMatchesDates = !!(cachedState && Array.isArray(cachedState.queryDates) && cachedState.queryDates.join('|') === upcomingBookingDates().join('|'));
   // Never carry bookings from an expired date pair into the new schedule. The

@@ -222,7 +222,11 @@ function memberRequestInput(input) {
   if (!purpose) throw new HttpsError('invalid-argument', 'Choose a purpose.');
   const purposeOther = requestText(data.purposeOther, 240, 'Purpose details');
   if (purpose === 'other' && !purposeOther) throw new HttpsError('invalid-argument', 'Purpose details are required.');
-  return { date, start: data.start, end: data.end, resourceType, name: requestText(data.name, 120, 'Name', true), purpose, purposeOther };
+  const requestedUnit = data.requestedUnit == null ? null : data.requestedUnit;
+  if (requestedUnit !== null && !UNITS_BY_TYPE[resourceType].includes(requestedUnit)) {
+    throw new HttpsError('invalid-argument', 'Choose a valid unit for this resource.');
+  }
+  return { date, start: data.start, end: data.end, resourceType, name: requestText(data.name, 120, 'Name', true), purpose, purposeOther, requestedUnit };
 }
 
 function memberBookingDocument(request, assignments, uid, now, automatic = true) {
@@ -263,7 +267,7 @@ async function memberSubmitBooking(input, uid) {
     const approved = await approvedBookingsForDate(transaction, request.date);
     const candidate = { ...request, date: request.date, assignments: { room: null, whiteboard: null, tv: null } };
     const automatic = shouldAutoApproveMemberBooking(request.date, new Date());
-    const availableUnitId = availableUnitForType(request.resourceType, candidate, approved);
+    const availableUnitId = availableUnitForType(request.resourceType, candidate, approved, request.requestedUnit);
     if (!availableUnitId) {
       const unavailableMessage = request.resourceType === 'room'
         ? 'There are no rooms available in the time slot that was selected.'

@@ -210,8 +210,9 @@ function rangesOverlap(first, second) {
     && parseMinutes(second.start) < parseMinutes(first.end);
 }
 
-function availableUnitForType(type, candidate, approvedBookings) {
-  const units = ALLOWED_UNITS[type] || [];
+function availableUnitForType(type, candidate, approvedBookings, requestedUnit = null) {
+  const allowed = ALLOWED_UNITS[type] || [];
+  const units = requestedUnit == null ? allowed : allowed.filter(unit => unit === requestedUnit);
   return units.find(unitId => !approvedBookings.some(existing =>
     existing.status === 'approved' &&
     existing.assignments && existing.assignments[type] === unitId &&

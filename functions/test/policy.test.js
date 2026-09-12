@@ -263,3 +263,16 @@ test('an override may take only a unit whose reservations are all Other', () => 
   ];
   assert.equal(overrideTarget('room', candidate, uneven).unitId, 'room-2');
 });
+
+test('requested units are honored and conflicts never substitute another unit', () => {
+  const candidate = {date:'2026-09-12',start:'11:00',end:'12:00'};
+  for (const [type,prefix] of [['room','room-'],['whiteboard','wb-'],['tv','tv-']]) {
+    assert.equal(availableUnitForType(type,candidate,[],prefix+'2'),prefix+'2');
+    const occupied=[{...candidate,status:'approved',assignments:{[type]:prefix+'2'}}];
+    assert.equal(availableUnitForType(type,candidate,occupied,prefix+'2'),null);
+    assert.equal(availableUnitForType(type,candidate,occupied),prefix+'1');
+    assert.equal(availableUnitForType(type,{...candidate,start:'12:00',end:'12:30'},occupied,prefix+'2'),prefix+'2');
+    assert.equal(availableUnitForType(type,candidate,[],prefix+'99'),null);
+    assert.equal(availableUnitForType(type,candidate,[],'invalid-unit'),null);
+  }
+});

@@ -1,5 +1,14 @@
 # LV Zion Study Rooms — User Manual
 
+## Choose how the app looks
+
+On your first visit after this update, choose Atlas, Lattice, Solace, Velum, Cove, or Petal, or press **Keep the current design**. Your choice is remembered on this device. Use **Change design** to choose again, or visit https://lvrooms.web.app/?choose=1.
+
+Every design shows the same live reservations. Tap an open slot to keep its exact room or equipment and starting time. Choose the purpose, an available ending, your name, and confirm. For **Other**, add a short purpose description. A reservation is confirmed only after the server accepts it. If the connection fails, your draft remains so you can recover; if the result is uncertain, check **My reservations** before submitting again.
+
+Use **My reservations** for cancellation, ending early, and reservation updates. It opens the familiar current app and keeps your selected design for the next visit. **Current app** switches back to the original design. Existing Admin, priority-reservation tools, and lobby TV remain available in the current app.
+
+
 > **Current service:** This Firebase Study Rooms scheduler remains live at
 > https://lvrooms.web.app. LV Zion Study Rooms is also active at
 > https://lvzion.vercel.app/rooms. They are separate calendars and do not

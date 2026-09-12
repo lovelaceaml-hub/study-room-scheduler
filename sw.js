@@ -1,9 +1,9 @@
 /* LV Zion Study Rooms — service worker.
    Network-first with cache fallback so the app still opens offline. */
-const CACHE = 'srs-v15-no-moved-notice';
+const CACHE = 'srs-v16-member-design-choice';
 const ASSETS = [
   './', './index.html', './app.js', './firebase-config.js', './manifest.json', './icon.svg',
-  './tokens.css', './styles.css', './tv.html', './tv.css', './tv.js'
+  './design-choice.js', './design-choice.css', './tokens.css', './styles.css', './tv.html', './tv.css', './tv.js'
 ];
 
 self.addEventListener('install', e => {
