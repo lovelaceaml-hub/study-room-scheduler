@@ -55,42 +55,44 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 .i-other{background:var(--other-bg)}
 .i-open{background:var(--paper-2)}
 
-/* ---------- the day sheet ---------- */
-.sheetwrap{border:1.5px solid var(--ink);background:var(--paper-2);overflow-x:auto;-webkit-overflow-scrolling:touch}
-.sheet-grid{min-width:880px}
-.gridrow{display:grid;grid-template-columns:104px repeat(12,1fr);border-bottom:1px solid var(--rule)}
-.gridrow:last-child{border-bottom:0}
-.gridrow.times{position:sticky;top:0;z-index:4;background:var(--paper-2);border-bottom:1.5px solid var(--ink)}
-.rowlabel{position:sticky;left:0;z-index:3;background:var(--paper-2);border-right:1.5px solid var(--ink);padding:13px 12px}
-.rowlabel b{display:block;font-size:13.5px;letter-spacing:-.01em}
-.rowlabel small{display:block;margin-top:4px;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
-.times .rowlabel{padding:11px 12px}
-.times .rowlabel b{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
-.tick{padding:11px 0 10px;text-align:center;font-size:10px;letter-spacing:.06em;color:var(--ink-3);border-left:1px solid var(--rule)}
-.tick.hour{color:var(--ink);font-weight:700}
-.lane{position:relative;display:grid;grid-template-columns:repeat(12,1fr);grid-column:2 / -1}
-.lane::before{content:"";position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px calc(100% / 12))}
-.block{position:relative;z-index:1;margin:5px 3px;padding:8px 9px;border:1.5px solid var(--ink);text-align:left;overflow:hidden;display:flex;flex-direction:column;justify-content:center;min-height:54px}
-.block b{display:block;font-size:11.5px;line-height:1.2;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.block small{display:block;margin-top:3px;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.block.contact{background:var(--contact-bg)}
-.block.contact small{color:var(--contact)}
-.block.member{background:var(--member-bg)}
-.block.member small{color:var(--member)}
-.block.other{background:var(--other-bg)}
-.block.other small{color:var(--other)}
-.block.mine{background:var(--ink);color:var(--paper)}
-.block.mine small{color:#f0c9a8}
-.block.past{opacity:.4}
-.open{position:relative;z-index:1;margin:5px 3px;border:1.5px dashed var(--rule-2);background:transparent;color:var(--ink-3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;min-height:54px;transition:background .12s,border-color .12s,color .12s}
-.open:hover,.open:focus-visible{background:var(--go);border-color:var(--ink);border-style:solid;color:#fff;outline:none}
-.open.past{opacity:.35;pointer-events:none}
-.nowmark{position:absolute;top:0;bottom:0;width:2px;background:var(--go);z-index:2;pointer-events:none}
-.nowmark::after{content:"NOW";position:absolute;top:-1px;left:4px;font-size:8px;letter-spacing:.14em;color:var(--go);font-weight:700}
+/* ---------- the day sheet: time runs down, rooms across ---------- */
+.sheetwrap{border:1.5px solid var(--ink);border-top:0;background:var(--paper-2)}
+.vgrid{--rowh:58px;display:grid;position:relative}
+.colhead{position:sticky;top:53px;z-index:5;background:var(--paper-2);border-bottom:1.5px solid var(--ink);padding:11px 4px;text-align:center}
+.colhead b{display:block;font-size:12px;letter-spacing:-.01em}
+.colhead small{display:block;margin-top:3px;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.colhead.corner{border-right:1.5px solid var(--ink);text-align:left;padding-left:10px}
+.colhead.corner b{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+.colhead.busy{background:#f1ece0}
+.gut{grid-column:1;border-right:1.5px solid var(--ink);border-bottom:1px solid var(--rule);padding:5px 8px 0;font-size:10px;letter-spacing:.02em;color:var(--ink-3);text-align:right}
+.gut.hour{color:var(--ink);font-weight:700;border-bottom-color:var(--rule-2)}
+.cellbg{border-bottom:1px solid var(--rule);border-right:1px solid var(--rule)}
+.cellbg.hour{border-bottom-color:var(--rule-2)}
+.blk{position:relative;z-index:2;margin:3px;padding:8px 8px 7px;border:1.5px solid var(--ink);overflow:hidden;text-align:left;display:block;width:calc(100% - 6px)}
+.blk b.mono{font-size:15px;letter-spacing:.02em}
+.blk b{display:block;font-size:11.5px;line-height:1.15;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blk small{display:block;margin-top:4px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blk .len{display:block;margin-top:5px;font-size:9.5px;color:var(--ink-2)}
+.blk.contact{background:var(--contact-bg)}.blk.contact small{color:var(--contact)}
+.blk.member{background:var(--member-bg)}.blk.member small{color:var(--member)}
+.blk.other{background:var(--other-bg)}.blk.other small{color:var(--other)}
+.blk.mine{background:var(--ink);color:var(--paper)}.blk.mine small{color:#f0c9a8}
+.blk.past{opacity:.38}
+.blk.sel{outline:3px solid var(--go);outline-offset:-1px}
+.slot{position:relative;z-index:2;margin:3px;border:1.5px dashed var(--rule-2);background:transparent;color:var(--ink-3);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;width:calc(100% - 6px);transition:background .12s,color .12s,border-color .12s}
+.slot:hover,.slot:focus-visible{background:var(--go);border-style:solid;border-color:var(--ink);color:#fff;outline:none}
+.slot.past{opacity:.3;pointer-events:none;border-style:dotted}
+.nowrule{position:absolute;left:0;right:0;height:2px;background:var(--go);z-index:4;pointer-events:none}
+.nowrule::after{content:"NOW 6:12";position:absolute;right:4px;top:-14px;font-size:8.5px;letter-spacing:.14em;font-weight:700;color:var(--go);background:var(--paper-2);padding:0 3px}
+.detail{position:sticky;top:0;z-index:9;border:1.5px solid var(--ink);background:var(--paper-2);padding:13px 15px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;min-height:54px}
+.detail b{font-size:15px;letter-spacing:-.02em}
+.detail span{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.detail .cat{border:1px solid var(--ink);padding:4px 8px;font-size:9.5px;letter-spacing:.14em}
+.detail .cat.contact{background:var(--contact-bg);color:var(--contact)}
+.detail .cat.member{background:var(--member-bg);color:var(--member)}
+.detail .cat.other{background:var(--other-bg);color:var(--other)}
+.detail .cat.mine{background:var(--ink);color:var(--paper)}
 .hint{margin:12px 2px 0;font-size:11px;letter-spacing:.04em;color:var(--ink-3)}
-.scroll-note{display:none}
-@media(max-width:760px){.scroll-note{display:block;margin:10px 2px 0;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}}
-
 .colophon{margin:34px 0 0;padding-top:16px;border-top:2px solid var(--ink);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
 
 /* ---------- the button ---------- */
@@ -155,10 +157,22 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
   .wrap{padding-bottom:170px}
   .masthead{padding:28px 0 14px}
   .lede{padding:40px 0 30px}
-  .sheet-grid{min-width:0}
+  .vgrid{--rowh:66px}
+  .colhead b{font-size:13.5px}
+  .blk b{font-size:12.5px}
   .gridrow{grid-template-columns:132px repeat(12,1fr)}
   .flowpage{padding:0 40px 60px}
   .q{margin-top:34px}
+}
+/* compact labels once a column is narrower than a name */
+.colhead b.mono,.blk b.mono{display:none}
+@media(max-width:620px){
+  .colhead b.full,.blk b.full{display:none}
+  .colhead b.mono,.blk b.mono{display:block}
+  .colhead b.mono{font-size:13px;letter-spacing:.04em}
+  .colhead small{font-size:8px}
+  .blk small{display:none}
+  .blk .len{font-size:9px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms !important;transition-duration:.06s !important}}
 </style>
@@ -172,7 +186,7 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 
   <section class="lede">
     <h2>Reserve a<br>room in <em>three taps.</em></h2>
-    <p>The whole evening, every room, printed on one sheet. Tap any open slot, or use the button at the bottom of the screen.</p>
+    <p>The whole evening reads top to bottom, every room side by side. Tap any open slot, or use the button at the bottom of the screen.</p>
   </section>
 
   <div class="tally">
@@ -195,9 +209,9 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
     </div>
   </div>
 
-  <div class="sheetwrap"><div class="sheet-grid" id="grid"></div></div>
-  <p class="scroll-note">Swipe the sheet sideways for the rest of the evening</p>
-  <p class="hint">Every block shows who holds the room and what it is for. Tap a dashed slot to reserve it from there.</p>
+  <div class="detail" id="detail"><span>Tap a block</span><b>The evening runs top to bottom</b><span>Rooms across, time down</span></div>
+  <div class="sheetwrap"><div class="vgrid" id="grid"></div></div>
+  <p class="hint">Colours show what each reservation is for. Tap a dashed slot to reserve from that time.</p>
 
   <div class="colophon"><span>LV Zion · Las Vegas</span><span>Sheet resets at midnight</span></div>
 </div>
@@ -282,55 +296,89 @@ const $ = s => document.querySelector(s);
 let type = 'room';
 
 function renderGrid(){
-  let html = '<div class="gridrow times"><div class="rowlabel"><b>' + LABEL[type] + '</b></div>';
+  const units = UNITS[type];
+  const grid = $('#grid');
+  grid.style.gridTemplateColumns = 'var(--gut,46px) repeat(' + units.length + ',minmax(0,1fr))';
+  grid.style.gridTemplateRows = '44px repeat(' + COLS + ',var(--rowh))';
+
+  let html = '<div class="colhead corner"><b>Time</b></div>';
+  units.forEach(u => {
+    const busy = BOOKINGS.some(b => b.unit === u && b.from <= NOW && b.to > NOW);
+    html += '<div class="colhead' + (busy ? ' busy' : '') + '"><b class="full">' + u + '</b><b class="mono">' + shortName(u) + '</b>' +
+            '<small>' + (busy ? 'In use' : 'Open') + '</small></div>';
+  });
+
+  /* time gutter + empty cell backgrounds */
   for (let i = 0; i < COLS; i++){
     const m = DAY_START + i * STEP;
-    html += '<div class="tick' + (m % 60 === 0 ? ' hour' : '') + '">' + (m % 60 === 0 ? short(m) : '·') + '</div>';
+    const hour = m % 60 === 0;
+    html += '<div class="gut' + (hour ? ' hour' : '') + '" style="grid-row:' + (i + 2) + '">' + (hour ? short(m) : '') + '</div>';
+    for (let c = 0; c < units.length; c++)
+      html += '<div class="cellbg' + (hour ? ' hour' : '') + '" style="grid-row:' + (i + 2) + ';grid-column:' + (c + 2) + '"></div>';
   }
-  html += '</div>';
 
-  UNITS[type].forEach(unit => {
+  /* reservations and open runs, one column per space */
+  units.forEach((unit, c) => {
     const rows = forUnit(unit);
-    let cells = '', cur = DAY_START;
+    let cur = DAY_START;
+    const place = (from, to, inner) => {
+      html += inner.replace('__POS__', 'grid-column:' + (c + 2) + ';grid-row:' + row(from) + ' / ' + row(to));
+    };
     const gap = (from, to) => {
       const past = to <= NOW;
-      cells += '<button class="open' + (past ? ' past' : '') + '" style="grid-column:' + col(from) + ' / ' + col(to) + '"' +
-               (past ? ' tabindex="-1"' : '') + ' data-open-unit="' + unit + '" data-open-from="' + Math.max(from, nextSlot(NOW)) + '">' +
-               (past ? '' : 'Open') + '</button>';
+      const mins = to - from;
+      place(from, to, '<button class="slot' + (past ? ' past' : '') + '" style="__POS__"' + (past ? ' tabindex="-1"' : '') +
+        ' data-open-unit="' + unit + '" data-open-from="' + Math.max(from, nextSlot(NOW)) + '">' + (past ? '' : (mins >= 60 ? 'Open' : '+')) + '</button>');
     };
     rows.forEach(b => {
       if (b.from > cur) gap(cur, b.from);
       const past = b.to <= NOW;
-      cells += '<div class="block ' + (b.mine ? 'mine' : b.rank) + (past ? ' past' : '') + '" style="grid-column:' + col(b.from) + ' / ' + col(b.to) + '">' +
-               '<b>' + b.who + '</b><small>' + (b.mine ? 'You · ' + b.what : KIND[b.rank]) + '</small></div>';
+      const mins = b.to - b.from;
+      place(b.from, b.to, '<button class="blk ' + (b.mine ? 'mine' : b.rank) + (past ? ' past' : '') + '" style="__POS__"' +
+        ' data-who="' + b.who + '" data-what="' + b.what + '" data-rank="' + (b.mine ? 'mine' : b.rank) + '"' +
+        ' data-unit="' + unit + '" data-from="' + b.from + '" data-to="' + b.to + '">' +
+        '<b class="full">' + b.who + '</b><b class="mono">' + initials(b.who) + '</b><small>' + (b.mine ? 'You' : KIND[b.rank]) + '</small>' +
+        (mins >= 60 ? '<span class="len">' + short(b.from) + '–' + short(b.to) + '</span>' : '') + '</button>');
       cur = Math.max(cur, b.to);
     });
     if (cur < DAY_END) gap(cur, DAY_END);
-
-    const freeNow = !rows.some(b => b.from <= NOW && b.to > NOW);
-    html += '<div class="gridrow"><div class="rowlabel"><b>' + unit + '</b><small>' + SEATS[unit] + ' · ' + (freeNow ? 'open' : 'in use') + '</small></div>' +
-            '<div class="lane">' + cells + '<span class="nowmark" style="left:' + ((NOW - DAY_START) / (DAY_END - DAY_START) * 100) + '%"></span></div></div>';
   });
 
-  $('#grid').innerHTML = html;
+  grid.innerHTML = html;
+
+  /* the now rule sits across every column */
+  const rule = document.createElement('span');
+  rule.className = 'nowrule';
+  const rowh = parseFloat(getComputedStyle(grid).getPropertyValue('--rowh'));
+  rule.style.top = (44 + (NOW - DAY_START) / STEP * rowh) + 'px';
+  grid.appendChild(rule);
 
   const free = freeUnitsAt(type, NOW, NOW + STEP);
   $('#tOpen').textContent = free.length;
   $('#tBooked').textContent = BOOKINGS.filter(b => b.type === type).length;
   const nextOpen = startTimes(type)[0];
-  $('#tNext').textContent = free.length ? 'Now' : (nextOpen ? short(nextOpen) : '—');
-  scrollToNow();
+  $('#tNext').textContent = free.length ? 'Now' : (nextOpen ? short(nextOpen) : '\u2014');
 }
+const row = m => Math.round((m - DAY_START) / STEP) + 2;
+const shortName = u => u.replace('Room ', 'R').replace('Board ', 'B').replace('TV Lounge', 'TV');
+const initials = who => {
+  if (who === 'You') return 'YOU';
+  const parts = who.split(' ');
+  return (parts.length > 1 ? parts[0][0] + parts[1][0] : who.slice(0, 2)).toUpperCase();
+};
 
-/* open the sheet on the current hour, not on 4 PM */
-function scrollToNow(){
-  const box = document.querySelector('.sheetwrap');
-  const lane = document.querySelector('.lane');
-  if (!box || !lane) return;
-  const labelW = document.querySelector('.rowlabel').getBoundingClientRect().width;
-  const x = (NOW - DAY_START) / (DAY_END - DAY_START) * lane.getBoundingClientRect().width;
-  box.scrollLeft = Math.max(0, x + labelW - box.clientWidth * 0.42);
-}
+/* tapping a reservation explains it underneath, no popover to dismiss */
+$('#grid').addEventListener('click', e => {
+  const b = e.target.closest('.blk');
+  if (!b) return;
+  document.querySelectorAll('.blk.sel').forEach(x => x.classList.remove('sel'));
+  b.classList.add('sel');
+  const rank = b.dataset.rank;
+  $('#detail').innerHTML = '<span class="cat ' + rank + '">' + (rank === 'mine' ? 'Yours' : KIND[rank]) + '</span>' +
+    '<b>' + b.dataset.unit + ' · ' + b.dataset.who + '</b>' +
+    '<span>' + b.dataset.what + '</span>' +
+    '<span>' + fmt(+b.dataset.from) + ' – ' + fmt(+b.dataset.to) + '</span>';
+});
 
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', 'false'));
@@ -457,7 +505,7 @@ function render(){
     '<button class="confirm" id="done" style="margin-top:26px">Back to the sheet</button></div>';
   $('#done').addEventListener('click', () => {
     closeFlow();
-    document.querySelector('.block.mine')?.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
+    document.querySelector('.blk.mine')?.scrollIntoView({behavior:'smooth', block:'center'});
   });
 }
 
