@@ -2,7 +2,7 @@
 
 ## September 12, 2026: Extra design copy removed
 
-The six member design experiences no longer show the unnecessary promotional welcome and hero copy. Atlas, Cove, Lattice, Petal, Solace, and Velum keep their schedule, booking, status, accessibility, and navigation text. Lattice also no longer repeats the selected date as a separate schedule eyebrow. The change is local and committed, with no deployment requested or performed.
+The six member design experiences no longer show the unnecessary promotional welcome, hero, and booking-flow copy. Atlas, Cove, Lattice, Petal, Solace, and Velum keep their schedule, booking, status, accessibility, and navigation text. Lattice also no longer repeats the selected date as a separate schedule eyebrow. The final cleanup is live at https://lvrooms.web.app/?choose=1 from commit `76a4d5d`, released through Firebase Hosting target `app` only. Functions, rules, indexes, Authentication, and the legacy target were not deployed.
 
 Verification passed: `npm test` 17/17, live-model and public-lobby tests 7/7, cutover tests 3/3, UI smoke, confirmation-popup smoke, TV smoke, and all six member-design journeys with fictional fixtures. See [copy cleanup plan](PLAN-REMOVE-EXTRA-COPY.md) and [run record](runs/2026-09-12-remove-extra-copy/INDEX.md).
 

@@ -13,7 +13,7 @@ after the copy is removed.
 - Starting branch: `main`
 - Starting HEAD: `a71f159c04d983fc2fd6f333bbf7809b66ca36c3`
 - Pre-existing user file: `/Users/anthony/Projects/study-room-scheduler/docs/prototype-reserve-now.html`, SHA-256 `98a5cf059e3ff678231ed2d7f85e66fbdf827dbe517c6db47dffc037c3a6c9fa` (not in scope and must remain untouched)
-- Production boundary: no deployment requested; do not deploy Firebase Hosting or Functions.
+- Production boundary: the initial plan held deployment. The user later authorized release, limited to Firebase Hosting target `app`; do not deploy Functions or other Firebase surfaces.
 - Protected: shared transport/model, classic app, booking behavior, Firebase configuration, original prototypes, and all unrelated dirty work.
 
 ## Runner and review
@@ -92,5 +92,6 @@ Verify: `git diff --check`; targeted search for those exact strings; existing fo
 - 2026-09-12: Planned as six independent copy-cleanup lanes from HEAD `a71f159`; existing untracked prototype file recorded and excluded.
 - 2026-09-12: LA, LC, LL, LP, LS, and LV landed in isolated worktrees. The Solace lane was completed by the controller after its agent hit a local approval block; no product ambiguity remained.
 - 2026-09-12: Lattice's dynamic `dayEyebrow` was also removed after rendered inspection confirmed it was the redundant date-schedule line from Example 3.
-- 2026-09-12: `npm test` passed 17/17 policy tests; live-model and public-lobby tests passed 7/7; cutover tests passed 3/3; UI smoke, confirmation-popup smoke, TV smoke, and six-design member smoke all passed. Browser tests required the approved localhost execution boundary. No deployment performed.
+- 2026-09-12: `npm test` passed 17/17 policy tests; live-model and public-lobby tests passed 7/7; cutover tests passed 3/3; UI smoke, confirmation-popup smoke, TV smoke, and six-design member smoke all passed. Browser tests required the approved localhost execution boundary.
 - 2026-09-12: Controller review found no material findings. Phone and desktop evidence show the promotional blocks absent, no horizontal overflow, and working Reserve Now flows. The pre-existing prototype file remains untouched.
+- 2026-09-12: Additional live-audit copy was removed from Cove, Petal, Solace, and Velum, then committed as `76a4d5d`. Firebase Hosting target `app` was released from that commit. Post-release checks on the chooser and all six `?demo=1` routes found none of the requested phrases, no alert errors, Reserve Now controls present, and no desktop overflow.

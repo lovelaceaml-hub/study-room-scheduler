@@ -38,7 +38,7 @@ Coordinator: Sol
 
 ## Integration result
 
-All six lanes merged into `main`. Controller review found no material findings. No deployment was performed. The pre-existing `/Users/anthony/Projects/study-room-scheduler/docs/prototype-reserve-now.html` remained outside the change set.
+All six lanes merged into `main`. Controller review found no material findings. Additional live-audit copy was removed and committed as `76a4d5d`. Firebase Hosting target `app` was released from that commit, with no Functions, rules, indexes, Authentication, or legacy target deployment. The pre-existing `/Users/anthony/Projects/study-room-scheduler/docs/prototype-reserve-now.html` remained outside the change set.
 
 <!-- lane: LA state: merged model: gpt-6-astra worktree: /Users/anthony/Projects/.worktrees/study-room-copy-cleanup-atlas review: controller updated: 2026-09-12T18:19Z -->
 <!-- lane: LC state: merged model: gpt-6-astra worktree: /Users/anthony/Projects/.worktrees/study-room-copy-cleanup-cove review: controller updated: 2026-09-12T18:19Z -->
