@@ -251,6 +251,22 @@ if (new URLSearchParams(location.search).get('test') === '1') {
       ui.availabilityDetails = { date: selectedHomeDate(), type: ui.homeOverviewType, start: '10:00', end: '10:30' };
       ui.selectionConfirm = { date: selectedHomeDate(), type: ui.homeOverviewType, start: '10:00', end: '10:30' };
       ui.returnFocusKey = 'test-home-origin';
+    },
+    async previewMutationBlocked() {
+      try {
+        await callBackend('memberSubmitBooking', {});
+        return { blocked: false };
+      } catch (error) {
+        return {
+          blocked: true,
+          code: error && error.code,
+          message: error && error.message
+        };
+      }
+    },
+    async previewCancellationBlocked() {
+      await cancelMyBooking('preview-test-booking');
+      return document.querySelector('.banner')?.textContent || '';
     }
   };
 }
@@ -648,19 +664,10 @@ function friendlyFirebaseError(error) {
   return 'The change could not be saved. Check the connection and try again.';
 }
 
-function designPreviewReadOnly() {
-  return !!(window.LV_ROOMS_DESIGN_PREVIEW && window.LV_ROOMS_DESIGN_PREVIEW.readOnly);
-}
-
-async function callBackend(name, data) {
-  if (designPreviewReadOnly()) {
-    const error = new Error('Design preview is read only. No live data was changed.');
-    error.code = 'functions/permission-denied';
-    throw error;
-  }
-  if (!fb || !fb.callables[name]) throw new Error('The secure connection is not ready yet.');
-  const result = await fb.callables[name](data || {});
-  return result.data;
+async function callBackend() {
+  const error = new Error('Design preview is read only. No live data was changed.');
+  error.code = 'functions/permission-denied';
+  throw error;
 }
 
 async function adminCall(name, data) {
@@ -680,33 +687,15 @@ async function initFirebase(config) {
   const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
   const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   const authMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
-  const fnMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
   const app = appMod.initializeApp(config);
 
   const auth = authMod.getAuth(app);
   if (!auth.currentUser) await authMod.signInAnonymously(auth);
 
   const db = fsMod.getFirestore(app);
-  const functions = fnMod.getFunctions(app, 'us-west1');
   fb = {
     db, auth,
-    doc: fsMod.doc,
-    setDoc: fsMod.setDoc,
-    updateDoc: fsMod.updateDoc,
-    serverTimestamp: fsMod.serverTimestamp,
-    Timestamp: fsMod.Timestamp,
-    collection: fsMod.collection,
-    callables: {
-      adminStartSession: fnMod.httpsCallable(functions, 'adminStartSession'),
-      adminEndSession: fnMod.httpsCallable(functions, 'adminEndSession'),
-      adminBookingAction: fnMod.httpsCallable(functions, 'adminBookingAction'),
-      adminNoteAction: fnMod.httpsCallable(functions, 'adminNoteAction'),
-      adminMigrateNotes: fnMod.httpsCallable(functions, 'adminMigrateNotes'),
-      memberSubmitBooking: fnMod.httpsCallable(functions, 'memberSubmitBooking'),
-      memberOverrideBooking: fnMod.httpsCallable(functions, 'memberOverrideBooking'),
-      memberEndBookingEarly: fnMod.httpsCallable(functions, 'memberEndBookingEarly'),
-      memberSetPrivateNote: fnMod.httpsCallable(functions, 'memberSetPrivateNote')
-    }
+    collection: fsMod.collection
   };
   const bookingQuery = fsMod.query(
     fsMod.collection(db, 'bookings'),
@@ -2313,23 +2302,7 @@ function renderAdminHousekeeping() {
 }
 
 async function cancelMyBooking(id) {
-  if (demoMode()) { addBanner('Sample preview only — nothing was cancelled.'); return; }
-  if (designPreviewReadOnly()) { addBanner('Design preview is read only. No live data was changed.', true); return; }
-  const b = bookingByIdSafe(id);
-  if (!b || (b.status !== 'pending' && b.status !== 'approved')) return;
-  if (!confirm(b.status === 'approved' ? 'Cancel this approved reservation?' : 'Cancel this request?')) return;
-  if (!fb || !fb.auth.currentUser || b.ownerUid !== fb.auth.currentUser.uid) {
-    addBanner('Only the device that made this new request can cancel it. Ask an Admin for help with an older request.', true);
-    return;
-  }
-  try {
-    setSyncPill(false, 'Saving');
-    await fb.updateDoc(fb.doc(fb.db, 'bookings', id), { status: 'cancelled', updatedAt: fb.serverTimestamp() });
-    setSyncPill(true, 'Saved');
-  } catch (error) {
-    addBanner(friendlyFirebaseError(error), true);
-    setSyncPill(false, 'Save failed');
-  }
+  addBanner('Design preview is read only. No live data was changed.', true);
 }
 
 /* Finishing early keeps the reservation and its history; only the ending
