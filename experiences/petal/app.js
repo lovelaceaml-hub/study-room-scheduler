@@ -22,7 +22,6 @@ const purposes = {
   other: {label:'Other', hint:''}
 };
 const reservedForLabels = {contact:'Contact Name', new:'Member Name', other:'Purpose'};
-const reservedForPlaceholders = {contact:'e.g. Kiana Davis', new:'e.g. Kiana Davis', other:'e.g. Family Bible study'};
 const priorityOverrideLabel = 'Priority override';
 const documentKeys = new Map();
 let documentKeyCount = 0;
@@ -290,7 +289,7 @@ function renderStep(focus = true) {
     const label = reservedForLabels[draft.purpose] || 'Reserved for';
     const title = draft.purpose === 'other' ? 'What is this for?' : 'Who is this for?';
     const hint = draft.purpose === 'other' ? 'Add a short purpose for this reservation.' : 'Add the person this reservation is for.';
-    content = frame(title, hint, `<form id="nameForm"><label class="field-label" for="guestName">Your name</label><input id="guestName" name="name" autocomplete="name" maxlength="120" required value="${esc(draft.name)}" placeholder="Your full name"><label class="field-label" for="reservedFor">${label}</label><input id="reservedFor" name="reservedFor" autocomplete="off" maxlength="120" required value="${esc(draft.reservedFor)}" placeholder="${reservedForPlaceholders[draft.purpose] || 'Add a detail'}" aria-describedby="nameHelp nameError"><p class="field-help" id="nameHelp">Only the shared public name and purpose appear on the schedule.</p><p class="validation" id="nameError" role="alert"></p><button type="submit" class="primary wide">Continue <span aria-hidden="true">&#8594;</span></button></form>`);
+    content = frame(title, hint, `<form id="nameForm"><label class="field-label" for="guestName">Your name</label><input id="guestName" name="name" autocomplete="name" maxlength="120" required value="${esc(draft.name)}"><label class="field-label" for="reservedFor">${label}</label><input id="reservedFor" name="reservedFor" autocomplete="off" maxlength="120" required value="${esc(draft.reservedFor)}" aria-describedby="nameHelp nameError"><p class="field-help" id="nameHelp">Only the shared public name and purpose appear on the schedule.</p><p class="validation" id="nameError" role="alert"></p><button type="submit" class="primary wide">Continue <span aria-hidden="true">&#8594;</span></button></form>`);
   }
   if (step === 'start') {
     const starts = startOptions();

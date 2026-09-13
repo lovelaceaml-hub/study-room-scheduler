@@ -1820,7 +1820,7 @@ function bookingModalHtml() {
       : '<p class="hint booking-approval-hint">Reservations are confirmed right away while space is open. If you finish early, end the reservation in My reservations so the room shows as free.</p>') +
     '<form data-act="su-submit">' +
     '<label class="fld" for="su-name">Your name</label>' +
-    '<input type="text" id="su-name" value="' + esc(d.name) + '" placeholder="Full name" autocomplete="name" required>' +
+    '<input type="text" id="su-name" value="' + esc(d.name) + '" autocomplete="name" required>' +
     '<div class="fld">Purpose</div>' + purposeChipsHtml(d) +
 
     '<div class="modal-actions"><button type="button" class="btn" data-act="su-close">Cancel</button>' +
@@ -2356,7 +2356,7 @@ function renderAdminAddForm(date) {
     '<form data-act="admin-add-submit">' +
 
     '<label class="fld" for="af-name">Name</label>' +
-    '<input type="text" id="af-name" value="' + esc(d.name) + '" placeholder="Full name" required>' +
+    '<input type="text" id="af-name" value="' + esc(d.name) + '" required>' +
 
     '<div class="fld" id="af-needs-label">What do they need?</div>' +
     afNeedsCheckboxesHtml(d) +

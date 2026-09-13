@@ -327,7 +327,7 @@ function renderStep(focus = true) {
     const field = draft.purpose === 'other'
       ? `<textarea class="field" id="reservedFor" name="reservedFor" maxlength="300" required>${html(draft.reservedFor)}</textarea>`
       : `<input class="field" id="reservedFor" name="reservedFor" type="text" autocomplete="off" maxlength="120" value="${html(draft.reservedFor)}" required>`;
-    content = `<form id="reservedForForm"><label class="fieldLabel" for="name">Your name</label><input class="field" id="name" name="name" type="text" autocomplete="name" maxlength="120" required value="${html(draft.name)}" placeholder="Your full name"><label class="fieldLabel" for="reservedFor">${label}</label>${field}<button class="continue" type="submit">Review reservation</button></form>`;
+    content = `<form id="reservedForForm"><label class="fieldLabel" for="name">Your name</label><input class="field" id="name" name="name" type="text" autocomplete="name" maxlength="120" required value="${html(draft.name)}"><label class="fieldLabel" for="reservedFor">${label}</label>${field}<button class="continue" type="submit">Review reservation</button></form>`;
   } else if (step === 'confirm') {
     title = 'Confirm your reservation';
     description = state.demo ? 'This is a sample reservation for practice.' : 'One final check before it is placed on the schedule.';
