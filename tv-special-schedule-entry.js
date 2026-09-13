@@ -1,4 +1,5 @@
 const SPECIAL_BOOKING_DATE = '2026-09-21';
+const SPECIAL_BOOKING_DATE_OPENS = '2026-09-13';
 
 async function loadTvWithSpecialSchedule() {
   const response = await fetch('./tv.js', { cache: 'no-store' });
@@ -15,9 +16,10 @@ async function loadTvWithSpecialSchedule() {
   return [...new Set([today, dateForWeekday(today, 2), dateForWeekday(today, 6)])];
 }`,
 `const SPECIAL_BOOKING_DATE = '${SPECIAL_BOOKING_DATE}';
+const SPECIAL_BOOKING_DATE_OPENS = '${SPECIAL_BOOKING_DATE_OPENS}';
 function offeredDates(today = localISO()) {
   const dates = [today, dateForWeekday(today, 2), dateForWeekday(today, 6)];
-  if (today <= SPECIAL_BOOKING_DATE) dates.push(SPECIAL_BOOKING_DATE);
+  if (today >= SPECIAL_BOOKING_DATE_OPENS && today <= SPECIAL_BOOKING_DATE) dates.push(SPECIAL_BOOKING_DATE);
   return [...new Set(dates)].sort();
 }`
   );
