@@ -21,6 +21,7 @@ const RESOURCE_TYPES = Object.freeze(['room', 'whiteboard', 'tv']);
 const RESERVED_FOR_LIMITS = Object.freeze({ contact: 120, 'new-member': 120, other: 240 });
 const RESERVED_FOR_LABELS = Object.freeze({ contact: 'Contact name', 'new-member': 'Member name', other: 'Purpose description' });
 const SPECIAL_BOOKING_DATE = '2026-09-21';
+const SPECIAL_BOOKING_DATE_OPENS = '2026-09-13';
 
 function parseMinutes(value) {
   if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) return NaN;
@@ -67,7 +68,7 @@ function addDays(dateString, days) {
 
 /* Kept under its established name for compatibility. In addition to the
    normal upcoming Tuesday/Saturday pair, expose the one-off Monday,
-   September 21, 2026 schedule until that date has passed. */
+   September 21, 2026 schedule during its intended booking window. */
 function upcomingTuesdayAndSaturday(now = new Date()) {
   const today = isoDateInLosAngeles(now);
   const dates = [];
@@ -76,7 +77,7 @@ function upcomingTuesdayAndSaturday(now = new Date()) {
     const weekday = isoWeekday(candidate);
     if (weekday === 2 || weekday === 6) dates.push(candidate);
   }
-  if (today <= SPECIAL_BOOKING_DATE) dates.push(SPECIAL_BOOKING_DATE);
+  if (today >= SPECIAL_BOOKING_DATE_OPENS && today <= SPECIAL_BOOKING_DATE) dates.push(SPECIAL_BOOKING_DATE);
   return [...new Set(dates)].sort();
 }
 
@@ -349,6 +350,7 @@ module.exports = {
   OVERRIDABLE_PURPOSE,
   OVERRIDE_PURPOSES,
   SPECIAL_BOOKING_DATE,
+  SPECIAL_BOOKING_DATE_OPENS,
   overrideTarget,
   reclaimableUnitsForType,
   addDays,
