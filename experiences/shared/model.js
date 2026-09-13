@@ -1,6 +1,7 @@
 export const units = {room:4,whiteboard:5,tv:3};
 export const prefixes = {room:'room-',whiteboard:'wb-',tv:'tv-'};
 export const SPECIAL_BOOKING_DATE = '2026-09-21';
+export const SPECIAL_BOOKING_DATE_OPENS = '2026-09-13';
 const TITLE_INITIALS = {brother:'B',sister:'S',elder:'E',missionary:'M',deacon:'D',deaconess:'D',pastor:'P'};
 const MEMBER_PURPOSES = ['contact','new','new-member','other'];
 const RESERVED_FOR_LIMITS = {contact:120,'new':120,'new-member':120,other:240};
@@ -67,7 +68,7 @@ export function eligibleDays(now=new Date()) {
   const todayKey=`${part('year')}-${part('month')}-${part('day')}`;
   const today=new Date(`${todayKey}T12:00:00Z`);
   const days=[2,6].map(weekday=>{const date=new Date(today);date.setUTCDate(date.getUTCDate()+(weekday-date.getUTCDay()+7)%7);return {key:date.toISOString().slice(0,10),label:date.toLocaleDateString('en-US',{timeZone:'UTC',weekday:'long',month:'short',day:'numeric'}),weekday};});
-  if(todayKey<=SPECIAL_BOOKING_DATE){
+  if(todayKey>=SPECIAL_BOOKING_DATE_OPENS&&todayKey<=SPECIAL_BOOKING_DATE){
     const date=new Date(`${SPECIAL_BOOKING_DATE}T12:00:00Z`);
     days.push({key:SPECIAL_BOOKING_DATE,label:date.toLocaleDateString('en-US',{timeZone:'UTC',weekday:'long',month:'short',day:'numeric'}),weekday:1});
   }
