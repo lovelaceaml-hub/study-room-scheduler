@@ -1,4 +1,5 @@
 const SPECIAL_BOOKING_DATE = '2026-09-21';
+const SPECIAL_BOOKING_DATE_OPENS = '2026-09-13';
 
 async function loadClassicAppWithSpecialSchedule() {
   const response = await fetch('./app.js', { cache: 'no-store' });
@@ -15,13 +16,15 @@ async function loadClassicAppWithSpecialSchedule() {
   return [upcomingTuesdayISO(), upcomingSaturdayISO()].sort();
 }`,
 `const SPECIAL_BOOKING_DATE = '${SPECIAL_BOOKING_DATE}';
+const SPECIAL_BOOKING_DATE_OPENS = '${SPECIAL_BOOKING_DATE_OPENS}';
 function isSpecialBookingDate(date) { return date === SPECIAL_BOOKING_DATE; }
 function bookingDayLabel(date) {
   return dateObj(date).toLocaleDateString(undefined, { weekday: 'long' });
 }
 function upcomingBookingDates() {
   const dates = [upcomingTuesdayISO(), upcomingSaturdayISO()];
-  if (todayISO() <= SPECIAL_BOOKING_DATE) dates.push(SPECIAL_BOOKING_DATE);
+  const today = todayISO();
+  if (today >= SPECIAL_BOOKING_DATE_OPENS && today <= SPECIAL_BOOKING_DATE) dates.push(SPECIAL_BOOKING_DATE);
   return [...new Set(dates)].sort();
 }`
   );
