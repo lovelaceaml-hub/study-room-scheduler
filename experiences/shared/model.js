@@ -1,5 +1,6 @@
 export const units = {room:4,whiteboard:5,tv:3};
 export const prefixes = {room:'room-',whiteboard:'wb-',tv:'tv-'};
+export const SPECIAL_BOOKING_DATE = '2026-09-21';
 const TITLE_INITIALS = {brother:'B',sister:'S',elder:'E',missionary:'M',deacon:'D',deaconess:'D',pastor:'P'};
 const MEMBER_PURPOSES = ['contact','new','new-member','other'];
 const RESERVED_FOR_LIMITS = {contact:120,'new':120,'new-member':120,other:240};
@@ -63,8 +64,14 @@ export function validateReservedFor(purpose,value,{required=true}={}) {
 export function eligibleDays(now=new Date()) {
   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
   const part=type=>parts.find(p=>p.type===type).value;
-  const today=new Date(`${part('year')}-${part('month')}-${part('day')}T12:00:00Z`);
-  return [2,6].map(weekday=>{const date=new Date(today);date.setUTCDate(date.getUTCDate()+(weekday-date.getUTCDay()+7)%7);return {key:date.toISOString().slice(0,10),label:date.toLocaleDateString('en-US',{timeZone:'UTC',weekday:'long',month:'short',day:'numeric'}),weekday};}).sort((a,b)=>a.key.localeCompare(b.key));
+  const todayKey=`${part('year')}-${part('month')}-${part('day')}`;
+  const today=new Date(`${todayKey}T12:00:00Z`);
+  const days=[2,6].map(weekday=>{const date=new Date(today);date.setUTCDate(date.getUTCDate()+(weekday-date.getUTCDay()+7)%7);return {key:date.toISOString().slice(0,10),label:date.toLocaleDateString('en-US',{timeZone:'UTC',weekday:'long',month:'short',day:'numeric'}),weekday};});
+  if(todayKey<=SPECIAL_BOOKING_DATE){
+    const date=new Date(`${SPECIAL_BOOKING_DATE}T12:00:00Z`);
+    days.push({key:SPECIAL_BOOKING_DATE,label:date.toLocaleDateString('en-US',{timeZone:'UTC',weekday:'long',month:'short',day:'numeric'}),weekday:1});
+  }
+  return Array.from(new Map(days.map(day=>[day.key,day])).values()).sort((a,b)=>a.key.localeCompare(b.key));
 }
 export function minutes(value) {return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;}
 export function clock(value) {return `${String(Math.floor(value/60)).padStart(2,'0')}:${String(value%60).padStart(2,'0')}`;}
@@ -129,12 +136,14 @@ export function projectOwnedBookings(records,days=eligibleDays(),ownerUid) {
 export function validRange(day,start,end,days=eligibleDays()) {
   const date=days.find(d=>d.key===day);
   if(!date||!Number.isInteger(start)||!Number.isInteger(end)||start%30||end%30||start<600||end>1380||start>=end)return false;
-  const services=date.weekday===6?[[600,660],[870,930],[1170,1230]]:[[1170,1230]];
+  const services=date.key===SPECIAL_BOOKING_DATE
+    ?[[600,660],[870,930]]
+    :date.weekday===6?[[600,660],[870,930],[1170,1230]]:[[1170,1230]];
   return !services.some(([a,b])=>start<b&&end>a);
 }
 export function validateInput(input,bookings,days=eligibleDays()) {
   const {day,type,start,end}=input;
-  if(!Object.hasOwn(units,type)||!validRange(day,start,end,days))throw new Error('Choose an available time on an upcoming Tuesday or Saturday.');
+  if(!Object.hasOwn(units,type)||!validRange(day,start,end,days))throw new Error('Choose an available time on an eligible scheduling day.');
   const unit=input.unit==null?null:Number(input.unit);
   if(unit!==null&&(!Number.isInteger(unit)||unit<1||unit>units[type]))throw new Error('Choose a valid room or resource.');
   const name=String(input.name||'').trim(), purpose=input.purpose, purposeOther=String(input.purposeOther||'').trim();
