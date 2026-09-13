@@ -20,6 +20,7 @@ const CERTAINTIES = Object.freeze(['confirmed', 'tentative']);
 const RESOURCE_TYPES = Object.freeze(['room', 'whiteboard', 'tv']);
 const RESERVED_FOR_LIMITS = Object.freeze({ contact: 120, 'new-member': 120, other: 240 });
 const RESERVED_FOR_LABELS = Object.freeze({ contact: 'Contact name', 'new-member': 'Member name', other: 'Purpose description' });
+const SPECIAL_BOOKING_DATE = '2026-09-21';
 
 function parseMinutes(value) {
   if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) return NaN;
@@ -45,13 +46,17 @@ function isoDateInLosAngeles(now = new Date()) {
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
+function isSpecialBookingDate(date) {
+  return date === SPECIAL_BOOKING_DATE;
+}
+
 /* Every reservation on a valid booking day is confirmed immediately — no day
    waits for approval any more. Availability is still the real gate: the
    submission is refused when no unit of the requested type is free. The
    signature keeps `now` so callers and tests do not have to change. */
 function shouldAutoApproveMemberBooking(date, now = new Date()) {
   const weekday = isoWeekday(date);
-  return weekday === 2 || weekday === 6;
+  return weekday === 2 || weekday === 6 || isSpecialBookingDate(date);
 }
 
 function addDays(dateString, days) {
@@ -60,6 +65,9 @@ function addDays(dateString, days) {
   return date.toISOString().slice(0, 10);
 }
 
+/* Kept under its established name for compatibility. In addition to the
+   normal upcoming Tuesday/Saturday pair, expose the one-off Monday,
+   September 21, 2026 schedule until that date has passed. */
 function upcomingTuesdayAndSaturday(now = new Date()) {
   const today = isoDateInLosAngeles(now);
   const dates = [];
@@ -68,7 +76,8 @@ function upcomingTuesdayAndSaturday(now = new Date()) {
     const weekday = isoWeekday(candidate);
     if (weekday === 2 || weekday === 6) dates.push(candidate);
   }
-  return dates.sort();
+  if (today <= SPECIAL_BOOKING_DATE) dates.push(SPECIAL_BOOKING_DATE);
+  return [...new Set(dates)].sort();
 }
 
 function overlaps(start, end, blockStart, blockEnd) {
@@ -84,15 +93,20 @@ function validateBookingTime(date, startValue, endValue, now = new Date(), requi
     return 'Bookings must be between 10:00 and 23:00.';
   }
   const weekday = isoWeekday(date);
-  if (weekday !== 2 && weekday !== 6) return 'Bookings are available only on Tuesday or Saturday.';
+  if (weekday !== 2 && weekday !== 6 && !isSpecialBookingDate(date)) {
+    return 'Bookings are available only on Tuesday, Saturday, or the September 21 special schedule.';
+  }
   if (requireUpcoming && !upcomingTuesdayAndSaturday(now).includes(date)) {
-    return 'Choose the upcoming Tuesday or Saturday.';
+    return 'Choose an available scheduling day.';
   }
   // Service times changed on 12 September 2026. Saturday holds all three,
-  // Tuesday only the evening one.
-  const serviceBlocks = weekday === 2
-    ? [[19 * 60 + 30, 20 * 60 + 30]]
-    : [[10 * 60, 11 * 60], [14 * 60 + 30, 15 * 60 + 30], [19 * 60 + 30, 20 * 60 + 30]];
+  // Tuesday only the evening one. The September 21 special Monday follows
+  // Saturday's morning and afternoon schedule but has no evening service.
+  const serviceBlocks = isSpecialBookingDate(date)
+    ? [[10 * 60, 11 * 60], [14 * 60 + 30, 15 * 60 + 30]]
+    : weekday === 2
+      ? [[19 * 60 + 30, 20 * 60 + 30]]
+      : [[10 * 60, 11 * 60], [14 * 60 + 30, 15 * 60 + 30], [19 * 60 + 30, 20 * 60 + 30]];
   if (serviceBlocks.some(([blockStart, blockEnd]) => overlaps(start, end, blockStart, blockEnd))) {
     return 'This time overlaps a service.';
   }
@@ -230,7 +244,7 @@ function availableUnitForType(type, candidate, approvedBookings, requestedUnit =
    the least disruptive comes first. */
 function reclaimableUnitsForType(type, candidate, approvedBookings, requestedUnit = null) {
   const allowed = ALLOWED_UNITS[type] || [];
-  const units = requestedUnit == null ? allowed : allowed.filter(unitId => unitId === requestedUnit);
+  const units = requestedUnit == null ? allowed : allowed.filter(unit => unit === requestedUnit);
   const candidatePriority = priorityForPurpose(candidate.purpose);
   const canOverride = ['contact', 'new-member'].includes(candidate.purpose);
   return units.map(unitId => {
@@ -334,6 +348,7 @@ module.exports = {
   MEMBER_PURPOSES,
   OVERRIDABLE_PURPOSE,
   OVERRIDE_PURPOSES,
+  SPECIAL_BOOKING_DATE,
   overrideTarget,
   reclaimableUnitsForType,
   addDays,
@@ -341,6 +356,7 @@ module.exports = {
   canonicalAssignments,
   conflictingBooking,
   earlyEndError,
+  isSpecialBookingDate,
   isoDateInLosAngeles,
   isoWeekday,
   migrationResourceUpdate,
