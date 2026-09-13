@@ -1,10 +1,10 @@
 # Handoff notes — LV Zion Study Rooms
 
-## September 12, 2026: Booking details and public names, verified pending release
+## September 12, 2026: Booking details and public names, deployed and verified
 
-The current branch `change/booking-details-and-name-display` contains the completed booking-detail refinement for all six member designs, the classic app, and the lobby TV name projection. It collects reserver name plus Contact Name, Member Name, or Other Purpose, connects consecutive schedule slots, opens clickable reservation details, shows public-safe reserved-for detail to everyone, keeps raw booking documents server-only, and preserves priority override indicators. The local browser fixture passed all six designs, chooser, home UI, confirmation popup, and TV checks. The exact release mode still needs the owner choice before production is touched.
+The full-replace release for all six member designs, the classic app, and the lobby TV name projection is deployed at https://lvrooms.web.app. It collects reserver name plus Contact Name, Member Name, or Other Purpose, connects consecutive schedule slots, opens clickable reservation details, shows public-safe reserved-for detail to everyone, keeps raw booking documents server-only, and preserves priority override indicators. The local browser fixture passed all six designs, chooser, home UI, confirmation popup, and TV checks.
 
-The secure boundary is implemented locally: memberSchedule returns projected resource rows and owner-authorized action flags, adminSchedule requires the existing server-validated Admin session, memberCancelBooking verifies ownership server-side, and browser Firestore reads and updates for bookings are denied. The expanded release must deploy the Hosting app, these callables, publicLobbySchedule, and the Firestore rules together.
+The secure boundary is deployed: memberSchedule returns projected resource rows and owner-authorized action flags, adminSchedule requires the existing server-validated Admin session, memberCancelBooking verifies ownership server-side, and browser Firestore reads and updates for bookings are denied. The expanded release deployed the Hosting app, these callables, publicLobbySchedule, and the Firestore rules together.
 
 See [booking details plan](PLAN-BOOKING-DRAWER-AND-NAME-DISPLAY.md) and [run record](runs/2026-09-12-booking-details-and-name-display/INDEX.md).
 

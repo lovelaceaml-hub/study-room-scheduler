@@ -4,7 +4,7 @@
 
 The six member designs and the classic app now collect both the reserver's name and the purpose-specific reserved-for detail. Schedule reservations show the public name and purpose, connect consecutive slots into one block, and open a detail view. Everyone can see the public-safe reserved-for detail, while only the owning member receives End early or Cancel actions. Raw booking documents remain server-only.
 
-Names normalize leading title words or initials, so `Sister Kiana Davis`, `Sister Kiana D`, and `S. Kiana` display as `S Kiana`. A surname initial appears only when another booking has the same given name with a different surname. The implementation is verified locally and is pending the release-mode choice.
+Names normalize leading title words or initials, so `Sister Kiana Davis`, `Sister Kiana D`, and `S. Kiana` display as `S Kiana`. A surname initial appears only when another booking has the same given name with a different surname. The secure full-replace release is verified and deployed.
 
 - [Active plan](docs/PLAN-BOOKING-DRAWER-AND-NAME-DISPLAY.md)
 - [Run record](docs/runs/2026-09-12-booking-details-and-name-display/INDEX.md)
@@ -15,7 +15,7 @@ Names normalize leading title words or initials, so `Sister Kiana Davis`, `Siste
 
 Live at https://lvrooms.web.app/?choose=1. Members can keep the current app or choose Atlas, Lattice, Solace, Velum, Cove, or Petal. The device remembers the selection; Change design reopens the chooser. All six use the existing live schedule, anonymous member identity, and protected memberSubmitBooking service. My reservations returns to the current app without losing the selected design or booking ownership.
 
-The existing backend now accepts an optional requestedUnit. A directly selected room, board, or TV is honored inside the existing conflict transaction; clients that omit it retain the existing allocation behavior. The secure release scope includes Hosting target app, memberSubmitBooking, memberSchedule, memberCancelBooking, memberEndBookingEarly, adminSchedule, publicLobbySchedule, and Firestore rules. Production release is still pending the release-mode choice.
+The existing backend now accepts an optional requestedUnit. A directly selected room, board, or TV is honored inside the existing conflict transaction; clients that omit it retain the existing allocation behavior. The secure release scope includes Hosting target app, memberSubmitBooking, memberSchedule, memberCancelBooking, memberEndBookingEarly, adminSchedule, publicLobbySchedule, and Firestore rules. The full-replace production release is deployed.
 
 - [Previous plan](docs/PLAN-MEMBER-DESIGN-CHOICE.md)
 - [Chooser](https://lvrooms.web.app/?choose=1)
