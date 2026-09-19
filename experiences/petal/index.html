@@ -30,7 +30,54 @@ button.booked{appearance:none;font:inherit;cursor:pointer;color:inherit}
 .detail-actions .wide{margin-top:0}
 .detail-action[data-detail-action="cancel"]{background:#9a5360;border-color:#8c4654}
 .detail-sheet .validation{min-height:0}
+.detail-confirm{margin:15px 0 0;font-size:12px;line-height:1.55;color:var(--ink)}
 @media(max-width:600px){.detail-row{font-size:11px}.detail-card{padding:17px}.detail-actions{margin-top:13px}}
+
+/* Three eligible days have to fit a phone, so the ticket stubs stack their
+   date over their label instead of overflowing the row. */
+.ticket{min-width:0}
+.date-copy{min-width:0;overflow-wrap:anywhere}
+@media(max-width:600px){
+  .ticket{flex-direction:column;justify-content:center;gap:3px;padding:10px 6px;text-align:center}
+  .date-number{font-size:32px}
+  .date-copy{justify-items:center;gap:2px}
+  .date-copy b{font-size:11px}
+  .date-copy small{font-size:9px}
+}
+
+/* My reservations keeps Petal's stationery: serif headings, ticket-paper
+   cards, and the same chips and receipt as the reservation sheet. */
+#mineConnection:empty{display:none}
+#mineConnection .sheet-connection{margin:12px 0 4px}
+#mineConnection .sheet-connection span{min-width:0;overflow-wrap:anywhere}
+#mineBody .step-title{margin-top:16px;outline:none;overflow-wrap:anywhere}
+.mine-heading{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8c737e;margin:22px 0 10px}
+.mine-heading:first-of-type{margin-top:16px}
+.mine-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.mine-card{position:relative;border:1px solid #e4d8d3;border-radius:17px;background:#faf6f1;box-shadow:0 2px 0 #e7ddd5;padding:15px 16px;min-width:0}
+.mine-card-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.mine-card-head b{font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.mine-badge{flex-shrink:0;border-radius:6px;padding:4px 8px;font-size:9px;font-weight:600;line-height:1.2;background:#efe7e4;color:#75616a;overflow-wrap:anywhere}
+.mine-badge.mine-approved{background:var(--sage);color:#516247}
+.mine-badge.mine-pending{background:var(--sand);color:#725e3f}
+.mine-badge.mine-cancelled,.mine-badge.mine-declined{background:#ece6e2;color:#7b6b6f}
+.mine-badge.mine-overridden{background:var(--rose);color:#694350}
+.mine-when{font-family:var(--serif);font-size:22px;line-height:1.15;color:var(--mulberry);margin:9px 0 0;overflow-wrap:anywhere}
+.mine-meta{display:flex;flex-wrap:wrap;gap:3px 13px;margin:8px 0 0;font-size:11px;color:var(--muted);min-width:0}
+.mine-meta span{overflow-wrap:anywhere}
+.mine-note{margin:10px 0 0;font-size:11px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
+.mine-priority{border:1px solid #d9bbc4;border-radius:12px;background:#f6e9eb;color:#6d4551;padding:10px 11px}
+.mine-priority strong{display:block;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);margin-bottom:3px}
+.mine-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.mine-action{flex:1 1 auto;min-width:0;border:1px solid #d8c1c8;border-radius:11px;background:#fffaf7;padding:10px 14px;font-size:12px;color:#6e4a58;overflow-wrap:anywhere}
+.mine-action:hover{background:#f4e9ec}
+.mine-action.mine-stop{color:#8c384c;border-color:#dcbcc3}
+.mine-action.mine-stop:hover{background:#faeced}
+.primary.mine-stop{background:#9a5360;border-color:#8c4654;box-shadow:inset 0 1px 0 #c0959f40,0 3px 0 #7f3f4c}
+.chip.mine-now{border-color:#bc8d9a;background:#f5e6e9;color:#684451}
+.mine-now-label{display:block;font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#77505d;margin-top:3px}
+#mineBody .receipt{margin-top:16px}
+@media(max-width:600px){.mine-card{padding:13px 14px}.mine-when{font-size:20px}.mine-action{flex-basis:100%}}
 </style>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icon.svg">
@@ -53,13 +100,16 @@ button.booked{appearance:none;font:inherit;cursor:pointer;color:inherit}
     <div class="schedule" id="schedule" aria-label="Daily schedule"></div>
     <div class="actionbar"><button class="primary" id="reserve" type="button" disabled>Reserve Now <span class="arrow" aria-hidden="true">&#8594;</span></button></div>
   </section>
-  <nav class="member-links" aria-label="Member navigation"><a href="/?classic=1&amp;tab=mine">My reservations</a><a href="/?classic=1">Current app</a><a href="/?choose=1">Change design</a></nav><p class="footer" id="footerNote">LV Zion Study Rooms</p>
+  <nav class="member-links" aria-label="Member navigation"><a href="?view=mine" id="mineLink">My reservations</a><a href="/?choose=1">Change design</a><a href="/admin/" class="member-admin-link">Admin</a></nav><p class="footer" id="footerNote">LV Zion Study Rooms</p>
 </main>
 <dialog id="bookingDialog" aria-labelledby="stepTitle" aria-describedby="stepHint">
   <div class="sheet-inner"><div class="grip" aria-hidden="true"></div><div class="sheet-nav"><button id="back" class="icon-button" aria-label="Previous step" type="button">&#8592;</button><span id="stepCounter" class="step-counter"></span><button id="close" class="icon-button" aria-label="Close reservation" type="button">&times;</button></div><div id="sheetConnection" class="sheet-connection" role="status" hidden></div><div id="sheetBody"></div></div>
 </dialog>
 <dialog id="detailDialog" aria-labelledby="detailTitle">
   <div class="sheet-inner detail-sheet"><div class="grip" aria-hidden="true"></div><div class="sheet-nav"><span class="step-counter">Reservation details</span><button id="detailClose" class="icon-button" aria-label="Close reservation details" type="button">&times;</button></div><div id="detailBody"></div></div>
+</dialog>
+<dialog id="mineDialog" aria-labelledby="mineTitle">
+  <div class="sheet-inner"><div class="grip" aria-hidden="true"></div><div class="sheet-nav"><button id="mineBack" class="icon-button" aria-label="Back to your reservations" type="button">&#8592;</button><span id="mineCounter" class="step-counter">Your reservations</span><button id="mineClose" class="icon-button" aria-label="Close your reservations" type="button">&times;</button></div><div id="mineConnection" role="status"></div><div id="mineBody"></div></div>
 </dialog>
 <script type="module" src="./app.js"></script>
 <script src="/design-choice.js" defer></script>
