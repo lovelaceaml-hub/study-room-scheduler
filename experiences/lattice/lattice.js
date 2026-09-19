@@ -1,5 +1,5 @@
-import { overrideUnitForRange } from '../shared/model.js';
-import { subscribe, submit, retry } from '../shared/live.js';
+import { overrideUnitForRange, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
+import { subscribe, submit, retry, cancelOwnedBooking, endOwnedBookingEarly } from '../shared/live.js';
 
 const TYPES = {
   room: { label: 'Study room', plural: 'Study rooms', short: 'Room', count: 4 },
@@ -17,6 +17,9 @@ const schedule = $('#schedule');
 const detailDialog = $('#bookingDetails');
 const detailBody = $('#detailBody');
 let detailReturnFocus = null;
+let detailBooking = null;
+let detailConfirm = '';
+let detailBusy = false;
 const html = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const time = (minutes, short = false) => {
   const hour = Math.floor(minutes / 60);
@@ -25,7 +28,7 @@ const time = (minutes, short = false) => {
 };
 const overlaps = (start, end, otherStart, otherEnd) => start < otherEnd && otherStart < end;
 const hasVisibleText = (value) => String(value ?? '').replace(/[\s\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '').length > 0;
-let state = { status: 'loading', canBook: false, demo: false, error: '', days: [], bookings: [] };
+let state = { status: 'loading', canBook: false, demo: false, error: '', days: [], bookings: [], myBookings: [] };
 let selectedDay = '';
 let type = 'room';
 let draft = {};
@@ -115,31 +118,318 @@ function ownerDetailFor(booking) {
   const allowed = (...names) => names.some(name => detail[name] === true || actions[name] === true || actions[name]?.allowed === true);
   const reservedFor = typeof detail.reservedFor === 'string' && hasVisibleText(detail.reservedFor) ? detail.reservedFor.trim() : '';
   const name = typeof detail.name === 'string' && hasVisibleText(detail.name) ? detail.name.trim() : typeof detail.displayName === 'string' && hasVisibleText(detail.displayName) ? detail.displayName.trim() : '';
-  return { name, reservedFor, canEndEarly: allowed('canEndEarly', 'endEarly', 'end'), canCancel: allowed('canCancel', 'cancel') };
+  // The reservation id is what the shared Cancel and End early functions take.
+  const bookingId = [detail.bookingId, detail.id].find(value => typeof value === 'string' && hasVisibleText(value))?.trim() || '';
+  return { name, reservedFor, bookingId, canEndEarly: allowed('canEndEarly', 'endEarly', 'end'), canCancel: allowed('canCancel', 'cancel') };
 }
 
 function detailActionsMarkup(detail) {
-  if (!detail || (!detail.canEndEarly && !detail.canCancel)) return '';
+  if (!detail || !detail.bookingId || (!detail.canEndEarly && !detail.canCancel)) return '';
+  const busy = detailBusy ? ' disabled' : '';
+  if (detailConfirm === 'cancel') {
+    return `<div class="detailActions"><p>Cancel this reservation? The time opens for everyone right away.</p><div><button class="detailAction danger" type="button" data-detail-action="cancel-confirm"${busy}>${detailBusy ? 'Cancelling...' : 'Yes, cancel reservation'}</button><button class="detailAction ghost" type="button" data-detail-action="cancel-keep"${busy}>Keep it</button></div></div>`;
+  }
   const actions = [];
-  if (detail.canEndEarly) actions.push('<a class="detailAction" href="/?classic=1&amp;tab=mine">End early</a>');
-  if (detail.canCancel) actions.push('<a class="detailAction danger" href="/?classic=1&amp;tab=mine">Cancel</a>');
-  return `<div class="detailActions"><p>Use My reservations to complete an authorized action.</p><div>${actions.join('')}</div></div>`;
+  if (detail.canEndEarly) actions.push('<button class="detailAction" type="button" data-detail-action="endEarly">End early</button>');
+  if (detail.canCancel) actions.push('<button class="detailAction danger" type="button" data-detail-action="cancel">Cancel</button>');
+  return `<div class="detailActions"><p>This is your reservation.</p><div>${actions.join('')}</div></div>`;
 }
 
-function showBookingDetails(booking, trigger) {
-  if (!detailDialog || !booking) return;
+function setDetailNotice(message) {
+  const element = $('#detailNotice');
+  if (!element) return;
+  element.textContent = message || '';
+  element.classList.toggle('hidden', !message);
+}
+
+function renderBookingDetails(booking) {
   const blocked = booking.blocked === true || booking.purpose === 'blocked';
   const purpose = blocked ? 'Reserved' : PURPOSES[booking.purpose] || 'Other';
   const detail = ownerDetailFor(booking);
   const ownerRow = `<div class="detailRow"><span>Reserved</span><b>${html(detail?.name || publicNameFor(booking))}</b></div>${(detail?.reservedFor || booking.reservedFor) ? `<div class="detailRow"><span>Reserved for</span><b>${html(detail?.reservedFor || booking.reservedFor)}</b></div>` : ''}`;
   detailBody.innerHTML = `<div class="detailContent"><h2 id="detailTitle">${html(blocked ? 'Reserved' : publicNameFor(booking))}</h2><p id="detailDescription" class="detailHint">${html(TYPES[booking.type]?.label || 'Resource')} ${html(booking.unit)} · ${html(dayLabel(booking.day))}</p><div class="detailSummary"><div class="detailRow"><span>Reservation</span><b>${time(booking.start)} to ${time(booking.end)}</b></div><div class="detailRow"><span>Purpose</span><b>${html(purpose)}</b></div>${ownerRow}</div>${detailActionsMarkup(detail)}</div>`;
+}
+
+function showBookingDetails(booking, trigger) {
+  if (!detailDialog || !booking) return;
+  detailBooking = booking;
+  detailConfirm = '';
+  detailBusy = false;
+  setDetailNotice('');
+  renderBookingDetails(booking);
   detailReturnFocus = trigger;
   detailDialog.showModal();
   $('#detailTitle')?.focus({ preventScroll: true });
 }
 
 function closeBookingDetails() {
+  if (detailBusy) return;
   if (detailDialog?.open) detailDialog.close();
+}
+
+/* Cancel finishes inside this sheet. Ending early needs a new ending, so it
+   continues in My reservations. */
+async function runDetailAction(action) {
+  if (detailBusy || !detailBooking) return;
+  const detail = ownerDetailFor(detailBooking);
+  const bookingId = detail?.bookingId || '';
+  if (!bookingId) return;
+  if (action === 'endEarly') {
+    if (!detail.canEndEarly) return;
+    closeBookingDetails();
+    openMine({ view: 'end-early', bookingId });
+    return;
+  }
+  if (action === 'cancel' || action === 'cancel-keep') {
+    if (action === 'cancel' && !detail.canCancel) return;
+    detailConfirm = action === 'cancel' ? 'cancel' : '';
+    setDetailNotice('');
+    renderBookingDetails(detailBooking);
+    requestAnimationFrame(() => $(`[data-detail-action="${detailConfirm ? 'cancel-confirm' : 'cancel'}"]`)?.focus({ preventScroll: true }));
+    return;
+  }
+  if (action !== 'cancel-confirm' || !detail.canCancel) return;
+  detailBusy = true;
+  setDetailNotice('Cancelling this reservation...');
+  renderBookingDetails(detailBooking);
+  try {
+    await cancelOwnedBooking(bookingId);
+    detailBusy = false;
+    detailConfirm = '';
+    setDetailNotice('');
+    detailDialog.close();
+    announce('Reservation cancelled. The time is open for everyone.');
+  } catch (error) {
+    detailBusy = false;
+    renderBookingDetails(detailBooking);
+    setDetailNotice(typeof error?.message === 'string' && error.message ? error.message : 'That reservation could not be cancelled. Please try again.');
+    requestAnimationFrame(() => $('[data-detail-action="cancel-confirm"]')?.focus({ preventScroll: true }));
+  }
+}
+
+function announce(message) {
+  const element = $('#announcement');
+  if (element) element.textContent = message;
+}
+
+/* ================= My reservations, inside Lattice ================= */
+
+const mineDialog = $('#mineSheet');
+let myReservations = [];
+let mineStep = { view: 'list' };
+let mineBusy = false;
+let mineError = '';
+let mineOpener = null;
+let mineFocus = '';
+let mineDrawn = '';
+
+const mineTime = (value) => {
+  const total = toMinutes(value);
+  return Number.isFinite(total) ? time(total) : String(value ?? '');
+};
+const mineRange = (booking) => `${mineTime(booking.start)} to ${mineTime(booking.end)}`;
+const mineDayLabel = (key) => {
+  const known = state.days.find((item) => item.key === key);
+  if (known) return known.label;
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(key || ''))
+    ? new Date(`${key}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' })
+    : String(key ?? '');
+};
+const mineResource = (booking) => {
+  const resource = reservationResource(booking);
+  if (!resource) return 'Reservation';
+  const label = TYPES[resource.type]?.label || resource.label;
+  return resource.unit ? `${label} ${resource.unit}` : label;
+};
+const mineReservedForLabel = (booking) => booking?.purpose === 'contact' ? 'Contact Name' : ['new', 'new-member'].includes(booking?.purpose) ? 'Member Name' : 'Purpose';
+const mineById = (id) => myReservations.find((booking) => booking.id === id) || null;
+const mineLive = () => state.canBook === true && ['live', 'demo'].includes(state.status);
+const mineBlocked = () => mineLive() ? '' : ' disabled';
+
+function mineSummary(booking) {
+  const purpose = reservationPurposeLabel(booking);
+  const reservedFor = String(booking.reservedFor || '').trim();
+  return `<div class="summary"><div><span>Space</span><b>${html(mineResource(booking))}</b></div><div><span>Date</span><b>${html(mineDayLabel(booking.date))}</b></div><div><span>Time</span><b>${html(mineRange(booking))}</b></div>${purpose ? `<div><span>Purpose</span><b>${html(purpose)}</b></div>` : ''}${reservedFor ? `<div><span>${html(mineReservedForLabel(booking))}</span><b>${html(reservedFor)}</b></div>` : ''}</div>`;
+}
+function mineCard(booking) {
+  const status = reservationStatusLabel(booking);
+  const purpose = reservationPurposeLabel(booking);
+  const notice = priorityNoticeText(booking);
+  const reservedFor = String(booking.reservedFor || '').trim();
+  const canEndEarly = booking.canEndEarly === true && endEarlyOptions(booking).length > 0;
+  const actions = [
+    booking.status === 'overridden' ? `<button class="mineAction quiet" type="button" data-mine-rebook="${html(booking.id)}">Reserve another time</button>` : '',
+    canEndEarly ? `<button class="mineAction" type="button" data-mine-end-early="${html(booking.id)}"${mineBlocked()}>End early</button>` : '',
+    booking.canCancel === true ? `<button class="mineAction danger" type="button" data-mine-cancel="${html(booking.id)}"${mineBlocked()}>${booking.status === 'approved' ? 'Cancel reservation' : 'Cancel request'}</button>` : ''
+  ].filter(Boolean).join('');
+  return '<li class="mineCard">'
+    + `<div class="mineCardHead"><b>${html(mineDayLabel(booking.date))}</b>${status ? `<span class="mineBadge ${html(booking.status)}">${html(status)}</span>` : ''}</div>`
+    + `<p class="mineWhen">${html(mineRange(booking))}</p>`
+    + `<p class="mineMeta"><span>${html(mineResource(booking))}</span>${purpose ? `<span>${html(purpose)}</span>` : ''}${reservedFor ? `<span>${html(mineReservedForLabel(booking))}: ${html(reservedFor)}</span>` : ''}</p>`
+    + (endedEarly(booking) ? `<p class="mineNote">Ended early · originally booked until ${html(mineTime(booking.endedEarlyFrom))}</p>` : '')
+    + (notice ? `<p class="mineNote minePriority" role="note"><strong>Priority update</strong>${html(notice)}</p>` : '')
+    + (actions ? `<div class="mineActions">${actions}</div>` : '')
+    + '</li>';
+}
+function mineListHtml() {
+  const { upcoming, past } = groupMyReservations(myReservations);
+  if (!upcoming.length && !past.length) {
+    if (state.status === 'loading') return '<h2 class="mineTitle" id="mineTitle" tabindex="-1">Finding your reservations</h2><p class="mineHint">Connecting to the live schedule.</p>';
+    if (state.status === 'error') return `<h2 class="mineTitle" id="mineTitle" tabindex="-1">Reservations unavailable</h2><p class="mineHint">${html(state.error || 'The schedule could not connect. Try again to see your reservations.')}</p><button class="changeTime" type="button" data-mine-retry>Retry connection</button>`;
+    return `<h2 class="mineTitle" id="mineTitle" tabindex="-1">No reservations yet</h2><p class="mineHint">Anything you reserve on this device appears here, with Cancel and End early.</p><button class="continue" id="mineReserve" type="button"${state.canBook && selectedDay ? '' : ' disabled'}>Reserve a space</button>`;
+  }
+  return '<h2 class="mineTitle" id="mineTitle" tabindex="-1">My reservations</h2><p class="mineHint">Everything reserved from this device, with its latest status.</p>'
+    + (upcoming.length ? `<h3 class="mineHeading">Upcoming</h3><ul class="mineList" aria-label="Upcoming reservations">${upcoming.map(mineCard).join('')}</ul>` : '')
+    + (past.length ? `<h3 class="mineHeading">Past reservations</h3><ul class="mineList" aria-label="Past reservations">${past.map(mineCard).join('')}</ul>` : '');
+}
+function mineCancelHtml(booking) {
+  const approved = booking.status === 'approved';
+  return `<h2 class="mineTitle" id="mineTitle" tabindex="-1">${approved ? 'Cancel this reservation?' : 'Cancel this request?'}</h2>`
+    + `<p class="mineHint">${approved ? 'The time opens for everyone right away. This cannot be undone.' : 'The request is withdrawn right away. This cannot be undone.'}</p>`
+    + mineSummary(booking)
+    + `<button class="continue danger" id="mineCancelConfirm" type="button"${mineBlocked()} aria-busy="${mineBusy}">${mineBusy ? 'Cancelling...' : approved ? 'Yes, cancel reservation' : 'Yes, cancel request'}</button>`
+    + '<button class="changeTime" id="mineStepBack" type="button">Keep it</button>';
+}
+function mineEndEarlyHtml(booking) {
+  const options = endEarlyOptions(booking);
+  const now = endEarlyNowOption(booking);
+  if (!options.length) {
+    return '<h2 class="mineTitle" id="mineTitle" tabindex="-1">This one cannot be shortened</h2><p class="mineHint">It is a single 30 minute block, so finishing early means cancelling it.</p><button class="changeTime" id="mineStepBack" type="button">Back to your reservations</button>';
+  }
+  const choices = options.map((option) => {
+    const marker = option === now;
+    const description = `End at ${mineTime(option)}${marker ? ', now' : ''}, frees ${mineTime(option)} to ${mineTime(booking.end)}`;
+    return `<button class="${marker ? 'mineNow' : ''}" type="button" data-mine-end="${html(option)}"${mineBlocked()} aria-label="${html(description)}">${html(mineTime(option))}${marker ? '<span class="mineNowMark" aria-hidden="true">now</span>' : ''}</button>`;
+  }).join('');
+  return '<h2 class="mineTitle" id="mineTitle" tabindex="-1">When did you finish?</h2><p class="mineHint">Choose when you actually finished. The time after that opens for everyone right away.</p>'
+    + `<div class="timeChoices" role="group" aria-label="Choose a new ending">${choices}</div>`
+    + '<button class="changeTime" id="mineStepBack" type="button">Keep my time</button>';
+}
+function mineEndConfirmHtml(booking, end) {
+  return `<h2 class="mineTitle" id="mineTitle" tabindex="-1">End at ${html(mineTime(end))}?</h2>`
+    + `<p class="mineHint">${html(mineTime(booking.start))} to ${html(mineTime(end))} stays yours. ${html(mineTime(end))} to ${html(mineTime(booking.end))} opens for everyone.</p>`
+    + mineSummary(booking)
+    + `<button class="continue" id="mineEndConfirm" type="button"${mineBlocked()} aria-busy="${mineBusy}">${mineBusy ? 'Ending early...' : 'End early'}</button>`
+    + '<button class="changeTime" id="mineStepBack" type="button">Back</button>';
+}
+function mineConnectionHtml() {
+  if (state.status === 'offline') return 'You are offline. Your reservations return when the connection does.<button class="changeTime" type="button" data-mine-retry>Retry connection</button>';
+  if (state.status === 'error' && myReservations.length) return `${html(state.error || 'The live schedule could not connect.')}<button class="changeTime" type="button" data-mine-retry>Retry connection</button>`;
+  if (!mineLive() && state.status !== 'loading') return 'The live schedule is reconnecting. Cancel and End early return when it is live.<button class="changeTime" type="button" data-mine-retry>Retry connection</button>';
+  return '';
+}
+/* A background refresh arrives every few seconds. Redrawing the sheet then
+   would interrupt whoever is part-way through a confirmation, so the sheet is
+   only redrawn when something it shows has actually changed. */
+function mineSignature() {
+  return JSON.stringify([state.status, state.canBook, state.error, mineStep, mineBusy, mineError,
+    state.days.map((day) => `${day.key}|${day.label}`),
+    myReservations.map((booking) => [booking.id, booking.status, booking.date, booking.start, booking.end, booking.purpose, booking.reservedFor, booking.canCancel, booking.canEndEarly, booking.endedEarlyFrom, booking.priorityNotice?.kind ?? '', booking.assignments])]);
+}
+function renderMine(moveFocus = false) {
+  if (!mineDialog.open) return;
+  if (mineStep.view !== 'list' && !mineById(mineStep.bookingId)) mineStep = { view: 'list' };
+  const signature = mineSignature();
+  if (!moveFocus && !mineFocus && signature === mineDrawn) return;
+  mineDrawn = signature;
+  const booking = mineById(mineStep.bookingId);
+  const view = mineStep.view;
+  $('#mineBack').style.visibility = view === 'list' ? 'hidden' : 'visible';
+  $('#mineCounter').textContent = view === 'list' ? 'Your reservations' : view === 'cancel' ? 'Cancel · confirm' : view === 'end-early' ? 'End early · choose' : 'End early · confirm';
+  const connection = mineConnectionHtml();
+  $('#mineConnection').innerHTML = connection;
+  $('#mineConnection').classList.toggle('hidden', !connection);
+  const content = view === 'cancel' ? mineCancelHtml(booking)
+    : view === 'end-early' ? mineEndEarlyHtml(booking)
+      : view === 'end-confirm' ? mineEndConfirmHtml(booking, mineStep.end) : mineListHtml();
+  // A background refresh replaces this markup, so keep focus inside the sheet.
+  const held = $('#mineBody').contains(document.activeElement);
+  $('#mineBody').innerHTML = `<div class="minePanel">${mineError ? `<p class="flowNotice" role="alert">${html(mineError)}</p>` : ''}${content}</div>`;
+  mineDialog.scrollTop = 0;
+  const target = mineFocus ? $('#mineBody').querySelector(mineFocus) : null;
+  mineFocus = '';
+  if (moveFocus || target || held) requestAnimationFrame(() => (target?.isConnected ? target : $('#mineTitle'))?.focus({ preventScroll: true }));
+}
+function mineUrl(open) {
+  const params = new URLSearchParams(location.search);
+  if (open) params.set('view', 'mine'); else params.delete('view');
+  const query = params.toString();
+  return location.pathname + (query ? `?${query}` : '') + location.hash;
+}
+function openMine(nextStep = { view: 'list' }, push = true) {
+  if (!mineDialog.open) {
+    mineOpener = document.activeElement;
+    if (dialog.open && !saving) closeFlow();
+  }
+  mineStep = nextStep;
+  mineError = '';
+  if (!mineDialog.open) {
+    mineDialog.showModal();
+    document.body.classList.add('modalOpen');
+  }
+  if (push && new URLSearchParams(location.search).get('view') !== 'mine') window.history.pushState({ view: 'mine' }, '', mineUrl(true));
+  renderMine(true);
+}
+function closeMine(push = true) {
+  if (mineBusy || !mineDialog.open) return;
+  mineDialog.close();
+  document.body.classList.remove('modalOpen');
+  mineStep = { view: 'list' };
+  mineError = '';
+  if (push && new URLSearchParams(location.search).get('view') === 'mine') window.history.pushState({}, '', mineUrl(false));
+  if (mineOpener?.isConnected) mineOpener.focus({ preventScroll: true });
+  else $('#mineLink')?.focus({ preventScroll: true });
+  mineOpener = null;
+}
+function mineStepBack() {
+  if (mineBusy) return;
+  mineError = '';
+  if (mineStep.view === 'end-confirm') {
+    mineStep = { view: 'end-early', bookingId: mineStep.bookingId };
+    renderMine(true);
+    return;
+  }
+  mineFocus = mineStep.view === 'cancel' ? `[data-mine-cancel="${mineStep.bookingId}"]`
+    : mineStep.view === 'end-early' ? `[data-mine-end-early="${mineStep.bookingId}"]` : '';
+  mineStep = { view: 'list' };
+  renderMine(true);
+}
+async function runMineCancel() {
+  const booking = mineById(mineStep.bookingId);
+  if (!booking || mineBusy) return;
+  mineBusy = true;
+  mineError = '';
+  renderMine();
+  try {
+    await cancelOwnedBooking(booking.id);
+    mineBusy = false;
+    mineStep = { view: 'list' };
+    announce(booking.status === 'approved' ? 'Reservation cancelled. The time is open for everyone.' : 'Request cancelled.');
+    renderMine(true);
+  } catch (error) {
+    mineBusy = false;
+    mineError = typeof error?.message === 'string' && error.message ? error.message : 'That reservation could not be cancelled. Please try again.';
+    renderMine(true);
+  }
+}
+async function runMineEndEarly() {
+  const booking = mineById(mineStep.bookingId);
+  const end = mineStep.end;
+  if (!booking || !end || mineBusy) return;
+  mineBusy = true;
+  mineError = '';
+  renderMine();
+  try {
+    await endOwnedBookingEarly(booking.id, end);
+    mineBusy = false;
+    mineStep = { view: 'list' };
+    announce(`Ended at ${mineTime(end)}. The rest of your time is open for others.`);
+    renderMine(true);
+  } catch (error) {
+    mineBusy = false;
+    mineError = typeof error?.message === 'string' && error.message ? error.message : 'That reservation could not end early. Please try again.';
+    renderMine(true);
+  }
 }
 
 function hasPriorityOverride(value = draft) {
@@ -442,15 +732,69 @@ dialog.addEventListener('cancel', (event) => {
   if (saving) event.preventDefault();
 });
 dialog.addEventListener('close', () => {
+  // My reservations may have taken over the screen; leave its scroll lock and focus alone.
+  if (mineDialog.open) return;
   document.body.classList.remove('modalOpen');
   if (opener?.isConnected) opener.focus({ preventScroll: true });
   else $('#reserve').focus({ preventScroll: true });
 });
 $('#detailClose')?.addEventListener('click', closeBookingDetails);
+detailBody?.addEventListener('click', (event) => {
+  const action = event.target.closest('[data-detail-action]')?.dataset.detailAction;
+  if (action) runDetailAction(action);
+});
+detailDialog?.addEventListener('cancel', (event) => {
+  if (detailBusy) event.preventDefault();
+});
 detailDialog?.addEventListener('close', () => {
-  if (detailReturnFocus?.isConnected) detailReturnFocus.focus({ preventScroll: true });
-  else $('#reserve')?.focus({ preventScroll: true });
+  detailConfirm = '';
+  detailBusy = false;
+  detailBooking = null;
+  setDetailNotice('');
+  if (!mineDialog.open) {
+    if (detailReturnFocus?.isConnected) detailReturnFocus.focus({ preventScroll: true });
+    else $('#reserve')?.focus({ preventScroll: true });
+  }
   detailReturnFocus = null;
+});
+$('#mineLink')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  openMine();
+});
+$('#mineClose').addEventListener('click', () => closeMine());
+$('#mineBack').addEventListener('click', mineStepBack);
+mineDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  if (mineBusy) return;
+  if (mineStep.view === 'list') closeMine(); else mineStepBack();
+});
+mineDialog.addEventListener('click', (event) => {
+  if (event.target !== mineDialog) return;
+  const bounds = mineDialog.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeMine();
+});
+$('#mineConnection').addEventListener('click', (event) => {
+  if (event.target.closest('[data-mine-retry]')) retry();
+});
+$('#mineBody').addEventListener('click', (event) => {
+  if (event.target.closest('[data-mine-retry]')) { retry(); return; }
+  if (event.target.closest('#mineStepBack')) { mineStepBack(); return; }
+  const rebook = event.target.closest('#mineReserve') || event.target.closest('[data-mine-rebook]');
+  if (rebook) { closeMine(); openFlow(); return; }
+  if (mineBusy) return;
+  const cancel = event.target.closest('[data-mine-cancel]');
+  if (cancel) { mineStep = { view: 'cancel', bookingId: cancel.dataset.mineCancel }; mineError = ''; renderMine(true); return; }
+  const endEarly = event.target.closest('[data-mine-end-early]');
+  if (endEarly) { mineStep = { view: 'end-early', bookingId: endEarly.dataset.mineEndEarly }; mineError = ''; renderMine(true); return; }
+  const choice = event.target.closest('[data-mine-end]');
+  if (choice) { mineStep = { view: 'end-confirm', bookingId: mineStep.bookingId, end: choice.dataset.mineEnd }; mineError = ''; renderMine(true); return; }
+  if (event.target.closest('#mineCancelConfirm')) { runMineCancel(); return; }
+  if (event.target.closest('#mineEndConfirm')) runMineEndEarly();
+});
+addEventListener('popstate', () => {
+  const wants = new URLSearchParams(location.search).get('view') === 'mine';
+  if (wants && !mineDialog.open) openMine({ view: 'list' }, false);
+  else if (!wants && mineDialog.open) closeMine(false);
 });
 detailDialog?.addEventListener('click', (event) => {
   if (event.target !== detailDialog) return;
@@ -517,13 +861,23 @@ panel.addEventListener('input', (event) => {
 });
 
 subscribe((snapshot) => {
+  const openDetailKey = detailDialog?.open && detailBooking ? bookingKeyFor(detailBooking) : '';
   state = {
     ...snapshot,
     canBook: snapshot.canBook === true,
     demo: snapshot.demo === true,
     days: Array.isArray(snapshot.days) ? snapshot.days.filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day.key) && [2, 6].includes(day.weekday)) : [],
-    bookings: Array.isArray(snapshot.bookings) ? snapshot.bookings : []
+    bookings: Array.isArray(snapshot.bookings) ? snapshot.bookings : [],
+    myBookings: Array.isArray(snapshot.myBookings) ? snapshot.myBookings.filter((booking) => booking && typeof booking.id === 'string' && booking.id) : []
   };
+  myReservations = state.myBookings;
   if (!state.days.some((day) => day.key === selectedDay)) selectedDay = state.days[0]?.key || '';
   renderState();
+  // A reservation cancelled elsewhere must not stay open in the detail sheet.
+  if (openDetailKey && !detailBusy) {
+    const updated = state.bookings.find((item) => bookingKeyFor(item) === openDetailKey);
+    if (!updated) closeBookingDetails(); else detailBooking = updated;
+  }
+  renderMine();
 });
+if (new URLSearchParams(location.search).get('view') === 'mine') openMine({ view: 'list' }, false);
