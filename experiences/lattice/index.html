@@ -13,13 +13,13 @@
 <a class="skipLink" href="#scheduleName">Skip to schedule</a>
 <main class="app">
   <header class="brandbar">
-    <a class="brand" href="/?classic=1"><span class="brandmark" aria-hidden="true"></span>LV Zion Rooms</a>
+    <a class="brand" href="./"><span class="brandmark" aria-hidden="true"></span>LV Zion Rooms</a>
     <span class="designLabel">Lattice</span>
   </header>
   <nav class="quickLinks" aria-label="Reservation navigation">
-    <a href="/?classic=1&amp;tab=mine">My reservations</a>
-    <a href="/?classic=1">Current app</a>
+    <a href="?view=mine" id="mineLink">My reservations</a>
     <a href="/?choose=1">Change design</a>
+    <a href="/admin/" class="member-admin-link">Admin</a>
   </nav>
   <div class="connectionRow">
     <span class="connection" id="connection" role="status"><i aria-hidden="true"></i><span id="connectionLabel">Connecting</span></span>
@@ -62,6 +62,17 @@
   <div id="detailBody"></div>
   <p class="detailNotice hidden" id="detailNotice" role="status"></p>
 </dialog>
+<dialog class="sheet mineSheet" id="mineSheet" aria-labelledby="mineTitle">
+  <div class="grip" aria-hidden="true"></div>
+  <div class="sheetTop">
+    <button class="back" id="mineBack" type="button">Back</button>
+    <span class="mineCounter" id="mineCounter">Your reservations</span>
+    <button class="close" id="mineClose" type="button" aria-label="Close your reservations">×</button>
+  </div>
+  <div class="statusMessage hidden" id="mineConnection" role="status"></div>
+  <div id="mineBody"></div>
+</dialog>
+<div class="srOnly" id="announcement" role="status" aria-live="polite"></div>
 <script type="module" src="./lattice.js"></script>
 <script src="/design-choice.js" defer></script>
 </body>

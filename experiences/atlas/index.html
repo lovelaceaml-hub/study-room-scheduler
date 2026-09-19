@@ -17,9 +17,9 @@
     <div class="avatar" aria-hidden="true">LV</div>
   </div>
   <nav class="utilityLinks" aria-label="Reservation navigation">
-    <a href="/?classic=1&tab=mine">My reservations</a>
-    <a href="/?classic=1">Current app</a>
+    <a href="?view=mine" id="mineLink">My reservations</a>
     <a href="/?choose=1">Change design</a>
+    <a href="/admin/" class="member-admin-link">Admin</a>
   </nav>
   <div class="connection" id="connection" role="status" aria-live="polite">
     <span class="statusDot" aria-hidden="true"></span>
@@ -60,6 +60,16 @@
   <div id="body"></div>
   <div class="dialogError hidden" id="dialogError" tabindex="-1" role="alert"></div>
 </dialog>
+<dialog class="sheet mineSheet" id="mineSheet" aria-labelledby="mineTitle">
+  <div class="grip" aria-hidden="true"></div>
+  <div class="sheetbar">
+    <button class="iconbtn" id="mineBack" type="button" aria-label="Back to your reservations">&#8592;</button>
+    <span class="mineCounter" id="mineCounter">Your reservations</span>
+    <button class="iconbtn" id="mineClose" type="button" aria-label="Close your reservations">&#215;</button>
+  </div>
+  <div class="dialogStatus hidden" id="mineConnection" role="status"></div>
+  <div id="mineBody"></div>
+</dialog>
 <dialog class="detailSheet" id="bookingDetails" aria-labelledby="detailTitle" aria-describedby="detailDescription">
   <div class="detailBar">
     <span class="detailEyebrow">Reservation details</span>
@@ -68,6 +78,7 @@
   <div id="detailBody"></div>
   <p class="detailNotice hidden" id="detailNotice" role="status"></p>
 </dialog>
+<div class="srOnly" id="announcement" role="status" aria-live="polite"></div>
 <script type="module" src="./atlas.js"></script>
 <script src="/design-choice.js" defer></script>
 </body>
