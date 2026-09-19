@@ -1,5 +1,5 @@
 import * as live from '../shared/live.js';
-import { overrideUnitForRange, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
+import { overrideUnitForRange, serviceBlocksFor, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
 
 const { subscribe, submit, retry } = live;
 
@@ -9,7 +9,6 @@ const icon = (type) => `<svg viewBox="0 0 24 24" aria-hidden="true">${{room:'<pa
 const types = {room:{label:'Study Rooms',one:'Room',count:4,description:''},whiteboard:{label:'Whiteboards',one:'Whiteboard',count:5,description:''},tv:{label:'TVs',one:'TV',count:3,description:''}};
 const purposes = {contact:{label:'Contact',description:''},new:{label:'New Member',description:''},other:{label:'Other',description:''}};
 const reservedForLabels = {contact:'Contact Name',new:'Member Name',other:'Purpose'};
-const serviceRules = {6:[[600,660,'Morning service'],[870,930,'Afternoon service'],[1170,1230,'Evening service']],2:[[1170,1230,'Evening service']]};
 const fmt = (minutes) => {const hour=Math.floor(minutes/60);return `${hour%12||12}:${String(minutes%60).padStart(2,'0')} ${hour<12?'AM':'PM'}`;};
 const hourLabel = (minutes) => fmt(minutes).replace(':00','');
 const range = (start,end) => `${fmt(start)} to ${fmt(end)}`;
@@ -26,7 +25,7 @@ const dateLabel = (key) => dates.find(day=>day.key===key)?.label || key || 'Choo
 const eligible = (key) => dates.some(day=>day.key===key);
 const ready = () => ['live','demo'].includes(connection.status)&&connection.canBook&&eligible(selectedDate);
 const draftReady = () => ready()&&eligible(draft.date);
-const dayServices = (date) => serviceRules[dates.find(day=>day.key===date)?.weekday] || [];
+const dayServices = (date) => serviceBlocksFor(dates.find(day=>day.key===date)||date);
 const serviceAt = (date,time) => dayServices(date).find(([start,end])=>time>=start&&time<end);
 const occupant = (date,type,unit,time) => bookings.find(b=>b.date===date&&b.type===type&&b.unit===unit&&time>=b.start&&time<b.end);
 const free = (date,type,unit,time) => ready()&&eligible(date)&&time>=600&&time<1380&&!serviceAt(date,time)&&!occupant(date,type,unit,time);

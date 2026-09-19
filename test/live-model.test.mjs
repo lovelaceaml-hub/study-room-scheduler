@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {eligibleDays,projectBookings,projectOwnedBookings,validateInput,validRange,publicName,parsePublicName,validateReservedFor,overrideUnitForRange,endEarlyOptions,endEarlyNowOption,endedEarly,groupMyReservations,reservationResource,reservationStatusLabel,reservationPurposeLabel,priorityNoticeText} from '../experiences/shared/model.js';
+import {eligibleDays,serviceBlocksFor,projectBookings,projectOwnedBookings,validateInput,validRange,publicName,parsePublicName,validateReservedFor,overrideUnitForRange,endEarlyOptions,endEarlyNowOption,endedEarly,groupMyReservations,reservationResource,reservationStatusLabel,reservationPurposeLabel,priorityNoticeText} from '../experiences/shared/model.js';
 const days=eligibleDays(new Date('2026-09-12T20:00:00Z'));
 test('eligible days use Los Angeles calendar at UTC midnight',()=>{
  // Before the special day opens on 13 September, only the usual Tuesday and Saturday.
@@ -143,4 +143,36 @@ test('public projection includes the requested reservation detail without owner 
  assert.equal(publicRows[0].name,'S Kiana');
  assert.equal(publicRows[0].reservedFor,'Bible study');
  assert.equal(Object.prototype.hasOwnProperty.call(publicRows[0],'ownerUid'),false);
+});
+
+/* One shared service rule. Every design reads this, so a design can no longer
+   offer a time the server refuses, or hide a day the server accepts. */
+test('the shared service table covers Saturday, Tuesday and the September 21 special day',()=>{
+ const window=eligibleDays(new Date('2026-09-19T20:00:00Z'));
+ assert.deepEqual(window.map(d=>d.key),['2026-09-19','2026-09-21','2026-09-22']);
+ const saturday=window.find(d=>d.key==='2026-09-19'),special=window.find(d=>d.key==='2026-09-21'),tuesday=window.find(d=>d.key==='2026-09-22');
+ assert.deepEqual(serviceBlocksFor(saturday),[[600,660,'Morning service'],[870,930,'Afternoon service'],[1170,1230,'Evening service']]);
+ assert.deepEqual(serviceBlocksFor(tuesday),[[1170,1230,'Evening service']]);
+ // The one-off Monday keeps the morning and afternoon services and has no evening service.
+ assert.deepEqual(serviceBlocksFor(special),[[600,660,'Morning service'],[870,930,'Afternoon service']]);
+ // A day key on its own, and a design's own copy that names the weekday `dow`, resolve the same way.
+ assert.deepEqual(serviceBlocksFor('2026-09-21'),serviceBlocksFor(special));
+ assert.deepEqual(serviceBlocksFor({key:'2026-09-19',dow:6}),serviceBlocksFor(saturday));
+ assert.deepEqual(serviceBlocksFor('2026-09-23'),[]);
+ // The table is copied out, so a design cannot change what everyone else sees.
+ serviceBlocksFor(saturday)[0][0]=0;
+ assert.equal(serviceBlocksFor(saturday)[0][0],600);
+});
+test('validRange follows the same table on the September 21 special day',()=>{
+ const window=eligibleDays(new Date('2026-09-19T20:00:00Z')),special='2026-09-21';
+ // The two services that day are closed, and the times around them are open.
+ assert.equal(validRange(special,600,660,window),false);
+ assert.equal(validRange(special,870,930,window),false);
+ assert.equal(validRange(special,660,720,window),true);
+ assert.equal(validRange(special,930,990,window),true);
+ // There is no evening service that day, so the Saturday evening block is open.
+ assert.equal(validRange(special,1170,1230,window),true);
+ assert.equal(validRange('2026-09-19',1170,1230,window),false);
+ // A day that is not a scheduling day is still refused outright.
+ assert.equal(validRange('2026-09-23',660,720,window),false);
 });

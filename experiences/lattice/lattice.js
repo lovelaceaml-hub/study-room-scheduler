@@ -1,4 +1,4 @@
-import { overrideUnitForRange, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
+import { overrideUnitForRange, serviceBlocksFor, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
 import { subscribe, submit, retry, cancelOwnedBooking, endOwnedBookingEarly } from '../shared/live.js';
 
 const TYPES = {
@@ -48,10 +48,7 @@ function dayLabel(day) {
 }
 
 function serviceBlocks(day) {
-  const weekday = dayInfo(day)?.weekday ?? new Date(`${day}T12:00:00Z`).getUTCDay();
-  if (weekday === 6) return [[600, 660, 'Morning service'], [870, 930, 'Afternoon service'], [1170, 1230, 'Evening service']];
-  if (weekday === 2) return [[1170, 1230, 'Evening service']];
-  return [[START, END, 'Reservations unavailable']];
+  return serviceBlocksFor(dayInfo(day) || day);
 }
 
 function freeUnits(day, resource, start, end, exactUnit = null) {
@@ -487,7 +484,7 @@ function renderState() {
   else if (!state.canBook) message = 'Reservations are temporarily unavailable. Please try again shortly.';
   $('#statusMessage').textContent = message;
   $('#statusMessage').classList.toggle('hidden', !message);
-  $('#dates').innerHTML = state.days.map((day) => `<button class="date ${day.key === selectedDay ? 'active' : ''}" type="button" data-day="${html(day.key)}" aria-pressed="${day.key === selectedDay}"><b>${html(day.label)}</b>${day.weekday === 6 ? 'Saturday availability' : 'Tuesday availability'}</button>`).join('');
+  $('#dates').innerHTML = state.days.map((day) => `<button class="date ${day.key === selectedDay ? 'active' : ''}" type="button" data-day="${html(day.key)}" aria-pressed="${day.key === selectedDay}"><b>${html(day.label)}</b>${day.weekday === 6 ? 'Saturday availability' : day.weekday === 2 ? 'Tuesday availability' : 'Special service day'}</button>`).join('');
   renderSchedule();
   if (dialog.open) refreshFlowAvailability();
 }
@@ -866,7 +863,7 @@ subscribe((snapshot) => {
     ...snapshot,
     canBook: snapshot.canBook === true,
     demo: snapshot.demo === true,
-    days: Array.isArray(snapshot.days) ? snapshot.days.filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day.key) && [2, 6].includes(day.weekday)) : [],
+    days: Array.isArray(snapshot.days) ? snapshot.days.filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day.key)) : [],
     bookings: Array.isArray(snapshot.bookings) ? snapshot.bookings : [],
     myBookings: Array.isArray(snapshot.myBookings) ? snapshot.myBookings.filter((booking) => booking && typeof booking.id === 'string' && booking.id) : []
   };

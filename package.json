@@ -2,10 +2,12 @@
   "name": "lv-zion-study-rooms",
   "private": true,
   "scripts": {
-    "test": "node --check app.js && node --check tv.js && node --check sw.js && node --test functions/test/policy.test.js",
+    "test": "node --check tv.js && node --check sw.js && node --check design-choice.js && node --check admin/admin.js && node --test functions/test/policy.test.js",
+    "test:model": "node --test test/live-model.test.mjs test/design-choice.test.mjs functions/test/public-lobby-schedule.test.js",
     "test:cutover": "node --test test/cutover-compatibility.test.mjs",
-    "test:ui": "node test/ui-smoke.mjs",
-    "test:confirm-popup": "node test/confirm-popup-smoke.mjs"
+    "test:designs": "node test/member-design-smoke.mjs && node test/member-mine-smoke-l2.mjs && node test/member-mine-smoke-l3.mjs",
+    "test:admin": "node test/admin-smoke.mjs",
+    "test:tv": "node test/tv-smoke.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",

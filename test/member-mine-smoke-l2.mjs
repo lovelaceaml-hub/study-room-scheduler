@@ -21,6 +21,9 @@ const browser=await chromium.launch({headless:true});
    reservations travel through localStorage['srs-mine-fixture'], the mocked
    memberSchedule returns them as myBookings plus matching public rows with
    ownerDetail, and the mocked cancel and end-early callables mutate them. */
+/* A background schedule refresh can land between an action and the read that
+   checks it, so every assertion looks at the last call of that kind. */
+const lastCall=(page,name)=>page.evaluate(callable=>window.__calls.filter(call=>call.name===callable).at(-1),name);
 async function mock(context){
  await context.addInitScript(()=>{window.__calls=[];});
  await context.route('**/firebasejs/10.12.2/firebase-*.js',route=>{
@@ -133,7 +136,7 @@ for(const name of (process.argv.slice(2).length?process.argv.slice(2):Object.key
   await page.locator(c.endConfirm).waitFor();
   await page.locator(c.endConfirm).press('Enter');
   await page.locator('[data-mine-cancel="fixture-mine-room"]').waitFor();
-  const endCall=await page.evaluate(()=>window.__calls.at(-1));
+  const endCall=await lastCall(page,'memberEndBookingEarly');
   assert.equal(endCall.name,'memberEndBookingEarly');
   assert.deepEqual(endCall.payload,{bookingId:'fixture-mine-room',end:'12:00'});
   assert.equal(await page.getByText('Ended early · originally booked until 1:00 PM').count(),1,'new original-time note');
@@ -148,7 +151,7 @@ for(const name of (process.argv.slice(2).length?process.argv.slice(2):Object.key
   await page.locator(c.cancelConfirm).click();
   await page.locator(c.cancelConfirm).waitFor({state:'detached'});
   await page.locator('ul[aria-label="Past reservations"] .mine-card').nth(3).waitFor();
-  const cancelCall=await page.evaluate(()=>window.__calls.at(-1));
+  const cancelCall=await lastCall(page,'memberCancelBooking');
   assert.equal(cancelCall.name,'memberCancelBooking');
   assert.deepEqual(cancelCall.payload,{bookingId:'fixture-mine-room'});
   assert.equal(await page.locator('ul[aria-label="Upcoming reservations"] .mine-card').count(),3);
@@ -195,7 +198,7 @@ for(const name of (process.argv.slice(2).length?process.argv.slice(2):Object.key
   await page.locator(`${c.detailBody} [data-detail-action="cancel"]`).click();
   await page.locator('[data-detail-action="cancel-confirm"]').click();
   await page.locator(`${c.detailDialog}[open]`).waitFor({state:'detached'});
-  const detailCancel=await page.evaluate(()=>window.__calls.at(-1));
+  const detailCancel=await lastCall(page,'memberCancelBooking');
   assert.equal(detailCancel.name,'memberCancelBooking');
   assert.deepEqual(detailCancel.payload,{bookingId:'fixture-mine-ended'});
   assert.equal(await page.locator(c.booking).count(),0,'the shared schedule frees the time');

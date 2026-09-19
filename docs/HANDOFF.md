@@ -1,5 +1,29 @@
 # Handoff notes — LV Zion Study Rooms
 
+## September 19, 2026: the original app design is retired
+
+The root page is now a minimal shell that loads `design-choice.js` only: it forwards to the
+design this device remembers, or shows the six-design picker with Solace marked Default. A
+stored choice of `classic` counts as no choice. `/?classic=1` no longer exists; it forwards
+to the person's design, and `tab=mine` forwards with `?view=mine`. `tab=admin` forwards to
+`/admin/`, `tv=1` forwards to `/tv.html`.
+
+`app.js`, `styles.css` and `special-schedule-entry.js` are deleted. `tokens.css` stays
+because the lobby TV uses it. The service worker cache is `srs-v17-six-designs`, it
+precaches the six designs, the shared modules and the TV files, it deletes every older
+cache on activate, and it never precaches or cache-serves `/admin/`.
+
+My reservations, Cancel and End early are inside all six designs. Admin is its own page at
+`/admin/`. One shared helper, `serviceBlocksFor()` in `experiences/shared/model.js`, is now
+the only service table: `validRange` and all six designs read it, and none of them filter
+eligible days by weekday any more. That fixes a pre-existing production defect where Cove,
+Atlas and Lattice hid the Monday, September 21, 2026 special day while Solace, Velum and
+Petal offered service times the server refused.
+
+Verification: `npm test`, `npm run test:model`, `npm run test:cutover`, `npm run test:designs`,
+`npm run test:admin`, `npm run test:tv`. See [the plan](PLAN-RETIRE-CLASSIC-DESIGN.md) and
+[run record](runs/2026-09-19-retire-classic-design/INDEX.md).
+
 ## September 12, 2026: Booking details and public names, deployed and verified
 
 The full-replace release for all six member designs, the classic app, and the lobby TV name projection is deployed at https://lvrooms.web.app. It collects reserver name plus Contact Name, Member Name, or Other Purpose, connects consecutive schedule slots, opens clickable reservation details, shows public-safe reserved-for detail to everyone, keeps raw booking documents server-only, and preserves priority override indicators. The local browser fixture passed all six designs, chooser, home UI, confirmation popup, and TV checks.
@@ -27,8 +51,7 @@ Live at https://lvrooms.web.app/?choose=1. Members can keep the current app or c
 The existing backend now accepts an optional requestedUnit. A directly selected room, board, or TV is honored inside the existing conflict transaction; clients that omit it retain the existing allocation behavior. Only memberSubmitBooking and Hosting target app are in the release scope. Functions other than memberSubmitBooking, Firestore rules/indexes, Authentication, the legacy redirect, and the original Atlas/Lattice prototypes are unchanged.
 
 - [Active plan](PLAN-MEMBER-DESIGN-CHOICE.md)
-- [Chooser](https://lvrooms.web.app/?choose=1)
-- [Current app](https://lvrooms.web.app/?classic=1)
+- [Design picker](https://lvrooms.web.app/?choose=1)
 
 
 ## Current status

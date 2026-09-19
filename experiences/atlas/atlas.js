@@ -1,5 +1,5 @@
 import { subscribe, submit, retry, cancelOwnedBooking, endOwnedBookingEarly } from '../shared/live.js';
-import { overrideUnitForRange, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
+import { overrideUnitForRange, serviceBlocksFor, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
 
 const TYPES = {
   room: { label: 'Study Room', short: 'Room', plural: 'Study Rooms', count: 4, icon: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 21V3M15 12h1"/>' },
@@ -370,8 +370,7 @@ function dayLabel(key = selectedDay) {
   return dayInfo(key)?.label || key;
 }
 function serviceBlocks(key) {
-  const weekday = dayInfo(key)?.weekday ?? new Date(`${key}T12:00:00Z`).getUTCDay();
-  return weekday === 6 ? [[600, 660], [870, 930], [1170, 1230]] : weekday === 2 ? [[1170, 1230]] : [[OPEN, CLOSE]];
+  return serviceBlocksFor(dayInfo(key) || key);
 }
 function overlaps(start, end, otherStart, otherEnd) {
   return start < otherEnd && otherStart < end;
@@ -441,7 +440,7 @@ function renderConnection() {
   if (dialog.open) updateDialogConnection();
 }
 function renderDays() {
-  $('#daypick').innerHTML = snapshot.days.map(day => `<button class="day${day.key === selectedDay ? ' on' : ''}" type="button" data-day="${escapeHTML(day.key)}" aria-pressed="${day.key === selectedDay}"><strong>${escapeHTML(day.label)}</strong>${day.weekday === 6 ? 'Primary service day' : 'Midweek availability'}</button>`).join('');
+  $('#daypick').innerHTML = snapshot.days.map(day => `<button class="day${day.key === selectedDay ? ' on' : ''}" type="button" data-day="${escapeHTML(day.key)}" aria-pressed="${day.key === selectedDay}"><strong>${escapeHTML(day.label)}</strong>${day.weekday === 6 ? 'Primary service day' : day.weekday === 2 ? 'Midweek availability' : 'Special service day'}</button>`).join('');
 }
 function renderMeters() {
   $('#snapLabel').textContent = dayInfo()?.label.split(',')[0] || 'Connecting';
@@ -811,7 +810,7 @@ subscribe(value => {
     canBook: value?.canBook === true,
     demo: value?.demo === true,
     error: typeof value?.error === 'string' ? value.error : '',
-    days: Array.isArray(value?.days) ? value.days.filter(day => /^\d{4}-\d{2}-\d{2}$/.test(day.key) && typeof day.label === 'string' && [2, 6].includes(day.weekday)) : [],
+    days: Array.isArray(value?.days) ? value.days.filter(day => /^\d{4}-\d{2}-\d{2}$/.test(day.key) && typeof day.label === 'string') : [],
     bookings: Array.isArray(value?.bookings) ? value.bookings : [],
     myBookings: Array.isArray(value?.myBookings) ? value.myBookings.filter(booking => booking && typeof booking.id === 'string' && booking.id) : []
   };

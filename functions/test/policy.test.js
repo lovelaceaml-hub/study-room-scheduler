@@ -120,11 +120,12 @@ test('orders Saturday recommendations by purpose priority, then request time', (
   assert.equal(priorityForPurpose('other'), 3);
 });
 
-test('rejects days other than the upcoming Tuesday and Saturday', () => {
+test('rejects days other than the upcoming Tuesday, Saturday and September 21', () => {
   const now = new Date('2026-07-17T19:00:00Z');
-  assert.match(validateBookingTime('2026-07-19', '10:00', '10:30', now), /Tuesday or Saturday/);
-  assert.match(validateBookingTime('2026-07-25', '10:00', '10:30', now), /upcoming/);
-  assert.match(validateBookingTime('2026-02-31', '10:00', '10:30', now), /Tuesday or Saturday/);
+  // The refusal now names all three eligible kinds of day, not only the weekly pair.
+  assert.match(validateBookingTime('2026-07-19', '10:00', '10:30', now), /Tuesday, Saturday, or the September 21 special schedule/);
+  assert.match(validateBookingTime('2026-07-25', '10:00', '10:30', now), /available scheduling day/);
+  assert.match(validateBookingTime('2026-02-31', '10:00', '10:30', now), /Tuesday, Saturday, or the September 21 special schedule/);
 });
 
 test('accepts only Rooms 1-4 and rejects the Baptism Room', () => {
