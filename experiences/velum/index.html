@@ -13,7 +13,7 @@
   <header class="masthead">
     <a class="wordmark" href="#main" aria-label="LV Zion Study Rooms, go to schedule"><span class="seal" aria-hidden="true">lv</span><span>LV Zion<span class="wordmark-sub">Study rooms</span></span></a>
   </header>
-  <nav class="member-links" aria-label="Reservations and design"><a href="/?classic=1&amp;tab=mine">My reservations</a><a href="/?classic=1">Current app</a><a href="/?choose=1">Change design</a></nav>
+  <nav class="member-links" aria-label="Member navigation"><a href="?view=mine" id="mine-link">My reservations</a><a href="/?choose=1">Change design</a><a href="/admin/" class="member-admin-link">Admin</a></nav>
   <main id="main">
     <section class="calendar" aria-label="Daily availability">
       <div class="date-line">
@@ -49,6 +49,12 @@
     <div class="sheet-handle" aria-hidden="true"></div>
     <div class="sheet-top"><span id="detail-counter">Reservation details</span><button class="icon-button" id="detail-close" aria-label="Close reservation details">&#215;</button></div>
     <div id="detail-body"></div>
+  </dialog>
+  <dialog id="mine-dialog" aria-labelledby="mine-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-top"><button class="icon-button" id="mine-back" aria-label="Back to your reservations">&#8592;</button><span id="mine-counter">Your reservations</span><button class="icon-button" id="mine-close" aria-label="Close your reservations">&#215;</button></div>
+    <div id="mine-connection" role="status"></div>
+    <div id="mine-body"></div>
   </dialog>
   <script type="module" src="./velum.js"></script>
 <script src="/design-choice.js" defer></script>

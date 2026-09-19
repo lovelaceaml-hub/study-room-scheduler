@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {eligibleDays,projectBookings,projectOwnedBookings,validateInput,validRange,publicName,parsePublicName,validateReservedFor,overrideUnitForRange} from '../experiences/shared/model.js';
+import {eligibleDays,serviceBlocksFor,projectBookings,projectOwnedBookings,validateInput,validRange,publicName,parsePublicName,validateReservedFor,overrideUnitForRange,endEarlyOptions,endEarlyNowOption,endedEarly,groupMyReservations,reservationResource,reservationStatusLabel,reservationPurposeLabel,priorityNoticeText} from '../experiences/shared/model.js';
 const days=eligibleDays(new Date('2026-09-12T20:00:00Z'));
 test('eligible days use Los Angeles calendar at UTC midnight',()=>{
+ // Before the special day opens on 13 September, only the usual Tuesday and Saturday.
  assert.deepEqual(eligibleDays(new Date('2026-09-13T01:00:00Z')).map(d=>d.key),['2026-09-12','2026-09-15']);
- assert.deepEqual(eligibleDays(new Date('2026-09-13T08:00:00Z')).map(d=>d.key),['2026-09-15','2026-09-19']);
+ // Once it opens, the 21 September special scheduling day joins them.
+ assert.deepEqual(eligibleDays(new Date('2026-09-13T08:00:00Z')).map(d=>d.key),['2026-09-15','2026-09-19','2026-09-21']);
+ assert.deepEqual(eligibleDays(new Date('2026-09-22T08:00:00Z')).map(d=>d.key),['2026-09-22','2026-09-26']);
 });
 test('schedule projection exposes only safe names and renders private holds neutrally',()=>{
  const records=[{date:days[0].key,start:'11:00',end:'12:00',name:'Sister Jordan Example',purpose:'contact',reservedFor:'Joey',status:'approved',needs:{room:true},assignments:{room:'room-2'},ownerUid:'private-owner',note:'private-note',bookingId:'private-id'}, {date:days[0].key,start:'12:00',end:'13:00',name:'Private Admin Name',purpose:'blocked',status:'approved',needs:{tv:true},assignments:{tv:'tv-1'}}];
@@ -68,6 +71,69 @@ test('reserved-for values are validated and round-trip through the shared input 
  assert.equal(validateInput(input,[],days).reservedFor,'Sister Kiana');
  assert.equal(validateInput({...input,purpose:'other',reservedFor:'Bible study'},[],days).purposeOther,'Bible study');
 });
+const mineRow=(overrides={})=>({id:'mine-1',date:'2026-09-12',start:'11:00',end:'13:00',name:'Robin Fixture',displayName:'Robin F',purpose:'contact',reservedFor:'Fictional contact',status:'approved',blocked:false,needs:{room:true},assignments:{room:'room-2'},endedEarlyFrom:null,priorityNotice:null,canCancel:true,canEndEarly:true,...overrides});
+test('End early offers every 30-minute boundary after the start and before the ending',()=>{
+ assert.deepEqual(endEarlyOptions(mineRow()),['11:30','12:00','12:30']);
+ assert.deepEqual(endEarlyOptions(mineRow({start:'11:00',end:'11:30'})),[]);
+ assert.deepEqual(endEarlyOptions(mineRow({start:'10:00',end:'11:00'})),['10:30']);
+ assert.deepEqual(endEarlyOptions({}),[]);
+ assert.deepEqual(endEarlyOptions(mineRow({start:'noon',end:'13:00'})),[]);
+});
+test('the "now" ending is the last Los Angeles boundary already passed, and only today',()=>{
+ assert.equal(endEarlyNowOption(mineRow(),new Date('2026-09-12T19:40:00Z')),'12:30');
+ assert.equal(endEarlyNowOption(mineRow(),new Date('2026-09-12T18:30:00Z')),'11:30');
+ assert.equal(endEarlyNowOption(mineRow(),new Date('2026-09-12T17:00:00Z')),null);
+ assert.equal(endEarlyNowOption(mineRow(),new Date('2026-09-13T19:40:00Z')),null);
+ assert.equal(endEarlyNowOption(mineRow({start:'11:00',end:'11:30'}),new Date('2026-09-12T19:40:00Z')),null);
+});
+test('a shortened reservation keeps the ending it was booked with',()=>{
+ assert.equal(endedEarly(mineRow({end:'12:00',endedEarlyFrom:'13:00'})),true);
+ assert.equal(endedEarly(mineRow()),false);
+ assert.equal(endedEarly(mineRow({end:'13:00',endedEarlyFrom:'13:00'})),false);
+});
+test('my reservations split into the ones still standing and the closed ones, in day and time order',()=>{
+ const rows=[
+  mineRow({id:'b',date:'2026-09-15',start:'11:00',status:'approved'}),
+  mineRow({id:'a',date:'2026-09-12',start:'12:00',status:'pending'}),
+  mineRow({id:'c',date:'2026-09-12',start:'11:00',status:'cancelled'}),
+  mineRow({id:'d',date:'2026-09-12',start:'10:00',status:'overridden'}),
+  mineRow({id:'e',date:'2026-09-15',start:'09:00',status:'declined'})
+ ];
+ const {upcoming,past}=groupMyReservations(rows);
+ assert.deepEqual(upcoming.map(row=>row.id),['a','b']);
+ assert.deepEqual(past.map(row=>row.id),['d','c','e']);
+ assert.deepEqual(groupMyReservations(null),{upcoming:[],past:[]});
+});
+test('a reservation names the room, board or TV it holds',()=>{
+ assert.deepEqual(reservationResource(mineRow()),{type:'room',unit:2,label:'Study Room 2'});
+ assert.deepEqual(reservationResource(mineRow({needs:{whiteboard:true},assignments:{whiteboard:'wb-4'}})),{type:'whiteboard',unit:4,label:'Whiteboard 4'});
+ assert.deepEqual(reservationResource(mineRow({needs:{tv:true},assignments:{tv:'tv-3'}})),{type:'tv',unit:3,label:'TV 3'});
+ assert.deepEqual(reservationResource(mineRow({needs:{room:true},assignments:{}})),{type:'room',unit:null,label:'Study room'});
+ assert.equal(reservationResource(mineRow({needs:{},assignments:{}})),null);
+ assert.equal(reservationResource(mineRow({needs:{room:true},assignments:{room:'room-9'}})).unit,null);
+});
+test('status and purpose read the same in every design',()=>{
+ assert.equal(reservationStatusLabel(mineRow()),'Approved');
+ assert.equal(reservationStatusLabel(mineRow({status:'pending'})),'Pending review');
+ assert.equal(reservationStatusLabel(mineRow({status:'cancelled'})),'Cancelled');
+ assert.equal(reservationStatusLabel(mineRow({status:'declined'})),'Declined');
+ assert.equal(reservationStatusLabel(mineRow({status:'overridden'})),'Given to a higher priority');
+ assert.equal(reservationStatusLabel(mineRow({status:'unknown'})),'');
+ assert.equal(reservationPurposeLabel(mineRow()),'Contact');
+ assert.equal(reservationPurposeLabel(mineRow({purpose:'new'})),'New Member');
+ assert.equal(reservationPurposeLabel(mineRow({purpose:'new-member'})),'New Member');
+ assert.equal(reservationPurposeLabel(mineRow({purpose:'other'})),'Other');
+});
+test('a priority update reads as a plain sentence, or nothing at all',()=>{
+ assert.equal(priorityNoticeText(mineRow({priorityNotice:{kind:'moved',byPurpose:'contact',type:'room',fromUnit:'room-1',toUnit:'room-2'}})),
+  'A Contact reservation took Study Room 1. You kept your time in Study Room 2.');
+ assert.equal(priorityNoticeText(mineRow({priorityNotice:{kind:'released',byPurpose:'new-member',type:'room'}})),
+  'A New Member reservation took your study room time. Nothing else was open, so please choose another time.');
+ assert.equal(priorityNoticeText(mineRow({priorityNotice:{kind:'moved',type:'room'}})),
+  'A higher priority reservation took your study room. You kept your time in another study room.');
+ assert.equal(priorityNoticeText(mineRow()),'');
+ assert.equal(priorityNoticeText(mineRow({priorityNotice:{kind:'other'}})),'');
+});
 test('public projection includes the requested reservation detail without owner metadata',()=>{
  const record={id:'mine',ownerUid:'owner-1',date:days[0].key,start:'11:00',end:'12:00',name:'Sister Kiana Davis',purpose:'other',purposeOther:'Bible study',reservedFor:'Bible study',status:'approved',needs:{room:true},assignments:{room:'room-1'},note:'private'};
  const mine=projectOwnedBookings([record],days,'owner-1')[0];
@@ -77,4 +143,36 @@ test('public projection includes the requested reservation detail without owner 
  assert.equal(publicRows[0].name,'S Kiana');
  assert.equal(publicRows[0].reservedFor,'Bible study');
  assert.equal(Object.prototype.hasOwnProperty.call(publicRows[0],'ownerUid'),false);
+});
+
+/* One shared service rule. Every design reads this, so a design can no longer
+   offer a time the server refuses, or hide a day the server accepts. */
+test('the shared service table covers Saturday, Tuesday and the September 21 special day',()=>{
+ const window=eligibleDays(new Date('2026-09-19T20:00:00Z'));
+ assert.deepEqual(window.map(d=>d.key),['2026-09-19','2026-09-21','2026-09-22']);
+ const saturday=window.find(d=>d.key==='2026-09-19'),special=window.find(d=>d.key==='2026-09-21'),tuesday=window.find(d=>d.key==='2026-09-22');
+ assert.deepEqual(serviceBlocksFor(saturday),[[600,660,'Morning service'],[870,930,'Afternoon service'],[1170,1230,'Evening service']]);
+ assert.deepEqual(serviceBlocksFor(tuesday),[[1170,1230,'Evening service']]);
+ // The one-off Monday keeps the morning and afternoon services and has no evening service.
+ assert.deepEqual(serviceBlocksFor(special),[[600,660,'Morning service'],[870,930,'Afternoon service']]);
+ // A day key on its own, and a design's own copy that names the weekday `dow`, resolve the same way.
+ assert.deepEqual(serviceBlocksFor('2026-09-21'),serviceBlocksFor(special));
+ assert.deepEqual(serviceBlocksFor({key:'2026-09-19',dow:6}),serviceBlocksFor(saturday));
+ assert.deepEqual(serviceBlocksFor('2026-09-23'),[]);
+ // The table is copied out, so a design cannot change what everyone else sees.
+ serviceBlocksFor(saturday)[0][0]=0;
+ assert.equal(serviceBlocksFor(saturday)[0][0],600);
+});
+test('validRange follows the same table on the September 21 special day',()=>{
+ const window=eligibleDays(new Date('2026-09-19T20:00:00Z')),special='2026-09-21';
+ // The two services that day are closed, and the times around them are open.
+ assert.equal(validRange(special,600,660,window),false);
+ assert.equal(validRange(special,870,930,window),false);
+ assert.equal(validRange(special,660,720,window),true);
+ assert.equal(validRange(special,930,990,window),true);
+ // There is no evening service that day, so the Saturday evening block is open.
+ assert.equal(validRange(special,1170,1230,window),true);
+ assert.equal(validRange('2026-09-19',1170,1230,window),false);
+ // A day that is not a scheduling day is still refused outright.
+ assert.equal(validRange('2026-09-23',660,720,window),false);
 });

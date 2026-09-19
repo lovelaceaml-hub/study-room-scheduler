@@ -105,12 +105,30 @@
     "name": "chooser",
     "passed": true,
     "checks": [
-      "six choices plus current",
-      "remembered design redirects",
-      "My reservations retains existing preference and opens mine",
-      "remain current persists",
-      "change design remains reachable",
+      "six choices and no keep-the-old-app option",
+      "Solace marked Default",
+      "chosen design remembered and opened",
+      "classic tab=mine forwards to the design with view=mine",
+      "stored classic counts as no choice",
+      "closing selects Solace",
       "phone no overflow"
     ]
+  },
+  {
+    "name": "solace-mine",
+    "passed": true,
+    "checks": [
+      "every classic status, notice and note",
+      "44px controls",
+      "no horizontal scroll at 320, 360, 375 and 390",
+      "offline disables the shared actions",
+      "keyboard end early with confirmation and payload",
+      "cancel confirmation, focus return and payload",
+      "view=mine deep link and footer link",
+      "detail sheet cancels in place and hands End early to the in-design view",
+      "loading, empty and error states",
+      "demo reservations cancel without a backend call"
+    ],
+    "errors": []
   }
 ]

@@ -1,5 +1,20 @@
 # LV Zion Study Rooms — Firebase scheduler
 
+## September 19, 2026: the original app design is retired
+
+Opening https://lvrooms.web.app now offers the six designs: Solace (the default), Velum,
+Cove, Petal, Atlas and Lattice. There is no seventh "keep the current design" option, and
+`/?classic=1` no longer exists. My reservations, Cancel and End early live inside each
+design, Admin has its own page at https://lvrooms.web.app/admin/, and the lobby TV is
+unchanged. One shared service rule in `experiences/shared/model.js` now decides service
+times for every design, so the Monday, September 21, 2026 special schedule reads the same
+everywhere.
+
+- [Plan](docs/PLAN-RETIRE-CLASSIC-DESIGN.md)
+- [Run record](docs/runs/2026-09-19-retire-classic-design/INDEX.md)
+- [Design picker](https://lvrooms.web.app/?choose=1)
+- [Admin](https://lvrooms.web.app/admin/)
+
 ## September 12, 2026: Booking details and public names
 
 The six member designs and the classic app now collect both the reserver's name and the purpose-specific reserved-for detail. Schedule reservations show the public name and purpose, connect consecutive slots into one block, and open a detail view. Everyone can see the public-safe reserved-for detail, while only the owning member receives End early or Cancel actions. Raw booking documents remain server-only.
@@ -8,8 +23,7 @@ Names normalize leading title words or initials, so `Sister Kiana Davis`, `Siste
 
 - [Active plan](docs/PLAN-BOOKING-DRAWER-AND-NAME-DISPLAY.md)
 - [Run record](docs/runs/2026-09-12-booking-details-and-name-display/INDEX.md)
-- [Chooser](https://lvrooms.web.app/?choose=1)
-- [Current app](https://lvrooms.web.app/?classic=1)
+- [Design picker](https://lvrooms.web.app/?choose=1)
 
 ## September 12, 2026: Member design choice
 
@@ -18,8 +32,7 @@ Live at https://lvrooms.web.app/?choose=1. Members can keep the current app or c
 The existing backend now accepts an optional requestedUnit. A directly selected room, board, or TV is honored inside the existing conflict transaction; clients that omit it retain the existing allocation behavior. The secure release scope includes Hosting target app, memberSubmitBooking, memberSchedule, memberCancelBooking, memberEndBookingEarly, adminSchedule, publicLobbySchedule, and Firestore rules. The full-replace production release is deployed.
 
 - [Previous plan](docs/PLAN-MEMBER-DESIGN-CHOICE.md)
-- [Chooser](https://lvrooms.web.app/?choose=1)
-- [Current app](https://lvrooms.web.app/?classic=1)
+- [Design picker](https://lvrooms.web.app/?choose=1)
 
 
 **August 1, 2026 — Firebase remains live.** This established scheduler is
@@ -39,7 +52,8 @@ source, prior Hosting release, and this private repository are preserved.
 
 ## Quick links
 
-- **Firebase scheduler:** https://lvrooms.web.app — established Tuesday/Saturday calendar
+- **Firebase scheduler:** https://lvrooms.web.app (established Tuesday/Saturday calendar, opening on the six-design picker)
+- **Admin page:** https://lvrooms.web.app/admin/ (the Admin workspace, protected by the existing server-validated session)
 - **Firebase lobby TV:** https://lvrooms.web.app/?tv=1 — established public lobby display
 - **LV Zion scheduler:** https://lvzion.vercel.app/rooms — separate shared-account calendar
 - **Status:** Both systems active by owner decision August 1, 2026; bookings do not synchronize. The July 26 End early and earlier UI refinements are live here.

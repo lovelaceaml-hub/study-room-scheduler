@@ -23,7 +23,41 @@
     .time-choice .override-label{display:block;margin-top:5px;font-size:9px;line-height:1.1;font-weight:650;color:#397255;white-space:normal;overflow-wrap:anywhere}
     .override-note{display:grid;gap:3px;margin:0 0 8px;padding:12px 14px;border-radius:15px;background:#eaf5ec;border:1px solid #c7dec9;color:#35634a;font-size:11px;line-height:1.45}
     .override-note strong{font-size:12px}
-    .pebble{border:0;text-align:left;font:inherit;cursor:pointer}.pebble:focus-visible{outline:3px solid #1b7565;outline-offset:2px;z-index:4}.detail-dialog{width:min(520px,calc(100% - 32px));max-height:82dvh}.detail-inner{padding:17px 26px 28px}.detail-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--muted);font-size:11px;font-weight:600}.detail-content{padding-top:4px}.detail-content h2{font-size:30px;line-height:1.1;margin:14px 0 5px;overflow-wrap:anywhere}.detail-hint{font-size:13px;color:var(--muted);line-height:1.5;margin:0 0 17px}.detail-summary{padding:7px 16px;border-radius:20px;background:linear-gradient(135deg,#e8f2e8,#e0eee5)}.detail-row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid #cfe0d1;font-size:13px;line-height:1.5}.detail-row:first-child{border-top:0}.detail-row span{color:var(--muted)}.detail-row b{max-width:70%;text-align:right;overflow-wrap:anywhere}.detail-actions{margin-top:16px;padding:13px 14px;border:1px solid #c1d7c6;border-radius:17px;background:#fff}.detail-actions p{margin:0 0 8px;color:var(--muted);font-size:11px;line-height:1.5}.detail-actions>div{display:flex;flex-wrap:wrap;gap:8px}.detail-action{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:9px 14px;border-radius:14px;background:var(--deep);color:#fff;text-decoration:none;font-size:12px;font-weight:650}.detail-action.danger{background:#fff0f2;color:#9b3e51;border:1px solid #e5bdc5}.detail-notice{margin:14px 0 0;padding:11px 12px;border-radius:14px;background:#fff8e7;border:1px solid #ead6a6;color:#705214;font-size:12px;line-height:1.45}@media(max-width:760px){.detail-dialog{width:100%;max-width:620px;max-height:90dvh;border-radius:29px 29px 0 0;border-bottom:0}.detail-inner{padding:13px 22px calc(25px + env(safe-area-inset-bottom))}}
+    .pebble{border:0;text-align:left;font:inherit;cursor:pointer}.pebble:focus-visible{outline:3px solid #1b7565;outline-offset:2px;z-index:4}.detail-dialog{width:min(520px,calc(100% - 32px));max-height:82dvh}.detail-inner{padding:17px 26px 28px}.detail-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--muted);font-size:11px;font-weight:600}.detail-content{padding-top:4px}.detail-content h2{font-size:30px;line-height:1.1;margin:14px 0 5px;overflow-wrap:anywhere}.detail-hint{font-size:13px;color:var(--muted);line-height:1.5;margin:0 0 17px}.detail-summary{padding:7px 16px;border-radius:20px;background:linear-gradient(135deg,#e8f2e8,#e0eee5)}.detail-row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid #cfe0d1;font-size:13px;line-height:1.5}.detail-row:first-child{border-top:0}.detail-row span{color:var(--muted)}.detail-row b{max-width:70%;text-align:right;overflow-wrap:anywhere}.detail-actions{margin-top:16px;padding:13px 14px;border:1px solid #c1d7c6;border-radius:17px;background:#fff}.detail-actions p{margin:0 0 8px;color:var(--muted);font-size:11px;line-height:1.5}.detail-actions>div{display:flex;flex-wrap:wrap;gap:8px}.detail-action{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:9px 14px;border-radius:14px;background:var(--deep);color:#fff;text-decoration:none;font-size:12px;font-weight:650}.detail-action.danger{background:#fff0f2;color:#9b3e51;border:1px solid #e5bdc5}.detail-notice{margin:14px 0 0;padding:11px 12px;border-radius:14px;background:#fff8e7;border:1px solid #ead6a6;color:#705214;font-size:12px;line-height:1.45}.detail-confirm{margin:16px 0 0;font-size:13px;line-height:1.55;color:var(--ink)}@media(max-width:760px){.detail-dialog{width:100%;max-width:620px;max-height:90dvh;border-radius:29px 29px 0 0;border-bottom:0}.detail-inner{padding:13px 22px calc(25px + env(safe-area-inset-bottom))}}
+
+    /* My reservations stays in the Cove tray: rounded pebbles, deep green
+       accents, and the same sheet furniture as the reservation flow. */
+    #mine-connection:empty{display:none}
+    #mine-connection .connection-line{margin:0 0 16px}
+    #mine-body .mine-title{font-size:29px;line-height:1.13;letter-spacing:-.045em;outline:none;overflow-wrap:anywhere}
+    #mine-body .hint{color:var(--muted);font-size:13px;line-height:1.65;margin:10px 0 20px}
+    .mine-heading{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:24px 0 11px}
+    .mine-heading:first-of-type{margin-top:18px}
+    .mine-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+    .mine-card{border-radius:21px;background:white;border:1px solid #dce8de;padding:16px 17px;min-width:0}
+    .mine-card-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+    .mine-card-head b{font-size:14px;font-weight:650;overflow-wrap:anywhere}
+    .mine-badge{flex-shrink:0;border-radius:50px;padding:5px 11px;font-size:10px;font-weight:650;background:#eaf1ea;color:#4c6957;overflow-wrap:anywhere}
+    .mine-badge.mine-approved{background:var(--contact);color:#27503f}
+    .mine-badge.mine-pending{background:var(--new);color:#2f4e5a}
+    .mine-badge.mine-cancelled,.mine-badge.mine-declined{background:#e6ebe6;color:#5b6a5f}
+    .mine-badge.mine-overridden{background:#f3ece0;color:#6d5a37}
+    .mine-when{font-size:19px;font-weight:600;letter-spacing:-.035em;margin:10px 0 0;color:var(--deep);overflow-wrap:anywhere}
+    .mine-meta{display:flex;flex-wrap:wrap;gap:4px 13px;margin:8px 0 0;font-size:11px;color:var(--muted);min-width:0}
+    .mine-meta span{overflow-wrap:anywhere}
+    .mine-note{margin:11px 0 0;font-size:11px;line-height:1.55;color:var(--muted);overflow-wrap:anywhere}
+    .mine-priority{border-radius:15px;background:#eef4ee;padding:11px 13px;color:#41654f}
+    .mine-priority strong{display:block;font-size:10px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--deep);margin-bottom:3px}
+    .mine-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:15px}
+    .mine-action{flex:1 1 auto;min-width:0;min-height:44px;border:1px solid #c1d7c6;border-radius:30px;background:#fbfdfb;padding:10px 15px;font-size:12px;font-weight:600;color:var(--deep);overflow-wrap:anywhere}
+    .mine-action:hover{background:#eaf3ea}
+    .mine-action.mine-stop{color:#9b3e51;border-color:#e5bdc5;background:#fff7f8}
+    .mine-action.mine-stop:hover{background:#fdeef0}
+    .primary.mine-stop{background:#9b3e51}
+    .primary.mine-stop:hover{background:#873444}
+    .time-choice.mine-now{border-color:#80a992;background:#e6f2e7;color:var(--deep)}
+    .mine-now-label{display:block;font-size:9px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:#397255;margin-top:3px}
+    @media(max-width:760px){.mine-card{padding:14px 15px;border-radius:19px}#mine-body .mine-title{font-size:27px}.mine-when{font-size:18px}.mine-action{flex-basis:100%}}
   </style>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icon.svg">
@@ -34,7 +68,7 @@
       <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 14c3-5 6-5 8 0s5 5 8 0M5 9c4-5 10-5 14 0"/></svg></span>LV Zion Study Rooms</div>
       <span class="concept-tag">Cove</span>
     </header>
-    <nav class="member-links" aria-label="Member navigation"><a href="/?classic=1&amp;tab=mine">My reservations</a><a href="/?classic=1">Current app</a><a href="/?choose=1">Change design</a></nav>
+    <nav class="member-links" aria-label="Member navigation"><a href="?view=mine" id="mine-link">My reservations</a><a href="/?choose=1">Change design</a><a href="/admin/" class="member-admin-link">Admin</a></nav>
     <div class="layout">
       <section class="schedule-area" aria-label="Daily reservation schedule">
         <div class="controls">
@@ -70,6 +104,9 @@
   </dialog>
   <dialog id="reservation-dialog" class="detail-dialog" aria-labelledby="reservation-detail-title" aria-describedby="reservation-detail-description">
     <div class="detail-inner"><div class="detail-bar"><span>Reservation details</span><button class="icon-button" id="reservation-detail-close" aria-label="Close reservation details"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M7 17 17 7"/></svg></button></div><div id="reservation-detail-body"></div><p id="reservation-detail-notice" class="detail-notice" role="status" hidden></p></div>
+  </dialog>
+  <dialog id="mine-dialog" aria-labelledby="mine-title">
+    <div class="sheet-inner"><div class="sheet-bar"><button class="icon-button" id="mine-back" aria-label="Back to your reservations"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m5 5-5-5 5-5"/></svg></button><span class="step-label" id="mine-counter">Your reservations</span><button class="icon-button" id="mine-close" aria-label="Close your reservations"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M7 17 17 7"/></svg></button></div><div id="mine-connection" role="status"></div><div id="mine-body" class="sheet-body"></div></div>
   </dialog>
   <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
   <div id="toast" class="toast" role="status" hidden></div>
