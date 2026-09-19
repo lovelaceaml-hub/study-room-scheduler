@@ -17,11 +17,11 @@ Coordinator: Claude Fable 5.1
 | Lane | Title | State | Model | Worktree | Review | Depends on |
 |---|---|---|---|---|---|---|
 | L0 | Critic | reviewed | gpt-5.6-sol | none | none | none |
-| L1 | Shared contract, picker, and Solace My reservations | merged | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L1 | fable landing | none |
-| L2 | Velum, Cove, and Petal My reservations | merged | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L2 | fable landing | L1 |
-| L3 | Atlas and Lattice My reservations | merged | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L3 | fable landing | L1 |
-| L4 | Admin gets its own page | merged | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L4 | fable landing | none |
-| L5 | Integration, removal, release | running | opus-5 | /Users/anthony/Projects/study-room-scheduler | fable completion | L1 L2 L3 L4 L0 |
+| L1 | Shared contract, picker, and Solace My reservations | deployed | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L1 | fable landing | none |
+| L2 | Velum, Cove, and Petal My reservations | deployed | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L2 | fable landing | L1 |
+| L3 | Atlas and Lattice My reservations | deployed | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L3 | fable landing | L1 |
+| L4 | Admin gets its own page | deployed | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L4 | fable landing | none |
+| L5 | Integration, removal, release | deployed | opus-5 | /Users/anthony/Projects/study-room-scheduler | skipped on Anthony instruction | L1 L2 L3 L4 L0 |
 
 ## Folders
 
@@ -37,8 +37,8 @@ Coordinator: Claude Fable 5.1
 - Lane board: pending
 
 <!-- lane: L0 state: reviewed model: gpt-5.6-sol worktree: none review: none updated: 2026-09-19T12:57Z -->
-<!-- lane: L1 state: merged model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L1 review: fable landing updated: 2026-09-19T13:29Z -->
-<!-- lane: L2 state: merged model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L2 review: fable landing updated: 2026-09-19T15:58Z -->
-<!-- lane: L3 state: merged model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L3 review: fable landing updated: 2026-09-19T16:04Z -->
-<!-- lane: L4 state: merged model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L4 review: fable landing updated: 2026-09-19T13:29Z -->
-<!-- lane: L5 state: running model: opus-5 worktree: /Users/anthony/Projects/study-room-scheduler review: fable completion updated: 2026-09-19T16:04Z -->
+<!-- lane: L1 state: deployed model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L1 review: fable landing updated: 2026-09-19T16:21Z -->
+<!-- lane: L2 state: deployed model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L2 review: fable landing updated: 2026-09-19T16:21Z -->
+<!-- lane: L3 state: deployed model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L3 review: fable landing updated: 2026-09-19T16:21Z -->
+<!-- lane: L4 state: deployed model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L4 review: fable landing updated: 2026-09-19T16:21Z -->
+<!-- lane: L5 state: deployed model: opus-5 worktree: /Users/anthony/Projects/study-room-scheduler review: skipped on Anthony instruction updated: 2026-09-19T16:21Z -->
