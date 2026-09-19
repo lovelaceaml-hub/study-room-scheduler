@@ -1,5 +1,5 @@
 import * as live from '../shared/live.js';
-import { overrideUnitForRange } from '../shared/model.js';
+import { overrideUnitForRange, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
 
 const { subscribe, submit, retry } = live;
 
@@ -18,8 +18,10 @@ const visibleText = (value) => String(value).replace(/[\s\u200B-\u200F\u2060-\u2
 
 let connection={status:'loading',canBook:false,demo:false,error:''};
 let dates=[],bookings=[],selectedDate=null,selectedType='room';
-let draft={},step='resource',history=[],lastOpener=null,saved=null,pending=false,detailBooking=null,detailReturnFocus=null,actionPending=false;
+let draft={},step='resource',history=[],lastOpener=null,saved=null,pending=false,detailBooking=null,detailReturnFocus=null,actionPending=false,detailConfirm='';
+let myReservations=[],mineStep={view:'list'},mineBusy=false,mineError='',mineOpener=null,mineFocus='',mineDrawn='';
 const dialog=$('#booking-dialog');
+const mineDialog=$('#mine-dialog');
 const dateLabel = (key) => dates.find(day=>day.key===key)?.label || key || 'Choose a day';
 const eligible = (key) => dates.some(day=>day.key===key);
 const ready = () => ['live','demo'].includes(connection.status)&&connection.canBook&&eligible(selectedDate);
@@ -72,8 +74,13 @@ const normalizeBooking = (booking) => {
 };
 const publicProjection = (booking) => {const projected=booking?.publicName??booking?.displayName??booking?.name;const text=String(projected??'').trim();return text||'Reserved';};
 const authorizedOwnerDetail = (booking) => {const detail=booking?.ownerDetail??booking?.ownerDetails??booking?.detail;if(!detail||typeof detail!=='object'||Array.isArray(detail))return null;return detail.authorized===true||detail.ownerAuthorized===true||detail.authorizedForMember===true?detail:null;};
-const detailAllows = (detail,action) => Boolean(detail&&(detail[action]===true||detail.permissions?.[action]===true||detail.actions?.[action]===true));
-const actionHandler = (action) => {const names=action==='cancel'?['cancelOwnedBooking','cancelBooking','memberCancelBooking','cancel']:['endOwnedBookingEarly','endBookingEarly','memberEndBookingEarly','endEarly'];return names.map(name=>live[name]).find(handler=>typeof handler==='function')||null;};
+/* The shared state names these permissions canCancel and canEndEarly; older
+   shapes are still accepted. */
+const detailAllows = (detail,action) => {
+  if(!detail||typeof detail!=='object')return false;
+  const owned=action==='cancel'?detail.canCancel:detail.canEndEarly;
+  return owned===true||detail[action]===true||detail.permissions?.[action]===true||detail.actions?.[action]===true;
+};
 const reservedForValue = (detail,booking) => {if(!detail)return '';const value=booking?.purpose==='other'?detail.purposeOther??detail.purpose_other??detail.reservedFor??detail.reserved_for:detail.reservedFor??detail.reserved_for??detail.name;return String(value??'').trim();};
 
 function renderNavigation(){
@@ -134,28 +141,204 @@ function renderSchedule(){
   updateDialogAvailability();
 }
 
-function detailActionMarkup(action,label){return detailAllows(detailBooking?.ownerDetail,action)?`<a class="primary detail-action" href="/?classic=1&amp;tab=mine">${label}</a>`:'';}
+function detailActionMarkup(action,label){return detailAllows(detailBooking?.ownerDetail,action)?`<button type="button" class="primary detail-action" data-detail-action="${action}">${label}</button>`:'';}
+function detailActionsHtml(){
+  if(detailConfirm==='cancel')return `<p class="mine-confirm-copy">Cancel this reservation? The time opens for everyone right away.</p><div class="detail-actions"><button type="button" class="primary detail-action" data-detail-action="cancel-confirm">Yes, cancel reservation</button><button type="button" class="text-button" data-detail-action="cancel-keep">Keep it</button></div>`;
+  const actions=`${detailActionMarkup('endEarly','End early')}${detailActionMarkup('cancel','Cancel')}`;
+  return actions?`<div class="detail-actions">${actions}</div>`:'';
+}
 function renderDetail(booking,open=false){
   if(!booking)return;
   detailBooking=booking;
   const detail=booking.ownerDetail,purpose=booking.blocked?'':purposes[booking.purpose]?.label||'Other';
   const privateValue=reservedForValue(detail,booking)||booking.reservedFor||'',privateLabel=reservedForLabels[booking.purpose]||'Reserved for';
-  const actionMarkup=`${detailActionMarkup('endEarly','End early')}${detailActionMarkup('cancel','Cancel')}`;
+  const actionMarkup=detailActionsHtml();
   const date=dateLabel(booking.date);
   const ownerName=detail?.name||detail?.displayName||booking.publicName||'';
   const rows=`<div class="detail-row"><span>Day</span><b>${esc(date)}</b></div><div class="detail-row"><span>Reservation</span><b>${range(booking.start,booking.end)}</b></div><div class="detail-row"><span>Public name</span><b>${esc(booking.blocked?'Reserved':booking.publicName||booking.name)}</b></div>${purpose?`<div class="detail-row"><span>Purpose</span><b>${esc(purpose)}</b></div>`:''}${ownerName?`<div class="detail-row detail-private"><span>Reserved</span><b>${esc(ownerName)}</b></div>`:''}`;
-  $('#detail-body').innerHTML=`<p class="flow-context">${esc(types[booking.type]?.one||'Reservation')} ${booking.unit}</p><h2 id="detail-title" tabindex="-1">Reservation details</h2><div class="detail-card">${rows}${privateValue?`<div class="detail-row detail-private"><span>${esc(privateLabel)}</span><b>${esc(privateValue)}</b></div>`:''}</div>${actionMarkup?`<div class="detail-actions">${actionMarkup}</div>`:''}<p id="detail-status" class="validation" role="alert"></p>`;
+  $('#detail-body').innerHTML=`<p class="flow-context">${esc(types[booking.type]?.one||'Reservation')} ${booking.unit}</p><h2 id="detail-title" tabindex="-1">Reservation details</h2><div class="detail-card">${rows}${privateValue?`<div class="detail-row detail-private"><span>${esc(privateLabel)}</span><b>${esc(privateValue)}</b></div>`:''}</div>${actionMarkup}<p id="detail-status" class="validation" role="alert"></p>`;
   if(open&&!$('#detail-dialog').open){detailReturnFocus=document.activeElement;$('#detail-dialog').showModal();}
   requestAnimationFrame(()=>$('#detail-title')?.focus({preventScroll:true}));
 }
-function closeDetail(){if(!$('#detail-dialog').open||actionPending)return;$('#detail-dialog').close();if(detailReturnFocus?.isConnected)detailReturnFocus.focus({preventScroll:true});detailReturnFocus=null;detailBooking=null;}
+function closeDetail(){if(!$('#detail-dialog').open||actionPending)return;$('#detail-dialog').close();detailConfirm='';if(detailReturnFocus?.isConnected)detailReturnFocus.focus({preventScroll:true});detailReturnFocus=null;detailBooking=null;}
 async function runDetailAction(action){
   if(actionPending||!detailBooking)return;
-  const handler=actionHandler(action),detail=detailBooking.ownerDetail;if(!handler||!detailAllows(detail,action))return;
-  const booking=detailBooking,bookingId=detail.bookingId??detail.id??booking.bookingId??booking.key,status=$('#detail-status');
-  actionPending=true;if(status)status.textContent=action==='cancel'?'Cancelling reservation...':'Ending reservation early...';$('#detail-body').querySelectorAll('button').forEach(button=>button.disabled=true);
-  try{await handler({bookingId,bookingKey:booking.key,action});actionPending=false;closeDetail();retry();}
-  catch(error){actionPending=false;if(status)status.textContent=error?.message||'That action could not be completed. Please try again.';$('#detail-body').querySelectorAll('button').forEach(button=>button.disabled=false);}
+  const detail=detailBooking.ownerDetail,bookingId=detail?.bookingId??detail?.id??'';
+  if(action==='cancel-keep'){detailConfirm='';renderDetail(detailBooking);return;}
+  if(action==='endEarly'){
+    // Ending early needs a new ending, so it continues in My reservations.
+    if(!detailAllows(detail,'endEarly')||!bookingId)return;
+    closeDetail();openMine({view:'end-early',bookingId});return;
+  }
+  if(action==='cancel'){if(!detailAllows(detail,'cancel')||!bookingId)return;detailConfirm='cancel';renderDetail(detailBooking);return;}
+  if(action!=='cancel-confirm'||!detailAllows(detail,'cancel')||!bookingId)return;
+  const status=$('#detail-status');
+  actionPending=true;if(status)status.textContent='Cancelling reservation...';$('#detail-body').querySelectorAll('button').forEach(button=>button.disabled=true);
+  try{
+    await live.cancelOwnedBooking(bookingId);
+    actionPending=false;detailConfirm='';closeDetail();
+    $('#announcement').textContent='Reservation cancelled. The time is open for everyone.';
+  }catch(error){
+    actionPending=false;if(status)status.textContent=error?.message||'That action could not be completed. Please try again.';$('#detail-body').querySelectorAll('button').forEach(button=>button.disabled=false);
+  }
+}
+
+/* ================= My reservations, inside Solace ================= */
+
+const mineTime = (value) => {const total=toMinutes(value);return Number.isFinite(total)?fmt(total):String(value??'');};
+const mineRange = (booking) => `${mineTime(booking.start)} to ${mineTime(booking.end)}`;
+const mineDateLabel = (key) => {
+  const known=dates.find(day=>day.key===key);
+  if(known)return known.label;
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(key||''))
+    ?new Date(`${key}T12:00:00Z`).toLocaleDateString('en-US',{timeZone:'UTC',weekday:'long',month:'short',day:'numeric'})
+    :String(key??'');
+};
+const mineResourceLabel = (booking) => {const resource=reservationResource(booking);if(!resource)return 'Reservation';return resource.unit?`${types[resource.type]?.one||resource.label} ${resource.unit}`:resource.label;};
+const mineById = (id) => myReservations.find(booking=>booking.id===id)||null;
+const mineReady = () => ['live','demo'].includes(connection.status)&&connection.canBook;
+const mineDisabled = () => mineReady()?'':' disabled';
+
+function mineSummaryHtml(booking){
+  const label=reservedForLabels[booking.purpose]||'Reserved for',purpose=reservationPurposeLabel(booking),detail=String(booking.reservedFor||'').trim();
+  return `<div class="summary"><h3>${esc(mineResourceLabel(booking))}</h3><dl><div><dt>Day</dt><dd>${esc(mineDateLabel(booking.date))}</dd></div><div><dt>Time</dt><dd>${esc(mineRange(booking))}</dd></div>${purpose?`<div><dt>Purpose</dt><dd>${esc(purpose)}</dd></div>`:''}${detail?`<div><dt>${esc(label)}</dt><dd>${esc(detail)}</dd></div>`:''}</dl></div>`;
+}
+function mineCardHtml(booking){
+  const label=reservedForLabels[booking.purpose]||'Reserved for',detail=String(booking.reservedFor||'').trim();
+  const status=reservationStatusLabel(booking),purpose=reservationPurposeLabel(booking),notice=priorityNoticeText(booking);
+  const canEndEarly=booking.canEndEarly===true&&endEarlyOptions(booking).length>0;
+  const actions=[
+    booking.status==='overridden'?`<button type="button" class="mine-action" data-mine-rebook="${esc(booking.id)}">Reserve another time</button>`:'',
+    canEndEarly?`<button type="button" class="mine-action" data-mine-end-early="${esc(booking.id)}"${mineDisabled()}>End early</button>`:'',
+    booking.canCancel===true?`<button type="button" class="mine-action mine-stop" data-mine-cancel="${esc(booking.id)}"${mineDisabled()}>${booking.status==='approved'?'Cancel reservation':'Cancel request'}</button>`:''
+  ].filter(Boolean).join('');
+  return `<li class="mine-card">`+
+    `<div class="mine-card-head"><b>${esc(mineDateLabel(booking.date))}</b>${status?`<span class="mine-badge mine-${esc(booking.status)}">${esc(status)}</span>`:''}</div>`+
+    `<p class="mine-when">${esc(mineRange(booking))}</p>`+
+    `<p class="mine-meta"><span>${esc(mineResourceLabel(booking))}</span>${purpose?`<span>${esc(purpose)}</span>`:''}${detail?`<span>${esc(label)}: ${esc(detail)}</span>`:''}</p>`+
+    (endedEarly(booking)?`<p class="mine-note">Ended early · originally booked until ${esc(mineTime(booking.endedEarlyFrom))}</p>`:'')+
+    (notice?`<p class="mine-note mine-priority" role="note"><strong>Priority update</strong> ${esc(notice)}</p>`:'')+
+    (actions?`<div class="mine-actions">${actions}</div>`:'')+
+    `</li>`;
+}
+function mineListHtml(){
+  const {upcoming,past}=groupMyReservations(myReservations);
+  if(!upcoming.length&&!past.length){
+    if(connection.status==='loading')return '<div class="loading-spinner" aria-hidden="true"></div><h2 id="mine-title" tabindex="-1">Finding your reservations.</h2><p class="hint">Connecting to the shared schedule.</p>';
+    if(connection.status==='error')return `<h2 id="mine-title" tabindex="-1">Reservations unavailable.</h2><p class="hint">${esc(connection.error||'The schedule could not connect. Please try again.')}</p><button type="button" class="text-button" data-recover>Retry connection</button>`;
+    return `<h2 id="mine-title" tabindex="-1">No reservations yet.</h2><p class="hint">Anything you reserve on this device appears here, with Cancel and End early.</p><button type="button" class="primary" id="mine-reserve"${ready()?'':' disabled'}>Reserve a space</button>`;
+  }
+  return `<h2 id="mine-title" tabindex="-1">My reservations.</h2><p class="hint">Everything reserved from this device, with its latest status.</p>`+
+    (upcoming.length?`<h3 class="mine-heading">Upcoming</h3><ul class="mine-list" aria-label="Upcoming reservations">${upcoming.map(mineCardHtml).join('')}</ul>`:'')+
+    (past.length?`<h3 class="mine-heading">Past reservations</h3><ul class="mine-list" aria-label="Past reservations">${past.map(mineCardHtml).join('')}</ul>`:'');
+}
+function mineCancelHtml(booking){
+  const approved=booking.status==='approved';
+  return `<h2 id="mine-title" tabindex="-1">${approved?'Cancel this reservation?':'Cancel this request?'}</h2>`+
+    `<p class="hint">${approved?'The time opens for everyone right away. This cannot be undone.':'The request is withdrawn right away. This cannot be undone.'}</p>`+
+    mineSummaryHtml(booking)+
+    `<button type="button" class="primary mine-stop" id="mine-cancel-confirm"${mineDisabled()} aria-busy="${mineBusy}">${mineBusy?'Cancelling...':approved?'Yes, cancel reservation':'Yes, cancel request'}</button>`+
+    `<button type="button" class="text-button" id="mine-step-back">Keep it</button>`;
+}
+function mineEndEarlyHtml(booking){
+  const options=endEarlyOptions(booking),current=endEarlyNowOption(booking);
+  if(!options.length)return `<h2 id="mine-title" tabindex="-1">This one cannot be shortened.</h2><p class="hint">It is a single 30 minute block, so finishing early means cancelling it.</p><button type="button" class="text-button" id="mine-step-back">Back to your reservations</button>`;
+  return `<h2 id="mine-title" tabindex="-1">When did you finish?</h2><p class="hint">Choose when you actually finished. The time after that opens for everyone right away.</p>`+
+    `<div class="time-choices" role="group" aria-label="Choose a new ending">${options.map(option=>`<button type="button" class="time-choice${option===current?' mine-now':''}" data-mine-end="${esc(option)}"${mineDisabled()} aria-label="${esc(`End at ${mineTime(option)}${option===current?', now':''}, frees ${mineTime(option)} to ${mineTime(booking.end)}`)}">${esc(mineTime(option))}${option===current?'<small class="mine-now-label">now</small>':''}<small>Frees ${esc(mineTime(option))}</small></button>`).join('')}</div>`+
+    `<button type="button" class="text-button" id="mine-step-back">Keep my time</button>`;
+}
+function mineEndConfirmHtml(booking,end){
+  return `<h2 id="mine-title" tabindex="-1">End at ${esc(mineTime(end))}?</h2>`+
+    `<p class="hint">${esc(mineTime(booking.start))} to ${esc(mineTime(end))} stays yours. ${esc(mineTime(end))} to ${esc(mineTime(booking.end))} opens for everyone.</p>`+
+    mineSummaryHtml(booking)+
+    `<button type="button" class="primary" id="mine-end-confirm"${mineDisabled()} aria-busy="${mineBusy}">${mineBusy?'Ending early...':'End early'}</button>`+
+    `<button type="button" class="text-button" id="mine-step-back">Back</button>`;
+}
+function mineConnectionHtml(){
+  if(connection.status==='offline')return 'You are offline. Your reservations return when the connection does.<button type="button" class="text-button" data-recover>Retry connection</button>';
+  if(connection.status==='error'&&myReservations.length)return `${esc(connection.error||'The shared schedule could not connect.')}<button type="button" class="text-button" data-recover>Retry connection</button>`;
+  if(!mineReady()&&connection.status!=='loading')return 'The shared schedule is reconnecting. Cancel and End early return when it is live.<button type="button" class="text-button" data-recover>Retry connection</button>';
+  return '';
+}
+/* A background refresh arrives every few seconds. Redrawing the sheet then
+   would interrupt whoever is part-way through a confirmation, so the sheet is
+   only redrawn when something it shows has actually changed. */
+function mineSignature(){
+  return JSON.stringify([connection.status,connection.canBook,connection.error,mineStep,mineBusy,mineError,
+    dates.map(day=>`${day.key}|${day.label}`),
+    myReservations.map(booking=>[booking.id,booking.status,booking.date,booking.start,booking.end,booking.purpose,booking.reservedFor,booking.canCancel,booking.canEndEarly,booking.endedEarlyFrom,booking.priorityNotice?.kind??'',booking.assignments])]);
+}
+function renderMine(moveFocus=false){
+  if(!mineDialog.open)return;
+  if(mineStep.view!=='list'&&!mineById(mineStep.bookingId))mineStep={view:'list'};
+  const signature=mineSignature();
+  if(!moveFocus&&!mineFocus&&signature===mineDrawn)return;
+  mineDrawn=signature;
+  const booking=mineById(mineStep.bookingId),view=mineStep.view;
+  $('#mine-back').style.visibility=view==='list'?'hidden':'visible';
+  $('#mine-counter').textContent=view==='list'?'Your reservations':view==='cancel'?'Cancel · confirm':view==='end-early'?'End early · choose':'End early · confirm';
+  $('#mine-connection').innerHTML=mineConnectionHtml();
+  const body=view==='cancel'?mineCancelHtml(booking):view==='end-early'?mineEndEarlyHtml(booking):view==='end-confirm'?mineEndConfirmHtml(booking,mineStep.end):mineListHtml();
+  // A background refresh replaces this markup, so keep focus inside the sheet.
+  const heldFocus=$('#mine-body').contains(document.activeElement);
+  $('#mine-body').innerHTML=`<section class="step">${mineError?`<p class="inline-error" role="alert">${esc(mineError)}</p>`:''}${body}</section>`;
+  mineDialog.scrollTop=0;
+  const target=mineFocus?$('#mine-body').querySelector(mineFocus):null;
+  mineFocus='';
+  if(moveFocus||target||heldFocus)requestAnimationFrame(()=>(target?.isConnected?target:$('#mine-title'))?.focus({preventScroll:true}));
+}
+function mineUrl(open){
+  const params=new URLSearchParams(location.search);
+  if(open)params.set('view','mine');else params.delete('view');
+  const query=params.toString();
+  return location.pathname+(query?`?${query}`:'')+location.hash;
+}
+function openMine(nextStep={view:'list'},push=true){
+  if(!mineDialog.open){mineOpener=document.activeElement;if(dialog.open&&!pending)closeBooking();}
+  mineStep=nextStep;mineError='';
+  if(!mineDialog.open){mineDialog.showModal();document.body.style.overflow='hidden';}
+  if(push&&new URLSearchParams(location.search).get('view')!=='mine')window.history.pushState({view:'mine'},'',mineUrl(true));
+  renderMine(true);
+}
+function closeMine(push=true){
+  if(mineBusy||!mineDialog.open)return;
+  mineDialog.close();document.body.style.overflow='';mineStep={view:'list'};mineError='';
+  if(push&&new URLSearchParams(location.search).get('view')==='mine')window.history.pushState({},'',mineUrl(false));
+  if(mineOpener?.isConnected)mineOpener.focus({preventScroll:true});else $('#mine-link')?.focus({preventScroll:true});
+  mineOpener=null;
+}
+function mineBack(){
+  if(mineBusy)return;
+  mineError='';
+  if(mineStep.view==='end-confirm'){mineStep={view:'end-early',bookingId:mineStep.bookingId};renderMine(true);return;}
+  mineFocus=mineStep.view==='cancel'?`[data-mine-cancel="${mineStep.bookingId}"]`:mineStep.view==='end-early'?`[data-mine-end-early="${mineStep.bookingId}"]`:'';
+  mineStep={view:'list'};renderMine(true);
+}
+async function runMineCancel(){
+  const booking=mineById(mineStep.bookingId);
+  if(!booking||mineBusy)return;
+  mineBusy=true;mineError='';renderMine();
+  try{
+    await live.cancelOwnedBooking(booking.id);
+    mineBusy=false;mineStep={view:'list'};
+    $('#announcement').textContent=booking.status==='approved'?'Reservation cancelled. The time is open for everyone.':'Request cancelled.';
+    renderMine(true);
+  }catch(error){
+    mineBusy=false;mineError=error?.message||'That reservation could not be cancelled. Please try again.';renderMine(true);
+  }
+}
+async function runMineEndEarly(){
+  const booking=mineById(mineStep.bookingId),end=mineStep.end;
+  if(!booking||!end||mineBusy)return;
+  mineBusy=true;mineError='';renderMine();
+  try{
+    await live.endOwnedBookingEarly(booking.id,end);
+    mineBusy=false;mineStep={view:'list'};
+    $('#announcement').textContent=`Ended at ${mineTime(end)}. The rest of your time is open for others.`;
+    renderMine(true);
+  }catch(error){
+    mineBusy=false;mineError=error?.message||'That reservation could not end early. Please try again.';renderMine(true);
+  }
 }
 
 function title(text,hint){return `<h2 id="step-title" tabindex="-1">${text}</h2><p class="hint">${hint}</p>`;}
@@ -242,6 +425,34 @@ $('#detail-close').addEventListener('click',closeDetail);
 $('#detail-dialog').addEventListener('cancel',event=>{event.preventDefault();closeDetail();});
 $('#detail-dialog').addEventListener('click',event=>{if(event.target!==$('#detail-dialog'))return;const rect=event.target.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeDetail();});
 $('#detail-body').addEventListener('click',event=>{const action=event.target.closest('[data-detail-action]')?.dataset.detailAction;if(action)runDetailAction(action);});
+$('#mine-link').addEventListener('click',event=>{event.preventDefault();openMine();});
+$('#mine-close').addEventListener('click',()=>closeMine());
+$('#mine-back').addEventListener('click',mineBack);
+mineDialog.addEventListener('cancel',event=>{event.preventDefault();if(mineStep.view==='list')closeMine();else mineBack();});
+mineDialog.addEventListener('click',event=>{
+  if(event.target!==mineDialog)return;
+  const rect=mineDialog.getBoundingClientRect();
+  if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeMine();
+});
+$('#mine-body').addEventListener('click',event=>{
+  if(event.target.closest('[data-recover]')){recover();return;}
+  if(event.target.closest('#mine-step-back')){mineBack();return;}
+  if(event.target.closest('#mine-reserve')||event.target.closest('[data-mine-rebook]')){closeMine();openBooking();return;}
+  if(mineBusy)return;
+  const cancel=event.target.closest('[data-mine-cancel]');
+  if(cancel){mineStep={view:'cancel',bookingId:cancel.dataset.mineCancel};mineError='';renderMine(true);return;}
+  const endEarly=event.target.closest('[data-mine-end-early]');
+  if(endEarly){mineStep={view:'end-early',bookingId:endEarly.dataset.mineEndEarly};mineError='';renderMine(true);return;}
+  const choice=event.target.closest('[data-mine-end]');
+  if(choice){mineStep={view:'end-confirm',bookingId:mineStep.bookingId,end:choice.dataset.mineEnd};mineError='';renderMine(true);return;}
+  if(event.target.closest('#mine-cancel-confirm')){runMineCancel();return;}
+  if(event.target.closest('#mine-end-confirm'))runMineEndEarly();
+});
+addEventListener('popstate',()=>{
+  const wants=new URLSearchParams(location.search).get('view')==='mine';
+  if(wants&&!mineDialog.open)openMine({view:'list'},false);
+  else if(!wants&&mineDialog.open)closeMine(false);
+});
 $('#step-body').addEventListener('input',event=>{if(event.target.id==='guest-name')draft.name=event.target.value;if(event.target.id==='reserved-for'){draft.reservedFor=event.target.value;draft.purposeOther=draft.purpose==='other'?event.target.value:'';}});
 $('#step-body').addEventListener('submit',event=>{
   event.preventDefault();if(pending||!draftReady())return;
@@ -288,10 +499,13 @@ subscribe(snapshot=>{
   const openDetailKey=detailBooking?.key;
   connection={status:snapshot.status,canBook:!!snapshot.canBook,demo:!!snapshot.demo,error:String(snapshot.error||'')};
   dates=(snapshot.days||[]).map(day=>({key:day.key,label:String(day.label),weekday:Number(day.weekday)}));
+  myReservations=(snapshot.myBookings||[]).filter(booking=>booking&&typeof booking.id==='string'&&booking.id);
   bookings=(snapshot.bookings||[]).map(normalizeBooking).filter(booking=>types[booking.type]&&Number.isInteger(booking.unit)&&booking.unit>=1&&booking.unit<=types[booking.type].count&&Number.isFinite(booking.start)&&Number.isFinite(booking.end)&&booking.end>booking.start);
   if(!eligible(selectedDate))selectedDate=dates[0]?.key||null;
   renderSchedule();
   if($('#detail-dialog').open&&openDetailKey){const updated=bookings.find(booking=>booking.key===openDetailKey);if(updated)renderDetail(updated);else closeDetail();}
   if(dialog.open&&!pending&&['start','end'].includes(step))renderStep();
+  renderMine();
   if(previousStatus!==connection.status)$('#announcement').textContent=ready()?(connection.demo?'Demo schedule ready.':'Live schedule connected.'):'Schedule connection is unavailable. Reconnect to reserve.';
 });
+if(new URLSearchParams(location.search).get('view')==='mine')openMine({view:'list'},false);

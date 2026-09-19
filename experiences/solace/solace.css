@@ -27,3 +27,37 @@ button.booking{appearance:none;font:inherit;color:inherit;cursor:pointer;text-al
 .detail-action[data-detail-action="cancel"]{background:#925269}
 #detail-status:empty{display:none}
 @media(max-width:600px){.detail-card{padding:17px}.detail-row{font-size:11px}.detail-actions{margin-top:13px}}
+
+/* My reservations, in Solace's own paper and sage. */
+.mine-heading{font-family:var(--serif);font-weight:400;font-size:19px;letter-spacing:-.02em;margin:22px 0 10px;color:#4c5a49}
+.mine-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.mine-card{border:1px solid #e2e5d7;background:#f9faf3;border-radius:16px;padding:15px;min-width:0}
+.mine-card-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.mine-card-head b{font-weight:500;font-size:13px;overflow-wrap:anywhere}
+.mine-badge{border-radius:20px;padding:5px 10px;font-size:10px;line-height:1.3;background:#e7ecdc;color:#4d6146;white-space:nowrap}
+.mine-badge.mine-pending{background:#f1ecde;color:#6b5c3f}
+.mine-badge.mine-cancelled,.mine-badge.mine-declined{background:#ebebe4;color:#6b6f62}
+.mine-badge.mine-overridden{background:#f0e9dc;color:#7a5a47}
+.mine-when{font-family:var(--serif);font-size:21px;line-height:1.2;margin:9px 0 0;overflow-wrap:anywhere}
+.mine-meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin:8px 0 0;font-size:11px;line-height:1.5;color:#6d7862}
+.mine-meta span{overflow-wrap:anywhere;min-width:0}
+.mine-note{margin:9px 0 0;font-size:11px;line-height:1.55;color:#6d7862;overflow-wrap:anywhere}
+.mine-note.mine-priority{padding:9px 11px;border:1px solid #c9aa90;border-radius:12px;background:#f0e9dc;color:#665140}
+.mine-note.mine-priority strong{display:block;font-weight:600}
+.mine-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}
+.mine-action{flex:1 1 128px;min-width:0;min-height:48px;padding:11px 13px;border:1px solid #cdd6c3;border-radius:14px;background:var(--ivory);color:#3f5a45;font-size:12px;overflow-wrap:anywhere}
+.mine-action:hover:not(:disabled){background:#eaf0e1}
+.mine-action.mine-stop{border-color:#cfb0a6;background:#f7efeb;color:#7a4a3d}
+.mine-action.mine-stop:hover:not(:disabled){background:#f0e2dc}
+.primary.mine-stop{background:#8a5246}
+.primary.mine-stop:hover{background:#78463c}
+.mine-confirm-copy{font-size:12px;line-height:1.6;color:#6d7862;margin:14px 0 0}
+#mine-body .time-choice{overflow-wrap:anywhere}
+#mine-body .time-choice.mine-now{background:#e4ecda;border-color:#a9bd9a;color:#3f5a42}
+.mine-now-label{display:block;font-size:9px;font-weight:600;letter-spacing:.05em;margin-top:3px;color:#4f6a4b}
+#mine-counter{font-size:11px;color:#6d7862;text-align:center;min-width:0;overflow-wrap:anywhere}
+#mine-body .step h2{font-size:26px}
+#mine-body .primary{margin-top:16px}
+#mine-body .text-button{display:block;width:100%;margin-top:9px}
+@media(max-width:600px){.mine-card{padding:13px}.mine-when{font-size:19px}.mine-action{flex:1 1 118px;font-size:11px}#mine-body .step h2{font-size:24px}}
+@media(max-width:360px){.mine-action{flex:1 1 100%}}

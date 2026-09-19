@@ -1,4 +1,4 @@
-import {eligibleDays,projectBookings,projectOwnedBookings,validateInput,publicName,prefixes,units,clock} from './model.js';
+import {eligibleDays,projectBookings,projectOwnedBookings,validateInput,publicName,prefixes,units,clock,minutes,endEarlyOptions} from './model.js';
 const demo=new URLSearchParams(location.search).get('demo')==='1';
 let state={status:'loading',canBook:false,demo,error:'',days:eligibleDays(),bookings:[],myBookings:[]};
 let listeners=new Set(),started=false,unsubscribe=null,generation=0,timer=null,backend=null,pending=false,serial=0,records=[],viewerUid='';
@@ -121,20 +121,38 @@ export async function cancelOwnedBooking(bookingId){
   emit({bookings:state.bookings.filter(booking=>booking.ownerDetail?.bookingId!==bookingId),myBookings:state.myBookings.map(booking=>booking.id===bookingId?cancelled:booking)});
   return cancelled;
 }
+/* The schedule everyone sees frees the released time right away. The server
+   remains authoritative: the next refresh replaces these rows. */
+function shortenPublicBooking(mine,endMinutes){
+  if(!Number.isFinite(endMinutes))return state.bookings;
+  return state.bookings.map(booking=>{
+    const same=booking.key===mine.key||(booking.ownerDetail?.bookingId&&booking.ownerDetail.bookingId===mine.id);
+    if(!same||!(endMinutes>booking.start)||endMinutes>=booking.end)return booking;
+    const shortened={...booking,end:endMinutes,key:`slot-${booking.day}-${booking.type}-${booking.unit}-${booking.start}-${endMinutes}`};
+    if(shortened.ownerDetail)shortened.ownerDetail={...shortened.ownerDetail,canEndEarly:endMinutes-booking.start>30};
+    return shortened;
+  });
+}
 export async function endOwnedBookingEarly(bookingId,end){
   const mine=state.myBookings.find(booking=>booking.id===bookingId);
   if(!mine||!mine.canEndEarly)throw new Error('Only your own reservation can end early.');
   const requestedEnd=typeof end==='number'?clock(end):String(end||'');
+  if(!endEarlyOptions(mine).includes(requestedEnd))throw new Error('Choose an earlier ending for this reservation.');
+  const stillLonger=value=>minutes(value)-minutes(mine.start)>30;
   if(demo){
-    const updated={...mine,end:requestedEnd,endedEarlyFrom:mine.end,canEndEarly:false};
-    emit({myBookings:state.myBookings.map(booking=>booking.id===bookingId?updated:booking)});
+    const endMinutes=minutes(requestedEnd);
+    const target=state.bookings.find(booking=>booking.key===mine.key);
+    const nextKey=target&&endMinutes>target.start&&endMinutes<target.end?`slot-${target.day}-${target.type}-${target.unit}-${target.start}-${endMinutes}`:mine.key;
+    const updated={...mine,key:nextKey,end:requestedEnd,endedEarlyFrom:mine.endedEarlyFrom||mine.end,canEndEarly:stillLonger(requestedEnd)};
+    emit({bookings:shortenPublicBooking(mine,endMinutes),myBookings:state.myBookings.map(booking=>booking.id===bookingId?updated:booking)});
     return updated;
   }
   if(!backend?.auth.currentUser||!backend.endEarly)throw new Error('The shared schedule is reconnecting. Please wait until it is live.');
   try{
     const result=await backend.endEarly({bookingId,end:requestedEnd});
-    const next={...mine,end:result.data?.end||requestedEnd,endedEarlyFrom:mine.endedEarlyFrom||mine.end,canEndEarly:false};
-    emit({myBookings:state.myBookings.map(booking=>booking.id===bookingId?next:booking)});
+    const savedEnd=result.data?.end||requestedEnd;
+    const next={...mine,end:savedEnd,endedEarlyFrom:mine.endedEarlyFrom||mine.end,canEndEarly:stillLonger(savedEnd)};
+    emit({bookings:shortenPublicBooking(mine,minutes(savedEnd)),myBookings:state.myBookings.map(booking=>booking.id===bookingId?next:booking)});
     return next;
   }catch(error){
     if(error?.code?.includes('permission-denied'))throw new Error('Only the device that made this reservation can end it early.');
