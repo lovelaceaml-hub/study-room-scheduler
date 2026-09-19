@@ -134,6 +134,71 @@ export function projectOwnedBookings(records,days=eligibleDays(),ownerUid) {
     };
   });
 }
+/* ---- My reservations: shared helpers every design uses ----
+   These are pure. They read one row from the `myBookings` state that
+   `experiences/shared/live.js` publishes (server shape: `start` and `end` are
+   'HH:MM' strings), and never call a backend. */
+const RESOURCE_UNIT_LABELS = {room:'Study Room',whiteboard:'Whiteboard',tv:'TV'};
+const RESOURCE_LABELS = {room:'Study room',whiteboard:'Whiteboard',tv:'TV'};
+const STATUS_LABELS = {pending:'Pending review',approved:'Approved',declined:'Declined',cancelled:'Cancelled',overridden:'Given to a higher priority'};
+const PURPOSE_LABELS = {contact:'Contact',new:'New Member','new-member':'New Member',other:'Other',blocked:'Reserved'};
+/* The room, whiteboard or TV a reservation holds. Falls back to the requested
+   kind when no unit is assigned yet, and returns null when neither is known. */
+export function reservationResource(booking) {
+  for(const [type,count] of Object.entries(units)){
+    const raw=booking?.assignments?.[type];
+    const unit=typeof raw==='string'&&raw.startsWith(prefixes[type])?Number(raw.slice(prefixes[type].length)):NaN;
+    if(Number.isInteger(unit)&&unit>=1&&unit<=count)return {type,unit,label:`${RESOURCE_UNIT_LABELS[type]} ${unit}`};
+  }
+  const needed=Object.keys(units).find(type=>booking?.needs?.[type]===true);
+  return needed?{type:needed,unit:null,label:RESOURCE_LABELS[needed]}:null;
+}
+export function reservationStatusLabel(booking) {return STATUS_LABELS[String(booking?.status||'')]||'';}
+export function reservationPurposeLabel(booking) {return PURPOSE_LABELS[String(booking?.purpose||'')]||'';}
+/* The reservation was shortened after it was made; `endedEarlyFrom` keeps the
+   ending that was originally booked. */
+export function endedEarly(booking) {return typeof booking?.endedEarlyFrom==='string'&&booking.endedEarlyFrom>String(booking?.end||'');}
+/* Every 30-minute boundary this reservation could end at instead: after its
+   start so at least one block is kept, and before its current ending. */
+export function endEarlyOptions(booking) {
+  const start=minutes(booking?.start),end=minutes(booking?.end);
+  if(!Number.isFinite(start)||!Number.isFinite(end))return [];
+  const options=[];
+  for(let value=Math.ceil((start+1)/30)*30;value<end;value+=30)options.push(clock(value));
+  return options;
+}
+/* The choice that means "I am done right now": the most recent boundary the
+   Los Angeles clock has already passed. Null when the reservation is on
+   another day or has not started yet, so nothing is mislabelled as now. */
+export function endEarlyNowOption(booking,now=new Date()) {
+  const options=endEarlyOptions(booking);
+  if(!options.length)return null;
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now);
+  const part=type=>parts.find(p=>p.type===type).value;
+  if(String(booking?.date||'')!==`${part('year')}-${part('month')}-${part('day')}`)return null;
+  const current=Number(part('hour'))*60+Number(part('minute'));
+  const reached=options.filter(option=>minutes(option)<=current);
+  return reached.length?reached[reached.length-1]:null;
+}
+/* One person's reservations split the way every design lists them: the ones
+   still standing first, then the closed ones, each in day and time order. */
+export function groupMyReservations(rows) {
+  const source=(Array.isArray(rows)?rows:[]).filter(Boolean);
+  const order=(a,b)=>`${a.date||''} ${a.start||''}`.localeCompare(`${b.date||''} ${b.start||''}`);
+  const active=booking=>booking.status==='pending'||booking.status==='approved';
+  return {upcoming:source.filter(active).sort(order),past:source.filter(booking=>!active(booking)).sort(order)};
+}
+/* Plain sentence for the latest priority update on a reservation, or ''. */
+export function priorityNoticeText(booking) {
+  const notice=booking?.priorityNotice;
+  if(!notice||!['moved','released'].includes(notice.kind))return '';
+  const type=Object.hasOwn(units,notice.type)?notice.type:reservationResource(booking)?.type||'room';
+  const taker=PURPOSE_LABELS[String(notice.byPurpose||'')]||'higher priority';
+  const named=value=>typeof value==='string'&&value.startsWith(prefixes[type])?`${RESOURCE_UNIT_LABELS[type]} ${value.slice(prefixes[type].length)}`:'';
+  const kind=RESOURCE_LABELS[type].toLowerCase();
+  if(notice.kind==='moved')return `A ${taker} reservation took ${named(notice.fromUnit)||`your ${kind}`}. You kept your time in ${named(notice.toUnit)||`another ${kind}`}.`;
+  return `A ${taker} reservation took your ${kind} time. Nothing else was open, so please choose another time.`;
+}
 export function validRange(day,start,end,days=eligibleDays()) {
   const date=days.find(d=>d.key===day);
   if(!date||!Number.isInteger(start)||!Number.isInteger(end)||start%30||end%30||start<600||end>1380||start>=end)return false;
