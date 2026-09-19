@@ -17,10 +17,10 @@ Coordinator: Claude Fable 5.1
 | Lane | Title | State | Model | Worktree | Review | Depends on |
 |---|---|---|---|---|---|---|
 | L0 | Critic | reviewed | gpt-5.6-sol | none | none | none |
-| L1 | Shared contract, picker, and Solace My reservations | running | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L1 | fable landing | none |
+| L1 | Shared contract, picker, and Solace My reservations | merged | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L1 | fable landing | none |
 | L2 | Velum, Cove, and Petal My reservations | blocked | opus-5 | pending | fable landing | L1 and Anthony go-ahead |
 | L3 | Atlas and Lattice My reservations | blocked | opus-5 | pending | fable landing | L1 and Anthony go-ahead |
-| L4 | Admin gets its own page | reviewed | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L4 | fable landing | none |
+| L4 | Admin gets its own page | merged | opus-5 | /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L4 | fable landing | none |
 | L5 | Integration, removal, release | planned | opus-5 | pending | fable completion | L1 L2 L3 L4 L0 |
 
 ## Folders
@@ -37,8 +37,8 @@ Coordinator: Claude Fable 5.1
 - Lane board: pending
 
 <!-- lane: L0 state: reviewed model: gpt-5.6-sol worktree: none review: none updated: 2026-09-19T12:57Z -->
-<!-- lane: L1 state: running model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L1 review: fable landing updated: 2026-09-19T12:50Z -->
-<!-- lane: L2 state: blocked model: opus-5 worktree: pending review: fable landing updated: 2026-09-19T12:50Z -->
+<!-- lane: L1 state: merged model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L1 review: fable landing updated: 2026-09-19T13:29Z -->
+<!-- lane: L2 state: blocked model: opus-5 worktree: pending review: fable landing updated: 2026-09-19T13:29Z -->
 <!-- lane: L3 state: blocked model: opus-5 worktree: pending review: fable landing updated: 2026-09-19T12:50Z -->
-<!-- lane: L4 state: reviewed model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L4 review: fable landing updated: 2026-09-19T13:22Z -->
+<!-- lane: L4 state: merged model: opus-5 worktree: /Users/anthony/.claude/worktrees/2026-09-19-retire-classic-design/L4 review: fable landing updated: 2026-09-19T13:29Z -->
 <!-- lane: L5 state: planned model: opus-5 worktree: pending review: fable completion updated: 2026-09-19T12:50Z -->
