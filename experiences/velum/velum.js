@@ -1,5 +1,5 @@
 import * as live from '../shared/live.js';
-import { overrideUnitForRange, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
+import { overrideUnitForRange, serviceBlocksFor, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
 
 const { subscribe, submit, retry } = live;
 
@@ -13,7 +13,6 @@ const TYPES = {
 const PURPOSES = {contact:'Contact',new:'New Member',other:'Other'};
 const RESERVED_FOR_LABELS = {contact:'Contact Name',new:'Member Name',other:'Purpose'};
 const purposeDescriptions = {contact:'',new:'',other:''};
-const SERVICE = {6:[[600,660,'Morning service'],[870,930,'Afternoon service'],[1170,1230,'Evening service']],2:[[1170,1230,'Evening service']]};
 const time = minutes => `${(Math.floor(minutes/60)+11)%12+1}${minutes%60?':30':':00'} ${minutes<720?'AM':'PM'}`;
 const hour = minutes => time(minutes).replace(':00','');
 const range = (start,end) => `${time(start)} to ${time(end)}`;
@@ -28,7 +27,7 @@ function selectedDate(){return days[selectedDay];}
 function dayLabel(key){return days.find(day=>day.key===key)?.label || (draft.day===key?draft.dateLabel:'') || key;}
 function canBook(){return connection.canBook && ['live','demo'].includes(connection.status) && days.length>0;}
 function canBookDay(key){return canBook() && days.some(day=>day.key===key);}
-function services(key=selectedDate()?.key){return SERVICE[days.find(day=>day.key===key)?.weekday] || [];}
+function services(key=selectedDate()?.key){return serviceBlocksFor(days.find(day=>day.key===key)||key||'');}
 function inService(start,key=selectedDate()?.key){return services(key).some(([from,to])=>start>=from&&start<to);}
 function occupant(type,unit,start,key=selectedDate()?.key){return bookings.find(item=>item.day===key&&item.type===type&&item.unit===unit&&start>=item.start&&start<item.end);}
 function free(type,unit,start,key=selectedDate()?.key){return start>=600&&start<1380&&!inService(start,key)&&!occupant(type,unit,start,key);}

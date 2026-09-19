@@ -11,6 +11,10 @@ const browser=await chromium.launch({headless:true});
 const configs={solace:{reserve:'#reserve',resource:'#resources [data-type]',open:'.open-slot',end:'[data-end-choice]',name:'#guest-name',reservedFor:'#reserved-for',form:'#name-form',confirm:'#confirm-reservation',success:'#see-reservation',error:'#save-error'},velum:{reserve:'#reserve-now',resource:'[data-resource]',open:'.open-slot',end:'[data-time-end]',name:'#display-name',reservedFor:'#reserved-for',form:'#name-form',confirm:'#confirm-reservation',success:'#see-reservation',error:'#save-error'},cove:{reserve:'[data-reserve]:visible',resource:'.resource[data-resource]',open:'.open',end:'[data-end]',name:'#guest-name',reservedFor:'#reserved-for',form:'#reserved-for-form',confirm:'#confirm',success:'#view-booking',error:'#form-error'},petal:{reserve:'#reserve',resource:'[data-resource]',open:'.open',end:'[data-end]',name:'#guestName',reservedFor:'#reservedFor',form:'#nameForm',confirm:'#confirm',success:'#seeReservation',error:'#draftError'}};
 configs.atlas={reserve:'#reserve',resource:'.meter[data-type]',open:'.roomSlot.open',end:'[data-end]',name:'#name',reservedFor:'#reservedFor',form:'#reservedForForm',confirm:'#confirm',success:'#finish',error:'#dialogError'};
 configs.lattice={reserve:'#reserve',resource:'.overview [data-type]',open:'button.slot.open',end:'[data-end-choice]',name:'#name',reservedFor:'#reservedFor',form:'#reservedForForm',confirm:'#confirm',success:'#finish',error:'#flowNotice'};
+/* A background schedule refresh can land between an action and the read that
+   checks it, so every assertion looks at the last call of the kind that step
+   makes rather than whatever call happened to be last. */
+const lastCall=(page,name)=>page.evaluate(callable=>window.__calls.filter(call=>call.name===callable).at(-1),name);
 async function mock(context){
  await context.addInitScript(()=>{window.__calls=[];window.__rejectNext=localStorage.getItem('srs-override-fixture')!=='1';});
  await context.route('**/firebasejs/10.12.2/firebase-*.js',route=>{
@@ -59,7 +63,7 @@ for(const name of (process.argv.slice(2).length?process.argv.slice(2):Object.key
     await page.locator(c.end).first().click();await page.locator(c.name).fill('Robin Test');await page.locator(c.reservedFor).fill(index===1?'Fictional lesson review':index===2?'Fictional member':'Fictional contact');await page.locator(c.form+' button[type=submit]').click();await page.locator(c.confirm).click();
     if(index===0){await page.locator(c.error).filter({hasText:/space|reserved|time|confirm/i}).waitFor();assert.equal(await page.locator(c.success).count(),0);await page.locator(c.confirm).click();}
     await page.locator(c.success).waitFor();await page.locator(c.success).click();
-    const call=await page.evaluate(()=>window.__calls.at(-1));assert.equal(call.name,'memberSubmitBooking');assert.equal(call.payload.resourceType,type);assert.equal(call.payload.requestedUnit,({room:'room-',whiteboard:'wb-',tv:'tv-'})[type]+'2');assert.equal(call.payload.purpose,index===2?'new-member':index===1?'other':'contact');
+    const call=await lastCall(page,'memberSubmitBooking');assert.equal(call.name,'memberSubmitBooking');assert.equal(call.payload.resourceType,type);assert.equal(call.payload.requestedUnit,({room:'room-',whiteboard:'wb-',tv:'tv-'})[type]+'2');assert.equal(call.payload.purpose,index===2?'new-member':index===1?'other':'contact');
     if(index===1)assert.equal(call.payload.purposeOther,'Fictional lesson review');
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('srs-my-bookings')).length),index+1);
     assert(await page.getByText('Robin',{exact:true}).count()>0);
@@ -71,7 +75,7 @@ for(const name of (process.argv.slice(2).length?process.argv.slice(2):Object.key
   await page.locator(c.open+'[data-unit="2"][data-start="720"]').click();await page.locator('[data-purpose="contact"]').click();
   const overrideEnd=page.locator('[data-end="810"],[data-end-choice="810"],[data-time-end="810"]').first();await overrideEnd.waitFor();assert(await overrideEnd.getByText('Priority override',{exact:true}).count()>0);
   await overrideEnd.click();await page.locator(c.name).fill('Robin Exact');await page.locator(c.reservedFor).fill('Exact contact');await page.locator(c.form+' button[type=submit]').click();await page.locator(c.confirm).click();await page.locator(c.success).waitFor();
-  const exactCall=await page.evaluate(()=>window.__calls.at(-1));assert.equal(exactCall.name,'memberSubmitBooking');assert.equal(exactCall.payload.requestedUnit,'room-2');
+  const exactCall=await lastCall(page,'memberSubmitBooking');assert.equal(exactCall.name,'memberSubmitBooking');assert.equal(exactCall.payload.requestedUnit,'room-2');
   await page.locator(c.success).click();
   await page.goto(`${base}/experiences/${name}/?demo=1`);await page.locator(c.open).first().waitFor();
   assert(!await page.getByText('Private administrative hold',{exact:true}).count());
@@ -161,7 +165,7 @@ try{
  await minePage.locator('#mine-end-confirm').waitFor();
  await minePage.locator('#mine-end-confirm').press('Enter');
  await minePage.locator('[data-mine-cancel="fixture-mine-room"]').waitFor();
- const endCall=await minePage.evaluate(()=>window.__calls.at(-1));
+ const endCall=await lastCall(minePage,'memberEndBookingEarly');
  assert.equal(endCall.name,'memberEndBookingEarly');assert.deepEqual(endCall.payload,{bookingId:'fixture-mine-room',end:'12:00'});
  assert.equal(await minePage.getByText('Ended early · originally booked until 1:00 PM').count(),1);
 
@@ -174,7 +178,7 @@ try{
  await minePage.locator('#mine-cancel-confirm').click();
  await minePage.locator('#mine-cancel-confirm').waitFor({state:'detached'});
  await minePage.locator('ul[aria-label="Past reservations"] .mine-card').nth(3).waitFor();
- const cancelCall=await minePage.evaluate(()=>window.__calls.at(-1));
+ const cancelCall=await lastCall(minePage,'memberCancelBooking');
  assert.equal(cancelCall.name,'memberCancelBooking');assert.deepEqual(cancelCall.payload,{bookingId:'fixture-mine-room'});
  assert.equal(await minePage.locator('ul[aria-label="Upcoming reservations"] .mine-card').count(),3);
  assert.equal(await minePage.locator('ul[aria-label="Past reservations"] .mine-card').count(),4);
@@ -211,7 +215,7 @@ try{
  await minePage.locator('#detail-body [data-detail-action="cancel"]').click();
  await minePage.locator('[data-detail-action="cancel-confirm"]').click();
  await minePage.locator('#detail-dialog[open]').waitFor({state:'detached'});
- const detailCancel=await minePage.evaluate(()=>window.__calls.at(-1));
+ const detailCancel=await lastCall(minePage,'memberCancelBooking');
  assert.equal(detailCancel.name,'memberCancelBooking');assert.deepEqual(detailCancel.payload,{bookingId:'fixture-mine-ended'});
  assert.equal(await minePage.locator('[data-booking*="room-3"]').count(),0);
 

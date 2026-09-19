@@ -1,5 +1,5 @@
 import * as live from '../shared/live.js';
-import { overrideUnitForRange, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
+import { overrideUnitForRange, serviceBlocksFor, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText } from '../shared/model.js';
 
 const { subscribe, submit, retry } = live;
 
@@ -14,10 +14,6 @@ const PURPOSES = {
   contact: {label:'Contact',hint:''},
   new: {label:'New Member',hint:''},
   other: {label:'Other',hint:''}
-};
-const SERVICE = {
-  6: [[600,660,'Morning service'],[870,930,'Afternoon service'],[1170,1230,'Evening service']],
-  2: [[1170,1230,'Evening service']]
 };
 const icon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12h10M12 7v10"/></svg>';
 const params = new URLSearchParams(location.search);
@@ -43,7 +39,7 @@ function fmt(min, short = false) {
 const dateText = day => day?.label || '';
 const duration = (a,b) => {const n=b-a;return n<60?n+' min':n%60?Math.floor(n/60)+' hr 30 min':n/60+' hr';};
 const overlaps = (a,b,c,d) => a < d && b > c;
-const services = day => SERVICE[day?.dow] || [];
+const services = day => day ? serviceBlocksFor(day) : [];
 const ready = () => connection.canBook === true && ['live','demo'].includes(connection.status) && days.length > 0;
 const draftDay = () => days.find(day => day.key === draft.day);
 const draftReady = () => ready() && Boolean(draftDay());
@@ -689,7 +685,7 @@ render();
 subscribe(snapshot=>{
   const previousDay=days[dayIndex]?.key;
   connection={status:snapshot.status,canBook:snapshot.canBook===true,demo:snapshot.demo===true,error:typeof snapshot.error==='string'?snapshot.error:''};
-  days=(Array.isArray(snapshot.days)?snapshot.days:[]).filter(day=>/^\d{4}-\d{2}-\d{2}$/.test(day.key)&&[2,6].includes(day.weekday)).map(day=>({key:day.key,label:day.label,date:new Date(day.key+'T12:00:00'),dow:day.weekday}));
+  days=(Array.isArray(snapshot.days)?snapshot.days:[]).filter(day=>/^\d{4}-\d{2}-\d{2}$/.test(day.key)).map(day=>({key:day.key,label:day.label,date:new Date(day.key+'T12:00:00'),dow:day.weekday}));
   const retainedDay=days.findIndex(day=>day.key===previousDay);
   dayIndex=retainedDay>=0?retainedDay:0;
   if(firstDates&&days.length){

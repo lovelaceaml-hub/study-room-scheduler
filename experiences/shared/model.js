@@ -199,13 +199,32 @@ export function priorityNoticeText(booking) {
   if(notice.kind==='moved')return `A ${taker} reservation took ${named(notice.fromUnit)||`your ${kind}`}. You kept your time in ${named(notice.toUnit)||`another ${kind}`}.`;
   return `A ${taker} reservation took your ${kind} time. Nothing else was open, so please choose another time.`;
 }
+/* ---- The one service table every design and the backend agree on ----
+   Saturday holds three services, Tuesday only the evening one, and the
+   one-off Monday, September 21, 2026 schedule holds the morning and
+   afternoon services with no evening service. Every design reads this
+   instead of keeping its own copy, which is what stopped them agreeing. */
+const SATURDAY_SERVICES = [[600,660,'Morning service'],[870,930,'Afternoon service'],[1170,1230,'Evening service']];
+const TUESDAY_SERVICES = [[1170,1230,'Evening service']];
+const SPECIAL_SERVICES = [[600,660,'Morning service'],[870,930,'Afternoon service']];
+/* `day` is a day object from `eligibleDays()` (or a design's own copy of one,
+   which may name the weekday `dow`), or the 'YYYY-MM-DD' key on its own.
+   Returns fresh `[start, end, label]` rows, so a caller can never change the
+   shared table. A day that is not a scheduling day has no services at all. */
+export function serviceBlocksFor(day) {
+  const key=typeof day==='string'?day:String(day?.key||'');
+  if(key===SPECIAL_BOOKING_DATE)return SPECIAL_SERVICES.map(block=>block.slice());
+  let weekday=NaN;
+  if(day&&typeof day==='object')for(const value of [day.weekday,day.dow])if(Number.isInteger(value)){weekday=value;break;}
+  if(!Number.isInteger(weekday)&&/^\d{4}-\d{2}-\d{2}$/.test(key))weekday=new Date(`${key}T12:00:00Z`).getUTCDay();
+  if(weekday===6)return SATURDAY_SERVICES.map(block=>block.slice());
+  if(weekday===2)return TUESDAY_SERVICES.map(block=>block.slice());
+  return [];
+}
 export function validRange(day,start,end,days=eligibleDays()) {
   const date=days.find(d=>d.key===day);
   if(!date||!Number.isInteger(start)||!Number.isInteger(end)||start%30||end%30||start<600||end>1380||start>=end)return false;
-  const services=date.key===SPECIAL_BOOKING_DATE
-    ?[[600,660],[870,930]]
-    :date.weekday===6?[[600,660],[870,930],[1170,1230]]:[[1170,1230]];
-  return !services.some(([a,b])=>start<b&&end>a);
+  return !serviceBlocksFor(date).some(([a,b])=>start<b&&end>a);
 }
 export function validateInput(input,bookings,days=eligibleDays()) {
   const {day,type,start,end}=input;

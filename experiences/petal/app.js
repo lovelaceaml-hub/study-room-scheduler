@@ -1,5 +1,5 @@
 import * as live from '../shared/live.js';
-import {overrideUnitForRange, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText} from '../shared/model.js';
+import {overrideUnitForRange, serviceBlocksFor, minutes as toMinutes, groupMyReservations, reservationResource, reservationStatusLabel, reservationPurposeLabel, endEarlyOptions, endEarlyNowOption, endedEarly, priorityNoticeText} from '../shared/model.js';
 
 const {subscribe, submit, retry} = live;
 
@@ -43,7 +43,7 @@ const duration = (start, end) => {
   return minutes < 60 ? minutes + ' min' : minutes % 60 ? Math.floor(minutes / 60) + ' hr 30 min' : minutes / 60 + ' hr';
 };
 const units = resource => Array.from({length:types[resource].count}, (_, index) => index + 1);
-const services = day => !day ? [] : day.dow === 6 ? [[600,660,'Morning service'],[870,930,'Afternoon service'],[1170,1230,'Evening service']] : [[1170,1230,'Evening service']];
+const services = day => !day ? [] : serviceBlocksFor(day);
 const serviceAt = (day, minutes) => services(day).some(([start, end]) => minutes >= start && minutes < end);
 const occupant = (day, resource, unit, minutes) => bookings.find(booking => booking.day === day?.key && booking.type === resource && booking.unit === unit && minutes >= booking.start && minutes < booking.end);
 const isReady = () => connection.canBook && ['live','demo'].includes(connection.status) && days.length > 0;

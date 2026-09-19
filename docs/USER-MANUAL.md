@@ -2,11 +2,44 @@
 
 ## Choose how the app looks
 
-On your first visit after this update, choose Atlas, Lattice, Solace, Velum, Cove, or Petal, or press **Keep the current design**. Your choice is remembered on this device. Use **Change design** to choose again, or visit https://lvrooms.web.app/?choose=1.
+Open https://lvrooms.web.app. The first time, the app asks you to choose one of six
+designs: **Solace** (the default), **Velum**, **Cove**, **Petal**, **Atlas** or
+**Lattice**. Tap the one you like. If you close the question without choosing, you get
+Solace. Your choice is remembered on this device, so the next visit opens straight into
+that design.
 
-Every design shows the same live reservations. Tap an open slot to keep its exact room or equipment and starting time. Choose the purpose, an available ending, your name, and confirm. For **Other**, add a short purpose description. A reservation is confirmed only after the server accepts it. If the connection fails, your draft remains so you can recover; if the result is uncertain, check **My reservations** before submitting again.
+**To change it later,** tap **Change design** in the footer of any design, or open
+https://lvrooms.web.app/?choose=1. Choosing a different design never affects your
+reservations; all six show the same live schedule.
 
-Use **My reservations** for cancellation, ending early, and reservation updates. It opens the familiar current app and keeps your selected design for the next visit. **Current app** switches back to the original design. Existing Admin, priority-reservation tools, and lobby TV remain available in the current app.
+Every design works the same way. Tap an open slot to keep its exact room or equipment and
+starting time. Choose the purpose, an available ending, your name, and confirm. For
+**Other**, add a short purpose description. A reservation is confirmed only after the
+server accepts it. If the connection fails, your draft remains so you can recover; if the
+result is uncertain, check **My reservations** before submitting again.
+
+**My reservations** is inside your design now, in the footer of every one of the six. It
+lists your upcoming reservations and your past ones, each with its date, time, room or
+board or TV, and who or what it is for.
+
+- **Cancel** removes a reservation completely. It asks you to confirm first, and
+  **Keep it** takes you back with nothing changed.
+- **End early** is for when you finish ahead of time. Choose the time you actually
+  finished; the rest of your time is released for everyone else straight away. A
+  reservation that is only 30 minutes long has nothing to shorten, so it offers only
+  Cancel.
+
+**Admin has its own page** at https://lvrooms.web.app/admin/. There is a small **Admin**
+link at the bottom of every design. It needs the administrator PIN, exactly as before.
+
+**The lobby TV** is unchanged, at https://lvrooms.web.app/?tv=1.
+
+The older single design is gone, and its address `/?classic=1` no longer exists. If you
+had it saved, it now opens your chosen design instead.
+
+> The sections further down describe how a member books a time and how Admin works. The
+> wording came from the earlier single design; the steps are the same in every one of the
+> six designs, and each design uses its own look and its own words for the buttons.
 
 
 > **Current service:** This Firebase Study Rooms scheduler remains live at
@@ -170,7 +203,7 @@ the Admin queue and can be approved there as before.
 
 ### Check, shorten, or cancel your reservation
 
-Your reservations appear under **My reservations** on the device used to make them.
+Your reservations appear under **My reservations**, in the footer of your design, on the device used to make them.
 Possible statuses are:
 
 - **Approved:** assigned to a specific room or item.
@@ -195,7 +228,7 @@ ownership was added may require Admin to make changes.
 
 ### Unlock Admin
 
-1. Open **Admin**.
+1. Open https://lvrooms.web.app/admin/, or tap the **Admin** link at the bottom of any design.
 2. Enter the administrator PIN from the active provider-managed secret store. Never copy its value into documentation.
 3. Tap **Unlock**.
 
