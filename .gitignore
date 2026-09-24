@@ -7,5 +7,24 @@ test-results/
 # Also ignore dependency symlinks used by isolated worktrees.
 node_modules
 
+# OS and editor junk
+Thumbs.db
+*.swp
+*~
+
+# Local secrets and environment files
+.env
+.env.*
+.runtimeconfig.json
+
+# Build, cache and coverage output
+build/
+dist/
+coverage/
+.nyc_output/
+.cache/
+__pycache__/
+.pytest_cache/
+
 # Screenshots rewritten by every browser smoke run (npm run test:designs)
 docs/live-design-evidence/*.png
