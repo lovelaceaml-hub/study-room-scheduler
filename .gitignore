@@ -6,3 +6,6 @@ test-results/
 
 # Also ignore dependency symlinks used by isolated worktrees.
 node_modules
+
+# Screenshots rewritten by every browser smoke run (npm run test:designs)
+docs/live-design-evidence/*.png
