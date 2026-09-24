@@ -39,9 +39,9 @@ async function connect(){
   try {
     await import('/firebase-config.js');
     const [appMod,authMod,fn]=await Promise.all([
-      import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js'),
-      import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js'),
-      import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js')]);
+      import(window.FIREBASE_SDK_BASE+'/firebase-app.js'),
+      import(window.FIREBASE_SDK_BASE+'/firebase-auth.js'),
+      import(window.FIREBASE_SDK_BASE+'/firebase-functions.js')]);
     if(token!==generation)return;
     const app=appMod.getApps().length?appMod.getApp():appMod.initializeApp(window.FIREBASE_CONFIG);
     const auth=authMod.getAuth(app);
