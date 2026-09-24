@@ -560,9 +560,9 @@ function setSyncPill(on, label) {
 }
 
 async function initFirebase(config) {
-  const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
-  const authMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
-  const fnMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+  const appMod = await import(window.FIREBASE_SDK_BASE + '/firebase-app.js');
+  const authMod = await import(window.FIREBASE_SDK_BASE + '/firebase-auth.js');
+  const fnMod = await import(window.FIREBASE_SDK_BASE + '/firebase-functions.js');
   const app = appMod.initializeApp(config);
 
   const auth = authMod.getAuth(app);

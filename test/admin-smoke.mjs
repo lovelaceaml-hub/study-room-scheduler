@@ -125,7 +125,7 @@ async function openAdmin({ store, fixedTime, viewport = { width: 1280, height: 9
     window.__calls = [];
     window.__adminStore = fixture;
   }, store);
-  await context.route('**/firebasejs/10.12.2/firebase-*.js', route => {
+  await context.route('**/firebasejs/*/firebase-*.js', route => {
     const part = route.request().url().split('firebase-').pop();
     let body = '';
     if (part === 'app.js') body = 'export const initializeApp = () => ({});';

@@ -25,3 +25,6 @@ coverage/
 .cache/
 __pycache__/
 .pytest_cache/
+
+# Screenshots rewritten by every browser smoke run (npm run test:designs)
+docs/live-design-evidence/*.png

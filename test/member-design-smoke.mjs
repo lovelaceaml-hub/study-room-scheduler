@@ -17,7 +17,7 @@ configs.lattice={reserve:'#reserve',resource:'.overview [data-type]',open:'butto
 const lastCall=(page,name)=>page.evaluate(callable=>window.__calls.filter(call=>call.name===callable).at(-1),name);
 async function mock(context){
  await context.addInitScript(()=>{window.__calls=[];window.__rejectNext=localStorage.getItem('srs-override-fixture')!=='1';});
- await context.route('**/firebasejs/10.12.2/firebase-*.js',route=>{
+ await context.route('**/firebasejs/*/firebase-*.js',route=>{
   const part=route.request().url().split('firebase-').pop();let body='';
   if(part==='app.js')body='export const getApps=()=>[];export const getApp=()=>({});export const initializeApp=()=>({});';
   if(part==='auth.js')body="export const getAuth=()=>({currentUser:{uid:'fixture-current-owner'}});export const onAuthStateChanged=(a,cb)=>{queueMicrotask(()=>cb(a.currentUser));return ()=>{};};export const signInAnonymously=()=>{throw Error('Existing identity must be restored');};";

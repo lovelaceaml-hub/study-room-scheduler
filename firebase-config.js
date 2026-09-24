@@ -10,3 +10,6 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "681798360480",
   appId: "1:681798360480:web:8356fe0c56650fbca398c5"
 };
+
+// Firebase JS SDK version, set once here for every page that loads it.
+window.FIREBASE_SDK_BASE = 'https://www.gstatic.com/firebasejs/10.12.2';
