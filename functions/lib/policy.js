@@ -271,6 +271,13 @@ function overrideTarget(type, candidate, approvedBookings, requestedUnit = null)
   return reclaimableUnitsForType(type, candidate, approvedBookings, requestedUnit)[0] || null;
 }
 
+/* When a displaced reservation began before the priority reservation, it keeps
+   its unit and simply ends when the priority time begins. Returns that new end,
+   or null when the reservation must be moved or released instead. */
+function overrideShortenedEnd(holder, candidate) {
+  return parseMinutes(holder.start) < parseMinutes(candidate.start) ? candidate.start : null;
+}
+
 function shorterAvailableEnd(type, candidate, approvedBookings) {
   const start = parseMinutes(candidate.start);
   const attemptedEnd = parseMinutes(candidate.end);
@@ -351,6 +358,7 @@ module.exports = {
   OVERRIDE_PURPOSES,
   SPECIAL_BOOKING_DATE,
   SPECIAL_BOOKING_DATE_OPENS,
+  overrideShortenedEnd,
   overrideTarget,
   reclaimableUnitsForType,
   addDays,

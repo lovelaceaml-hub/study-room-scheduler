@@ -191,11 +191,16 @@ export function groupMyReservations(rows) {
 /* Plain sentence for the latest priority update on a reservation, or ''. */
 export function priorityNoticeText(booking) {
   const notice=booking?.priorityNotice;
-  if(!notice||!['moved','released'].includes(notice.kind))return '';
+  if(!notice||!['moved','released','shortened'].includes(notice.kind))return '';
   const type=Object.hasOwn(units,notice.type)?notice.type:reservationResource(booking)?.type||'room';
   const taker=PURPOSE_LABELS[String(notice.byPurpose||'')]||'higher priority';
   const named=value=>typeof value==='string'&&value.startsWith(prefixes[type])?`${RESOURCE_UNIT_LABELS[type]} ${value.slice(prefixes[type].length)}`:'';
   const kind=RESOURCE_LABELS[type].toLowerCase();
+  if(notice.kind==='shortened'){
+    const end=minutes(notice.toEnd);
+    const at=Number.isNaN(end)?' early':` at ${(Math.floor(end/60)+11)%12+1}:${String(end%60).padStart(2,'0')} ${end<720?'AM':'PM'}`;
+    return `A ${taker} reservation needed ${named(notice.fromUnit)||`your ${kind}`}, so your reservation now ends${at}.`;
+  }
   if(notice.kind==='moved')return `A ${taker} reservation took ${named(notice.fromUnit)||`your ${kind}`}. You kept your time in ${named(notice.toUnit)||`another ${kind}`}.`;
   return `A ${taker} reservation took your ${kind} time. Nothing else was open, so please choose another time.`;
 }
