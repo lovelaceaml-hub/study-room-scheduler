@@ -15,6 +15,7 @@ const {
   migrationResourceUpdate,
   normalizeBookingIds,
   normalizeLegacyResourceMaps,
+  overrideShortenedEnd,
   overrideTarget,
   priorityForPurpose,
   rangesOverlap,
@@ -325,9 +326,10 @@ async function memberSubmitBooking(input, uid) {
 
 /* Taking a reserved time. Contact may take New Member or Other, and New
    Member may take Other, so when a range is full and a lower-priority unit is
-   reclaimable, one unit can be reclaimed. Whoever is displaced keeps their
-   time in another unit when one is free; otherwise their reservation is
-   released and flagged for the approver. Everything happens in one
+   reclaimable, one unit can be reclaimed. A reservation that began before the
+   priority time keeps its unit and is shortened to end when the priority time
+   starts. Anyone else displaced keeps their time in another unit when one is
+   free; otherwise their reservation is released and flagged for the approver. Everything happens in one
    transaction so two people can never take the same unit. */
 async function memberOverrideBooking(input, uid) {
   let request;
@@ -365,16 +367,27 @@ async function memberOverrideBooking(input, uid) {
       throw new HttpsError('failed-precondition', 'That time is fully reserved and nothing in it can be taken.');
     }
 
+    // A reservation already under way when the priority time begins is only
+    // shortened: it keeps its unit and ends where the priority time starts.
+    const shortened = [];
+    const displaced = [];
+    target.holders.forEach(holder => {
+      const toEnd = overrideShortenedEnd(holder, request);
+      if (toEnd) shortened.push({ holder, toEnd });
+      else displaced.push(holder);
+    });
+
     // Re-place the displaced reservations against a pool that already counts
     // the new claim, so nobody is moved into a unit that is about to be taken.
-    const displacedIds = new Set(target.holders.map(holder => holder.id));
+    const affectedIds = new Set(target.holders.map(holder => holder.id));
     const pool = approved
-      .filter(existing => !displacedIds.has(existing.id))
+      .filter(existing => !affectedIds.has(existing.id))
       .map(existing => ({ ...existing, assignments: { ...(existing.assignments || {}) } }));
+    shortened.forEach(({ holder, toEnd }) => pool.push({ ...holder, end: toEnd }));
     candidate.assignments[type] = target.unitId;
     pool.push({ ...candidate, id: bookingRef.id, status: 'approved' });
 
-    const moves = target.holders.map(holder => {
+    const moves = displaced.map(holder => {
       const holderCandidate = {
         date: holder.date,
         start: holder.start,
@@ -388,6 +401,21 @@ async function memberOverrideBooking(input, uid) {
         return { holder, toUnit, assignments };
       }
       return { holder, toUnit: null, assignments: { ...(holder.assignments || {}), [type]: null } };
+    });
+
+    shortened.forEach(({ holder, toEnd }) => {
+      const notice = {
+        kind: 'shortened',
+        type,
+        fromUnit: target.unitId,
+        toUnit: target.unitId,
+        fromEnd: holder.end,
+        toEnd,
+        byPurpose: request.purpose,
+        byBookingId: bookingRef.id,
+        at: now
+      };
+      transaction.update(db.collection('bookings').doc(holder.id), { end: toEnd, priorityNotice: notice, updatedAt: now });
     });
 
     moves.forEach(move => {
@@ -407,7 +435,7 @@ async function memberOverrideBooking(input, uid) {
 
     transaction.create(bookingRef, {
       ...memberBookingDocument(request, candidate.assignments, uid, now),
-      overrodeBookingIds: moves.map(move => move.holder.id)
+      overrodeBookingIds: target.holders.map(holder => holder.id)
     });
 
     return {
@@ -415,8 +443,9 @@ async function memberOverrideBooking(input, uid) {
       status: 'approved',
       assignment: target.unitId,
       priority: priorityForPurpose(request.purpose),
-      overrodeBookingId: moves.length ? moves[0].holder.id : null,
+      overrodeBookingId: target.holders.length ? target.holders[0].id : null,
       moved: moves.every(move => !!move.toUnit),
+      shortened: shortened.length,
       released: moves.filter(move => !move.toUnit).length
     };
   });

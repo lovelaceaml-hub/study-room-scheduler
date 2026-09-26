@@ -9,6 +9,7 @@ const {
   earlyEndError,
   migrationResourceUpdate,
   normalizeBookingIds,
+  overrideShortenedEnd,
   overrideTarget,
   reclaimableUnitsForType,
   normalizeLegacyResourceMaps,
@@ -306,4 +307,18 @@ test('validates purpose-specific reserved-for values', () => {
   assert.throws(() => validateReservedFor('new-member', 'x'.repeat(121)), /too long/);
   assert.throws(() => validateReservedFor('other', 'x'.repeat(241)), /too long/);
   assert.equal(validateReservedFor('contact', '', { required: false }), '');
+});
+
+test('a reservation already under way is shortened, not released, by a priority override', () => {
+  const candidate = { date: '2026-09-26', start: '12:30', end: '13:30', purpose: 'contact' };
+  const holder = (start, end) => ({ id: `${start}-${end}`, status: 'approved', date: candidate.date, start, end, purpose: 'other', assignments: { room: 'room-1' } });
+  // Started earlier and ran through the priority time: ends at 12:30.
+  assert.equal(overrideShortenedEnd(holder('12:00', '14:00'), candidate), '12:30');
+  assert.equal(overrideShortenedEnd(holder('11:00', '13:00'), candidate), '12:30');
+  // Starts at or after the priority time: nothing to keep, so move or release.
+  assert.equal(overrideShortenedEnd(holder('12:30', '13:30'), candidate), null);
+  assert.equal(overrideShortenedEnd(holder('13:00', '14:00'), candidate), null);
+  // The shortened reservation no longer overlaps the priority claim.
+  const shortened = { ...holder('12:00', '14:00'), end: overrideShortenedEnd(holder('12:00', '14:00'), candidate) };
+  assert.equal(availableUnitForType('room', candidate, [shortened], 'room-1'), 'room-1');
 });

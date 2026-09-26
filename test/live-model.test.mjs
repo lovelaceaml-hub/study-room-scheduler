@@ -131,6 +131,12 @@ test('a priority update reads as a plain sentence, or nothing at all',()=>{
   'A New Member reservation took your study room time. Nothing else was open, so please choose another time.');
  assert.equal(priorityNoticeText(mineRow({priorityNotice:{kind:'moved',type:'room'}})),
   'A higher priority reservation took your study room. You kept your time in another study room.');
+ assert.equal(priorityNoticeText(mineRow({priorityNotice:{kind:'shortened',byPurpose:'contact',type:'room',fromUnit:'room-2',toUnit:'room-2',fromEnd:'14:00',toEnd:'12:30'}})),
+  'A Contact reservation needed Study Room 2, so your reservation now ends at 12:30 PM.');
+ assert.equal(priorityNoticeText(mineRow({priorityNotice:{kind:'shortened',type:'room',toEnd:'09:30'}})),
+  'A higher priority reservation needed your study room, so your reservation now ends at 9:30 AM.');
+ assert.equal(priorityNoticeText(mineRow({priorityNotice:{kind:'shortened',type:'room'}})),
+  'A higher priority reservation needed your study room, so your reservation now ends early.');
  assert.equal(priorityNoticeText(mineRow()),'');
  assert.equal(priorityNoticeText(mineRow({priorityNotice:{kind:'other'}})),'');
 });
