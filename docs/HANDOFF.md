@@ -1,5 +1,19 @@
 # Handoff notes — LV Zion Study Rooms
 
+## September 27, 2026: priority override shortens an earlier-starting reservation, deployed
+
+Merge commit `38c8304` (PR #5) is live at https://lvrooms.web.app. When a priority
+reservation takes a unit whose reservation began earlier than the priority reservation, that
+reservation keeps its unit and now ends when the priority reservation begins, instead of
+being moved or released (`overrideShortenedEnd` in `functions/lib/policy.js`).
+Released through `functions:memberSubmitBooking` and Hosting target `app` only; other
+functions, Firestore rules and indexes, and the legacy target were not deployed.
+
+Verification: `functions` `npm test` 25/25 and `test/live-model.test.mjs` passed before
+deploy. After deploy the live site returned 200, the served `experiences/shared/model.js`
+matched the repository byte for byte, and Anthony confirmed the app looks normal on his
+phone. No real test booking was made.
+
 ## September 19, 2026: the original app design is retired
 
 The root page is now a minimal shell that loads `design-choice.js` only: it forwards to the
