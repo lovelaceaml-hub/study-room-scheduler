@@ -38,14 +38,14 @@ jobs:
       - name: Install test dependencies
         run: npm ci
 
+      - name: Install the Chromium browser for the tests
+        run: npx playwright install --with-deps chromium
+
       - name: "Pre-release checks: npm test, test:model, test:cutover"
         run: |
           npm test
           npm run test:model
           npm run test:cutover
-
-      - name: Install the Chromium browser for the smoke tests
-        run: npx playwright install --with-deps chromium
 
       - name: "Pre-release checks: test:designs, test:admin, test:tv (fictional mocked data)"
         run: |
