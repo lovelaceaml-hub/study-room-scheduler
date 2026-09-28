@@ -1,6 +1,7 @@
-# Release: publishes main to the live site. It runs only when the owner presses
-# "Run workflow" in the Actions tab, only from main, and only for the pinned
-# Hosting scope below. Functions, Firestore rules and indexes stay manual.
+# Release: publishes main to the live site. It runs only when started from the
+# Actions tab ("Run workflow"), only from main, and only for the pinned Hosting
+# scope below, after the repository's own pre-release checks pass.
+# Functions, Firestore rules and indexes stay manual.
 name: Firebase release (production)
 
 on:
@@ -8,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: firebase-release
@@ -16,7 +18,7 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Refuse any branch other than main
         run: |
@@ -30,10 +32,51 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: List what this release contains
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          prev=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow firebase-release.yml --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // empty' 2>/dev/null || true)
+          {
+            echo "### Releasing \`${GITHUB_SHA:0:7}\`"
+            echo ""
+            echo "Commit: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
+            echo ""
+            if [ -z "$prev" ]; then
+              echo "No earlier successful run of this release workflow, so this is the first release through it."
+            elif [ "$prev" = "$GITHUB_SHA" ]; then
+              echo "Same commit as the last successful release (\`${prev:0:7}\`): nothing new."
+            else
+              echo "Commits since the last successful release (\`${prev:0:7}\`):"
+              echo ""
+              gh api "repos/$GITHUB_REPOSITORY/compare/$prev...$GITHUB_SHA" --jq '.commits[] | "- `\(.sha[0:7])` \(.commit.message | split("\n")[0])"' 2>/dev/null \
+                || echo "- (could not list commits; compare $prev...$GITHUB_SHA by hand)"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
           node-version: 22
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: "Pre-release checks: npm test, test:model, test:cutover"
+        run: |
+          npm test
+          npm run test:model
+          npm run test:cutover
+
+      - name: Install the Chromium browser for the smoke tests
+        run: npx playwright install --with-deps chromium
+
+      - name: "Pre-release checks: test:designs, test:admin, test:tv (fictional mocked data)"
+        run: |
+          npm run test:designs
+          npm run test:admin
+          npm run test:tv
 
       - name: Check the deploy guard refuses forbidden targets
         run: bash .github/scripts/deploy-guard.sh --self-test
@@ -57,6 +100,7 @@ jobs:
           bash .github/scripts/deploy-guard.sh "${ARGS[@]}"
           npx -y firebase-tools@15 "${ARGS[@]}"
           {
+            echo ""
             echo "### Released"
             echo ""
             echo "Commit \`$GITHUB_SHA\` is live at https://lvrooms.web.app (scope: \`hosting:app\` only)."

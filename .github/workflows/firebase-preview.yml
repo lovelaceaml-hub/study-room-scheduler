@@ -1,12 +1,17 @@
 # Preview: every push to a branch other than main publishes a temporary
 # Firebase Hosting preview channel (expires after 7 days) and prints its link.
 # It never touches the live site, Functions, Firestore rules or indexes.
+# Docs-only pushes and Dependabot branches are skipped.
 name: Firebase preview
 
 on:
   push:
     branches-ignore:
       - main
+      - "dependabot/**"
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
 
 permissions:
   contents: read
@@ -18,7 +23,7 @@ concurrency:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Check out the pushed branch
         uses: actions/checkout@v7
@@ -29,6 +34,24 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 22
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: "Pre-release checks: npm test, test:model, test:cutover"
+        run: |
+          npm test
+          npm run test:model
+          npm run test:cutover
+
+      - name: Install the Chromium browser for the smoke tests
+        run: npx playwright install --with-deps chromium
+
+      - name: "Pre-release checks: test:designs, test:admin, test:tv (fictional mocked data)"
+        run: |
+          npm run test:designs
+          npm run test:admin
+          npm run test:tv
 
       - name: Check the deploy guard refuses forbidden targets
         run: bash .github/scripts/deploy-guard.sh --self-test
@@ -51,8 +74,13 @@ jobs:
           BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          channel=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]/-/g' -e 's/--*/-/g' -e 's/^-//' | cut -c1-30 | sed -e 's/-$//')
-          if [ -z "$channel" ] || [ "$channel" = "live" ]; then channel=preview; fi
+          # Channel id: readable part of the branch name (max 23 characters)
+          # plus a 6-character hash of the full name, 30 characters at most, so
+          # two similar branch names never share a channel and the preview
+          # host name stays inside the 63-character DNS label limit.
+          slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]/-/g' -e 's/--*/-/g' -e 's/^-//' | cut -c1-23 | sed -e 's/-$//')
+          hash=$(printf '%s' "$BRANCH" | sha256sum | cut -c1-6)
+          channel="${slug:-preview}-$hash"
           ARGS=(hosting:channel:deploy "$channel" --only app --project lvz-rooms --expires 7d --json)
           bash .github/scripts/deploy-guard.sh "${ARGS[@]}"
           rc=0
@@ -82,3 +110,49 @@ jobs:
       - name: Remove the deploy credential
         if: always()
         run: rm -f "$RUNNER_TEMP/firebase-sa.json"
+
+      # Read-only checks. They only fetch pages; they never click or write,
+      # because previews use the same live data as production.
+      - name: Check the preview loads and serves the app
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          TITLE: "LV Zion · Study Rooms"
+          ELEMENT: '<h1>LV Zion Study Rooms</h1>'
+        run: |
+          set -euo pipefail
+          page="$RUNNER_TEMP/page.html"
+          code=$(curl -sL -o "$page" -w '%{http_code}' "$URL/")
+          [ "$code" = 200 ] || { echo "::error::$URL/ returned HTTP $code"; exit 1; }
+          grep -qF "<title>$TITLE</title>" "$page" || { echo "::error::Page title '$TITLE' not found"; exit 1; }
+          grep -qF "$ELEMENT" "$page" || { echo "::error::Known element '$ELEMENT' not found"; exit 1; }
+          script=$(grep -oE '<script[^>]*src="[^"]+"' "$page" | grep -oE 'src="[^"]+"' | sed -e 's/^src="//' -e 's/"$//' | grep -vE '^(https?:)?//' | grep -xF design-choice.js | head -n 1 || true)
+          [ -n "$script" ] || { echo "::error::No app script found in the page"; exit 1; }
+          script="${script#/}"
+          hdrs=$(curl -sL -o /dev/null -w '%{http_code} %{content_type}' "$URL/$script")
+          case "$hdrs" in
+            "200 "*javascript*) echo "App script $script served: $hdrs" ;;
+            *) echo "::error::App script $script returned: $hdrs"; exit 1 ;;
+          esac
+          echo "Preview check passed: HTTP 200, title, '$ELEMENT', script $script"
+
+      - name: Check hidden folders are not published
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          TITLE: "LV Zion · Study Rooms"
+        run: |
+          set -uo pipefail
+          leaks=0
+          for path in .git/HEAD .git/config .github/workflows/firebase-preview.yml .claude/settings.json; do
+            body="$RUNNER_TEMP/leak-check"
+            res=$(curl -s -o "$body" -w '%{http_code} %{content_type}' "$URL/$path")
+            code=${res%% *}; ctype=${res#* }
+            # An app that sends every unknown path to index.html answers 200
+            # with its own HTML page; that is not a leak.
+            if [ "$code" = 200 ] && ! { [[ "$ctype" == text/html* ]] && grep -qF "<title>$TITLE</title>" "$body"; }; then
+              echo "::error::$URL/$path is published ($res)"
+              leaks=1
+            else
+              echo "ok: /$path not published ($res)"
+            fi
+          done
+          exit "$leaks"

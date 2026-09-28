@@ -41,6 +41,8 @@ self_test() {
 
   expect allowed deploy --only "$R" --project "$P" --non-interactive
   expect allowed hosting:channel:deploy test-branch ${PV[@]+"${PV[@]}"} --project "$P" --expires 7d --json
+  expect allowed hosting:channel:deploy claude-cloud-deploys-3f9a1c ${PV[@]+"${PV[@]}"} --project "$P" --expires 7d --json
+  expect refused hosting:channel:deploy test-branch ${PV[@]+"${PV[@]}"} --project "$P" --expires 60d --json
   expect refused deploy
   expect refused deploy --project "$P" --non-interactive
   expect refused deploy --only functions --project "$P" --non-interactive
