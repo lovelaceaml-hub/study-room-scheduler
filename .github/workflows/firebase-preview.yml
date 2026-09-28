@@ -1,0 +1,84 @@
+# Preview: every push to a branch other than main publishes a temporary
+# Firebase Hosting preview channel (expires after 7 days) and prints its link.
+# It never touches the live site, Functions, Firestore rules or indexes.
+name: Firebase preview
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the pushed branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Check the deploy guard refuses forbidden targets
+        run: bash .github/scripts/deploy-guard.sh --self-test
+
+      - name: Write the deploy credential to a temporary file
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::The repository secret FIREBASE_SERVICE_ACCOUNT is not set."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy the preview channel
+        id: deploy
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          channel=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]/-/g' -e 's/--*/-/g' -e 's/^-//' | cut -c1-30 | sed -e 's/-$//')
+          if [ -z "$channel" ] || [ "$channel" = "live" ]; then channel=preview; fi
+          ARGS=(hosting:channel:deploy "$channel" --only app --project lvz-rooms --expires 7d --json)
+          bash .github/scripts/deploy-guard.sh "${ARGS[@]}"
+          rc=0
+          npx -y firebase-tools@15 "${ARGS[@]}" > "$RUNNER_TEMP/channel.json" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::firebase-tools exited with code $rc."
+            jq -r '.error // .' "$RUNNER_TEMP/channel.json" 2>/dev/null || true
+            exit "$rc"
+          fi
+          url=$(jq -r '[.result[] | .url] | first // empty' "$RUNNER_TEMP/channel.json")
+          expires=$(jq -r '[.result[] | .expireTime] | first // empty' "$RUNNER_TEMP/channel.json")
+          if [ -z "$url" ]; then
+            echo "::error::Firebase did not return a preview URL."
+            jq -r '.status, (.error // empty)' "$RUNNER_TEMP/channel.json" || true
+            exit 1
+          fi
+          echo "Preview URL: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Preview ready"
+            echo ""
+            echo "Branch \`$BRANCH\` is live on a preview channel: $url"
+            echo ""
+            echo "Expires: ${expires:-in 7 days}. The production site was not changed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the deploy credential
+        if: always()
+        run: rm -f "$RUNNER_TEMP/firebase-sa.json"

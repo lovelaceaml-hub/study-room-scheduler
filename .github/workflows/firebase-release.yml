@@ -1,0 +1,67 @@
+# Release: publishes main to the live site. It runs only when the owner presses
+# "Run workflow" in the Actions tab, only from main, and only for the pinned
+# Hosting scope below. Functions, Firestore rules and indexes stay manual.
+name: Firebase release (production)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Refuse any branch other than main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Releases run only from main. This run was started from $GITHUB_REF."
+            exit 1
+          fi
+
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Check the deploy guard refuses forbidden targets
+        run: bash .github/scripts/deploy-guard.sh --self-test
+
+      - name: Write the deploy credential to a temporary file
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::The repository secret FIREBASE_SERVICE_ACCOUNT is not set."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy the pinned Hosting scope to production
+        run: |
+          set -euo pipefail
+          ARGS=(deploy --only hosting:app --project lvz-rooms --non-interactive)
+          bash .github/scripts/deploy-guard.sh "${ARGS[@]}"
+          npx -y firebase-tools@15 "${ARGS[@]}"
+          {
+            echo "### Released"
+            echo ""
+            echo "Commit \`$GITHUB_SHA\` is live at https://lvrooms.web.app (scope: \`hosting:app\` only)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the deploy credential
+        if: always()
+        run: rm -f "$RUNNER_TEMP/firebase-sa.json"
