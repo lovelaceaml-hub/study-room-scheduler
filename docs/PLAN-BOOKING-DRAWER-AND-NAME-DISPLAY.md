@@ -6,7 +6,7 @@ Make member booking details complete and understandable across all six live desi
 
 ## Acceptance criteria
 
-1. A leading title word or initial renders as one initial plus the given name. `Sister Kiana Davis`, `Sister Kiana D`, and `S. Kiana` render as `S Kiana`; `Kiana` remains `Kiana`. A surname initial is added only when same-given-name bookings have different surnames.
+1. A leading title word or initial renders as one initial plus the given name. `Sister Wren Davis`, `Sister Wren D`, and `S. Wren` render as `S Wren`; `Wren` remains `Wren`. A surname initial is added only when same-given-name bookings have different surnames.
 2. Every member design collects resource, purpose, start, end, and a purpose-specific reserved-for value before confirmation. Contact asks for Contact Name, New Member asks for Member Name, and Other asks for a purpose description.
 3. A scheduled booking displays the public name and Contact, New Member, or Other purpose. Consecutive 30-minute segments belonging to one booking look like one connected block.
 4. Clicking a reservation opens a detail sheet. Everyone sees the public-safe name, reservation range, purpose, and purpose-specific reserved-for detail. Only the owning member sees and can use End early and Cancel when the existing authorization rules allow it. Admin behavior remains available in the classic app.

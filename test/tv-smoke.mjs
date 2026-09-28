@@ -133,8 +133,8 @@ try {
         generatedAt: '2026-07-20T19:00:00.000Z',
         bookings: [
           { date: '2026-07-21', start: '10:00', end: '12:00', room: 'room-1', name: 'Brother Anthony Lovelace' },
-          { date: '2026-07-21', start: '12:00', end: '13:00', room: 'room-2', name: 'Sister Kiana Davis', reservedFor: 'Private person' },
-          { date: '2026-07-21', start: '13:00', end: '14:00', room: 'room-3', name: 'Sister Kiana Kim' }
+          { date: '2026-07-21', start: '12:00', end: '13:00', room: 'room-2', name: 'Sister Wren Davis', reservedFor: 'Private person' },
+          { date: '2026-07-21', start: '13:00', end: '14:00', room: 'room-3', name: 'Sister Wren Kim' }
         ]
       })
     });
@@ -148,8 +148,8 @@ try {
     assert.equal(liveScheduleRequests.length, 2, 'The online event retries the public schedule request');
     assert.equal(liveFirebaseRequests.length, 0, 'Live TV does not load Firebase modules');
     assert.equal(await livePage.locator('.booking').count(), 3, 'Live TV renders only the server-provided room bookings');
-    assert.equal(await livePage.locator('.booking[aria-label*="S Kiana D"]').count(), 1);
-    assert.equal(await livePage.locator('.booking[aria-label*="S Kiana K"]').count(), 1);
+    assert.equal(await livePage.locator('.booking[aria-label*="S Wren D"]').count(), 1);
+    assert.equal(await livePage.locator('.booking[aria-label*="S Wren K"]').count(), 1);
     assert.equal(await livePage.getByText('Brother Anthony Lovelace').count(), 0, 'Live TV never renders a full name');
     assert.equal(await livePage.getByText('Private person').count(), 0, 'Private endpoint fields never reach the display');
     assert.deepEqual(liveErrors, []);

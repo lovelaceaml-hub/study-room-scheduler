@@ -300,7 +300,7 @@ test('requested units remain exact during a priority override', () => {
 });
 
 test('validates purpose-specific reserved-for values', () => {
-  assert.equal(validateReservedFor('contact', ' Sister Kiana '), 'Sister Kiana');
+  assert.equal(validateReservedFor('contact', ' Sister Wren '), 'Sister Wren');
   assert.equal(validateReservedFor('new-member', 'New member name'), 'New member name');
   assert.equal(validateReservedFor('other', 'Bible study'), 'Bible study');
   assert.throws(() => validateReservedFor('contact', '   '), /Contact name is required/);
