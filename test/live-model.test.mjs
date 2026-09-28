@@ -18,19 +18,19 @@ test('schedule projection exposes only safe names and renders private holds neut
  assert.equal(projectBookings([{...records[0],status:'cancelled'}],days).length,0);
 });
 test('normalizes leading titles and adds surname initials only for given-name collisions',()=>{
- assert.equal(publicName('Sister Kiana Davis'),'S Kiana');
- assert.equal(publicName('Sister Kiana D'),'S Kiana');
- assert.equal(publicName('S. Kiana'),'S Kiana');
- assert.equal(publicName('Kiana'),'Kiana');
- assert.deepEqual(parsePublicName('Brother Kiana Davis').givenName,'Kiana');
+ assert.equal(publicName('Sister Wren Davis'),'S Wren');
+ assert.equal(publicName('Sister Wren D'),'S Wren');
+ assert.equal(publicName('S. Wren'),'S Wren');
+ assert.equal(publicName('Wren'),'Wren');
+ assert.deepEqual(parsePublicName('Brother Wren Davis').givenName,'Wren');
  const records=[
-  {date:days[0].key,start:'11:00',end:'12:00',name:'Sister Kiana Davis',purpose:'contact',status:'approved',needs:{room:true},assignments:{room:'room-1'}},
-  {date:days[0].key,start:'11:00',end:'12:00',name:'Kiana Rodriguez',purpose:'new-member',status:'approved',needs:{room:true},assignments:{room:'room-2'}},
-  {date:days[0].key,start:'11:00',end:'12:00',name:'Kiana Davis',purpose:'other',status:'approved',needs:{room:true},assignments:{room:'room-3'}},
-  {date:days[0].key,start:'11:00',end:'12:00',name:'Private Kiana Hold',purpose:'blocked',status:'approved',needs:{room:true},assignments:{room:'room-4'}}
+  {date:days[0].key,start:'11:00',end:'12:00',name:'Sister Wren Davis',purpose:'contact',status:'approved',needs:{room:true},assignments:{room:'room-1'}},
+  {date:days[0].key,start:'11:00',end:'12:00',name:'Wren Rodriguez',purpose:'new-member',status:'approved',needs:{room:true},assignments:{room:'room-2'}},
+  {date:days[0].key,start:'11:00',end:'12:00',name:'Wren Davis',purpose:'other',status:'approved',needs:{room:true},assignments:{room:'room-3'}},
+  {date:days[0].key,start:'11:00',end:'12:00',name:'Private Wren Hold',purpose:'blocked',status:'approved',needs:{room:true},assignments:{room:'room-4'}}
  ];
  const names=projectBookings(records,days).map(row=>row.name);
- assert.deepEqual(names,['S Kiana D','Kiana R','Kiana D','Reserved']);
+ assert.deepEqual(names,['S Wren D','Wren R','Wren D','Reserved']);
 });
 test('direct unit availability never silently substitutes another room',()=>{
  const input={day:days[0].key,type:'room',unit:2,start:660,end:720,name:'Robin Test',purpose:'contact'};
@@ -62,13 +62,13 @@ test('time boundaries and Other details are enforced',()=>{
  assert.throws(()=>validateInput({...input,name:'\u200b',purpose:'contact'},[],days),/name/);
 });
 test('reserved-for values are validated and round-trip through the shared input model',()=>{
- assert.equal(validateReservedFor('contact','  Sister Kiana  '),'Sister Kiana');
- assert.equal(validateReservedFor('new','Member Kiana'),'Member Kiana');
+ assert.equal(validateReservedFor('contact','  Sister Wren  '),'Sister Wren');
+ assert.equal(validateReservedFor('new','Member Wren'),'Member Wren');
  assert.equal(validateReservedFor('other','  Bible study  '),'Bible study');
  assert.throws(()=>validateReservedFor('contact','   '),/Contact name is required/);
  assert.throws(()=>validateReservedFor('other','x'.repeat(241)),/240/);
- const input={day:days[0].key,type:'tv',unit:3,start:660,end:690,name:'Robin Test',purpose:'contact',reservedFor:'Sister Kiana'};
- assert.equal(validateInput(input,[],days).reservedFor,'Sister Kiana');
+ const input={day:days[0].key,type:'tv',unit:3,start:660,end:690,name:'Robin Test',purpose:'contact',reservedFor:'Sister Wren'};
+ assert.equal(validateInput(input,[],days).reservedFor,'Sister Wren');
  assert.equal(validateInput({...input,purpose:'other',reservedFor:'Bible study'},[],days).purposeOther,'Bible study');
 });
 const mineRow=(overrides={})=>({id:'mine-1',date:'2026-09-12',start:'11:00',end:'13:00',name:'Robin Fixture',displayName:'Robin F',purpose:'contact',reservedFor:'Fictional contact',status:'approved',blocked:false,needs:{room:true},assignments:{room:'room-2'},endedEarlyFrom:null,priorityNotice:null,canCancel:true,canEndEarly:true,...overrides});
@@ -141,12 +141,12 @@ test('a priority update reads as a plain sentence, or nothing at all',()=>{
  assert.equal(priorityNoticeText(mineRow({priorityNotice:{kind:'other'}})),'');
 });
 test('public projection includes the requested reservation detail without owner metadata',()=>{
- const record={id:'mine',ownerUid:'owner-1',date:days[0].key,start:'11:00',end:'12:00',name:'Sister Kiana Davis',purpose:'other',purposeOther:'Bible study',reservedFor:'Bible study',status:'approved',needs:{room:true},assignments:{room:'room-1'},note:'private'};
+ const record={id:'mine',ownerUid:'owner-1',date:days[0].key,start:'11:00',end:'12:00',name:'Sister Wren Davis',purpose:'other',purposeOther:'Bible study',reservedFor:'Bible study',status:'approved',needs:{room:true},assignments:{room:'room-1'},note:'private'};
  const mine=projectOwnedBookings([record],days,'owner-1')[0];
  assert.equal(mine.reservedFor,'Bible study');
  assert.equal(mine.purposeOther,'Bible study');
  const publicRows=projectBookings([record],days);
- assert.equal(publicRows[0].name,'S Kiana');
+ assert.equal(publicRows[0].name,'S Wren');
  assert.equal(publicRows[0].reservedFor,'Bible study');
  assert.equal(Object.prototype.hasOwnProperty.call(publicRows[0],'ownerUid'),false);
 });
