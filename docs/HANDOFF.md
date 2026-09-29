@@ -1,5 +1,22 @@
 # Handoff notes — LV Zion Study Rooms
 
+## September 28, 2026: releasing from a cloud session (PR #7)
+
+PR #7 (https://github.com/lovelaceaml-hub/study-room-scheduler/pull/7) adds two GitHub
+Actions workflows. Pushing any branch except `main` publishes a 7-day preview channel on
+Hosting target `app` and prints the link in the Actions run summary (previews use live data:
+look, do not book). Production runs only when Anthony says to release Study Rooms, or when he
+presses Run workflow at
+https://github.com/lovelaceaml-hub/study-room-scheduler/actions/workflows/firebase-release.yml
+on `main`. It deploys `hosting:app` only, after the six checks in `AGENTS.md`;
+`memberSubmitBooking`, other Functions, rules, indexes and the `legacy` target stay manual.
+Rollback: Release history at https://console.firebase.google.com/project/lvz-rooms/hosting/sites/lvrooms .
+
+Merging PR #7 and then releasing also closes a live exposure: today https://lvrooms.web.app
+serves the `.git` and `.claude` folders; the PR adds `"**/.*/**"` to the Hosting ignore list.
+Full rules: "Releasing from a cloud session" in `AGENTS.md`. The deploy key rotates by
+2027-09-28.
+
 ## September 27, 2026: priority override shortens an earlier-starting reservation, deployed
 
 Merge commit `38c8304` (PR #5) is live at https://lvrooms.web.app. When a priority

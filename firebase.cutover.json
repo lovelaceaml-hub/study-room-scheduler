@@ -3,7 +3,7 @@
     {
       "target": "app",
       "public": "cutover",
-      "ignore": ["firebase.cutover.json", "**/.*"],
+      "ignore": ["firebase.cutover.json", "**/.*", "**/.*/**"],
       "headers": [
         {
           "source": "**",

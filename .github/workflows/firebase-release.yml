@@ -1,0 +1,153 @@
+# Release: publishes main to the live site. It runs only when started from the
+# Actions tab ("Run workflow"), only from main, and only for the pinned Hosting
+# scope below, after the repository's own pre-release checks pass.
+# Functions, Firestore rules and indexes stay manual.
+name: Firebase release (production)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: firebase-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Refuse any branch other than main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Releases run only from main. This run was started from $GITHUB_REF."
+            exit 1
+          fi
+
+      - name: Check out main
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: List what this release contains
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          # This button deploys Hosting only. Functions, Firestore rules and
+          # indexes, and Storage rules stay manual, so when the released commits
+          # touch them the summary says so in plain words.
+          manual_re='^(functions/|firestore\.|storage[^/]*\.rules$)'
+          state="$RUNNER_TEMP/manual-state"
+          echo unknown > "$state"
+          prev=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow firebase-release.yml --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // empty' 2>/dev/null || true)
+          {
+            echo "### Releasing \`${GITHUB_SHA:0:7}\`"
+            echo ""
+            echo "Commit: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
+            echo ""
+            if [ -z "$prev" ]; then
+              echo "No earlier successful run of this release workflow, so this is the first release through it."
+              echo ""
+              echo "> **Warning:** with no earlier release to compare against, this run could not check whether Functions (\`functions/\`), Firestore rules or indexes (\`firestore.*\`) or Storage rules changed. This button deploys Hosting only. If any of those changed since their last manual deploy, they are NOT deployed by this button and still need a manual deploy."
+            elif [ "$prev" = "$GITHUB_SHA" ]; then
+              echo "Same commit as the last successful release (\`${prev:0:7}\`): nothing new."
+              echo none > "$state"
+            else
+              echo "Commits since the last successful release (\`${prev:0:7}\`):"
+              echo ""
+              if commits=$(gh api "repos/$GITHUB_REPOSITORY/compare/$prev...$GITHUB_SHA" --jq '.commits[] | "- `\(.sha[0:7])` \(.commit.message | split("\n")[0])"' 2>/dev/null); then
+                printf '%s\n' "$commits"
+              else
+                echo "- (could not list commits; compare $prev...$GITHUB_SHA by hand)"
+              fi
+              echo ""
+              if files=$(gh api "repos/$GITHUB_REPOSITORY/compare/$prev...$GITHUB_SHA" --jq '(.files // [])[] | .filename, (.previous_filename // empty)' 2>/dev/null); then
+                manual=$(printf '%s\n' "$files" | grep -E "$manual_re" | sort -u || true)
+                count=$(printf '%s\n' "$files" | grep -c . || true)
+                if [ -n "$manual" ]; then
+                  echo yes > "$state"
+                  echo "> **Warning: NOT deployed by this button.** These released commits change Functions, Firestore rules or indexes, or Storage rules. This release publishes Hosting only, so the files below are NOT deployed and still need a manual deploy:"
+                  echo ">"
+                  printf '%s\n' "$manual" | sed -e 's/^/> - `/' -e 's/$/`/'
+                elif [ "$count" -ge 300 ]; then
+                  echo "> **Warning:** GitHub listed only the first 300 changed files, so this run could not fully check for Functions, Firestore rules or indexes, or Storage rules changes. Those parts are NOT deployed by this button; if any changed, they still need a manual deploy."
+                else
+                  echo none > "$state"
+                  echo "No Functions, Firestore rules or indexes, or Storage rules files changed in these commits, so Hosting is the whole release."
+                fi
+              else
+                echo "> **Warning:** this run could not list the changed files, so it could not check for Functions, Firestore rules or indexes, or Storage rules changes. Those parts are NOT deployed by this button; if any changed, they still need a manual deploy."
+              fi
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          case "$(cat "$state")" in
+            yes) echo "::warning title=Not deployed by this button::This release changes Functions or rules files. Only Hosting is deployed; those files still need a manual deploy (listed in the job summary)." ;;
+            unknown) echo "::warning title=Functions and rules not checked::This run could not check whether Functions or rules files changed. Only Hosting is deployed (see the job summary)." ;;
+          esac
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Install the Chromium browser for the tests
+        run: npx playwright install --with-deps chromium
+
+      - name: "Pre-release checks: npm test, test:model, test:cutover"
+        run: |
+          npm test
+          npm run test:model
+          npm run test:cutover
+
+      - name: "Pre-release checks: test:designs, test:admin, test:tv (fictional mocked data)"
+        run: |
+          npm run test:designs
+          npm run test:admin
+          npm run test:tv
+
+      - name: Check the deploy guard refuses forbidden targets
+        run: bash .github/scripts/deploy-guard.sh --self-test
+
+      - name: Write the deploy credential to a temporary file
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::The repository secret FIREBASE_SERVICE_ACCOUNT is not set."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy the pinned Hosting scope to production
+        run: |
+          set -euo pipefail
+          ARGS=(deploy --only hosting:app --project lvz-rooms --non-interactive)
+          bash .github/scripts/deploy-guard.sh "${ARGS[@]}"
+          npx -y firebase-tools@15 "${ARGS[@]}"
+          {
+            echo ""
+            echo "### Released"
+            echo ""
+            echo "Commit \`$GITHUB_SHA\` is live at https://lvrooms.web.app (scope: \`hosting:app\` only)."
+            case "$(cat "$RUNNER_TEMP/manual-state" 2>/dev/null || echo unknown)" in
+              yes)
+                echo ""
+                echo "> **Warning: not deployed.** This release changed Functions or rules files (listed at the top of this summary). They are NOT live; they still need a manual deploy." ;;
+              unknown)
+                echo ""
+                echo "> **Note:** this run could not check whether Functions or rules files changed (see the top of this summary). Only Hosting was deployed." ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the deploy credential
+        if: always()
+        run: rm -f "$RUNNER_TEMP/firebase-sa.json"
