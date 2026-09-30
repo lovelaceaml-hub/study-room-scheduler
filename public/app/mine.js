@@ -77,14 +77,14 @@ export function createMineSheet({ getState, onReserve }) {
       : listHtml();
     sheet.render(`
       <div class="sheet-bar">
-        <button type="button" class="icon-button" data-action="back" aria-label="Back"${screen.view === 'list' ? ' hidden' : ''}>${ICONS.back}</button>
+        <button type="button" class="icon-button" data-action="back" data-key="back" aria-label="Back"${screen.view === 'list' ? ' hidden' : ''}>${ICONS.back}</button>
         <span class="sheet-step">My reservations</span>
-        <button type="button" class="icon-button" data-action="close" aria-label="Close">${ICONS.close}</button>
+        <button type="button" class="icon-button" data-action="close" data-key="close" aria-label="Close">${ICONS.close}</button>
       </div>
       ${connectionHtml()}
       <section class="step">${body}</section>
       ${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
-    `, { focus, scrollTop: Boolean(focus) });
+    `, { focus });
   }
 
   const heading = (text, hint = '') => `<h2 id="mine-title" tabindex="-1">${text}</h2>${hint ? `<p class="hint">${hint}</p>` : ''}`;
@@ -94,7 +94,7 @@ export function createMineSheet({ getState, onReserve }) {
     const { status } = getState();
     if (canBook(getState()) || status === 'connecting') return '';
     const text = status === 'offline' ? 'You’re offline.' : 'The schedule is not connected.';
-    return `<div class="sheet-status" role="status">${text} Cancel and End early come back when it reconnects. <button type="button" class="text-button" data-action="retry">Try again</button></div>`;
+    return `<div class="sheet-status" role="status">${text} Cancel and End early come back when it reconnects. <button type="button" class="text-button" data-action="retry" data-key="retry">Try again</button></div>`;
   }
 
   function loadingHtml() {
@@ -107,7 +107,7 @@ export function createMineSheet({ getState, onReserve }) {
     const inactive = all.filter(item => item.status !== 'approved');
     if (!all.length) {
       return heading('My reservations', 'Reservations you make on this device show up here.')
-        + `<button type="button" class="primary" data-action="reserve"${disabled()}>Reserve</button>`;
+        + `<button type="button" class="primary" data-action="reserve" data-key="reserve"${disabled()}>Reserve</button>`;
     }
     const group = (title, items) => items.length
       ? `<h3 class="group-title">${title}</h3><ul class="cards">${items.map(cardHtml).join('')}</ul>`
@@ -146,8 +146,8 @@ export function createMineSheet({ getState, onReserve }) {
   function cancelHtml(item) {
     return heading('Cancel this reservation?', 'Its time opens for others right away.') + summaryHtml(item) + `
       <div class="actions">
-        <button type="button" class="primary danger" data-action="cancel-confirm"${disabled()} aria-busy="${busy}">${busy ? 'Cancelling…' : 'Yes, cancel it'}</button>
-        <button type="button" class="text-button" data-action="back">Keep it</button>
+        <button type="button" class="primary danger" data-action="cancel-confirm" data-key="cancel-confirm"${disabled()} aria-busy="${busy}">${busy ? 'Cancelling…' : 'Yes, cancel it'}</button>
+        <button type="button" class="text-button" data-action="back" data-key="keep">Keep it</button>
       </div>`;
   }
 
@@ -168,8 +168,8 @@ export function createMineSheet({ getState, onReserve }) {
     return heading(`End at ${formatTime(end)}?`, `You keep ${formatRange(item.start, end)}. ${formatRange(end, item.end)} opens for others.`)
       + summaryHtml(item) + `
       <div class="actions">
-        <button type="button" class="primary" data-action="end-confirm"${disabled()} aria-busy="${busy}">${busy ? 'Saving…' : 'End early'}</button>
-        <button type="button" class="text-button" data-action="back">Back</button>
+        <button type="button" class="primary" data-action="end-confirm" data-key="end-confirm"${disabled()} aria-busy="${busy}">${busy ? 'Saving…' : 'End early'}</button>
+        <button type="button" class="text-button" data-action="back" data-key="end-back">Back</button>
       </div>`;
   }
 

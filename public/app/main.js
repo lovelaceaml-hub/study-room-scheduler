@@ -1,8 +1,8 @@
 // Member app: the day schedule, plus the sheets for booking, reservation
 // details and My reservations.
 
-import { escapeHtml as esc, formatTime, formatHour, formatRange, formatDay, weekdayName, monthDay, toMinutes } from '../shared/format.js';
-import { unitsOf, slotStarts, serviceAt, occupant } from '../shared/availability.js';
+import { escapeHtml as esc, formatTime, formatHour, formatRange, formatDay, inSentence, weekdayName, monthDay, toMinutes } from '../shared/format.js';
+import { unitsOf, slotStarts, serviceAt, occupant, earliestStart } from '../shared/availability.js';
 import { subscribe, refresh, canBook } from './store.js';
 import { createBookingSheet } from './booking.js';
 import { createDetailsSheet } from './details.js';
@@ -73,6 +73,7 @@ function gridHtml() {
   const day = days.find(item => item.date === view.date);
   if (!day) return '';
   const ready = canBook(state);
+  const earliest = earliestStart(config, day.date);
   const units = unitsOf(config, view.type);
   const open = toMinutes(config.open);
   const slot = config.slotMinutes;
@@ -89,7 +90,7 @@ function gridHtml() {
   units.forEach((unit, index) => {
     const column = index + 2;
     for (let minute = open; minute < close;) {
-      const held = serviceAt(day, minute) ? null : occupant(rows, day.date, unit.id, minute);
+      const held = occupant(rows, day.date, unit.id, minute);
       if (serviceAt(day, minute)) {
         minute += slot;
       } else if (held) {
@@ -98,7 +99,7 @@ function gridHtml() {
         html += bookingBlock(held, unit, column, row(minute), (end - minute) / slot);
         minute = end;
       } else {
-        html += ready
+        html += ready && minute >= earliest
           ? `<button type="button" class="open-slot" data-unit="${unit.id}" data-start="${minute}" data-key="slot-${unit.id}-${minute}"
           style="grid-column:${column};grid-row:${row(minute)}" aria-label="Reserve ${esc(unit.name)} at ${formatTime(minute)}, ${esc(formatDay(day.date))}">Open</button>`
           : `<span class="closed-slot" style="grid-column:${column};grid-row:${row(minute)}" aria-hidden="true"></span>`;
@@ -146,7 +147,7 @@ $('#types').addEventListener('click', event => {
   if (!button) return;
   view.type = button.dataset.type;
   render();
-  announce(`Showing ${state.config.resources[view.type].plural.toLowerCase()}.`);
+  announce(`Showing ${inSentence(state.config.resources[view.type].plural)}.`);
 });
 
 $('#grid').addEventListener('click', event => {
@@ -176,6 +177,11 @@ function showOnSchedule({ date, type, id }) {
   view.type = type;
   view.highlight = id;
   render();
+  setTimeout(() => {
+    if (view.highlight !== id) return;
+    view.highlight = null;
+    render();
+  }, 6000);
   const block = document.querySelector(`[data-booking="${CSS.escape(id)}"]`);
   block?.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   block?.focus({ preventScroll: true });

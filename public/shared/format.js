@@ -49,6 +49,16 @@ function calendarDate(date) {
   return new Date(`${date}T12:00:00Z`);
 }
 
+// 'Study rooms' -> 'study rooms', but 'TVs' stays 'TVs'.
+export function inSentence(label) {
+  return String(label).replace(/(^|\s)([A-Z])(?=[a-z])/g, (match, space, letter) => space + letter.toLowerCase());
+}
+
+// ['Tuesday', 'Saturday'] -> 'Tuesday and Saturday'
+export function listOf(items) {
+  return new Intl.ListFormat('en-US', { type: 'conjunction' }).format(items);
+}
+
 // '2026-10-03' -> 'Saturday, Oct 3'
 export function formatDay(date) {
   return calendarDate(date).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'short', day: 'numeric' });

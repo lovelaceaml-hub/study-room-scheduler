@@ -8,15 +8,17 @@ import AxeBuilder from '@axe-core/playwright';
 import { start, newPage, lastCall, fitsWidth } from './support/harness.mjs';
 
 const require = createRequire(import.meta.url);
-const { bookableDates, dayInfo, weekdayOf } = require('../functions/lib/schedule.js');
+const { bookableDates, dayInfo, todayAt } = require('../functions/lib/schedule.js');
 const { clientConfig } = require('../functions/lib/views.js');
 
 const days = bookableDates().map(dayInfo);
-const SATURDAY = days.find(day => weekdayOf(day.date) === 6).date;
+// A booking day other than today, so no time used below has passed. The
+// times are clear of services on both Tuesday and Saturday.
+const DAY = days.find(day => day.date !== todayAt()).date;
 const TYPE_OF = { room: 'room', wb: 'whiteboard', tv: 'tv' };
 
 function scheduleRow(unit, start, end, name, purpose, extra = {}) {
-  return { id: `${unit}-${start}`, date: SATURDAY, type: TYPE_OF[unit.split('-')[0]], unit, start, end, name, purpose, reservedFor: '', mine: false, ...extra };
+  return { id: `${unit}-${start}`, date: DAY, type: TYPE_OF[unit.split('-')[0]], unit, start, end, name, purpose, reservedFor: '', mine: false, ...extra };
 }
 
 const FIXTURE = {
@@ -34,9 +36,9 @@ const FIXTURE = {
     scheduleRow('wb-2', '17:00', '18:30', 'Sam', 'other', { id: 'mine-1', mine: true, reservedFor: 'Planning' })
   ],
   mine: [
-    { id: 'mine-1', date: SATURDAY, start: '17:00', end: '18:30', endedEarlyFrom: null, status: 'approved', type: 'whiteboard', unit: 'wb-2', purpose: 'other', name: 'Sam Sample', reservedFor: 'Planning', notice: null, canCancel: true, canEndEarly: true },
-    { id: 'mine-2', date: SATURDAY, start: '13:00', end: '14:00', endedEarlyFrom: null, status: 'cancelled', type: 'room', unit: 'room-1', purpose: 'other', name: 'Sam Sample', reservedFor: 'Planning', notice: null, canCancel: false, canEndEarly: false },
-    { id: 'mine-3', date: SATURDAY, start: '18:00', end: '19:00', endedEarlyFrom: null, status: 'overridden', type: 'room', unit: null, purpose: 'other', name: 'Sam Sample', reservedFor: 'Planning',
+    { id: 'mine-1', date: DAY, start: '17:00', end: '18:30', endedEarlyFrom: null, status: 'approved', type: 'whiteboard', unit: 'wb-2', purpose: 'other', name: 'Sam Sample', reservedFor: 'Planning', notice: null, canCancel: true, canEndEarly: true },
+    { id: 'mine-2', date: DAY, start: '13:00', end: '14:00', endedEarlyFrom: null, status: 'cancelled', type: 'room', unit: 'room-1', purpose: 'other', name: 'Sam Sample', reservedFor: 'Planning', notice: null, canCancel: false, canEndEarly: false },
+    { id: 'mine-3', date: DAY, start: '18:00', end: '19:00', endedEarlyFrom: null, status: 'overridden', type: 'room', unit: null, purpose: 'other', name: 'Sam Sample', reservedFor: 'Planning',
       notice: { kind: 'released', fromUnit: 'room-2', toUnit: null, toEnd: null, byPurpose: 'contact' }, canCancel: false, canEndEarly: false }
   ]
 };
@@ -83,7 +85,7 @@ async function openApp(query = '', options = {}) {
   await session.page.goto(`${harness.base}/${query}`);
   await session.page.getByRole('button', { name: 'Reserve' }).first().waitFor();
   await session.page.locator('.date-button[aria-pressed="true"]').waitFor();
-  if (!query.includes('view=mine')) await session.page.locator(`[data-date="${SATURDAY}"]`).click();
+  if (!query.includes('view=mine')) await session.page.locator(`[data-date="${DAY}"]`).click();
   return { ...session, sheet: session.page.locator('#booking-sheet') };
 }
 
@@ -91,7 +93,8 @@ test('the schedule shows public names, holds and my own reservation', async () =
   const { page, errors, context } = await openApp();
   await page.getByRole('button', { name: /^B John, Contact, Room 1/ }).waitFor();
   assert.equal(await page.getByRole('button', { name: /^Reserved, Room 2, 12:00 PM/ }).count(), 1);
-  assert.equal(await page.locator('.service').first().textContent().then(text => text.includes('Morning service')), true);
+  const firstService = days.find(day => day.date === DAY).services[0].label;
+  assert.equal(await page.locator('.service').first().textContent().then(text => text.includes(firstService)), true);
   await page.locator('[data-type="whiteboard"]').click();
   await page.getByRole('button', { name: /Sam, Other, Board 2, .*your reservation/ }).waitFor();
   for (const width of [320, 390]) {
@@ -122,7 +125,7 @@ test('reserving from the Reserve button lets the server pick the unit', async ()
   await page.getByRole('heading', { name: 'Reservation confirmed' }).waitFor();
   const call = await lastCall(page, 'memberSubmitBooking');
   assert.deepEqual(call.data, {
-    date: SATURDAY, start: '13:00', end: '14:00', resourceType: 'room', requestedUnit: null,
+    date: DAY, start: '13:00', end: '14:00', resourceType: 'room', requestedUnit: null,
     purpose: 'other', name: 'Sam Sample', reservedFor: 'Choir practice', allowTakeover: false
   });
   await sheet.getByRole('button', { name: 'See it on the schedule', exact: true }).click();
@@ -160,7 +163,7 @@ test('Contact is shown and asked before taking a lower-priority time', async () 
   await page.getByLabel('Your name').fill('Sam Sample');
   await page.getByLabel('Contact name').fill('Sample Contact');
   await sheet.getByRole('button', { name: 'Continue', exact: true }).click();
-  await page.getByText('This time is held by a lower-priority reservation.').waitFor();
+  await page.getByText('Every study room is taken at this time. If you confirm, you get Room 1').waitFor();
   await sheet.getByRole('button', { name: 'Confirm reservation', exact: true }).click();
   await page.getByRole('heading', { name: 'Reservation confirmed' }).waitFor();
   assert.equal((await lastCall(page, 'memberSubmitBooking')).data.allowTakeover, true);

@@ -102,10 +102,13 @@ const NOTE_MAX = 1000;
 // Per device, per day: active reservations one device may hold.
 const MAX_ACTIVE_PER_DAY = 4;
 
-// Per network address: reservation requests allowed in a 15-minute window.
-const MAX_REQUESTS_PER_WINDOW = 8;
+// Reservation requests allowed in a 15-minute window, per device and per
+// network address (everyone on the church Wi-Fi shares one address).
+const MAX_REQUESTS_PER_DEVICE = 8;
+const MAX_REQUESTS_PER_NETWORK = 60;
 
-// Admin PIN: failed attempts allowed per address, and in total, per window.
+// Admin PIN: wrong PINs allowed per address, and in total, per window. The
+// next wrong PIN locks Admin for the rest of the window.
 const MAX_PIN_FAILURES = 5;
 const MAX_PIN_FAILURES_TOTAL = 20;
 const RATE_WINDOW_MINUTES = 15;
@@ -128,7 +131,8 @@ module.exports = {
   NAME_MAX,
   NOTE_MAX,
   MAX_ACTIVE_PER_DAY,
-  MAX_REQUESTS_PER_WINDOW,
+  MAX_REQUESTS_PER_DEVICE,
+  MAX_REQUESTS_PER_NETWORK,
   MAX_PIN_FAILURES,
   MAX_PIN_FAILURES_TOTAL,
   RATE_WINDOW_MINUTES,

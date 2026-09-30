@@ -64,6 +64,9 @@ async function send(name, data, fallback) {
   if (!canBook()) throw new Error('The schedule is not connected. Wait until it is live, then try again.');
   try {
     const result = await (await api()).call(name, data);
+    // A refresh already running may have started before this change, so
+    // wait for it and load again.
+    await loading;
     await refresh();
     return result;
   } catch (error) {

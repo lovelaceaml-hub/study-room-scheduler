@@ -6,7 +6,8 @@ const crypto = require('node:crypto');
 const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const { HttpsError } = require('firebase-functions/v2/https');
 const {
-  MAX_REQUESTS_PER_WINDOW, MAX_PIN_FAILURES, MAX_PIN_FAILURES_TOTAL, RATE_WINDOW_MINUTES, ADMIN_SESSION_MINUTES
+  MAX_REQUESTS_PER_DEVICE, MAX_REQUESTS_PER_NETWORK, MAX_PIN_FAILURES, MAX_PIN_FAILURES_TOTAL,
+  RATE_WINDOW_MINUTES, ADMIN_SESSION_MINUTES
 } = require('./config');
 
 const LIMITS = 'adminRateLimits';
@@ -41,33 +42,42 @@ function blocked(snapshot) {
   return Boolean(snapshot.exists && snapshot.data().blockedUntil?.toMillis() > Date.now());
 }
 
-// Adds one attempt; returns true once `maximum` attempts fall in one window.
-async function countAttempt(db, ref, maximum) {
+// Adds one attempt; returns true once more than `allowed` attempts fall in
+// one window, and blocks further attempts for a window.
+async function countAttempt(db, ref, allowed) {
   const now = Timestamp.now();
-  let reached = false;
+  let over = false;
   await db.runTransaction(async transaction => {
     const snapshot = await transaction.get(ref);
     const previous = snapshot.exists ? snapshot.data() : {};
     const started = previous.windowStart?.toMillis?.() || 0;
     const inWindow = now.toMillis() - started < WINDOW_MS;
     const attempts = inWindow ? Number(previous.failures || 0) + 1 : 1;
-    reached = attempts >= maximum;
+    over = attempts > allowed;
     transaction.set(ref, {
       failures: attempts,
       windowStart: inWindow ? previous.windowStart : now,
-      blockedUntil: reached ? Timestamp.fromMillis(now.toMillis() + WINDOW_MS) : null,
+      blockedUntil: over ? Timestamp.fromMillis(now.toMillis() + WINDOW_MS) : null,
       updatedAt: now
     });
   });
-  return reached;
+  return over;
 }
 
-// Each network address may send a limited number of reservation requests.
+// Reservation requests are limited per device, and more loosely per network
+// so that everyone on the church Wi-Fi can still book.
 async function limitReservationRequests(db, request) {
-  const ref = limitRef(db, `member-submit:${clientAddress(request)}`);
-  const message = 'Too many reservation requests from this device. Wait a few minutes and try again.';
-  if (blocked(await ref.get())) throw new HttpsError('resource-exhausted', message);
-  if (await countAttempt(db, ref, MAX_REQUESTS_PER_WINDOW)) throw new HttpsError('resource-exhausted', message);
+  const limits = [
+    [limitRef(db, `member-device:${requireUser(request)}`), MAX_REQUESTS_PER_DEVICE, 'this device'],
+    [limitRef(db, `member-submit:${clientAddress(request)}`), MAX_REQUESTS_PER_NETWORK, 'this network']
+  ];
+  const snapshots = await Promise.all(limits.map(([ref]) => ref.get()));
+  const refusal = source => new HttpsError('resource-exhausted', `Too many reservation requests from ${source}. Wait a few minutes and try again.`);
+  const blockedLimit = limits.find((limit, index) => blocked(snapshots[index]));
+  if (blockedLimit) throw refusal(blockedLimit[2]);
+  for (const [ref, allowed, source] of limits) {
+    if (await countAttempt(db, ref, allowed)) throw refusal(source);
+  }
 }
 
 // ---------- Admin PIN and sessions ----------

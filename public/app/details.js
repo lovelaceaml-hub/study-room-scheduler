@@ -49,7 +49,7 @@ export function createDetailsSheet({ getState, onEndEarly }) {
     sheet.render(`
       <div class="sheet-bar">
         <span class="sheet-step">${booking.mine ? 'Your reservation' : 'Reservation'}</span>
-        <button type="button" class="icon-button" data-action="close" aria-label="Close">${ICONS.close}</button>
+        <button type="button" class="icon-button" data-action="close" data-key="close" aria-label="Close">${ICONS.close}</button>
       </div>
       <h2 id="details-title" tabindex="-1">${esc(unitName(config, booking.unit))}</h2>
       <dl class="summary">${items.map(([term, value]) => `<div><dt>${esc(term)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>

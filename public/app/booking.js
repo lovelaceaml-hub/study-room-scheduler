@@ -3,9 +3,9 @@
 // already chosen, so it skips to what for, end, names, confirm.
 
 import {
-  escapeHtml as esc, formatTime, formatRange, formatDuration, formatDay, hasText, readStored, toTime
+  escapeHtml as esc, formatTime, formatRange, formatDuration, formatDay, hasText, inSentence, readStored, toTime
 } from '../shared/format.js';
-import { rangeChoice, startChoices, endChoices, unitName } from '../shared/availability.js';
+import { rangeChoice, startChoices, endChoices, earliestStart, unitName } from '../shared/availability.js';
 import { book, canBook, refresh, NAME_KEY } from './store.js';
 import { createSheet } from './sheet.js';
 import { purposeLabel, detailLabel, placeLabel } from './text.js';
@@ -22,7 +22,9 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   let past = [];
   let saving = false;
   let error = '';
+  let errorField = null; // 'name' | 'detail' when a field caused the error
   let saved = null;
+  let wasReady = true;
 
   const state = () => getState();
   const config = () => state().config;
@@ -49,7 +51,9 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     };
     past = [];
     error = '';
+    errorField = null;
     saved = null;
+    wasReady = true;
     step = fixed ? 'purpose' : 'type';
     sheet.open();
     render({ focus: 'h2' });
@@ -59,6 +63,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     past.push(step);
     step = next;
     error = '';
+    errorField = null;
     render({ focus: 'h2' });
   }
 
@@ -66,20 +71,23 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     if (!past.length || saving) return;
     step = past.pop();
     error = '';
+    errorField = null;
     if (step === 'start') Object.assign(draft, { start: null, end: null, takeover: false });
     if (step === 'end') Object.assign(draft, { end: null, takeover: false });
     if (!draft.fixed && (step === 'start' || step === 'end')) draft.unit = null;
     render({ focus: 'h2' });
   }
 
-  // Called on every schedule refresh. Only the steps that list open times,
-  // and the confirmation, depend on it.
+  // Called on every schedule refresh. Only the steps that list open times
+  // and the confirmation depend on the schedule; the others are redrawn only
+  // when the connection comes or goes, so typing is never interrupted.
   function update() {
     if (!sheet.isOpen || saving) return;
-    if (!day()) {
-      error = 'This day is no longer open for reservations. Close this and choose another day.';
-    }
-    if (['start', 'end', 'confirm'].includes(step) || !canBook(state()) || error) render();
+    const ready = canBook(state());
+    const readyChanged = ready !== wasReady;
+    wasReady = ready;
+    if (!day()) error = 'This day is no longer open for reservations. Close this and choose another day.';
+    if (['start', 'end', 'confirm'].includes(step) || readyChanged || !day()) render();
   }
 
   // ---------- Markup ----------
@@ -94,20 +102,21 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     ].filter(Boolean);
     sheet.render(`
       <div class="sheet-bar">
-        <button type="button" class="icon-button" data-action="back" aria-label="Back"${past.length && step !== 'done' ? '' : ' hidden'}>${ICONS.back}</button>
+        <button type="button" class="icon-button" data-action="back" data-key="back" aria-label="Back"${past.length && step !== 'done' ? '' : ' hidden'}>${ICONS.back}</button>
         <span class="sheet-step">${title}</span>
-        <button type="button" class="icon-button" data-action="close" aria-label="Close">${ICONS.close}</button>
+        <button type="button" class="icon-button" data-action="close" data-key="close" aria-label="Close">${ICONS.close}</button>
       </div>
       ${chips.length ? `<p class="chips">${chips.map(chip => `<span>${esc(chip)}</span>`).join('')}</p>` : ''}
-      ${!canBook(state()) && step !== 'done' ? '<div class="sheet-status" role="status">The schedule is reconnecting. Your choices are kept. <button type="button" class="text-button" data-action="retry">Try again</button></div>' : ''}
+      ${!canBook(state()) && step !== 'done' ? '<div class="sheet-status" role="status">The schedule is reconnecting. Your choices are kept. <button type="button" class="text-button" data-action="retry" data-key="retry">Try again</button></div>' : ''}
       <section class="step">${STEPS[step]()}</section>
       ${INLINE_ERROR_STEPS.includes(step) ? '' : errorLine()}
-    `, { focus, scrollTop: Boolean(focus) });
+    `, { focus });
   }
 
   // These steps show the error just above their main button.
   const INLINE_ERROR_STEPS = ['names', 'confirm'];
-  const errorLine = () => error ? `<p class="form-error" role="alert">${esc(error)}</p>` : '';
+  const errorLine = () => error ? `<p class="form-error" id="booking-error" role="alert">${esc(error)}</p>` : '';
+  const invalid = field => errorField === field ? ' aria-invalid="true" aria-describedby="booking-error"' : '';
   const heading = (text, hint = '') => `<h2 id="booking-title" tabindex="-1">${text}</h2>${hint ? `<p class="hint">${hint}</p>` : ''}`;
   const disabled = () => canBook(state()) && !saving ? '' : ' disabled';
 
@@ -123,14 +132,18 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       </button>`).join('')}</div>`,
 
     start: () => {
-      const choices = day() ? startChoices(config(), rows(), day(), draft.type, draft.purpose) : [];
+      const choices = day() ? startChoices(config(), rows(), day(), draft.type, draft.purpose, null, earliestStart(config(), draft.date)) : [];
       if (!choices.length) return heading('Start time', 'No open times on this day. Close this and choose another day, or go back and choose something else.');
       return heading('Start time', 'Only open times are shown.') + `<div class="times">${choices.map(choice => timeButton('start', choice.start, choice.takeover)).join('')}</div>`;
     },
 
     end: () => {
       const choices = day() ? endChoices(config(), rows(), day(), draft.type, draft.start, draft.purpose, draft.fixed ? draft.unit : null) : [];
-      if (!choices.length) return heading('End time', 'This start time is no longer open. Go back and choose another.');
+      if (!choices.length) {
+        return heading('End time', draft.fixed
+          ? 'This time is no longer open. Close this and choose another time.'
+          : 'This start time is no longer open. Go back and choose another.');
+      }
       return heading('End time', `Starting at ${formatTime(draft.start)}.`)
         + `<div class="times">${choices.map(choice => timeButton('end', choice.end, choice.takeover, formatDuration(choice.end - draft.start))).join('')}</div>`;
     },
@@ -139,29 +152,34 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       const label = detailLabel(config(), draft.purpose);
       const max = config().purposes[draft.purpose].detailMax;
       const long = max > 120;
-      return heading(draft.purpose === 'other' ? 'What is it for?' : 'Who is it for?', `Others can see your first name and the ${label.toLowerCase()} on the schedule.`) + `
+      return heading('Your details', `Others see a short form of your name (like “B John”) and the ${inSentence(label)} on the schedule.`) + `
         <form class="form" data-form="names" novalidate>
           <label for="booking-name">Your name</label>
-          <input id="booking-name" name="name" data-key="name" maxlength="120" autocomplete="name" value="${esc(draft.name)}" required>
+          <input id="booking-name" name="name" data-key="name" maxlength="120" autocomplete="name" value="${esc(draft.name)}" required${invalid('name')}>
           <label for="booking-detail">${esc(label)}</label>
           ${long
-            ? `<textarea id="booking-detail" name="reservedFor" data-key="detail" maxlength="${max}" rows="3" required>${esc(draft.reservedFor)}</textarea>`
-            : `<input id="booking-detail" name="reservedFor" data-key="detail" maxlength="${max}" autocomplete="off" value="${esc(draft.reservedFor)}" required>`}
+            ? `<textarea id="booking-detail" name="reservedFor" data-key="detail" maxlength="${max}" rows="3" required${invalid('detail')}>${esc(draft.reservedFor)}</textarea>`
+            : `<input id="booking-detail" name="reservedFor" data-key="detail" maxlength="${max}" autocomplete="off" value="${esc(draft.reservedFor)}" required${invalid('detail')}>`}
           ${errorLine()}
-          <button type="submit" class="primary"${disabled()}>Continue</button>
+          <button type="submit" class="primary" data-key="continue"${disabled()}>Continue</button>
         </form>`;
     },
 
-    confirm: () => heading('Confirm reservation') + summary(draft.unit) + (draft.takeover
-      ? '<p class="takeover-note" role="note"><strong>Priority override.</strong> This time is held by a lower-priority reservation. That person is moved to another unit if one is free; otherwise their reservation is released.</p>'
-      : '') + (state().demo ? '<p class="hint">Demo mode: this practice reservation disappears when you close the page.</p>' : '') + errorLine() + `
-      <button type="button" class="primary" data-action="confirm"${disabled()} aria-busy="${saving}">${saving ? 'Reserving…' : 'Confirm reservation'}</button>`,
+    confirm: () => heading('Confirm reservation') + summary(draft.unit) + (draft.takeover ? takeoverNote() : '')
+      + (state().demo ? '<p class="hint">Demo mode: this practice reservation disappears when you close the page.</p>' : '') + errorLine() + `
+      <button type="button" class="primary" data-action="confirm" data-key="confirm"${disabled()} aria-busy="${saving}">${saving ? 'Reserving…' : 'Confirm reservation'}</button>`,
 
     done: () => `<div class="done-mark" aria-hidden="true">${ICONS.check}</div>` + heading('Reservation confirmed', 'To cancel or end early, open My reservations.') + summary(saved.unit) + `
-      <button type="button" class="primary" data-action="show">See it on the schedule</button>
-      <button type="button" class="text-button" data-action="mine">My reservations</button>
-      <button type="button" class="text-button" data-action="again">Reserve something else</button>`
+      <button type="button" class="primary" data-action="show" data-key="show">See it on the schedule</button>
+      <button type="button" class="text-button" data-action="mine" data-key="mine">My reservations</button>
+      <button type="button" class="text-button" data-action="again" data-key="again">Reserve something else</button>`
   };
+
+  function takeoverNote() {
+    const kind = inSentence(config().resources[draft.type].label);
+    const place = unitName(config(), draft.unit) || `a ${kind}`;
+    return `<p class="takeover-note" role="note"><strong>Priority override.</strong> Every ${kind} is taken at this time. If you confirm, you get ${esc(place)} from a lower-priority reservation. That reservation ends early, moves to another ${kind}, or is released, and its owner sees why in My reservations.</p>`;
+  }
 
   function timeButton(kind, minutes, takeover, detail = '') {
     const label = `${formatTime(minutes)}${detail ? `, ${detail}` : ''}${takeover ? `, ${TAKEOVER_LABEL}` : ''}`;
@@ -236,8 +254,8 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     const name = form.elements.name.value.trim();
     const reservedFor = form.elements.reservedFor.value.trim();
     Object.assign(draft, { name, reservedFor });
-    if (!hasText(name)) return showFieldError(form.elements.name, 'Enter your name.');
-    if (!hasText(reservedFor)) return showFieldError(form.elements.reservedFor, `Enter the ${detailLabel(config(), draft.purpose).toLowerCase()}.`);
+    if (!hasText(name)) return showFieldError('name', 'Enter your name.');
+    if (!hasText(reservedFor)) return showFieldError('detail', `Enter the ${inSentence(detailLabel(config(), draft.purpose))}.`);
     const choice = currentChoice();
     if (choice) Object.assign(draft, { unit: choice.unit, takeover: choice.takeover });
     go('confirm');
@@ -245,8 +263,9 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
 
   function showFieldError(field, message) {
     error = message;
+    errorField = field;
     render();
-    dialog.querySelector(`#${field.id}`)?.focus();
+    dialog.querySelector(`[data-key="${field}"]`)?.focus();
   }
 
   dialog.addEventListener('input', event => {

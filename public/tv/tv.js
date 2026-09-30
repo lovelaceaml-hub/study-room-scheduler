@@ -2,7 +2,7 @@
 // It reads the public lobby schedule (public names only), refreshes every
 // minute, and keeps the last copy so a dropped connection still shows the day.
 
-import { escapeHtml as esc, formatTime, formatHour, formatLongDay, weekdayName, monthDay, nowIn, toMinutes, readStored, writeStored } from '../shared/format.js';
+import { escapeHtml as esc, formatTime, formatHour, formatLongDay, listOf, weekdayName, monthDay, nowIn, toMinutes, readStored, writeStored } from '../shared/format.js';
 import { DEMO_CONFIG, demoDay, demoDays, demoRows, demoToday } from '../shared/demo.js';
 
 const SCHEDULE_URL = 'https://us-west1-lvz-rooms.cloudfunctions.net/publicLobbySchedule';
@@ -81,7 +81,7 @@ function render() {
     </button>`).join('');
   if (!day?.scheduled) {
     $('#board').innerHTML = `<section class="tv-empty"><h2>No room schedule ${day?.date === now.date ? 'today' : 'on this day'}</h2>
-      <p>Rooms can be reserved on ${schedule.days.filter(item => item.scheduled).map(item => esc(weekdayName(item.date))).join(' and ') || 'the next booking day'}.</p></section>`;
+      <p>Rooms can be reserved on ${esc(listOf(schedule.days.filter(item => item.scheduled).map(item => weekdayName(item.date)))) || 'the next booking day'}.</p></section>`;
     return;
   }
   const rooms = schedule.config.resources.room.units;

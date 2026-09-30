@@ -77,6 +77,16 @@ test('reservation times stay on the grid, inside hours and clear of services', (
   assert.equal(error('2026-10-10', '12:00', '13:00'), 'That day is not open for reservations.');
 });
 
+test('a start time is in the past once its slot has gone by', () => {
+  const saturdayAt = time => new Date(`${SATURDAY}T${time}:00-07:00`);
+  assert.equal(schedule.hasPassed(SATURDAY, '14:00', saturdayAt('14:20')), false, 'the slot under way can be booked');
+  assert.equal(schedule.hasPassed(SATURDAY, '13:30', saturdayAt('14:20')), true);
+  assert.equal(schedule.hasPassed(TUESDAY, '10:00', saturdayAt('22:00')), false);
+  assert.throws(() => bookings.parseMemberRequest({
+    date: SATURDAY, start: '11:00', end: '12:00', resourceType: 'room', purpose: 'other', name: 'Jordan', reservedFor: 'Study'
+  }, saturdayAt('13:10')), /already passed/);
+});
+
 test('ending early keeps at least one slot and stays on the grid', () => {
   assert.deepEqual(schedule.earlierEnds('11:00', '12:30'), ['11:30', '12:00']);
   assert.deepEqual(schedule.earlierEnds('11:00', '11:30'), []);
@@ -125,6 +135,8 @@ test('a member request names the field that is wrong', () => {
   assert.throws(parse({ reservedFor: 'x'.repeat(241) }), /Purpose must be 240 characters or fewer/);
   assert.doesNotThrow(parse({ reservedFor: 'x'.repeat(240) }));
   assert.throws(parse({ purpose: 'meeting' }), /Choose what the reservation is for/);
+  assert.throws(parse({ purpose: 'constructor' }), /Choose what the reservation is for/);
+  assert.equal(bookings.purposeOf({ purpose: '__proto__' }), 'other');
   assert.throws(parse({ resourceType: 'podium' }), /Choose a study room, whiteboard or TV/);
   assert.throws(parse({ requestedUnit: 'wb-1' }), /Choose a valid unit/);
   assert.throws(parse({ start: '14:00', end: '15:00' }), /overlaps a service/);
@@ -156,6 +168,13 @@ test('Contact may take New Member or Other; New Member may take Other; Other tak
   assert.equal(bookings.takeoverTarget('room', candidate('contact'), fullDay(['contact', 'contact', 'blocked', 'blocked'])), null);
   assert.equal(bookings.takeoverTarget('room', candidate('contact'), day, 'room-4').unitId, 'room-4');
   assert.equal(bookings.takeoverTarget('room', candidate('contact'), day, 'room-1'), null);
+});
+
+test('no takeover while any unit of that kind is free, even for a chosen unit', () => {
+  const day = fullDay(['other']);
+  const candidate = { date: SATURDAY, start: '11:00', end: '12:00', purpose: 'contact' };
+  assert.equal(bookings.freeUnit('room', candidate, day, 'room-1'), null);
+  assert.equal(bookings.takeoverTarget('room', candidate, day, 'room-1'), null);
 });
 
 test('a takeover picks the unit with the fewest reservations to disturb', () => {

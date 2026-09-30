@@ -8,22 +8,47 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { RESOURCES, MAX_ACTIVE_PER_DAY, KEEP_DAYS, NOTE_MAX } = require('./config');
 const { addDays, todayAt, earlyEndError } = require('./schedule');
 const {
-  TYPES, unitIds, emptyAssignments, freeUnit, takeoverTarget, shortenedEnd, conflictWith
+  TYPES, unitIds, unitName, inSentence, emptyAssignments, freeUnit, takeoverTarget, shortenedEnd, conflictWith
 } = require('./bookings');
 
 const BOOKINGS = 'bookings';
 const NOTES = 'privateBookingNotes';
-const RECORD_LIMIT = 400;
+// Far more than the units can hold in a few days, so nothing is cut off.
+const RECORD_LIMIT = 2000;
 
-async function recordsFor(db, dates) {
-  if (!dates.length) return [];
-  const snapshot = await db.collection(BOOKINGS).where('date', 'in', dates).limit(RECORD_LIMIT).get();
+function records(snapshot) {
   return snapshot.docs.map(document => ({ id: document.id, ...document.data() }));
+}
+
+// Every booking on `dates`, in any status (for Admin).
+async function allRecordsFor(db, dates) {
+  if (!dates.length) return [];
+  return records(await db.collection(BOOKINGS).where('date', 'in', dates).limit(RECORD_LIMIT).get());
+}
+
+// Active bookings on `dates`, plus this device's own in any status.
+async function scheduleRecordsFor(db, dates, uid = null) {
+  if (!dates.length) return [];
+  const [active, own] = await Promise.all([
+    db.collection(BOOKINGS).where('date', 'in', dates).where('status', '==', 'approved').limit(RECORD_LIMIT).get(),
+    uid ? db.collection(BOOKINGS).where('ownerUid', '==', uid).where('date', 'in', dates).get() : null
+  ]);
+  const byId = new Map(records(active).map(record => [record.id, record]));
+  if (own) for (const record of records(own)) byId.set(record.id, record);
+  return [...byId.values()];
 }
 
 async function approvedOn(transaction, db, date) {
   const snapshot = await transaction.get(db.collection(BOOKINGS).where('date', '==', date).where('status', '==', 'approved'));
   return snapshot.docs.map(document => ({ id: document.id, ...document.data() }));
+}
+
+const INACTIVE = 'This reservation was already cancelled or replaced.';
+
+function conflictError(candidate, conflict) {
+  const type = TYPES.find(item => candidate.assignments[item] && candidate.assignments[item] === conflict.assignments?.[item]);
+  const unit = type ? unitName(candidate.assignments[type]) : 'That unit';
+  return new HttpsError('already-exists', `${unit} is already reserved by ${conflict.name || 'someone else'} at that time.`);
 }
 
 async function existing(transaction, ref) {
@@ -75,19 +100,18 @@ async function submitReservation(db, request, uid) {
     const free = freeUnit(request.type, candidate, approved, request.requestedUnit);
     if (free) {
       transaction.create(ref, record(free));
-      return { id: ref.id, unit: free, tookOver: false };
+      return { id: ref.id, unit: free };
     }
 
     const target = request.allowTakeover ? takeoverTarget(request.type, candidate, approved, request.requestedUnit) : null;
     if (!target) {
-      const plural = RESOURCES[request.type].plural.toLowerCase();
       throw new HttpsError('already-exists', request.requestedUnit
-        ? 'That unit is taken for part of that time. Choose another time.'
-        : `No ${plural} are free for that whole time. Choose another time.`);
+        ? `${unitName(request.requestedUnit)} is taken for part of that time. Choose another time.`
+        : `No ${inSentence(RESOURCES[request.type].plural)} are free for that whole time. Choose another time.`);
     }
     takeOver(transaction, db, request, target, approved, ref.id, now);
     transaction.create(ref, record(target.unitId));
-    return { id: ref.id, unit: target.unitId, tookOver: true };
+    return { id: ref.id, unit: target.unitId };
   });
 }
 
@@ -120,9 +144,13 @@ function takeOver(transaction, db, request, target, approved, newId, now) {
     const toUnit = freeUnit(type, { date: holder.date, start: holder.start, end: holder.end }, pool);
     const assignments = { ...emptyAssignments(), ...holder.assignments, [type]: toUnit };
     const ref = db.collection(BOOKINGS).doc(holder.id);
+    const keepsOtherUnits = TYPES.some(other => other !== type && holder.needs?.[other]);
     if (toUnit) {
       pool.push({ ...holder, assignments });
       transaction.update(ref, { assignments, priorityNotice: notice({ kind: 'moved', toUnit }), updatedAt: now });
+    } else if (keepsOtherUnits) {
+      // An Admin reservation with a room and a TV, say, keeps the TV.
+      transaction.update(ref, { assignments, priorityNotice: notice({ kind: 'released', toUnit: null }), updatedAt: now });
     } else {
       transaction.update(ref, { status: 'overridden', assignments, priorityNotice: notice({ kind: 'released', toUnit: null }), updatedAt: now });
     }
@@ -134,7 +162,7 @@ async function cancelReservation(db, id, uid) {
   await db.runTransaction(async transaction => {
     const booking = await existing(transaction, ref);
     if (booking.ownerUid !== uid) throw new HttpsError('permission-denied', 'Only the device that made this reservation can cancel it.');
-    if (booking.status !== 'approved') throw new HttpsError('failed-precondition', 'This reservation is no longer active.');
+    if (booking.status !== 'approved') throw new HttpsError('failed-precondition', INACTIVE);
     transaction.update(ref, { status: 'cancelled', updatedAt: FieldValue.serverTimestamp() });
   });
 }
@@ -146,7 +174,7 @@ async function endEarly(db, id, end, uid, actor) {
   return db.runTransaction(async transaction => {
     const booking = await existing(transaction, ref);
     if (uid && booking.ownerUid !== uid) throw new HttpsError('permission-denied', 'Only the device that made this reservation can end it early.');
-    if (booking.status !== 'approved') throw new HttpsError('failed-precondition', 'This reservation is no longer active.');
+    if (booking.status !== 'approved') throw new HttpsError('failed-precondition', INACTIVE);
     const problem = earlyEndError(booking, end);
     if (problem) throw new HttpsError('failed-precondition', problem);
     transaction.update(ref, {
@@ -168,7 +196,7 @@ async function adminAdd(db, booking, uid) {
   await db.runTransaction(async transaction => {
     const approved = await approvedOn(transaction, db, booking.date);
     const conflict = conflictWith({ ...fields, id: ref.id }, approved);
-    if (conflict) throw new HttpsError('already-exists', `That unit is already booked by ${conflict.name || 'someone else'} at that time.`);
+    if (conflict) throw conflictError(fields, conflict);
     const now = FieldValue.serverTimestamp();
     transaction.create(ref, { ...fields, status: 'approved', ownerUid: null, createdAt: now, updatedAt: now, updatedBy: uid });
     if (note) transaction.set(db.collection(NOTES).doc(ref.id), { bookingId: ref.id, note, updatedAt: now, updatedBy: uid });
@@ -180,7 +208,7 @@ async function adminCancel(db, id, uid) {
   const ref = db.collection(BOOKINGS).doc(bookingId(id));
   await db.runTransaction(async transaction => {
     const booking = await existing(transaction, ref);
-    if (booking.status !== 'approved') throw new HttpsError('failed-precondition', 'This reservation is no longer active.');
+    if (booking.status !== 'approved') throw new HttpsError('failed-precondition', INACTIVE);
     transaction.update(ref, { status: 'cancelled', updatedAt: FieldValue.serverTimestamp(), updatedBy: uid });
   });
 }
@@ -190,17 +218,17 @@ async function adminRestore(db, id, assignments, uid) {
   const ref = db.collection(BOOKINGS).doc(bookingId(id));
   await db.runTransaction(async transaction => {
     const booking = await existing(transaction, ref);
-    if (booking.status === 'approved') throw new HttpsError('failed-precondition', 'This reservation is already active.');
+    if (booking.status === 'approved') throw new HttpsError('failed-precondition', 'This reservation is already confirmed.');
     const chosen = emptyAssignments();
     for (const type of TYPES) {
       if (!booking.needs?.[type]) continue;
       const unit = assignments?.[type];
-      if (!unitIds(type).includes(unit)) throw new HttpsError('invalid-argument', `Choose a ${RESOURCES[type].label.toLowerCase()}.`);
+      if (!unitIds(type).includes(unit)) throw new HttpsError('invalid-argument', `Choose a ${inSentence(RESOURCES[type].label)}.`);
       chosen[type] = unit;
     }
     const approved = await approvedOn(transaction, db, booking.date);
     const conflict = conflictWith({ ...booking, id, assignments: chosen }, approved, id);
-    if (conflict) throw new HttpsError('already-exists', `That unit is already booked by ${conflict.name || 'someone else'} at that time.`);
+    if (conflict) throw conflictError({ assignments: chosen }, conflict);
     transaction.update(ref, {
       status: 'approved',
       assignments: chosen,
@@ -241,7 +269,8 @@ async function saveNote(db, id, value, uid) {
 }
 
 module.exports = {
-  recordsFor,
+  allRecordsFor,
+  scheduleRecordsFor,
   submitReservation,
   cancelReservation,
   endEarly,

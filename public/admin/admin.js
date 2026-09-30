@@ -3,14 +3,14 @@
 // notes, and remove old records. Every change goes through a Cloud Function.
 
 import { connect, errorMessage } from '../shared/firebase.js';
-import { escapeHtml as esc, formatTime, formatRange, formatDay, formatHour, weekdayName, monthDay, toMinutes, toTime, hasText } from '../shared/format.js';
-import { unitsOf, unitName, slotStarts, serviceAt, validRange, earlierEnds } from '../shared/availability.js';
+import { escapeHtml as esc, formatTime, formatRange, formatDay, formatHour, inSentence, listOf, weekdayName, monthDay, toMinutes, toTime, hasText } from '../shared/format.js';
+import { unitsOf, unitName, slotStarts, serviceAt, validRange, earlierEnds, earliestStart } from '../shared/availability.js';
 import { paint } from '../shared/dom.js';
 
 const SESSION_KEY = 'srs-admin-session';
 const REFRESH_MS = 15000;
 const HOLD = 'blocked';
-const STATUS_LABELS = { approved: 'Active', cancelled: 'Cancelled', overridden: 'Replaced', pending: 'Pending', declined: 'Declined' };
+const STATUS_LABELS = { approved: 'Confirmed', cancelled: 'Cancelled', overridden: 'Replaced', pending: 'Pending', declined: 'Declined' };
 
 const $ = selector => document.querySelector(selector);
 const root = $('#admin');
@@ -22,7 +22,9 @@ let notesLoadedFor = '';
 let refreshTimer = null;
 let expiryTimer = null;
 let busy = false;
-const view = { date: null, type: 'room', panel: null }; // panel: { id, kind: 'end' | 'restore' | 'note' }
+// panel: the open row form, { id, kind: 'end' | 'restore' | 'note', values },
+// where `values` keeps what the Admin picked or typed across refreshes.
+const view = { date: null, type: 'room', panel: null };
 let form = blankForm();
 
 // ---------- Session ----------
@@ -251,43 +253,44 @@ function entryHtml(record) {
     ${record.endedEarlyFrom ? `<p class="entry-meta">Ended early; it was booked until ${esc(formatTime(record.endedEarlyFrom))}.</p>` : ''}
     ${notes[record.id] ? `<p class="entry-note">Note: ${esc(notes[record.id])}</p>` : ''}
     <div class="entry-actions">${actions.filter(Boolean).join('')}</div>
-    ${panel ? `<div class="entry-panel">${PANELS[panel](record)}</div>` : ''}
+    ${panel ? `<div class="entry-panel">${PANELS[panel](record, view.panel.values)}</div>` : ''}
   </li>`;
 }
 
 const PANELS = {
-  end(record) {
+  end(record, values) {
     const ends = earlierEnds(config(), record.start, record.end);
+    const chosen = values.end || ends[0];
     return `<form data-form="end" data-id="${esc(record.id)}">
       <label for="end-${esc(record.id)}">New end time</label>
-      <select id="end-${esc(record.id)}" name="end" data-key="end-select">${ends.map(end => `<option value="${end}">${formatTime(end)}</option>`).join('')}</select>
-      <div class="panel-buttons"><button type="submit" class="primary"${busy ? ' disabled' : ''}>Save</button><button type="button" class="text-button" data-action="close-panel">Close</button></div>
+      <select id="end-${esc(record.id)}" name="end" data-key="end-select">${ends.map(end => `<option value="${end}"${end === chosen ? ' selected' : ''}>${formatTime(end)}</option>`).join('')}</select>
+      <div class="panel-buttons"><button type="submit" class="primary" data-key="panel-save"${busy ? ' disabled' : ''}>Save</button><button type="button" class="text-button" data-action="close-panel" data-key="panel-close">Close</button></div>
     </form>`;
   },
 
-  restore(record) {
+  restore(record, values) {
     const start = toMinutes(record.start);
     const end = toMinutes(record.end);
     const choices = neededTypes(record).map(type => {
       const free = unitsOf(config(), type).filter(unit => !holderOf(unit.id, record.date, start, end, record.id));
-      const previous = record.assignments?.[type];
-      return { type, free, selected: free.some(unit => unit.id === previous) ? previous : free[0]?.id };
+      const wanted = [values[type], record.assignments?.[type]].find(id => free.some(unit => unit.id === id));
+      return { type, free, selected: wanted || free[0]?.id };
     });
     const blocked = choices.filter(choice => !choice.free.length);
     return `<form data-form="restore" data-id="${esc(record.id)}">
       ${choices.map(choice => choice.free.length ? `
         <label for="restore-${choice.type}">${esc(config().resources[choice.type].label)}</label>
         <select id="restore-${choice.type}" name="${choice.type}" data-key="restore-${choice.type}">${choice.free.map(unit => `<option value="${unit.id}"${unit.id === choice.selected ? ' selected' : ''}>${esc(unit.name)}</option>`).join('')}</select>` : '').join('')}
-      ${blocked.length ? `<p class="form-error">No ${blocked.map(choice => config().resources[choice.type].label.toLowerCase()).join(' or ')} is free at that time.</p>` : ''}
-      <div class="panel-buttons"><button type="submit" class="primary"${busy || blocked.length ? ' disabled' : ''}>Restore</button><button type="button" class="text-button" data-action="close-panel">Close</button></div>
+      ${blocked.length ? `<p class="form-error">No ${listOf(blocked.map(choice => inSentence(config().resources[choice.type].label)))} is free at that time.</p>` : ''}
+      <div class="panel-buttons"><button type="submit" class="primary" data-key="panel-save"${busy || blocked.length ? ' disabled' : ''}>Restore</button><button type="button" class="text-button" data-action="close-panel" data-key="panel-close">Close</button></div>
     </form>`;
   },
 
-  note(record) {
+  note(record, values) {
     return `<form data-form="note" data-id="${esc(record.id)}">
       <label for="note-${esc(record.id)}">Private note (only Admin sees it)</label>
-      <textarea id="note-${esc(record.id)}" name="note" rows="3" maxlength="1000" data-key="note-text">${esc(notes[record.id] || '')}</textarea>
-      <div class="panel-buttons"><button type="submit" class="primary"${busy ? ' disabled' : ''}>Save note</button><button type="button" class="text-button" data-action="close-panel">Close</button></div>
+      <textarea id="note-${esc(record.id)}" name="note" rows="3" maxlength="1000" data-key="note-text">${esc(values.note ?? notes[record.id] ?? '')}</textarea>
+      <div class="panel-buttons"><button type="submit" class="primary" data-key="panel-save"${busy ? ' disabled' : ''}>Save note</button><button type="button" class="text-button" data-action="close-panel" data-key="panel-close">Close</button></div>
     </form>`;
   }
 };
@@ -315,7 +318,7 @@ function mapHtml() {
   return `<h2 id="map-title">Day view</h2>
     <div class="map-types" role="group" aria-label="Show">${Object.entries(config().resources).map(([type, resource]) => `
       <button type="button" class="type-button" data-map-type="${type}" data-key="map-${type}" aria-pressed="${type === view.type}">${esc(resource.plural)}</button>`).join('')}</div>
-    <div class="map" style="--units:${units.length};--slots:${slotStarts(config()).length}" aria-label="Active reservations for ${esc(config().resources[view.type].plural.toLowerCase())}">
+    <div class="map" style="--units:${units.length};--slots:${slotStarts(config()).length}" aria-label="Confirmed reservations for ${esc(inSentence(config().resources[view.type].plural))}">
       <span class="map-corner"></span>${units.map((unit, index) => `<span class="map-unit" style="grid-column:${index + 2}">${esc(unit.name)}</span>`).join('')}
       ${hours.join('')}${services.join('')}${cells.join('')}
     </div>`;
@@ -329,7 +332,8 @@ function blankForm() {
 
 function formStarts() {
   const current = day();
-  return slotStarts(config()).filter(minute => !serviceAt(current, minute));
+  const earliest = earliestStart(config(), current.date);
+  return slotStarts(config()).filter(minute => minute >= earliest && !serviceAt(current, minute));
 }
 
 function formEnds() {
@@ -385,7 +389,7 @@ async function submitAdd() {
   for (const id of form.units) {
     const type = types().find(item => unitsOf(config(), item).some(unit => unit.id === id));
     if (assignments[type]) {
-      message(`Choose one ${config().resources[type].label.toLowerCase()} per reservation. Add a second reservation for another.`, true);
+      message(`Choose one ${inSentence(config().resources[type].label)} per reservation. Add a second reservation for another.`, true);
       return;
     }
     assignments[type] = id;
@@ -415,7 +419,7 @@ root.addEventListener('submit', event => {
     change(() => call('adminBookingAction', { action: 'end-early', bookingId: id, end }), `${booking(id).name} now ends at ${formatTime(end)}.`);
   } else if (kind === 'restore') {
     const assignments = Object.fromEntries(neededTypes(booking(id)).map(type => [type, target.elements[type]?.value]));
-    change(() => call('adminBookingAction', { action: 'restore', bookingId: id, assignments }), `${booking(id).name}'s reservation is active again.`);
+    change(() => call('adminBookingAction', { action: 'restore', bookingId: id, assignments }), `${booking(id).name}'s reservation is confirmed again.`);
   } else if (kind === 'note') {
     change(() => call('adminNoteAction', { action: 'save', bookingId: id, note: target.elements.note.value }), 'Note saved.');
   }
@@ -434,7 +438,7 @@ root.addEventListener('click', event => {
     view.type = button.dataset.mapType;
     render();
   } else if (action?.startsWith('open-')) {
-    view.panel = { id, kind: action.slice(5) };
+    view.panel = { id, kind: action.slice(5), values: {} };
     render();
     root.querySelector('.entry-panel select, .entry-panel textarea')?.focus();
   } else if (action === 'close-panel') {
@@ -464,9 +468,14 @@ async function removeOld() {
   }, removed => removed ? `Removed ${removed} old record${removed === 1 ? '' : 's'}.` : 'There were no old records to remove.');
 }
 
-// Form fields update the draft as the Admin types or picks.
+// Form fields update the drafts as the Admin types or picks, so a refresh
+// never undoes a choice.
 root.addEventListener('input', event => {
   const field = event.target;
+  if (view.panel && field.closest('.entry-panel')) {
+    view.panel.values[field.name] = field.value;
+    return;
+  }
   if (!field.closest('[data-form="add"]')) return;
   if (field.name === 'unit') {
     form.units = [...root.querySelectorAll('[data-form="add"] input[name="unit"]:checked')].map(input => input.value);

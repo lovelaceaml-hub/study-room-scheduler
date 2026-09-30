@@ -10,13 +10,15 @@ const { FakeFirestore } = require('./support/fake-firestore');
 const actions = require('../lib/actions');
 const guard = require('../lib/guard');
 const { parseMemberRequest } = require('../lib/bookings');
-const { bookableDates, weekdayOf } = require('../lib/schedule');
+const { bookableDates, todayAt } = require('../lib/schedule');
 
-const SATURDAY = bookableDates().find(date => weekdayOf(date) === 6);
+// A booking day other than today, so no test time has already passed. Every
+// time used below is clear of services on both Tuesday and Saturday.
+const DAY = bookableDates().find(date => date !== todayAt());
 
 function seedBooking(db, id, fields) {
   db.seed('bookings', id, {
-    date: SATURDAY, start: '11:00', end: '12:00', name: `Holder ${id}`, purpose: 'other', reservedFor: 'Study',
+    date: DAY, start: '11:00', end: '12:00', name: `Holder ${id}`, purpose: 'other', reservedFor: 'Study',
     needs: { room: true, whiteboard: false, tv: false }, status: 'approved', ownerUid: `owner-${id}`,
     ...fields,
     assignments: { room: null, whiteboard: null, tv: null, ...fields.assignments }
@@ -25,7 +27,7 @@ function seedBooking(db, id, fields) {
 
 function request(fields) {
   return parseMemberRequest({
-    date: SATURDAY, start: '11:00', end: '12:00', resourceType: 'room', purpose: 'contact',
+    date: DAY, start: '11:00', end: '12:00', resourceType: 'room', purpose: 'contact',
     name: 'Sam Sample', reservedFor: 'Sample Contact', ...fields
   });
 }
@@ -49,7 +51,7 @@ test('a full time is refused unless the member confirmed a takeover', async () =
   ['1', '2', '3', '4'].forEach(unit => seedBooking(db, unit, { assignments: { room: `room-${unit}` } }));
   await assert.rejects(actions.submitReservation(db, request({}), 'device-a'), error => code(error) === 'already-exists');
   const result = await actions.submitReservation(db, request({ allowTakeover: true }), 'device-a');
-  assert.equal(result.tookOver, true);
+  assert.equal(result.unit, 'room-1');
   assert.equal(db.read('bookings', '1').status, 'overridden');
   assert.equal(db.read('bookings', '1').priorityNotice.kind, 'released');
 });
@@ -97,7 +99,7 @@ test('Admin adds, cancels and restores bookings without double-booking a unit', 
   const db = new FakeFirestore();
   seedBooking(db, 'a', { assignments: { room: 'room-1' } });
   const booking = {
-    date: SATURDAY, start: '11:30', end: '12:30', name: 'Hold', purpose: 'blocked', reservedFor: '',
+    date: DAY, start: '11:30', end: '12:30', name: 'Hold', purpose: 'blocked', reservedFor: '',
     needs: { room: true, whiteboard: false, tv: false }, assignments: { room: 'room-1', whiteboard: null, tv: null }, note: 'Private'
   };
   await assert.rejects(actions.adminAdd(db, booking, 'admin'), error => code(error) === 'already-exists');
@@ -146,11 +148,14 @@ test('calls without a signed-in device are refused', () => {
   assert.throws(() => guard.requireUser(call(null)), error => code(error) === 'unauthenticated');
 });
 
-test('reservation requests are limited per network address', async () => {
+test('reservation requests are limited per device, and more loosely per network', async () => {
   const db = new FakeFirestore();
-  for (let count = 1; count < 8; count += 1) await guard.limitReservationRequests(db, call('device-a'));
-  await assert.rejects(guard.limitReservationRequests(db, call('device-b')), error => code(error) === 'resource-exhausted');
-  await guard.limitReservationRequests(db, call('device-a', {}, '203.0.113.6'));
+  for (let count = 1; count <= 8; count += 1) await guard.limitReservationRequests(db, call('device-a'));
+  await assert.rejects(guard.limitReservationRequests(db, call('device-a')), /from this device/);
+  await assert.rejects(guard.limitReservationRequests(db, call('device-a', {}, '203.0.113.6')), /from this device/);
+  // Other devices on the same Wi-Fi can still book, up to the network limit.
+  for (let device = 1; device <= 52; device += 1) await guard.limitReservationRequests(db, call(`device-${device}`));
+  await assert.rejects(guard.limitReservationRequests(db, call('device-z')), /from this network/);
 });
 
 test('the Admin PIN opens a session tied to the device and the PIN', async () => {
@@ -162,9 +167,9 @@ test('the Admin PIN opens a session tied to the device and the PIN', async () =>
   await assert.rejects(guard.requireAdmin(db, call('device-a', { sessionToken }), '1357'), error => code(error) === 'permission-denied', 'a changed PIN ends the session');
 });
 
-test('five wrong PINs lock an address for 15 minutes', async () => {
+test('more than five wrong PINs lock an address for 15 minutes', async () => {
   const db = new FakeFirestore();
-  for (let count = 1; count < 5; count += 1) {
+  for (let count = 1; count <= 5; count += 1) {
     await assert.rejects(guard.startAdminSession(db, call('device-a', { pin: '0000' }), '2468'), error => code(error) === 'permission-denied');
   }
   await assert.rejects(guard.startAdminSession(db, call('device-a', { pin: '0000' }), '2468'), error => code(error) === 'resource-exhausted');

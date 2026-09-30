@@ -36,7 +36,7 @@ function checked(parse) {
 exports.memberSchedule = member(async request => {
   const uid = guard.requireUser(request);
   const dates = bookableDates();
-  return memberView(await actions.recordsFor(db, dates), dates, uid);
+  return memberView(await actions.scheduleRecordsFor(db, dates, uid), dates, uid);
 });
 
 exports.memberSubmitBooking = member(async request => {
@@ -69,7 +69,7 @@ exports.publicLobbySchedule = onRequest({ region: REGION }, async (request, resp
     return;
   }
   const dates = lobbyDates();
-  const view = lobbyView(await actions.recordsFor(db, dates), dates);
+  const view = lobbyView(await actions.scheduleRecordsFor(db, dates), dates);
   response.set('Cache-Control', 'public, max-age=60, s-maxage=60');
   response.set('X-Content-Type-Options', 'nosniff');
   response.json(view);
@@ -92,7 +92,7 @@ exports.adminSchedule = admin(async request => {
   return {
     config: clientConfig(),
     days: daysView(dates),
-    bookings: await actions.recordsFor(db, dates)
+    bookings: await actions.allRecordsFor(db, dates)
   };
 });
 

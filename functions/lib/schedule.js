@@ -40,12 +40,25 @@ function addDays(date, days) {
   return value.toISOString().slice(0, 10);
 }
 
-function todayAt(now = new Date()) {
+// The date and minute of the day on the church's clock.
+function clockAt(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit'
+    timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
   }).formatToParts(now);
   const part = type => parts.find(item => item.type === type).value;
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  return { date: `${part('year')}-${part('month')}-${part('day')}`, minutes: Number(part('hour')) * 60 + Number(part('minute')) };
+}
+
+function todayAt(now = new Date()) {
+  return clockAt(now).date;
+}
+
+// True when `start` on `date` is before the slot now under way. The slot in
+// progress can still be booked.
+function hasPassed(date, start, now = new Date()) {
+  const clock = clockAt(now);
+  if (date !== clock.date) return date < clock.date;
+  return toMinutes(start) < clock.minutes - (clock.minutes % SLOT_MINUTES);
 }
 
 function specialDay(date) {
@@ -127,6 +140,7 @@ module.exports = {
   weekdayOf,
   addDays,
   todayAt,
+  hasPassed,
   servicesOn,
   bookableDates,
   lobbyDates,

@@ -16,13 +16,32 @@
 //   priorityNotice          what a priority reservation changed (see takeOver in actions.js)
 
 const { RESOURCES, PURPOSES, HOLD, NAME_MAX, NOTE_MAX } = require('./config');
-const { toMinutes, timeError } = require('./schedule');
+const { toMinutes, timeError, hasPassed } = require('./schedule');
 
 const TYPES = Object.keys(RESOURCES);
 const PURPOSE_ORDER = Object.keys(PURPOSES);
 
+// Own keys only, so names like 'constructor' are never taken for a purpose.
+function isPurpose(value) {
+  return typeof value === 'string' && Object.hasOwn(PURPOSES, value);
+}
+
 function unitIds(type) {
   return (RESOURCES[type]?.units || []).map(unit => unit.id);
+}
+
+// 'room-2' -> 'Room 2'
+function unitName(id) {
+  for (const resource of Object.values(RESOURCES)) {
+    const unit = resource.units.find(item => item.id === id);
+    if (unit) return unit.name;
+  }
+  return '';
+}
+
+// 'Study room' -> 'study room', but 'TV' stays 'TV'.
+function inSentence(label) {
+  return label.replace(/(^|\s)([A-Z])(?=[a-z])/g, (match, space, letter) => space + letter.toLowerCase());
 }
 
 function emptyAssignments() {
@@ -33,7 +52,7 @@ function emptyAssignments() {
 // 'meeting'; they are treated as Other.
 function purposeOf(booking) {
   if (booking?.purpose === HOLD) return HOLD;
-  return PURPOSES[booking?.purpose] ? booking.purpose : 'other';
+  return isPurpose(booking?.purpose) ? booking.purpose : 'other';
 }
 
 function overlaps(first, second) {
@@ -56,11 +75,12 @@ function freeUnit(type, candidate, approved, requestedUnit = null) {
   return units.find(id => holdersOf(type, id, candidate, approved).length === 0) || null;
 }
 
-// When no unit is free, the unit a priority reservation may take: one whose
-// every holder has a purpose in `canTake`. Fewest holders first, then unit
-// order. Returns { unitId, holders } or null.
+// When no unit of `type` is free, the unit a priority reservation may take:
+// one whose every holder has a purpose in `canTake`. Fewest holders first,
+// then unit order. When `requestedUnit` is set, only that unit is considered.
+// Returns { unitId, holders } or null.
 function takeoverTarget(type, candidate, approved, requestedUnit = null) {
-  if (freeUnit(type, candidate, approved, requestedUnit)) return null;
+  if (freeUnit(type, candidate, approved)) return null;
   const canTake = PURPOSES[candidate.purpose]?.canTake || [];
   if (!canTake.length) return null;
   const units = unitIds(type).filter(id => requestedUnit == null || id === requestedUnit);
@@ -108,9 +128,10 @@ function parseMemberRequest(data, now = new Date()) {
   const date = typeof input.date === 'string' ? input.date : '';
   const problem = timeError(date, input.start, input.end, now);
   if (problem) throw new Error(problem);
+  if (hasPassed(date, input.start, now)) throw new Error('That start time has already passed. Choose a later time.');
   const type = input.resourceType;
   if (!TYPES.includes(type)) throw new Error('Choose a study room, whiteboard or TV.');
-  if (!PURPOSES[input.purpose]) throw new Error('Choose what the reservation is for.');
+  if (!isPurpose(input.purpose)) throw new Error('Choose what the reservation is for.');
   const requestedUnit = input.requestedUnit == null ? null : input.requestedUnit;
   if (requestedUnit !== null && !unitIds(type).includes(requestedUnit)) throw new Error('Choose a valid unit.');
   return {
@@ -134,7 +155,8 @@ function parseAdminBooking(data, now = new Date()) {
   const date = typeof input.date === 'string' ? input.date : '';
   const problem = timeError(date, input.start, input.end, now);
   if (problem) throw new Error(problem);
-  const purpose = input.purpose === HOLD || PURPOSES[input.purpose] ? input.purpose : '';
+  if (hasPassed(date, input.start, now)) throw new Error('That start time has already passed. Choose a later time.');
+  const purpose = input.purpose === HOLD || isPurpose(input.purpose) ? input.purpose : '';
   if (!purpose) throw new Error('Choose what the reservation is for.');
   const needs = {};
   const assignments = emptyAssignments();
@@ -142,7 +164,7 @@ function parseAdminBooking(data, now = new Date()) {
     const unit = input.assignments?.[type];
     needs[type] = unit != null;
     if (unit == null) continue;
-    if (!unitIds(type).includes(unit)) throw new Error(`Choose a valid ${RESOURCES[type].label.toLowerCase()}.`);
+    if (!unitIds(type).includes(unit)) throw new Error(`Choose a valid ${inSentence(RESOURCES[type].label)}.`);
     assignments[type] = unit;
   }
   if (!TYPES.some(type => needs[type])) throw new Error('Choose at least one room, whiteboard or TV.');
@@ -163,7 +185,10 @@ function parseAdminBooking(data, now = new Date()) {
 
 module.exports = {
   TYPES,
+  isPurpose,
   unitIds,
+  unitName,
+  inSentence,
   emptyAssignments,
   purposeOf,
   overlaps,

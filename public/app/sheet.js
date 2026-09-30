@@ -1,13 +1,15 @@
 // A bottom sheet on phones and a centered panel on larger screens, built on
-// <dialog>. It returns focus to whatever opened it and closes on a tap
-// outside. Escape runs `onEscape` (go back a step, or close).
+// <dialog>. It closes on a tap outside, and Escape runs `onEscape` (go back a
+// step, or close). On close, focus returns to the control that opened it,
+// found again by its data-key if the page was redrawn meanwhile, or else to
+// `fallbackFocus`.
 
-// `fallbackFocus` is a selector to focus on close when the control that
-// opened the sheet is gone (for example a reservation that was cancelled).
+import { paint } from '../shared/dom.js';
+
 export function createSheet(dialog, { onEscape, onClose, fallbackFocus = '#reserve' } = {}) {
   let opener = null;
+  let openerKey = null;
   let locked = false;
-  let painted = '';
 
   const sheet = {
     get isOpen() { return dialog.open; },
@@ -18,6 +20,7 @@ export function createSheet(dialog, { onEscape, onClose, fallbackFocus = '#reser
     open() {
       if (dialog.open) return;
       opener = document.activeElement;
+      openerKey = opener?.dataset?.key || null;
       dialog.showModal();
       document.body.classList.add('sheet-open');
     },
@@ -26,26 +29,26 @@ export function createSheet(dialog, { onEscape, onClose, fallbackFocus = '#reser
       if (!dialog.open || locked) return;
       dialog.close();
       if (!document.querySelector('dialog[open]')) document.body.classList.remove('sheet-open');
-      const target = opener?.isConnected ? opener : document.querySelector(fallbackFocus);
+      const redrawn = openerKey && document.querySelector(`[data-key="${CSS.escape(openerKey)}"]`);
+      const target = opener?.isConnected ? opener : redrawn || document.querySelector(fallbackFocus);
       target?.focus({ preventScroll: true });
       opener = null;
+      openerKey = null;
       onClose?.();
     },
 
-    // Replaces the content when it changed. `focus` is a selector to focus
-    // afterwards; otherwise focus stays on the same control (by data-key), or
-    // moves to the heading if that control is gone.
-    render(html, { focus = null, scrollTop = false } = {}) {
-      if (html === painted && !focus) return;
-      painted = html;
+    // Replaces the content when it changed. Focus stays on the same control
+    // (by data-key), or moves to `focus`, or to the heading if the focused
+    // control is gone.
+    render(html, { focus = null } = {}) {
       const hadFocus = dialog.contains(document.activeElement);
-      const focusKey = document.activeElement?.dataset?.key;
-      dialog.innerHTML = html;
-      if (scrollTop) dialog.scrollTop = 0;
-      const target = (focus && dialog.querySelector(focus))
-        || (hadFocus && focusKey && dialog.querySelector(`[data-key="${CSS.escape(focusKey)}"]`))
-        || (hadFocus || focus ? dialog.querySelector('h2') : null);
-      target?.focus({ preventScroll: true });
+      paint(dialog, html);
+      if (focus) {
+        dialog.scrollTop = 0;
+        dialog.querySelector(focus)?.focus({ preventScroll: true });
+      } else if (hadFocus && !dialog.contains(document.activeElement)) {
+        dialog.querySelector('h2')?.focus({ preventScroll: true });
+      }
     }
   };
 

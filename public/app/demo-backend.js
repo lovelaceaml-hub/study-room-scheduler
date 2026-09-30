@@ -69,7 +69,7 @@ export function demoBackend() {
         canCancel: true,
         canEndEarly: earlierEnds(DEMO_CONFIG, data.start, data.end).length > 0
       });
-      return { id: reservation.id, unit: choice.unit, tookOver: choice.takeover };
+      return { id: reservation.id, unit: choice.unit };
     },
 
     memberCancelBooking({ bookingId }) {

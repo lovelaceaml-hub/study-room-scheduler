@@ -1,7 +1,7 @@
 // Labels and sentences the member app shows, built from the server's config.
 
 import { unitName } from '../shared/availability.js';
-import { formatTime } from '../shared/format.js';
+import { formatTime, inSentence } from '../shared/format.js';
 
 export const HOLD = 'blocked';
 
@@ -36,9 +36,9 @@ export function noticeText(config, reservation) {
   const notice = reservation.notice;
   if (!notice) return '';
   const by = config.purposes[notice.byPurpose]?.label || 'priority';
-  const kind = (config.resources[reservation.type]?.label || 'unit').toLowerCase();
+  const kind = inSentence(config.resources[reservation.type]?.label || 'unit');
   const from = unitName(config, notice.fromUnit) || `your ${kind}`;
   if (notice.kind === 'shortened') return `A ${by} reservation needed ${from}, so this reservation now ends at ${formatTime(notice.toEnd)}.`;
   if (notice.kind === 'moved') return `A ${by} reservation needed ${from}, so this reservation moved to ${unitName(config, notice.toUnit) || `another ${kind}`}.`;
-  return `A ${by} reservation needed ${from} and no other ${kind} was free, so this reservation was released. Choose another time.`;
+  return `A ${by} reservation needed ${from} and no other ${kind} was free, so this reservation was replaced. Choose another time.`;
 }

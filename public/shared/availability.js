@@ -3,7 +3,7 @@
 // the same checks again when a reservation is sent; this only decides what
 // to offer. Times inside this module are minutes after midnight.
 
-import { toMinutes, toTime } from './format.js';
+import { toMinutes, toTime, nowIn } from './format.js';
 
 export function unitsOf(config, type) {
   return config.resources[type]?.units || [];
@@ -60,12 +60,16 @@ function candidates(config, type, unitId) {
 
 // How `purpose` could get a unit of `type` for the whole range:
 // { unit, takeover: false } when one is free, { unit, takeover: true } when it
-// would take a lower-priority reservation's unit, or null.
+// would take a lower-priority reservation's unit, or null. A takeover is only
+// offered when no unit of that type is free at all. `unitId` limits the
+// choice to one unit.
 export function rangeChoice(config, rows, day, type, start, end, purpose, unitId = null) {
   if (!validRange(config, day, start, end)) return null;
+  const isFree = id => holders(rows, day.date, id, start, end).length === 0;
   const units = candidates(config, type, unitId);
-  const free = units.find(id => holders(rows, day.date, id, start, end).length === 0);
+  const free = units.find(isFree);
   if (free) return { unit: free, takeover: false };
+  if (candidates(config, type, null).some(isFree)) return null;
   const canTake = config.purposes[purpose]?.canTake || [];
   if (!canTake.length) return null;
   const options = units
@@ -75,12 +79,13 @@ export function rangeChoice(config, rows, day, type, start, end, purpose, unitId
   return options.length ? { unit: options[0].id, takeover: true } : null;
 }
 
-// Start times with at least one possible end. `takeover` is true when every
-// end from that start would take a lower-priority reservation.
-export function startChoices(config, rows, day, type, purpose, unitId = null) {
+// Start times from `earliest` on with at least one possible end. `takeover`
+// is true when every end from that start would take a lower-priority
+// reservation.
+export function startChoices(config, rows, day, type, purpose, unitId = null, earliest = 0) {
   const choices = [];
   for (const start of slotStarts(config)) {
-    if (serviceAt(day, start)) continue;
+    if (start < earliest || serviceAt(day, start)) continue;
     const ends = endChoices(config, rows, day, type, start, purpose, unitId);
     if (ends.length) choices.push({ start, takeover: ends.every(end => end.takeover) });
   }
@@ -94,6 +99,14 @@ export function endChoices(config, rows, day, type, start, purpose, unitId = nul
     if (choice) choices.push({ end, ...choice });
   }
   return choices;
+}
+
+// The first start that has not passed: on `date` itself, the slot now under
+// way; on any later day, the start of the day.
+export function earliestStart(config, date) {
+  const now = nowIn(config.timeZone);
+  if (date !== now.date) return 0;
+  return now.minutes - (now.minutes % config.slotMinutes);
 }
 
 // Every time a reservation could end at instead, as 'HH:MM': after its first
