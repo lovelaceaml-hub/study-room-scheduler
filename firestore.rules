@@ -1,60 +1,10 @@
 rules_version = '2';
 
+// Browsers never read or write Firestore directly. Every read and change goes
+// through the Cloud Functions in functions/, which use the Admin SDK and are
+// not bound by these rules.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function validOwnerCancellation() {
-      return signedIn()
-        && resource.data.ownerUid == request.auth.uid
-        && resource.data.status in ['pending', 'approved']
-        && request.resource.data.status == 'cancelled'
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'updatedAt']);
-    }
-
-    // The schedule is intentionally public-by-link for members and lobby TV.
-    // Sensitive notes are kept in privateBookingNotes instead of these docs.
-    match /bookings/{bookingId} {
-  // Booking documents contain owner identity and reserved-for details. All
-  // browser reads go through server projections instead.
-  allow read: if false;
-      // Creation happens only through the memberSubmitBooking Cloud Function
-      // (Admin SDK), which validates dates/slots/service blocks server-side
-      // and enforces per-day and per-address limits. The old direct-create
-      // path for schemaVersion 3 clients is retired.
-      allow create: if false;
-  allow update: if false;
-      allow delete: if false;
-    }
-
-    // Public app display configuration may be read, but only trusted backend
-    // functions can change it. The Admin PIN is never stored here.
-    match /app/settings {
-      // The legacy settings document contains a fast-to-guess PIN hash and is
-      // intentionally no longer exposed. The new Admin gate uses Secret Manager.
-      allow read, write: if false;
-    }
-    match /app/{documentId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // These collections are server-only. Callable functions use the Admin SDK
-    // and are not constrained by client rules.
-    match /privateBookingNotes/{documentId} {
-      allow read, write: if false;
-    }
-    match /adminSessions/{documentId} {
-      allow read, write: if false;
-    }
-    match /adminRateLimits/{documentId} {
-      allow read, write: if false;
-    }
-
     match /{document=**} {
       allow read, write: if false;
     }

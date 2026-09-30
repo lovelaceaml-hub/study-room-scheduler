@@ -1,0 +1,91 @@
+/* Lobby TV. Sized to read from across the lobby; everything scales with the
+   screen width. Colors come from /shared/base.css. */
+
+body { font-size: clamp(14px, 1.1vw, 22px); }
+
+.tv {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(12px, 1.4vw, 26px);
+  min-height: 100vh;
+  padding: clamp(14px, 1.8vw, 36px) clamp(16px, 2.4vw, 48px);
+}
+
+.tv-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
+.tv-kicker { margin: 0; color: var(--muted); font-size: 0.85em; letter-spacing: 0.06em; text-transform: uppercase; }
+.tv-header h1 { font: 400 clamp(30px, 3.2vw, 64px)/1 var(--serif); letter-spacing: -0.03em; }
+.tv-day { margin: 6px 0 0; color: var(--muted); }
+
+.tv-days { display: flex; flex-wrap: wrap; gap: 8px; }
+.tv-day-button {
+  min-height: 44px;
+  padding: 0.5em 1.1em;
+  border: 1px solid transparent;
+  border-radius: 40px;
+  background: var(--sunken);
+  color: var(--muted);
+}
+.tv-day-button[aria-pressed="true"] { border-color: #adbea1; background: var(--primary-tint); color: var(--primary-dark); }
+
+.tv-status { text-align: right; }
+.tv-clock { display: block; font: 400 clamp(26px, 2.6vw, 52px)/1 var(--serif); font-variant-numeric: tabular-nums; }
+.tv-connection { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin: 6px 0 0; font-size: 0.9em; }
+.tv-dot { width: 0.6em; height: 0.6em; border-radius: 50%; background: var(--primary); }
+.tv-connection[data-status="stale"] .tv-dot, .tv-connection[data-status="offline"] .tv-dot { background: var(--danger); }
+.tv-connection[data-status="demo"] .tv-dot { background: var(--other-dot); }
+.tv-updated { margin: 2px 0 0; color: var(--muted); font-size: 0.8em; }
+
+.tv-board { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: clamp(12px, 1.4vw, 26px); min-height: 0; }
+
+.tv-rooms { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: clamp(10px, 1vw, 20px); }
+.tv-room { padding: clamp(14px, 1.3vw, 26px); border-radius: var(--radius-large); background: var(--surface); box-shadow: var(--shadow); }
+.tv-room h2 { font: 400 1.5em/1.1 var(--serif); }
+.tv-room-state { margin: 0.4em 0 0; color: var(--primary-dark); font-size: 1.2em; font-weight: 600; }
+.tv-room.busy .tv-room-state { color: var(--contact-ink); }
+.tv-room.busy { background: var(--contact); }
+.tv-room-detail { margin: 0.3em 0 0; color: var(--muted); }
+
+.tv-timeline {
+  display: grid;
+  grid-template-rows: auto;
+  grid-auto-rows: minmax(3.2em, 1fr);
+  overflow: auto;
+  padding: clamp(12px, 1.2vw, 24px);
+  border-radius: var(--radius-large);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.tv-row { display: grid; grid-template-columns: clamp(80px, 8vw, 160px) minmax(640px, 1fr); align-items: stretch; min-height: 3.2em; border-top: 1px solid var(--line); }
+.tv-ruler { min-height: 2em; border-top: 0; }
+.tv-label { align-self: center; font-weight: 600; }
+.tv-track { position: relative; }
+.tv-tick { position: absolute; top: 0.3em; transform: translateX(-50%); color: var(--muted); font-size: 0.8em; white-space: nowrap; }
+.tv-tick:first-child { transform: none; }
+.tv-tick:last-of-type { transform: translateX(-100%); }
+.tv-booking, .tv-service {
+  position: absolute;
+  top: 0.35em;
+  bottom: 0.35em;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 0.5em;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.tv-booking { z-index: 1; border: 1px solid #fff; background: var(--new-member); color: var(--new-member-ink); }
+.tv-booking b { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.tv-booking small { font-size: 0.75em; }
+.tv-service { background: repeating-linear-gradient(115deg, #f8f7ef, #f8f7ef 5px, #e6e6d8 5px, #e6e6d8 6px); }
+.tv-now { position: absolute; z-index: 2; top: 0; bottom: 0; width: 2px; background: var(--danger); }
+
+.tv-empty { display: grid; place-content: center; text-align: center; padding: 10vh 16px; }
+.tv-empty h2 { font: 400 2em/1.2 var(--serif); }
+.tv-empty p { color: var(--muted); }
+
+.tv-footer { display: flex; flex-wrap: wrap; gap: 8px 28px; color: var(--muted); font-size: 0.9em; }
+.tv-footer span { display: flex; align-items: center; gap: 8px; }
+.tv-swatch { width: 1em; height: 1em; border-radius: 4px; }
+.tv-swatch.booked { background: var(--new-member); }
+.tv-swatch.service { background: repeating-linear-gradient(115deg, #f8f7ef, #f8f7ef 3px, #dcdccf 3px, #dcdccf 4px); border: 1px solid var(--line); }

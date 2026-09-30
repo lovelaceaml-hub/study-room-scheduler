@@ -95,22 +95,18 @@ jobs:
           node-version: 22
 
       - name: Install test dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm ci --prefix functions
 
       - name: Install the Chromium browser for the tests
         run: npx playwright install --with-deps chromium
 
-      - name: "Pre-release checks: npm test, test:model, test:cutover"
-        run: |
-          npm test
-          npm run test:model
-          npm run test:cutover
+      - name: "Pre-release checks: rules tests"
+        run: npm test
 
-      - name: "Pre-release checks: test:designs, test:admin, test:tv (fictional mocked data)"
-        run: |
-          npm run test:designs
-          npm run test:admin
-          npm run test:tv
+      - name: "Pre-release checks: browser tests (fictional data, fake Firebase)"
+        run: npm run test:browser
 
       - name: Check the deploy guard refuses forbidden targets
         run: bash .github/scripts/deploy-guard.sh --self-test

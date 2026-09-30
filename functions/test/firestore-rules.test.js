@@ -1,19 +1,13 @@
 'use strict';
 
+// Needs the Firestore emulator: `firebase emulators:exec --only firestore "npm run test:rules"`.
+
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { after, before, beforeEach } = require('node:test');
 const { initializeTestEnvironment, assertFails } = require('@firebase/rules-unit-testing');
-const {
-  Timestamp,
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-  updateDoc
-} = require('firebase/firestore');
-const { upcomingTuesdayAndSaturday } = require('../lib/policy');
+const { doc, getDoc, setDoc, updateDoc, deleteDoc } = require('firebase/firestore');
 
 let environment;
 
@@ -28,74 +22,25 @@ before(async () => {
   });
 });
 
-beforeEach(async () => environment.clearFirestore());
+beforeEach(async () => {
+  await environment.clearFirestore();
+  await environment.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'bookings/existing'), { date: '2026-10-03', name: 'Test Member', ownerUid: 'member', status: 'approved' });
+    await setDoc(doc(db, 'privateBookingNotes/existing'), { note: 'Private' });
+  });
+});
+
 after(async () => environment?.cleanup());
 
-function nextEligibleDate() {
-  return upcomingTuesdayAndSaturday(new Date())[0];
-}
-
-function booking(date, ownerUid) {
-  return {
-    schemaVersion: 3,
-    date,
-    bookingDate: Timestamp.fromDate(new Date(`${date}T12:00:00Z`)),
-    start: '10:00',
-    end: '10:30',
-    name: 'Test Member',
-    needs: { room: true, whiteboard: false, tv: false },
-    preferredRoom: null,
-    purpose: 'meeting',
-    purposeOther: '',
-    certainty: 'confirmed',
-    status: 'pending',
-    assignments: { room: null, whiteboard: null, tv: null },
-    ownerUid,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  };
-}
-
-test('browsers cannot read booking documents or private notes', async () => {
-  const publicDb = environment.unauthenticatedContext().firestore();
-  await assertFails(getDoc(doc(publicDb, 'bookings', 'any')));
-  await assertFails(getDoc(doc(publicDb, 'privateBookingNotes', 'any')));
-});
-
-test('clients can no longer create bookings directly — only the backend can', async () => {
-  const memberDb = environment.authenticatedContext('member-a').firestore();
-  const valid = booking(nextEligibleDate(), 'member-a');
-  // Even a perfectly-formed request is refused: creation goes through the
-  // memberSubmitBooking Cloud Function, which rate-limits and validates.
-  await assertFails(setDoc(doc(memberDb, 'bookings', 'valid'), valid));
-  await assertFails(setDoc(doc(memberDb, 'bookings', 'wrong-owner'), { ...valid, ownerUid: 'member-b' }));
-  await assertFails(setDoc(doc(memberDb, 'bookings', 'approved'), {
-    ...valid, status: 'approved', assignments: { room: 'room-1', whiteboard: null, tv: null }
-  }));
-});
-
-test('clients cannot update bookings; owner cancellation uses the callable', async () => {
-  const date = nextEligibleDate();
-  await environment.withSecurityRulesDisabled(async context => {
-    await setDoc(doc(context.firestore(), 'bookings', 'owned'), {
-      ...booking(date, 'member-a'), createdAt: Timestamp.now(), updatedAt: Timestamp.now()
-    });
+for (const [label, context] of [['signed-out', () => environment.unauthenticatedContext()], ['signed-in', () => environment.authenticatedContext('member')]]) {
+  test(`${label} browsers cannot read or change anything`, async () => {
+    const db = context().firestore();
+    for (const document of ['bookings/existing', 'privateBookingNotes/existing', 'adminSessions/any', 'adminRateLimits/any', 'app/settings']) {
+      await assertFails(getDoc(doc(db, document)));
+      await assertFails(setDoc(doc(db, document), { changed: true }));
+    }
+    await assertFails(updateDoc(doc(db, 'bookings/existing'), { status: 'cancelled' }));
+    await assertFails(deleteDoc(doc(db, 'bookings/existing')));
   });
-  const ownerDb = environment.authenticatedContext('member-a').firestore();
-  await assertFails(updateDoc(doc(ownerDb, 'bookings', 'owned'), { status: 'cancelled', updatedAt: serverTimestamp() }));
-
-  await environment.withSecurityRulesDisabled(async context => {
-    await updateDoc(doc(context.firestore(), 'bookings', 'owned'), { status: 'pending' });
-  });
-  const otherDb = environment.authenticatedContext('member-b').firestore();
-  await assertFails(updateDoc(doc(otherDb, 'bookings', 'owned'), { status: 'cancelled', updatedAt: serverTimestamp() }));
-  await assertFails(updateDoc(doc(ownerDb, 'bookings', 'owned'), {
-    status: 'cancelled', name: 'Changed', updatedAt: serverTimestamp()
-  }));
-});
-
-test('clients cannot change settings or delete bookings', async () => {
-  const memberDb = environment.authenticatedContext('member-a').firestore();
-  await assertFails(setDoc(doc(memberDb, 'app', 'settings'), { pinHash: 'unsafe' }));
-  await assertFails(setDoc(doc(memberDb, 'privateBookingNotes', 'x'), { note: 'unsafe' }));
-});
+}

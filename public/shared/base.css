@@ -1,0 +1,155 @@
+/* Colors, type and controls shared by the member app, the Admin page and the
+   lobby TV. Page-specific layout lives in each page's own stylesheet. */
+
+:root {
+  color-scheme: light;
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --serif: Georgia, "Times New Roman", serif;
+
+  --paper: #eeeee4;
+  --surface: #fffdf7;
+  --surface-soft: #f4f5ec;
+  --sunken: #e9ebe0;
+  --ink: #2f4135;
+  --muted: #5a6655;
+  --line: #dde0d4;
+  --line-strong: #c3cdb8;
+
+  --primary: #425f4c;
+  --primary-dark: #344c3c;
+  --primary-tint: #dce4d7;
+  --on-primary: #fffdf7;
+  --focus: #36603f;
+
+  --danger: #8a4a3e;
+  --danger-dark: #733c32;
+  --danger-tint: #f7efeb;
+  --danger-line: #cfb0a6;
+
+  --note: #f0e9dc;
+  --note-line: #c9aa90;
+  --note-ink: #5e4a3a;
+
+  /* One color family per purpose, in priority order. */
+  --contact: #e9ded0;
+  --contact-ink: #5d4a3a;
+  --contact-dot: #c6aa90;
+  --new-member: #dce5df;
+  --new-member-ink: #33554a;
+  --new-member-dot: #9db6a5;
+  --other: #ebe7d8;
+  --other-ink: #56523c;
+  --other-dot: #c1b891;
+  --hold: #e6e7dd;
+  --hold-ink: #5a6252;
+  --hold-dot: #bcc2b1;
+
+  --radius: 14px;
+  --radius-large: 26px;
+  --shadow: 0 18px 48px #545e4514, 0 2px 5px #545e4508;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 14px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+button:disabled { cursor: default; opacity: 0.5; }
+button[aria-busy="true"] { cursor: progress; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+[hidden] { display: none !important; }
+
+svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+h1, h2, h3 { font-weight: 400; margin: 0; }
+
+/* ---------- Buttons ---------- */
+
+.primary, .secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  font-weight: 500;
+  text-align: center;
+  transition: background 0.2s;
+}
+.primary { border: 0; background: var(--primary); color: var(--on-primary); }
+.primary:hover:not(:disabled) { background: var(--primary-dark); }
+.primary.danger { background: var(--danger); }
+.primary.danger:hover:not(:disabled) { background: var(--danger-dark); }
+.secondary { border: 1px solid var(--line-strong); background: var(--surface); color: var(--primary-dark); }
+.secondary:hover:not(:disabled) { background: var(--surface-soft); }
+.secondary.danger { border-color: var(--danger-line); background: var(--danger-tint); color: var(--danger-dark); }
+
+.text-button {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--primary-dark);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+}
+.icon-button:hover { background: var(--surface-soft); }
+.icon-button svg { width: 18px; height: 18px; }
+
+/* ---------- Small parts ---------- */
+
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.dot.purpose-contact { background: var(--contact-dot); }
+.dot.purpose-new-member { background: var(--new-member-dot); }
+.dot.purpose-other { background: var(--other-dot); }
+.dot.purpose-blocked { background: var(--hold-dot); }
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  vertical-align: -3px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1.2s linear infinite;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

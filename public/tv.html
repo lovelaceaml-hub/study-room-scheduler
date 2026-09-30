@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#eeeee4">
+  <title>Lobby · LV Zion Study Rooms</title>
+  <link rel="icon" href="/icon.svg">
+  <link rel="stylesheet" href="/shared/base.css">
+  <link rel="stylesheet" href="/tv/tv.css">
+  <script type="module" src="/tv/tv.js"></script>
+</head>
+<body>
+  <div class="tv">
+    <header class="tv-header">
+      <div>
+        <p class="tv-kicker">LV Zion</p>
+        <h1>Study Rooms</h1>
+        <p class="tv-day" id="day-label"></p>
+      </div>
+      <div class="tv-days" id="days" role="group" aria-label="Day"></div>
+      <div class="tv-status">
+        <time class="tv-clock" id="clock"></time>
+        <p class="tv-connection" id="connection" role="status"><span class="tv-dot" aria-hidden="true"></span><span id="connection-label">Connecting</span></p>
+        <p class="tv-updated" id="updated"></p>
+      </div>
+    </header>
+    <main class="tv-board" id="board"></main>
+    <footer class="tv-footer">
+      <span><i class="tv-swatch booked" aria-hidden="true"></i>Reserved</span>
+      <span><i class="tv-swatch service" aria-hidden="true"></i>Service</span>
+      <span>Reserve at lvrooms.web.app</span>
+    </footer>
+  </div>
+</body>
+</html>

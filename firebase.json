@@ -2,63 +2,18 @@
   "hosting": [
     {
       "target": "app",
-      "public": ".",
-      "ignore": [
-        "firebase.json",
-        "firestore.rules",
-        "firestore.indexes.json",
-        "**/.*",
-        "**/.*/**",
-        "README.md",
-        "docs/**",
-        "design/**",
-        "functions/**",
-        "legacy/**",
-        "test/**",
-        "node_modules/**",
-        "AGENTS.md",
-        "CLAUDE.md",
-        "firebase*.json",
-        "package*.json",
-        "*-debug.log",
-        "test-results/**"
+      "public": "public",
+      "redirects": [
+        { "source": "/experiences/:path*", "destination": "/", "type": 301 }
       ],
       "headers": [
         {
+          "source": "**/*.@(html|js|css|json)",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        },
+        {
           "source": "/",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "no-cache"
-            }
-          ]
-        },
-        {
-          "source": "**/*.html",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "no-cache"
-            }
-          ]
-        },
-        {
-          "source": "**/*.js",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "no-cache"
-            }
-          ]
-        },
-        {
-          "source": "**/*.css",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "no-cache"
-            }
-          ]
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
         }
       ]
     },
@@ -66,16 +21,8 @@
       "target": "legacy",
       "public": "legacy",
       "redirects": [
-        {
-          "source": "/",
-          "destination": "https://lvrooms.web.app/",
-          "type": 301
-        },
-        {
-          "source": "/:path*",
-          "destination": "https://lvrooms.web.app/:path",
-          "type": 301
-        }
+        { "source": "/", "destination": "https://lvrooms.web.app/", "type": 301 },
+        { "source": "/:path*", "destination": "https://lvrooms.web.app/:path", "type": 301 }
       ]
     }
   ],
