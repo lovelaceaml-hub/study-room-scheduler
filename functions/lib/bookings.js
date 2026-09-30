@@ -135,7 +135,7 @@ function parseAdminBooking(data, now = new Date()) {
   const problem = timeError(date, input.start, input.end, now);
   if (problem) throw new Error(problem);
   const purpose = input.purpose === HOLD || PURPOSES[input.purpose] ? input.purpose : '';
-  if (!purpose) throw new Error('Choose what the booking is for.');
+  if (!purpose) throw new Error('Choose what the reservation is for.');
   const needs = {};
   const assignments = emptyAssignments();
   for (const type of TYPES) {

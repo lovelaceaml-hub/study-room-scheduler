@@ -180,7 +180,7 @@ async function adminCancel(db, id, uid) {
   const ref = db.collection(BOOKINGS).doc(bookingId(id));
   await db.runTransaction(async transaction => {
     const booking = await existing(transaction, ref);
-    if (booking.status !== 'approved') throw new HttpsError('failed-precondition', 'This booking is no longer active.');
+    if (booking.status !== 'approved') throw new HttpsError('failed-precondition', 'This reservation is no longer active.');
     transaction.update(ref, { status: 'cancelled', updatedAt: FieldValue.serverTimestamp(), updatedBy: uid });
   });
 }
@@ -190,7 +190,7 @@ async function adminRestore(db, id, assignments, uid) {
   const ref = db.collection(BOOKINGS).doc(bookingId(id));
   await db.runTransaction(async transaction => {
     const booking = await existing(transaction, ref);
-    if (booking.status === 'approved') throw new HttpsError('failed-precondition', 'This booking is already active.');
+    if (booking.status === 'approved') throw new HttpsError('failed-precondition', 'This reservation is already active.');
     const chosen = emptyAssignments();
     for (const type of TYPES) {
       if (!booking.needs?.[type]) continue;

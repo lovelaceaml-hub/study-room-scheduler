@@ -19,7 +19,7 @@ Members reserve study rooms, whiteboards and TVs; the lobby TV shows the day's r
 - Each browser signs in anonymously, so My reservations shows what was booked on that device.
 - The schedule shows a short public name ("Brother John Smith" becomes "B John") and the
   contact name, member name or purpose.
-- Admin (PIN-protected) sees full names, adds bookings or holds, cancels, ends early,
+- Admin (PIN-protected) sees full names, adds reservations or holds, cancels, ends early,
   restores, keeps private notes and removes records older than 8 weeks.
 
 ## Changing the rules
@@ -58,9 +58,9 @@ Manager secret `STUDY_ROOM_ADMIN_PIN`.
 ## Tests
 
 ```sh
-npm install
+npm install && npm install --prefix functions
 npx playwright install chromium
-npm test               # rules, including browser/server agreement
+npm test               # rules, database actions, and browser/server agreement
 npm run test:browser   # app, Admin and TV in a real browser with a fake backend
 ```
 

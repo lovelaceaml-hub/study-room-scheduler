@@ -70,7 +70,7 @@ async function unlocked() {
   await page.getByLabel('Admin PIN').fill('2468');
   await page.getByRole('button', { name: 'Unlock' }).click();
   await page.locator(`[data-date="${SATURDAY}"]`).click();
-  await page.getByRole('heading', { name: /^Bookings on Saturday/ }).waitFor();
+  await page.getByRole('heading', { name: /^Reservations on Saturday/ }).waitFor();
   return session;
 }
 
@@ -85,7 +85,7 @@ test('a wrong PIN is refused and the right one opens the day', async () => {
   await page.getByLabel('Admin PIN').fill('2468');
   await page.getByRole('button', { name: 'Unlock' }).click();
   await page.locator(`[data-date="${SATURDAY}"]`).click();
-  await entry(page, 'Brother John Smith').getByText('Room 1 · Contact · Contact name: Sample Contact · Booked by a member').waitFor();
+  await entry(page, 'Brother John Smith').getByText('Room 1 · Contact · Contact name: Sample Contact · Made by a member').waitFor();
   await entry(page, 'Deep clean').getByText('Note: Staff only').waitFor();
   assert.equal(await entry(page, 'Grace Park').locator('.badge').textContent(), 'Cancelled');
   assert.equal(await page.locator('.map-booking', { hasText: 'Brother John Smith' }).count(), 1);
@@ -105,8 +105,8 @@ test('adding a booking sends the chosen units and times', async () => {
   assert.equal(await form.getByRole('checkbox', { name: /Room 1/ }).isDisabled(), false);
   await form.getByRole('checkbox', { name: 'Room 3' }).check();
   await form.getByLabel('Private note (optional)').fill('Vacuum');
-  await form.getByRole('button', { name: 'Add booking' }).click();
-  await page.getByText('Booking added for Hold for cleaning.').waitFor();
+  await form.getByRole('button', { name: 'Add reservation' }).click();
+  await page.getByText('Reservation added for Hold for cleaning.').waitFor();
   assert.deepEqual((await lastCall(page, 'adminBookingAction')).data.booking, {
     date: SATURDAY, start: '13:00', end: '14:00', name: 'Hold for cleaning', purpose: 'blocked',
     reservedFor: 'Carpet', note: 'Vacuum', assignments: { room: 'room-3' }
@@ -118,7 +118,7 @@ test('adding a booking sends the chosen units and times', async () => {
 test('cancel, end early, restore and notes each reach the server', async () => {
   const { page, errors, context } = await unlocked();
   await entry(page, 'Brother John Smith').getByRole('button', { name: 'Cancel' }).click();
-  await page.getByText('Brother John Smith\'s booking was cancelled.').waitFor();
+  await page.getByText('Brother John Smith\'s reservation was cancelled.').waitFor();
   assert.deepEqual((await lastCall(page, 'adminBookingAction')).data, { sessionToken: 'fixture-session-token-0123456789-abcdef', action: 'cancel', bookingId: 'r1' });
 
   await entry(page, 'Avery Example').getByRole('button', { name: 'End early' }).click();
@@ -129,7 +129,7 @@ test('cancel, end early, restore and notes each reach the server', async () => {
   await entry(page, 'Grace Park').getByRole('button', { name: 'Restore' }).click();
   assert.equal(await entry(page, 'Grace Park').getByLabel('Study room').inputValue(), 'room-3', 'its previous room is suggested');
   await entry(page, 'Grace Park').getByRole('button', { name: 'Restore' }).last().click();
-  await page.getByText('Grace Park\'s booking is active again.').waitFor();
+  await page.getByText('Grace Park\'s reservation is active again.').waitFor();
   assert.deepEqual((await lastCall(page, 'adminBookingAction')).data.assignments, { room: 'room-3' });
 
   await entry(page, 'Avery Example').getByRole('button', { name: 'Add note' }).click();
@@ -156,7 +156,7 @@ test('Lock, an ended session and an expired session all return to the PIN', asyn
 
   await page.getByLabel('Admin PIN').fill('2468');
   await page.getByRole('button', { name: 'Unlock' }).click();
-  await page.getByRole('heading', { name: /^Bookings on/ }).waitFor();
+  await page.getByRole('heading', { name: /^Reservations on/ }).waitFor();
   await page.evaluate(() => { window.__endSession = true; });
   await page.getByText('Your Admin session ended. Enter the PIN again.').waitFor({ timeout: 20000 });
 

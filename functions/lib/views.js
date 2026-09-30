@@ -146,4 +146,4 @@ function lobbyView(records, dates, now = new Date()) {
   };
 }
 
-module.exports = { clientConfig, daysView, memberView, lobbyView, scheduleRows, myReservations };
+module.exports = { clientConfig, daysView, memberView, lobbyView };

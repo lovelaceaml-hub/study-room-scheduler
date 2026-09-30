@@ -1,6 +1,6 @@
-// Admin page: unlock with the PIN, then see every booking on the open days,
-// add bookings or holds, cancel, end early, restore, keep private notes, and
-// remove old records. Every change goes through a Cloud Function.
+// Admin page: unlock with the PIN, then see every reservation on the open
+// days, add reservations or holds, cancel, end early, restore, keep private
+// notes, and remove old records. Every change goes through a Cloud Function.
 
 import { connect, errorMessage } from '../shared/firebase.js';
 import { escapeHtml as esc, formatTime, formatRange, formatDay, formatHour, weekdayName, monthDay, toMinutes, toTime, hasText } from '../shared/format.js';
@@ -182,7 +182,7 @@ function renderLock(error = '') {
   root.innerHTML = `
     <form class="card lock" data-form="unlock">
       <h2>Admin is locked</h2>
-      <p class="hint">Enter the Admin PIN to manage bookings.</p>
+      <p class="hint">Enter the Admin PIN to manage reservations.</p>
       <label class="visually-hidden" for="pin">Admin PIN</label>
       <div class="pin-row">
         <input id="pin" name="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" required>
@@ -205,7 +205,7 @@ function render() {
       <section class="card" aria-labelledby="add-title" data-region="add"></section>
       <section class="card" aria-labelledby="old-title">
         <h2 id="old-title">Old records</h2>
-        <p class="hint">Removes bookings dated more than 8 weeks ago, with their notes.</p>
+        <p class="hint">Removes reservations dated more than 8 weeks ago, with their notes.</p>
         <button type="button" class="secondary danger" data-action="remove-old">Remove old records</button>
       </section>`;
   }
@@ -228,8 +228,8 @@ function render() {
 
 function listHtml() {
   const items = bookingsToday().sort((a, b) => toMinutes(a.start) - toMinutes(b.start) || a.name.localeCompare(b.name));
-  return `<h2 id="list-title">Bookings on ${esc(formatDay(view.date))}</h2>
-    ${items.length ? `<ul class="entries">${items.map(entryHtml).join('')}</ul>` : '<p class="hint">No bookings on this day.</p>'}`;
+  return `<h2 id="list-title">Reservations on ${esc(formatDay(view.date))}</h2>
+    ${items.length ? `<ul class="entries">${items.map(entryHtml).join('')}</ul>` : '<p class="hint">No reservations on this day.</p>'}`;
 }
 
 function entryHtml(record) {
@@ -247,7 +247,7 @@ function entryHtml(record) {
   return `<li class="entry${active ? '' : ' inactive'}">
     <p class="entry-time">${esc(formatRange(record.start, record.end))}</p>
     <p class="entry-name"><b>${esc(record.name || 'No name')}</b> <span class="badge status-${esc(record.status)}">${esc(STATUS_LABELS[record.status] || record.status)}</span></p>
-    <p class="entry-meta">${[places(record), purposeLabel(record.purpose), detail ? `${detailLabel(record.purpose)}: ${detail}` : '', record.ownerUid ? 'Booked by a member' : 'Added by Admin'].filter(Boolean).map(esc).join(' · ')}</p>
+    <p class="entry-meta">${[places(record), purposeLabel(record.purpose), detail ? `${detailLabel(record.purpose)}: ${detail}` : '', record.ownerUid ? 'Made by a member' : 'Added by Admin'].filter(Boolean).map(esc).join(' · ')}</p>
     ${record.endedEarlyFrom ? `<p class="entry-meta">Ended early; it was booked until ${esc(formatTime(record.endedEarlyFrom))}.</p>` : ''}
     ${notes[record.id] ? `<p class="entry-note">Note: ${esc(notes[record.id])}</p>` : ''}
     <div class="entry-actions">${actions.filter(Boolean).join('')}</div>
@@ -315,7 +315,7 @@ function mapHtml() {
   return `<h2 id="map-title">Day view</h2>
     <div class="map-types" role="group" aria-label="Show">${Object.entries(config().resources).map(([type, resource]) => `
       <button type="button" class="type-button" data-map-type="${type}" data-key="map-${type}" aria-pressed="${type === view.type}">${esc(resource.plural)}</button>`).join('')}</div>
-    <div class="map" style="--units:${units.length};--slots:${slotStarts(config()).length}" aria-label="Active bookings for ${esc(config().resources[view.type].plural.toLowerCase())}">
+    <div class="map" style="--units:${units.length};--slots:${slotStarts(config()).length}" aria-label="Active reservations for ${esc(config().resources[view.type].plural.toLowerCase())}">
       <span class="map-corner"></span>${units.map((unit, index) => `<span class="map-unit" style="grid-column:${index + 2}">${esc(unit.name)}</span>`).join('')}
       ${hours.join('')}${services.join('')}${cells.join('')}
     </div>`;
@@ -360,8 +360,8 @@ function addHtml() {
         </label>`;
       }).join('')}
     </fieldset>`).join('') : '<p class="hint">Choose a start and end time to see which units are free.</p>';
-  return `<h2 id="add-title">Add a booking on ${esc(formatDay(view.date))}</h2>
-    <p class="hint">Bookings added here are active right away. Use Hold to keep a unit free without showing a name.</p>
+  return `<h2 id="add-title">Add a reservation on ${esc(formatDay(view.date))}</h2>
+    <p class="hint">Reservations added here are active right away. Use Hold to keep a unit free without showing a name.</p>
     <form class="add-form" data-form="add">
       <div class="field"><label for="add-name">Name</label>
         <input id="add-name" name="name" maxlength="120" value="${esc(form.name)}" data-key="add-name" required></div>
@@ -376,7 +376,7 @@ function addHtml() {
       <div class="units">${unitRows}</div>
       <div class="field wide"><label for="add-note">Private note (optional)</label>
         <textarea id="add-note" name="note" rows="2" maxlength="1000" data-key="add-note">${esc(form.note)}</textarea></div>
-      <button type="submit" class="primary"${busy ? ' disabled' : ''}>${busy ? 'Saving…' : 'Add booking'}</button>
+      <button type="submit" class="primary"${busy ? ' disabled' : ''}>${busy ? 'Saving…' : 'Add reservation'}</button>
     </form>`;
 }
 
@@ -385,7 +385,7 @@ async function submitAdd() {
   for (const id of form.units) {
     const type = types().find(item => unitsOf(config(), item).some(unit => unit.id === id));
     if (assignments[type]) {
-      message(`Choose one ${config().resources[type].label.toLowerCase()} per booking. Add a second booking for another.`, true);
+      message(`Choose one ${config().resources[type].label.toLowerCase()} per reservation. Add a second reservation for another.`, true);
       return;
     }
     assignments[type] = id;
@@ -394,7 +394,7 @@ async function submitAdd() {
   if (!form.start || !form.end) return message('Choose a start and end time.', true);
   if (!form.units.length) return message('Choose at least one unit.', true);
   const booking = { date: view.date, start: form.start, end: form.end, name: form.name, purpose: form.purpose, reservedFor: form.reservedFor, note: form.note, assignments };
-  const saved = await change(() => call('adminBookingAction', { action: 'add', booking }), `Booking added for ${form.name.trim()}.`);
+  const saved = await change(() => call('adminBookingAction', { action: 'add', booking }), `Reservation added for ${form.name.trim()}.`);
   if (saved) {
     form = blankForm();
     render();
@@ -415,7 +415,7 @@ root.addEventListener('submit', event => {
     change(() => call('adminBookingAction', { action: 'end-early', bookingId: id, end }), `${booking(id).name} now ends at ${formatTime(end)}.`);
   } else if (kind === 'restore') {
     const assignments = Object.fromEntries(neededTypes(booking(id)).map(type => [type, target.elements[type]?.value]));
-    change(() => call('adminBookingAction', { action: 'restore', bookingId: id, assignments }), `${booking(id).name}'s booking is active again.`);
+    change(() => call('adminBookingAction', { action: 'restore', bookingId: id, assignments }), `${booking(id).name}'s reservation is active again.`);
   } else if (kind === 'note') {
     change(() => call('adminNoteAction', { action: 'save', bookingId: id, note: target.elements.note.value }), 'Note saved.');
   }
@@ -444,11 +444,11 @@ root.addEventListener('click', event => {
     root.querySelector(`[data-key="${kind}-${CSS.escape(panelId)}"]`)?.focus();
   } else if (action === 'cancel') {
     const record = booking(id);
-    if (confirm(`Cancel ${record.name}'s booking, ${formatRange(record.start, record.end)}?`)) {
-      change(() => call('adminBookingAction', { action: 'cancel', bookingId: id }), `${record.name}'s booking was cancelled.`);
+    if (confirm(`Cancel ${record.name}'s reservation, ${formatRange(record.start, record.end)}?`)) {
+      change(() => call('adminBookingAction', { action: 'cancel', bookingId: id }), `${record.name}'s reservation was cancelled.`);
     }
   } else if (action === 'remove-old') {
-    if (confirm('Delete bookings dated more than 8 weeks ago? This cannot be undone.')) removeOld();
+    if (confirm('Delete reservations dated more than 8 weeks ago? This cannot be undone.')) removeOld();
   }
 });
 

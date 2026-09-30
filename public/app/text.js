@@ -1,7 +1,7 @@
 // Labels and sentences the member app shows, built from the server's config.
 
 import { unitName } from '../shared/availability.js';
-import { formatTime, formatDay } from '../shared/format.js';
+import { formatTime } from '../shared/format.js';
 
 export const HOLD = 'blocked';
 
@@ -29,10 +29,6 @@ export function detailLabel(config, purpose) {
 // 'Room 2', or 'Study room' when no unit is assigned.
 export function placeLabel(config, type, unit) {
   return unitName(config, unit) || config.resources[type]?.label || 'Reservation';
-}
-
-export function dayLabel(date) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(date)) ? formatDay(date) : '';
 }
 
 // What a priority reservation changed about this one, or ''.
