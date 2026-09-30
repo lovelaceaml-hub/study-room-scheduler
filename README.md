@@ -67,6 +67,13 @@ npm run test:browser   # app, Admin and TV in a real browser with a fake backend
 
 Firestore rules (needs the emulator): `cd functions && firebase emulators:exec --only firestore "npm run test:rules"`.
 
+## Looking at live data
+
+`npm run reservations` lists reservations from today on, as members see them; add
+`-- --full` for full names and private notes. It reads through the service account
+`claude-reader@lvz-rooms`, which can only read the database, using your gcloud sign-in
+(no key file).
+
 ## Releasing
 
 Pushing a branch other than `main` publishes a 7-day preview (see the Actions run summary).
