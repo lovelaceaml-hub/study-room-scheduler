@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "test": "node --test test/rules.test.mjs functions/test/rules.test.js functions/test/actions.test.js functions/test/endpoints.test.js",
-    "test:browser": "node --test --test-concurrency=1 test/app.smoke.mjs test/admin.smoke.mjs test/tv.smoke.mjs"
+    "test:browser": "node --test --test-concurrency=1 test/app.smoke.mjs test/admin.smoke.mjs test/tv.smoke.mjs",
+    "reservations": "node scripts/reservations.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
