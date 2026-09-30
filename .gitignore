@@ -1,30 +1,13 @@
-.DS_Store
-.firebase/
-node_modules/
-test-results/
-*.log
-
-# Also ignore dependency symlinks used by isolated worktrees.
+# Dependencies and Firebase CLI cache
 node_modules
+.firebase/
 
-# OS and editor junk
-Thumbs.db
-*.swp
-*~
-
-# Local secrets and environment files
+# Local secrets
 .env
 .env.*
 .runtimeconfig.json
 
-# Build, cache and coverage output
-build/
-dist/
-coverage/
-.nyc_output/
-.cache/
-__pycache__/
-.pytest_cache/
-
-# Screenshots rewritten by every browser smoke run (npm run test:designs)
-docs/live-design-evidence/*.png
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db

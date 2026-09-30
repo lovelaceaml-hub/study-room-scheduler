@@ -1,0 +1,13 @@
+{
+  "name": "LV Zion Study Rooms",
+  "short_name": "Study Rooms",
+  "description": "Reserve a study room, whiteboard or TV at LV Zion.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#eeeee4",
+  "theme_color": "#eeeee4",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

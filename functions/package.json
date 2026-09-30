@@ -6,7 +6,7 @@
     "node": "22"
   },
   "scripts": {
-    "test": "node --test test/policy.test.js test/public-lobby-schedule.test.js test/member-schedule.test.js",
+    "test": "node --test test/rules.test.js",
     "test:rules": "node --test test/firestore-rules.test.js"
   },
   "dependencies": {

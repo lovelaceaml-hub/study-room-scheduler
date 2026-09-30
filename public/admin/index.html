@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#eeeee4">
+  <meta name="robots" content="noindex">
+  <title>Admin · LV Zion Study Rooms</title>
+  <link rel="icon" href="/icon.svg">
+  <link rel="stylesheet" href="/shared/base.css">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <script type="module" src="/admin/admin.js"></script>
+</head>
+<body>
+  <header class="admin-header">
+    <h1>LV Zion Study Rooms <span>Admin</span></h1>
+    <nav aria-label="Pages">
+      <a href="/">Member app</a>
+      <a href="/tv.html">Lobby TV</a>
+    </nav>
+    <button type="button" class="secondary lock-button" id="lock" hidden>Lock</button>
+  </header>
+  <div class="messages" id="messages" role="status" aria-live="polite"></div>
+  <main class="admin" id="admin">
+    <p class="card">Loading…</p>
+  </main>
+  <noscript><p class="card">Admin needs JavaScript.</p></noscript>
+</body>
+</html>
