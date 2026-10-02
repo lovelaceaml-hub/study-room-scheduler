@@ -24,7 +24,7 @@ let schedule = null; // { config, days, bookings } from adminSchedule
 let notes = {};
 let notesFor = ''; // older servers send notes separately: the ids they were read for
 let rules = null; // the last config's time zone and session length, kept after a lock
-let loading = null; // the schedule load in flight
+let loading = null; // the schedule load in flight: { epoch, promise }
 let refreshTimer = null;
 // Bumped when a change starts and when it ends. A load that saw another
 // value started before the change finished, so its result is dropped.
@@ -142,8 +142,10 @@ function noticeText(record) {
   return '';
 }
 
+// The end a priority reservation cut short. Ending early later is a
+// separate line, so the two times are never mixed up.
 function shortenedFrom(record) {
-  return record.notice?.kind === 'shortened' ? record.notice.fromEnd || record.endedEarlyFrom || null : null;
+  return record.notice?.kind === 'shortened' ? record.notice.fromEnd || null : null;
 }
 
 // ---------- Lock screen ----------
@@ -259,10 +261,16 @@ function endedByServer(error) {
 
 // ---------- Loading ----------
 
-// One load at a time; a second request joins the one in flight.
+// One load at a time; a second request joins the one in flight. A load from
+// before a Lock is never joined: its result is thrown away, so after the PIN
+// a new one starts.
 function refresh() {
-  loading ??= load().finally(() => { loading = null; });
-  return loading;
+  const epoch = admin.currentEpoch();
+  if (loading?.epoch !== epoch) {
+    const current = { epoch, promise: load().finally(() => { if (loading === current) loading = null; }) };
+    loading = current;
+  }
+  return loading.promise;
 }
 
 async function load() {
@@ -345,7 +353,7 @@ async function change({ kind = 'row', run, success, closes = null, focus = null,
       // one starts after it.
       changeMark += 1;
       notesFor = '';
-      await loading;
+      await loading?.promise;
       await refresh();
       if (epoch === admin.currentEpoch()) {
         busy = null;
@@ -530,7 +538,8 @@ function entryHtml(record) {
     opener('open-cancel', 'Cancel', true)
   ] : [restorable(record) && neededTypes(record).length ? opener('open-restore', 'Restore') : ''];
   actions.push(opener('open-note', note ? 'Edit note' : 'Add note'));
-  const meta = [places(record), purposeLabel(record.purpose), detail ? `${detailLabel(record.purpose)}: ${detail}` : '', byMember(record) ? 'Made by a member' : 'Added by Admin'];
+  // "Room 1 · Contact: Sample Person", as members see it in My reservations.
+  const meta = [places(record), detail ? `${purposeLabel(record.purpose)}: ${detail}` : purposeLabel(record.purpose), byMember(record) ? 'Made by a member' : 'Added by Admin'];
   const notice = noticeText(record);
   const endedEarly = record.endedEarlyFrom && record.endedEarlyFrom !== shortenedFrom(record) ? record.endedEarlyFrom : null;
   return `<p class="entry-time">${esc(formatRange(record.start, record.end))}</p>

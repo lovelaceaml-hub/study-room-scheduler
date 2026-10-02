@@ -275,7 +275,7 @@ test('a wrong PIN is refused and the right one opens the day', async () => {
   await page.getByRole('heading', { name: `Reservations on ${formatDay(TODAY)}` }).waitFor();
   assert.equal(await page.locator('#lock-time').textContent(), 'Locks at 9:20 AM');
   await page.locator(`[data-date="${DAY}"]`).click();
-  await entry(page, 'Brother John Smith').getByText('Room 1 · Contact · Contact name: Sample Contact · Made by a member').waitFor();
+  await entry(page, 'Brother John Smith').getByText('Room 1 · Contact: Sample Contact · Made by a member').waitFor();
   await entry(page, 'Deep clean').getByText('Room 2 · Hold · Added by Admin').waitFor();
   await entry(page, 'Deep clean').getByText('Note: Staff only').waitFor();
   assert.equal(await entry(page, 'Grace Park').locator('.badge').textContent(), 'Cancelled');
@@ -593,6 +593,26 @@ test('Lock during a refresh shows a clean lock screen', async () => {
   await context.close();
 });
 
+test('unlocking again while a refresh from before the Lock is still out loads the schedule', async () => {
+  const { page, errors, context } = await openAdmin();
+  await hold(page, 'adminSchedule:');
+  const before = await computedCount(page, 'adminSchedule:');
+  await page.clock.fastForward(15000);
+  await computed(page, 'adminSchedule:', before);
+  await page.getByRole('button', { name: 'Lock' }).click();
+  await lockScreenIsClean(page);
+  await unlock(page);
+  await page.locator('[data-role="loading"]').waitFor();
+  // The answer from before the Lock arrives now; it is dropped, and the
+  // schedule still loads.
+  await release(page, 'adminSchedule:');
+  await page.locator(`[data-date="${DAY}"]`).click();
+  await page.getByRole('heading', { name: `Reservations on ${formatDay(DAY)}` }).waitFor();
+  assert.equal(await page.locator('[data-role="loading"]').count(), 0);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 test('names, details, notes and ids show as text, never as markup', async () => {
   const evil = '"><img src=x onerror="window.__pwned=1">';
   const id = 'x1"><img src=x onerror=window.__pwned=2>';
@@ -730,8 +750,13 @@ test('priority notices explain each row, and a row that lost a unit can get a ne
       start: '18:00', end: '19:00', name: 'Moved Example', byMember: true, notice: { kind: 'moved', fromUnit: 'room-2', toUnit: 'room-4', toEnd: null, byPurpose: 'contact' }
     }),
     row('n3', { room: 'room-2' }, {
-      start: '14:00', end: '15:00', name: 'Shortened Example', byMember: true, endedEarlyFrom: '17:00',
-      notice: { kind: 'shortened', fromUnit: 'room-2', toUnit: 'room-2', toEnd: '15:00', byPurpose: 'new-member' }
+      start: '14:00', end: '15:00', name: 'Shortened Example', byMember: true,
+      notice: { kind: 'shortened', fromUnit: 'room-2', toUnit: 'room-2', fromEnd: '17:00', toEnd: '15:00', byPurpose: 'new-member' }
+    }),
+    // Shortened to 5 PM by a Contact reservation, then ended early at 4 PM by its member.
+    row('n5', { room: 'room-3' }, {
+      start: '15:30', end: '16:00', name: 'Shortened Then Ended Example', byMember: true, endedEarlyFrom: '17:00',
+      notice: { kind: 'shortened', fromUnit: 'room-3', toUnit: 'room-3', fromEnd: '18:00', toEnd: '17:00', byPurpose: 'contact' }
     }),
     row('n4', { room: null }, {
       start: '21:00', end: '22:00', name: 'Replaced Example', byMember: true, status: 'overridden',
@@ -742,6 +767,9 @@ test('priority notices explain each row, and a row that lost a unit can get a ne
   await entry(page, 'Moved Example').getByText('Moved from Room 2 for a Contact reservation.').waitFor();
   await entry(page, 'Shortened Example').getByText('Shortened for a New Member reservation; it was booked until 5:00 PM.').waitFor();
   assert.equal(await entry(page, 'Shortened Example').getByText('Ended early').count(), 0);
+  const both = entry(page, 'Shortened Then Ended Example');
+  await both.getByText('Shortened for a Contact reservation; it was booked until 6:00 PM.').waitFor();
+  await both.getByText('Ended early; it was booked until 5:00 PM.').waitFor();
   const replaced = entry(page, 'Replaced Example');
   await replaced.getByText('Replaced by a Contact reservation; no other study room was free.').waitFor();
   assert.equal(await replaced.locator('.badge').textContent(), 'Replaced');

@@ -72,7 +72,7 @@ test('a shortened reservation is told when it now ends and which unit took its p
     type: 'room', fromUnit: 'room-1', byPurpose: 'new-member', byBookingId: taken.id, kind: 'shortened', toUnit: 'room-1', fromEnd: '14:00', toEnd: '12:00'
   });
   const mine = memberView(db.all('bookings'), [SATURDAY], 'device-h').mine[0];
-  assert.deepEqual(mine.notice, { kind: 'shortened', fromUnit: 'room-1', toUnit: 'room-1', toEnd: '12:00', byPurpose: 'new-member' });
+  assert.deepEqual(mine.notice, { kind: 'shortened', fromUnit: 'room-1', toUnit: 'room-1', fromEnd: '14:00', toEnd: '12:00', byPurpose: 'new-member' });
 });
 
 test('holds are never taken, Contact never takes Contact, and Other cannot take anything', async () => {
@@ -149,7 +149,7 @@ test('a moved reservation is told where it went, and loses the notice once cance
   seedBooking(db, 'm', { purpose: 'other', ownerUid: 'device-m', start: '11:30', end: '12:00', assignments: { room: 'room-1' } });
   await actions.submitReservation(db, contact({ start: '11:00', end: '12:00' }), 'device-c');
   assert.deepEqual(memberView(db.all('bookings'), [SATURDAY], 'device-m').mine[0].notice,
-    { kind: 'moved', fromUnit: 'room-1', toUnit: 'room-2', toEnd: null, byPurpose: 'contact' });
+    { kind: 'moved', fromUnit: 'room-1', toUnit: 'room-2', fromEnd: null, toEnd: null, byPurpose: 'contact' });
   await actions.cancelReservation(db, 'm', 'device-m');
   assert.equal(memberView(db.all('bookings'), [SATURDAY], 'device-m').mine[0].notice, null);
 });

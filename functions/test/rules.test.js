@@ -454,7 +454,7 @@ test('My reservations says what the device can still do with each one', () => {
   ]);
   assert.equal(before[0].name, 'Brother John Smith', 'the owner sees the full name they typed');
   assert.equal(before[1].notice, null, 'no notice once cancelled');
-  assert.deepEqual(before[2].notice, { kind: 'released', fromUnit: 'room-2', toUnit: null, toEnd: null, byPurpose: 'contact' });
+  assert.deepEqual(before[2].notice, { kind: 'released', fromUnit: 'room-2', toUnit: null, fromEnd: null, toEnd: null, byPurpose: 'contact' });
   assert.equal(before[3].type, 'tv', 'an older record without needs');
 
   const during = mine(local(SATURDAY, '11:40'));
@@ -524,7 +524,7 @@ test('Admin rows carry everything Admin needs and nothing else', () => {
   assert.deepEqual(byId['kept-tv'], {
     id: 'kept-tv', date: SATURDAY, start: '11:00', end: '12:00', name: 'Admin Example', purpose: 'other', reservedFor: '',
     needs: { room: true, whiteboard: false, tv: true }, assignments: { room: null, whiteboard: null, tv: 'tv-1' }, status: 'approved',
-    byMember: false, endedEarlyFrom: null, notice: { kind: 'released', fromUnit: 'room-1', toUnit: null, toEnd: null, byPurpose: 'contact' },
+    byMember: false, endedEarlyFrom: null, notice: { kind: 'released', fromUnit: 'room-1', toUnit: null, fromEnd: null, toEnd: null, byPurpose: 'contact' },
     byAdmin: false, note: '', restorable: true, missing: ['room'], createdAt: 1234, ended: false, earlyEnds: ['11:30']
   });
   assert.deepEqual([byId.nothing.restorable, byId.nothing.createdAt, byId.mine.createdAt], [false, 99, null], 'nothing to restore');

@@ -108,6 +108,7 @@ function noticeView(booking) {
     kind: notice.kind,
     fromUnit: notice.fromUnit || null,
     toUnit: notice.toUnit || null,
+    fromEnd: notice.fromEnd || null,
     toEnd: notice.toEnd || null,
     byPurpose: notice.byPurpose || null
   };
