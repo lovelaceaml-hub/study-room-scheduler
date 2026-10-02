@@ -27,16 +27,6 @@ test('two members asking for the last room: one gets it, the other is told it is
   assert.equal(approvedOn(db, 'room-4').length, 1);
 });
 
-test('six requests at once from one device: exactly four are confirmed', async () => {
-  const db = new FakeFirestore();
-  const starts = ['11:00', '12:00', '13:00', '16:00', '17:00', '18:00'];
-  const results = await Promise.all(starts.map(start => settle(actions.submitReservation(db,
-    other({ start, end: `${Number(start.slice(0, 2)) + 1}:00` }), 'device-a'))));
-  assert.equal(results.filter(result => result.ok).length, 4);
-  assert.equal(results.filter(result => result.code === 'resource-exhausted').length, 2);
-  assert.equal(db.all('bookings').filter(booking => booking.ownerUid === 'device-a' && booking.status === 'approved').length, 4);
-});
-
 test('the same request sent twice at once is booked once', async () => {
   const db = new FakeFirestore();
   const request = other({ requestId: 'double-tap-0123456789' });

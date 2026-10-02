@@ -16,7 +16,7 @@ const { clientConfig } = require('../functions/lib/views.js');
 // The rules adminSchedule sends, with the fields the contract adds filled in
 // for a functions/ that does not send them yet.
 const CONFIG = {
-  windowDays: 4, hold: 'blocked', nameMax: 120, noteMax: 1000, holdReasonMax: 240, keepDays: 56, sessionMinutes: 20, maxActivePerDay: 4,
+  windowDays: 4, hold: 'blocked', nameMax: 120, noteMax: 1000, holdReasonMax: 240, keepDays: 56, sessionMinutes: 20,
   ...clientConfig()
 };
 const DAYS = bookableDates(TEST_NOW).map(dayInfo);

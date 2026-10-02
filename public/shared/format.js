@@ -77,8 +77,25 @@ export function monthDay(date) {
   return calendarDate(date).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
 }
 
+// How far the server's clock is ahead of this device's, from the last
+// schedule that arrived. Until one arrives, the device's clock is used.
+let clockOffset = 0;
+
+// The server's time at `at` on this device's clock (now by default), so a
+// phone or TV whose clock is wrong still goes by the church's time.
+export function serverNow(at = Date.now()) {
+  return new Date(at + clockOffset);
+}
+
+// Records the server's time (`serverMs`) from an answer to a request sent at
+// `sentAt` and received at `receivedAt`, both on this device's clock. The
+// server read its clock somewhere in between, so the midpoint is used.
+export function setServerTime(serverMs, sentAt, receivedAt = Date.now()) {
+  if (Number.isFinite(serverMs) && serverMs > 0) clockOffset = serverMs - (sentAt + receivedAt) / 2;
+}
+
 // The date and minute of the day on the church's clock.
-export function nowIn(timeZone, now = new Date()) {
+export function nowIn(timeZone, now = serverNow()) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
   }).formatToParts(now);

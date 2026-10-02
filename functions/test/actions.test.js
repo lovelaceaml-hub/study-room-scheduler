@@ -15,7 +15,6 @@ const {
 
 useFixedClock();
 
-const FOUR_A_DAY = 'You already have 4 reservations on this day. Cancel one in My reservations to make another.';
 
 test('a reservation takes the first free unit and records its owner', async () => {
   const db = new FakeFirestore();
@@ -62,21 +61,6 @@ test('a takeover shortens an earlier reservation and moves a later one when it c
   // Room 2 is free from 11:30, so the later reservation moves there.
   assert.equal(db.read('bookings', 'later').assignments.room, 'room-2');
   assert.equal(db.read('bookings', 'later').priorityNotice.kind, 'moved');
-});
-
-test('one device may hold four reservations a day; cancelled ones and other days do not count', async () => {
-  const db = new FakeFirestore();
-  seedBooking(db, 'gone', { start: '16:00', end: '17:00', ownerUid: 'device-a', status: 'cancelled', assignments: { room: 'room-4' } });
-  for (const start of ['10:00', '11:00', '12:00', '13:00']) {
-    seedBooking(db, `tue-${start.slice(0, 2)}`, { date: TUESDAY, start, end: `${Number(start.slice(0, 2)) + 1}:00`, ownerUid: 'device-a', assignments: { room: 'room-4' } });
-  }
-  for (const start of ['11:00', '12:00', '13:00']) {
-    seedBooking(db, `sat-${start.slice(0, 2)}`, { start, end: `${Number(start.slice(0, 2)) + 1}:00`, ownerUid: 'device-a', assignments: { room: 'room-4' } });
-  }
-  await actions.submitReservation(db, memberRequest({ start: '16:00', end: '17:00' }), 'device-a');
-  await assert.rejects(actions.submitReservation(db, memberRequest({ start: '17:00', end: '18:00' }), 'device-a'),
-    { code: 'resource-exhausted', message: FOUR_A_DAY });
-  await actions.submitReservation(db, memberRequest({ start: '17:00', end: '18:00' }), 'device-b');
 });
 
 test('only the device that booked can cancel or end early, and a cancel records who did it', async () => {

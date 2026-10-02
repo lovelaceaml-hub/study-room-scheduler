@@ -1,6 +1,6 @@
 'use strict';
 
-// Sign-in, request limits, the Admin PIN and Admin sessions, against an
+// Sign-in, the Admin PIN and Admin sessions, against an
 // in-memory Firestore on a mocked clock. Every PIN here is fictional.
 
 const test = require('node:test');
@@ -27,35 +27,8 @@ const addressCounter = (db, address) => db.read('adminRateLimits', sha256(`addre
 test('calls without a signed-in device are refused', async () => {
   assert.throws(() => guard.requireUser(call(null)), hasCode('unauthenticated'));
   const db = new FakeFirestore();
-  await assert.rejects(guard.limitReservationRequests(db, call(null)), hasCode('unauthenticated'));
   await assert.rejects(guard.startAdminSession(db, call(null, { pin: PIN }), PIN), hasCode('unauthenticated'));
   await assert.rejects(guard.requireAdmin(db, call(null, { sessionToken: 'x'.repeat(43) }), PIN), hasCode('unauthenticated'));
-});
-
-// ---------- Request limits ----------
-
-test('reservation requests are limited per device, and more loosely per network', async () => {
-  const db = new FakeFirestore();
-  for (let count = 1; count <= 8; count += 1) await guard.limitReservationRequests(db, call('device-a'));
-  await assert.rejects(guard.limitReservationRequests(db, call('device-a')), /from this device/);
-  await assert.rejects(guard.limitReservationRequests(db, call('device-a', {}, '203.0.113.6')), /from this device/);
-  // Other devices on the same Wi-Fi can still book, up to the network limit
-  // (60, of which device-a used 9).
-  for (let device = 1; device <= 51; device += 1) await guard.limitReservationRequests(db, call(`device-${device}`));
-  await assert.rejects(guard.limitReservationRequests(db, call('device-z')), /from this network/);
-  await guard.limitReservationRequests(db, call('device-z', {}, '203.0.113.99'));
-});
-
-test('a request window starts afresh after 15 minutes, and a block lasts 15 minutes', async () => {
-  const db = new FakeFirestore();
-  for (let count = 1; count <= 8; count += 1) await guard.limitReservationRequests(db, call('device-a'));
-  mock.timers.tick(15 * MINUTE);
-  for (let count = 1; count <= 8; count += 1) await guard.limitReservationRequests(db, call('device-a'));
-  await assert.rejects(guard.limitReservationRequests(db, call('device-a')), /from this device/);
-  mock.timers.tick(15 * MINUTE - 1);
-  await assert.rejects(guard.limitReservationRequests(db, call('device-a')), /from this device/);
-  mock.timers.tick(1);
-  await guard.limitReservationRequests(db, call('device-a'));
 });
 
 test('IPv6 addresses count by their /64 network', async () => {
@@ -67,19 +40,18 @@ test('IPv6 addresses count by their /64 network', async () => {
   assert.equal(guard.networkOf('fe80::1%eth0'), 'fe80:0:0:0::/64');
   assert.equal(guard.networkOf('::1'), '0:0:0:0::/64');
   const db = new FakeFirestore();
-  for (let index = 0; index < 60; index += 1) {
-    await guard.limitReservationRequests(db, call(`fresh-${index}`, {}, `2001:db8:1:2::${index.toString(16)}`));
-  }
-  await assert.rejects(guard.limitReservationRequests(db, call('fresh-60', {}, '2001:db8:1:2:ffff::1')), /from this network/);
-  await guard.limitReservationRequests(db, call('fresh-61', {}, '2001:db8:1:3::1'));
+  await assert.rejects(signIn(db, '0000', '2001:db8:1:2::a'), WRONG);
+  await assert.rejects(signIn(db, '0000', '2001:db8:1:2:ffff::1'), WRONG);
+  assert.equal(addressCounter(db, '2001:db8:1:2::/64').attempts, 2);
 });
 
 test('without forwarding headers the connection address is used', async () => {
   const db = new FakeFirestore();
-  const direct = uid => ({ auth: { uid }, data: {}, rawRequest: { headers: {}, ip: '192.0.2.4' } });
-  for (let index = 0; index < 60; index += 1) await guard.limitReservationRequests(db, direct(`d${index}`));
-  await assert.rejects(guard.limitReservationRequests(db, direct('d60')), /from this network/);
-  await guard.limitReservationRequests(db, { auth: { uid: 'e' }, data: {}, rawRequest: {} });
+  const direct = rawRequest => ({ auth: { uid: 'device-a' }, data: { pin: '0000' }, rawRequest });
+  await assert.rejects(guard.startAdminSession(db, direct({ headers: {}, ip: '192.0.2.4' }), PIN), WRONG);
+  assert.equal(addressCounter(db, '192.0.2.4').attempts, 1);
+  await assert.rejects(guard.startAdminSession(db, direct({}), PIN), WRONG);
+  assert.equal(addressCounter(db, 'unknown').attempts, 1);
 });
 
 // ---------- The Admin PIN ----------

@@ -3,7 +3,7 @@
 // Every change goes through a Cloud Function, then the schedule reloads.
 
 import { connect, errorMessage } from '../shared/firebase.js';
-import { writeStored } from '../shared/format.js';
+import { writeStored, setServerTime } from '../shared/format.js';
 import { demoBackend } from './demo-backend.js';
 
 const REFRESH_MS = 15000;
@@ -74,8 +74,11 @@ async function load(current) {
   clearTimeout(timer);
   let changes;
   try {
+    const sentAt = Date.now();
     const view = await withTimeout(api().then(server => server.call('memberSchedule')), LOAD_TIMEOUT_MS);
     if (typeof view?.version !== 'number') throw new Error('Unexpected schedule format');
+    // A server from before `serverTime` leaves the device's clock in use.
+    setServerTime(view.serverTime, sentAt);
     if (view.version !== SCHEDULE_VERSION) {
       changes = { status: 'outdated' };
     } else {

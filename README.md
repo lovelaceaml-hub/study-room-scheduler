@@ -12,7 +12,7 @@ Members reserve study rooms, whiteboards and TVs; the lobby TV shows the day's r
 - Members book Tuesdays and Saturdays from today through the next three days, on a
   30-minute grid from 10:00 AM to 11:00 PM, around service times. A time that has already
   begun can't be reserved: at 11:10 the earliest start is 11:30. A reservation is confirmed
-  right away. Each device can hold 4 reservations a day.
+  right away.
 - Contact and New Member reservations have priority. When every unit is taken, a Contact
   reservation can take a unit held by New Member or Other reservations, and New Member can
   take one held by Other, always from the lowest priority first (a unit held only by Other

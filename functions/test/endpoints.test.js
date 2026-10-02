@@ -17,7 +17,7 @@ const { mock, beforeEach } = require('node:test');
 const firestore = require('firebase-admin/firestore');
 const config = require('../lib/config');
 const { FakeFirestore } = require('./support/fake-firestore');
-const { THURSDAY, SATURDAY, useFixedClock, setClock, local, seedBooking, call, settle, hasCode } = require('./support/fixtures');
+const { THURSDAY, SATURDAY, useFixedClock, setClock, local, seedBooking, call, hasCode } = require('./support/fixtures');
 
 const db = new FakeFirestore();
 firestore.getFirestore = () => db;
@@ -84,6 +84,7 @@ test('the member schedule has every active reservation, plus only this device\'s
   seedBooking(db, 'tuesday', { ownerUid: 'device-a', date: '2026-10-06', assignments: { room: 'room-3' } });
   const view = await run('memberSchedule', 'device-a');
   assert.equal(view.version, 2);
+  assert.equal(view.serverTime, Date.now(), 'the server time, so pages can correct a wrong device clock');
   assert.deepEqual(view.days.map(day => day.date), [SATURDAY]);
   assert.deepEqual(view.bookings.map(row => [row.id, row.mine]), [['mine', true], ['theirs', false]]);
   assert.deepEqual(view.mine.map(row => [row.id, row.status]), [['mine', 'approved'], ['my-cancel', 'cancelled']]);
@@ -103,29 +104,25 @@ test('a member books, ends early and cancels through the endpoints', async () =>
     { code: 'invalid-argument', message: 'This page is out of date. Reload the page and try again.' });
 });
 
-test('a retry whose first answer was lost gets that answer, even after the start time or the request limit', async () => {
+test('a retry whose first answer was lost gets that answer, even after the start time', async () => {
   setClock(local(SATURDAY, '10:59:30'));
   const first = await run('memberSubmitBooking', 'device-a', { ...member, requestId: 'lost-answer-0123456789' });
   setClock(local(SATURDAY, '11:01:05'));
   assert.deepEqual(await run('memberSubmitBooking', 'device-a', { ...member, requestId: 'lost-answer-0123456789' }), { ...first, repeated: true });
   await assert.rejects(run('memberSubmitBooking', 'device-a', { ...member, requestId: 'a-new-request-0123456789' }),
     { code: 'invalid-argument', message: 'That start time has already passed. Choose a later time.' });
-  for (let attempt = 0; attempt < 9; attempt += 1) await settle(run('memberSubmitBooking', 'device-a', { ...member, start: '22:00', end: '22:30' }));
-  assert.deepEqual(await run('memberSubmitBooking', 'device-a', { ...member, requestId: 'lost-answer-0123456789' }), { ...first, repeated: true });
   await assert.rejects(run('memberSubmitBooking', 'device-b', { ...member, start: '16:00', end: '17:00', requestId: 'lost-answer-0123456789' }),
     { code: 'permission-denied', message: 'Reload the page and try again.' }, 'another device cannot reuse the id');
 });
 
-test('the 9th reservation request from one device in 15 minutes is refused', async () => {
+test('one device may make any number of reservations, on one day and in a row', async () => {
   const starts = ['11:00', '12:00', '13:00', '16:00', '17:00', '18:00', '21:00', '22:00'];
-  const results = [];
   for (const start of starts) {
-    results.push(await settle(run('memberSubmitBooking', 'device-a', { ...member, start, end: `${Number(start.slice(0, 2)) + 1}:00` })));
+    await run('memberSubmitBooking', 'device-a', { ...member, start, end: `${Number(start.slice(0, 2)) + 1}:00` });
   }
-  assert.equal(results.filter(result => result.ok).length, 4);
-  assert.equal(results.filter(result => result.code === 'resource-exhausted' && /4 reservations/.test(result.message)).length, 4);
-  await assert.rejects(run('memberSubmitBooking', 'device-a', { ...member, start: '15:30', end: '16:00' }),
-    { code: 'resource-exhausted', message: 'Too many reservation requests from this device. Wait a few minutes and try again.' });
+  await run('memberSubmitBooking', 'device-a', { ...member, start: '15:30', end: '16:00' });
+  const mine = (await run('memberSchedule', 'device-a')).mine.filter(item => item.date === member.date && item.status === 'approved');
+  assert.equal(mine.length, starts.length + 1);
 });
 
 // ---------- Lobby TV ----------
@@ -219,7 +216,8 @@ test('Admin sees every reservation in any status, with notes, and reading does n
   const token = await signIn();
   mock.timers.tick(5 * MINUTE);
   const view = await run('adminSchedule', 'admin-device', { sessionToken: token });
-  assert.deepEqual(Object.keys(view), ['config', 'days', 'bookings']);
+  assert.deepEqual(Object.keys(view), ['serverTime', 'config', 'days', 'bookings']);
+  assert.equal(view.serverTime, Date.now());
   assert.deepEqual(view.bookings.map(row => [row.id, row.status, row.note, row.byAdmin, row.restorable]), [
     ['gone', 'cancelled', '', true, true], ['live', 'approved', 'Keys at the desk', false, false], ['replaced', 'overridden', '', false, true]
   ]);

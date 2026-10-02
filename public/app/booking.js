@@ -10,7 +10,7 @@ import {
 import { rangeChoice, startChoices, endChoices, earliestStart, takeoverEffect } from '../shared/availability.js';
 import { book, canBook, refresh, newRequestId, NAME_KEY } from './store.js';
 import { createSheet } from './sheet.js';
-import { purposeLabel, detailLabel, placeLabel, unitLabel, connectionText, reservationActions } from './text.js';
+import { purposeLabel, detailLabel, placeLabel, unitLabel, connectionText } from './text.js';
 import { ICONS } from './icons.js';
 import { announce } from './announce.js';
 
@@ -29,10 +29,10 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   let errorField = null; // 'name' | 'detail' when a field caused the error
   let saved = null;
   let wasReady = true;
-  let wasLimited = false;
-  // The id sent with this draft, kept while the draft stays the same so a
-  // retry is recognised by the server.
-  let request = null; // { key, id }
+  // The id sent with this draft, kept while the draft stays the same (after
+  // a lost answer, while its time and place stay the same) so a retry is
+  // recognised by the server.
+  let request = null; // { key, place, id }
   // After a lost answer: the ids of this device's reservations before it was
   // sent, so a reservation that appears later is recognised as this one.
   let unconfirmed = null;
@@ -51,7 +51,6 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   const steps = () => draft.fixed ? ['purpose', 'end', 'names', 'confirm']
     : draft.typeGiven ? ['purpose', 'start', 'end', 'names', 'confirm']
     : ['type', 'purpose', 'start', 'end', 'names', 'confirm'];
-  const maxPerDay = () => config().maxActivePerDay ?? 4;
 
   // `preset`: { date, type } from the Reserve button, { date } from "Reserve
   // something else", or { date, type, unit, start } from a tapped time.
@@ -88,7 +87,6 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     request = null;
     unconfirmed = null;
     step = steps()[0];
-    wasLimited = limitReached();
     sheet.open();
     render({ focus: 'h2' });
   }
@@ -112,13 +110,6 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     render({ focus: 'h2' });
   }
 
-  // This device already holds as many reservations on the day as it may.
-  function limitReached() {
-    if (!draft || step === 'done') return false;
-    const active = state().mine.filter(item => item.date === draft.date && item.status === 'approved').length;
-    return active >= maxPerDay();
-  }
-
   // A time that has begun cannot be reserved.
   function startPassed() {
     return draft.start != null && draft.start < earliestStart(config(), draft.date);
@@ -126,8 +117,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
 
   // Called on every schedule refresh. Only the steps that list open times
   // and the confirmation depend on the schedule; the others are redrawn only
-  // when the connection or the day's limit changes, so typing is never
-  // interrupted.
+  // when the connection changes, so typing is never interrupted.
   function update() {
     if (!sheet.isOpen || saving) return;
     // An answer was lost: once the schedule shows the reservation was made
@@ -141,12 +131,9 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     const ready = canBook(state());
     const readyChanged = ready !== wasReady;
     wasReady = ready;
-    const limited = limitReached();
-    const limitChanged = limited !== wasLimited;
-    wasLimited = limited;
     if (!day()) error = 'This day is no longer open for reservations. Close this and choose another day.';
     else if (step === 'confirm') followSchedule();
-    if (['start', 'end', 'confirm'].includes(step) || readyChanged || limitChanged || !day()) render();
+    if (['start', 'end', 'confirm'].includes(step) || readyChanged || !day()) render();
   }
 
   // Keeps the confirmation in line with the schedule: the unit the server
@@ -167,15 +154,14 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   // ---------- Markup ----------
 
   function render({ focus = null } = {}) {
-    const limited = !saving && limitReached();
     const index = steps().indexOf(step);
-    const title = saving ? 'Saving…' : step === 'done' ? 'Done' : limited ? 'Reserve' : `Step ${index + 1} of ${steps().length}`;
-    const chips = step === 'done' || limited ? [] : [
+    const title = saving ? 'Saving…' : step === 'done' ? 'Done' : `Step ${index + 1} of ${steps().length}`;
+    const chips = step === 'done' ? [] : [
       formatDay(draft.date),
       draft.type ? (draft.fixed ? placeLabel(config(), draft.type, draft.unit) : config().resources[draft.type].label) : '',
       draft.start != null ? formatTime(draft.start) : ''
     ].filter(Boolean);
-    const showBack = past.length && step !== 'done' && !saving && !limited;
+    const showBack = past.length && step !== 'done' && !saving;
     sheet.render(`
       <div class="sheet-bar">
         <button type="button" class="icon-button" data-action="back" data-key="back" aria-label="Back"${showBack ? '' : ' hidden'}>${ICONS.back}</button>
@@ -184,8 +170,8 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       </div>
       ${chips.length ? `<p class="chips">${chips.map(chip => `<span>${esc(chip)}</span>`).join('')}</p>` : ''}
       ${step === 'done' ? '' : bannerHtml()}
-      <section class="step">${limited ? limitHtml() : STEPS[step]()}</section>
-      ${INLINE_ERROR_STEPS.includes(step) && !limited ? '' : errorLine()}
+      <section class="step">${STEPS[step]()}</section>
+      ${INLINE_ERROR_STEPS.includes(step) ? '' : errorLine()}
     `, { focus });
   }
 
@@ -216,14 +202,6 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   const invalid = field => errorField === field ? ' aria-invalid="true" aria-describedby="booking-error"' : '';
   const heading = (text, hint = '') => `<h2 id="booking-title" tabindex="-1">${text}</h2>${hint ? `<p class="hint">${hint}</p>` : ''}`;
   const disabled = () => canBook(state()) && !saving ? '' : ' disabled';
-
-  function limitHtml() {
-    // Finished reservations still count, and cannot be cancelled.
-    const cancellable = state().mine.some(item => item.date === draft.date && reservationActions(config(), item).canCancel);
-    const next = cancellable ? 'To make another, cancel one that hasn’t ended in My reservations.' : 'You can reserve again on another day.';
-    return heading('Daily limit reached', esc(`You already have ${maxPerDay()} reservations on ${formatDay(draft.date)}, the most one device can hold. ${next}`))
-      + '<button type="button" class="primary" data-action="mine" data-key="mine">My reservations</button>';
-  }
 
   const STEPS = {
     type: () => heading('What do you need?') + `<div class="choices">${Object.entries(config().resources).map(([type, resource]) => `
@@ -359,11 +337,16 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     // The same reservation keeps its request id through every retry, even when
     // the unit or takeover changes (a lost answer may have taken the free
     // unit itself), so the server answers a retry with the first result
-    // instead of booking twice. Reusing an id is always safe: the server
-    // either made that reservation or made nothing.
+    // instead of booking twice. After a lost answer it is kept even when the
+    // names change, since the server may already hold the reservation under
+    // the first ones. Reusing an id is always safe: the server either made
+    // that reservation or made nothing.
     const { takeover, takeoverUnit, ...what } = sending;
+    const { name, reservedFor, ...when } = what;
     const key = JSON.stringify(what);
-    if (request?.key !== key) request = { key, id: newRequestId() };
+    const place = JSON.stringify(when);
+    const same = request && (request.key === key || (unconfirmed && request.place === place));
+    request = same ? { ...request, key } : { key, place, id: newRequestId() };
     const before = unconfirmed || new Set(state().mine.map(item => item.id));
     saving = true;
     sheet.locked = true;
@@ -416,7 +399,6 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       sheet.open();
     }
     wasReady = canBook(state());
-    wasLimited = limitReached();
     render({ focus: step === 'done' || !dialog.contains(document.activeElement) ? 'h2' : null });
   }
 

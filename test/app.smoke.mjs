@@ -19,6 +19,7 @@ const { publicName } = require('../functions/lib/names.js');
 
 // Saturday, October 3, 2026 at a church-clock time.
 const saturdayAt = time => new Date(`2026-10-03T${time}:00-07:00`);
+const MINUTE = 60 * 1000;
 const daysAt = now => bookableDates(now).map(dayInfo);
 const TODAY = todayAt(TEST_NOW);
 // Tuesday: no time on it has passed, and the times below are clear of its services.
@@ -27,7 +28,7 @@ const DAY_LABEL = formatDay(DAY);
 // The server's rules, with the fields the server contract adds filled in
 // for a server that does not send them yet.
 const CONFIG = {
-  windowDays: 4, hold: 'blocked', nameMax: 120, noteMax: 1000, holdReasonMax: 240, keepDays: 56, sessionMinutes: 20, maxActivePerDay: 4,
+  windowDays: 4, hold: 'blocked', nameMax: 120, noteMax: 1000, holdReasonMax: 240, keepDays: 56, sessionMinutes: 20,
   ...clientConfig()
 };
 const REQUEST_ID = /^[A-Za-z0-9_-]{16,64}$/;
@@ -68,13 +69,16 @@ function schedule({ now = TEST_NOW, bookings = BOOKINGS, mine = MINE } = {}) {
 // normal answers; `window.__hooks[name]` replaces one call for a test. The
 // contract fields of `mine` (ended, earlyEnds, canCancel, byAdmin) follow
 // the page's clock, like the server's; `oldServer` leaves them out, like a
-// server from before the contract.
-function backend(fixture, { oldServer = false } = {}) {
+// server from before the contract. `serverAhead` is how far the server's
+// clock (sent as `serverTime`) is ahead of the page's.
+function backend(fixture, { oldServer = false, serverAhead = 0 } = {}) {
   return `(() => {
     const state = ${JSON.stringify(fixture)};
     const oldServer = ${oldServer};
     let rules = null;
     let count = 0;
+    // Like the server, a repeated request id gets the first answer.
+    const answered = new Map();
     window.__state = state;
     window.__hooks = {};
     async function mineView(item) {
@@ -89,15 +93,18 @@ function backend(fixture, { oldServer = false } = {}) {
     }
     window.__server = {
       async memberSchedule() {
-        return { version: 2, ...structuredClone(state), mine: await Promise.all(state.mine.map(mineView)) };
+        return { version: 2, serverTime: Date.now() + ${serverAhead}, ...structuredClone(state), mine: await Promise.all(state.mine.map(mineView)) };
       },
       memberSubmitBooking(data) {
+        if (data.requestId && answered.has(data.requestId)) return { ...answered.get(data.requestId), repeated: true };
         count += 1;
         const unit = data.takeoverUnit || data.requestedUnit || { room: 'room-2', whiteboard: 'wb-1', tv: 'tv-1' }[data.resourceType];
         const id = 'new-' + count;
         state.bookings.push({ id, date: data.date, type: data.resourceType, unit, start: data.start, end: data.end, name: data.name.split(' ')[0], purpose: data.purpose, reservedFor: data.reservedFor, mine: true });
         state.mine.push({ id, date: data.date, start: data.start, end: data.end, endedEarlyFrom: null, status: 'approved', type: data.resourceType, unit, purpose: data.purpose, name: data.name, reservedFor: data.reservedFor, notice: null });
-        return { id, unit, takeover: data.allowTakeover === true };
+        const result = { id, unit, takeover: data.allowTakeover === true };
+        if (data.requestId) answered.set(data.requestId, result);
+        return result;
       },
       memberCancelBooking(data) {
         state.bookings = state.bookings.filter(row => row.id !== data.bookingId);
@@ -120,8 +127,8 @@ before(async () => { harness = await start(); });
 after(async () => harness?.stop());
 
 // Opens the app and shows `day` (null: leave the day the app picked).
-async function openApp(query = '', { fixture = schedule(), oldServer = false, day = DAY, ...options } = {}) {
-  const session = await newPage(harness.browser, { backend: backend(fixture, { oldServer }), ...options });
+async function openApp(query = '', { fixture = schedule(), oldServer = false, serverAhead = 0, day = DAY, ...options } = {}) {
+  const session = await newPage(harness.browser, { backend: backend(fixture, { oldServer, serverAhead }), ...options });
   await session.page.goto(`${harness.base}/${query}`);
   await session.page.locator('#reserve:not([disabled])').waitFor();
   if (day && !query.includes('view=mine')) await session.page.locator(`[data-date="${day}"]`).click();
@@ -168,6 +175,22 @@ test('the schedule shows public names, holds and my own reservation', async () =
   assert.deepEqual(await seriousAxe(page, 'body', 'schedule'), []);
   assert.deepEqual(errors, []);
   await context.close();
+});
+
+test('a phone clock that is wrong is offered start times by the server\'s clock', async () => {
+  // The server says 4:10 PM, so 4:30 PM is the first open start either way.
+  for (const [deviceTime, serverAhead] of [['16:40', -30 * MINUTE], ['15:40', 30 * MINUTE]]) {
+    const now = saturdayAt(deviceTime);
+    const { page, errors, context, sheet } = await openApp('', { now, serverAhead, fixture: schedule({ now: saturdayAt('16:10'), bookings: [], mine: [] }), day: null });
+    await page.locator(`[data-date="${TODAY}"][aria-pressed="true"]`).waitFor();
+    assert.equal(await page.locator('.open-slot[data-unit="room-1"]').first().getAttribute('data-start'), String(16 * 60 + 30), deviceTime);
+    await page.locator('#reserve').click();
+    await sheet.getByRole('button', { name: 'Other', exact: true }).click();
+    await sheet.getByRole('heading', { name: 'Start time' }).waitFor();
+    assert.equal(await sheet.locator('[data-start]').first().textContent().then(text => text.trim()), '4:30 PM', deviceTime);
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
 });
 
 test('the page opens on the first day with time left, which on Saturday morning is today', async () => {
@@ -250,11 +273,11 @@ test('tapping an open time books exactly that unit, and a refusal reloads the sc
   await page.evaluate(() => {
     window.__hooks.memberSubmitBooking = () => {
       delete window.__hooks.memberSubmitBooking;
-      throw { code: 'resource-exhausted', message: 'Too many reservation requests from this device. Wait a few minutes, then try again.' };
+      throw { code: 'already-exists', message: 'Room 2 is taken for part of that time. Choose another time.' };
     };
   });
   await sheet.getByRole('button', { name: 'Confirm reservation', exact: true }).click();
-  await page.getByText('Too many reservation requests from this device.').waitFor();
+  await page.getByText('Room 2 is taken for part of that time. Choose another time.').waitFor();
   assert.ok((await calls(page, 'memberSchedule')).length > loads, 'the schedule reloads after a refusal');
   assert.equal(await sheet.getByRole('heading', { name: 'Confirm reservation' }).count(), 1, 'stays on the confirmation');
   await sheet.getByRole('button', { name: 'Confirm reservation', exact: true }).click();
@@ -340,6 +363,7 @@ test('a second Escape while saving closes the sheet cleanly, and the result come
   await page.waitForFunction(() => !document.body.classList.contains('sheet-open'));
   await page.mouse.wheel(0, 600);
   await page.waitForFunction(() => scrollY > 0, null, { timeout: 2000 });
+  await page.waitForFunction(() => window.__finishSave);
   await page.evaluate(() => window.__finishSave());
   await sheet.getByRole('heading', { name: 'Reservation confirmed' }).waitFor();
   await sheet.getByRole('button', { name: 'Close' }).click();
@@ -371,30 +395,6 @@ test('a slow schedule refresh does not hold up the confirmation, and its older a
   await page.evaluate(() => window.__finishSchedule());
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0))));
   assert.equal(await page.locator('[data-booking="new-1"]').count(), 1, 'the schedule from before the booking does not come back');
-  assert.deepEqual(errors, []);
-  await context.close();
-});
-
-test('with 4 reservations on a day, Reserve says so before the first step', async () => {
-  const four = [1, 2, 3, 4].map(n => reservation(`m${n}`, `1${n}:00`, `1${n}:30`, { unit: `room-${n}` }));
-  const fixture = schedule({ bookings: four.map(item => row(item.unit, item.start, item.end, 'Sam', 'other', { id: item.id, mine: true })), mine: four });
-  const { page, errors, context, sheet } = await openApp('', { fixture });
-  await page.locator('#reserve').click();
-  await sheet.getByRole('heading', { name: 'Daily limit reached' }).waitFor();
-  await sheet.getByText(`You already have 4 reservations on ${DAY_LABEL}, the most one device can hold. To make another, cancel one that hasn’t ended in My reservations.`, { exact: true }).waitFor();
-  assert.equal(await sheet.getByRole('heading', { name: 'What is it for?' }).count(), 0);
-  assert.deepEqual(await seriousAxe(page, '#booking-sheet', 'limit'), []);
-  await sheet.getByRole('button', { name: 'My reservations', exact: true }).click();
-  await page.locator('#mine-sheet').getByRole('heading', { name: 'My reservations' }).waitFor();
-  await page.locator('#mine-sheet').getByRole('button', { name: 'Close' }).click();
-  await page.locator('#mine-sheet').waitFor({ state: 'hidden' });
-  // A tapped time on that day too; another day is fine.
-  await page.getByRole('button', slot('Room 1', '3:00 PM')).click();
-  await sheet.getByRole('heading', { name: 'Daily limit reached' }).waitFor();
-  await sheet.getByRole('button', { name: 'Close' }).click();
-  await page.locator(`[data-date="${TODAY}"]`).click();
-  await page.locator('#reserve').click();
-  await sheet.getByRole('heading', { name: 'What is it for?' }).waitFor();
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -793,7 +793,7 @@ test('every sheet step passes an accessibility check', async () => {
   await context.close();
 });
 
-test('demo mode follows the server rules: short names, takeovers and the daily limit', async () => {
+test('demo mode follows the server rules: short names, takeovers and no daily limit', async () => {
   const { page, errors, context } = await newPage(harness.browser);
   await context.route('**/firebasejs/**', route => route.abort());
   await page.goto(`${harness.base}/?demo=1`);
@@ -832,10 +832,10 @@ test('demo mode follows the server rules: short names, takeovers and the daily l
   await sheet.getByRole('button', { name: 'Close' }).click();
   await page.getByRole('button', { name: /^S Pat S, Other, Room 1, 4:00 PM to 5:30 PM, your reservation$/ }).waitFor();
   await page.getByRole('button', { name: /^Quinn, Contact, Room 1, 5:30 PM to 6:00 PM/ }).waitFor();
-  // Four on one day is the most one device can hold.
-  await page.locator('#reserve').click();
-  await sheet.getByRole('heading', { name: 'Daily limit reached' }).waitFor();
-  await sheet.getByRole('button', { name: 'My reservations', exact: true }).click();
+  // A device may make a fifth reservation on the same day.
+  await book('Room 2', '9:00 PM', '9:30 PM', 'Bro. Sam Lee');
+  await book('Room 3', '9:00 PM', '9:30 PM', 'Bro. Sam Lee');
+  await page.getByRole('link', { name: 'My reservations' }).click();
   await page.locator('#mine-sheet').getByText('A Contact reservation needed Room 1, so this reservation now ends at 5:30 PM.', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => localStorage.getItem('srs-name')), null, 'a practice name is never kept');
   assert.deepEqual(errors, []);
@@ -923,13 +923,39 @@ test('a reservation made behind a lost answer is recognised, not booked again as
   await context.close();
 });
 
-test('when every reservation that day has ended, the limit says to choose another day', async () => {
-  const now = saturdayAt('16:00');
-  const done = [1, 2, 3, 4].map(n => reservation(`d${n}`, `1${n}:00`, `1${n}:30`, { date: TODAY, unit: `room-${n}` }));
-  const fixture = schedule({ now, bookings: done.map(item => row(item.unit, item.start, item.end, 'Sam', 'other', { id: item.id, date: TODAY, mine: true })), mine: done });
-  const { page, errors, context, sheet } = await openApp('', { now, fixture, day: TODAY });
-  await page.locator('#reserve').click();
-  await sheet.getByText(`You already have 4 reservations on ${formatDay(TODAY)}, the most one device can hold. You can reserve again on another day.`, { exact: true }).waitFor();
+// The answer is lost while the server is still saving, so the reload that
+// follows fails and the next one comes back without the reservation. The
+// member then fixes a typo in their name and confirms again: the page must
+// send the same request id, so the server answers with the first reservation.
+test('after a lost answer, editing the name and confirming again books once', async () => {
+  const { page, errors, context, sheet } = await openApp();
+  await tapToConfirm(page, sheet, 'Room 2', '1:00 PM');
+  await page.evaluate(() => {
+    window.__hooks.memberSubmitBooking = data => {
+      delete window.__hooks.memberSubmitBooking;
+      window.__saveLate = () => window.__server.memberSubmitBooking(data);
+      throw { code: 'unavailable', message: 'unavailable' };
+    };
+    window.__hooks.memberSchedule = () => {
+      delete window.__hooks.memberSchedule;
+      throw { code: 'unavailable', message: 'unavailable' };
+    };
+  });
+  await sheet.getByRole('button', { name: 'Confirm reservation', exact: true }).click();
+  await sheet.getByText('We couldn’t confirm the reservation. Check your connection, then try again.').waitFor();
+  await sheet.locator('.sheet-status').getByRole('button', { name: 'Try again' }).click();
+  await sheet.locator('.sheet-status').waitFor({ state: 'detached' });
+  assert.equal(await sheet.getByRole('heading', { name: 'Confirm reservation' }).count(), 1, 'the reload did not show it yet');
+  await page.evaluate(() => window.__saveLate());
+  await sheet.getByRole('button', { name: 'Back' }).click();
+  await page.getByLabel('Your name').fill('Sam Sampel');
+  await sheet.getByRole('button', { name: 'Continue', exact: true }).click();
+  await sheet.getByRole('button', { name: 'Confirm reservation', exact: true }).click();
+  await sheet.getByRole('heading', { name: 'Reservation confirmed' }).waitFor();
+  const ids = (await calls(page, 'memberSubmitBooking')).map(call => call.data.requestId);
+  assert.equal(ids.length, 2);
+  assert.equal(ids[1], ids[0], 'the edited retry sends the same request id');
+  assert.equal(await page.evaluate(() => window.__state.mine.filter(item => item.id.startsWith('new-')).length), 1, 'exactly one reservation');
   assert.deepEqual(errors, []);
   await context.close();
 });

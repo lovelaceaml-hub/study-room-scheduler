@@ -2,7 +2,7 @@
 // It reads the public lobby schedule (public names only), refreshes every
 // minute, and keeps the last copy so a dropped connection still shows the day.
 
-import { escapeHtml as esc, formatTime, formatHour, formatLongDay, listOf, weekdayName, monthDay, nowIn, toMinutes, readStored, writeStored } from '../shared/format.js';
+import { escapeHtml as esc, formatTime, formatHour, formatLongDay, listOf, weekdayName, monthDay, nowIn, toMinutes, readStored, writeStored, serverNow, setServerTime } from '../shared/format.js';
 import { DEMO_CONFIG, demoDay, demoDays, demoRows, demoToday } from '../shared/demo.js';
 import { paint } from '../shared/dom.js';
 import { roomStatus } from './status.js';
@@ -67,12 +67,15 @@ async function fetchSchedule() {
   const abort = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   let next;
   try {
+    const sentAt = Date.now();
     const response = await fetch(SCHEDULE_URL, { credentials: 'omit', signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const receivedAt = Date.now();
     const payload = await response.json();
     if (!valid(payload)) throw new Error('Unexpected schedule format');
     schedule = payload;
     savedAt = Date.now();
+    setServerTime(serverTimeOf(response, payload), sentAt, receivedAt);
     failed = false;
     failures = 0;
     writeStored(CACHE_KEY, JSON.stringify({ ...payload, savedAt }));
@@ -93,11 +96,18 @@ async function fetchSchedule() {
   render();
 }
 
+// The server's time when the copy was served. The CDN keeps one copy for up
+// to a minute, so `generatedAt` may be that old; the response's Date header
+// is the time it was served, to the second. The later of the two is used.
+function serverTimeOf(response, payload) {
+  return Math.max(Date.parse(response.headers.get('Date') || '') || 0, Date.parse(payload.generatedAt) || 0);
+}
+
 // True once 4:00 AM has passed on the church's clock since the page opened.
 function reloadDue() {
   if (Date.now() - startedAt < RELOAD_AFTER_MS) return false;
   const now = nowIn(timeZone());
-  const opened = nowIn(timeZone(), new Date(startedAt));
+  const opened = nowIn(timeZone(), serverNow(startedAt));
   return now.minutes >= RELOAD_MINUTE && (opened.date < now.date || opened.minutes < RELOAD_MINUTE);
 }
 
@@ -112,7 +122,7 @@ function connection() {
 
 // '3:42 PM' today, or 'Tue, Sep 29, 3:42 PM', on the church's clock.
 function stamp(ms) {
-  const at = nowIn(timeZone(), new Date(ms));
+  const at = nowIn(timeZone(), serverNow(ms));
   const time = formatTime(at.minutes);
   return at.date === nowIn(timeZone()).date ? time : `${weekdayName(at.date).slice(0, 3)}, ${monthDay(at.date)}, ${time}`;
 }

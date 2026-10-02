@@ -139,7 +139,7 @@ export function demoBackend() {
 
   const calls = {
     memberSchedule() {
-      return { version: 2, config, days, bookings: scheduleRows(), mine: mine.map(view) };
+      return { version: 2, serverTime: Date.now(), config, days, bookings: scheduleRows(), mine: mine.map(view) };
     },
 
     memberSubmitBooking(data) {
@@ -155,9 +155,6 @@ export function demoBackend() {
       if (!purpose) throw refusal('invalid-argument', 'Choose what the reservation is for.');
       if (!hasText(data.name)) throw refusal('invalid-argument', 'Your name is required.');
       if (!hasText(data.reservedFor)) throw refusal('invalid-argument', `${purpose.detailLabel} is required.`);
-      if (mine.filter(item => item.date === data.date && item.status === 'approved').length >= config.maxActivePerDay) {
-        throw refusal('resource-exhausted', `You already have ${config.maxActivePerDay} reservations on this day. Cancel one in My reservations to make another.`);
-      }
       const rows = scheduleRows().filter(row => row.type === type);
       const requested = data.requestedUnit ?? null;
       const shown = data.takeoverUnit ?? null;
