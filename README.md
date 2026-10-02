@@ -61,6 +61,8 @@ functions/         Cloud Functions
   test/            server tests, with an in-memory Firestore
 test/              browser/server agreement tests and browser tests
 firestore.rules    browsers cannot read or write the database directly
+firebase.json      Hosting; /api/lobby-schedule is the lobby TV's schedule (the
+                   publicLobbySchedule function), cached by the Hosting CDN for a minute
 legacy/            the old address, which redirects here
 ```
 

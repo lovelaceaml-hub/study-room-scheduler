@@ -1,8 +1,9 @@
 // Service worker: the network first, with a cached copy for when the
 // connection drops, so the app and the lobby TV still open offline. Admin is
-// never cached; it needs a live connection anyway.
+// never cached; it needs a live connection anyway. Neither is /api/: the TV
+// keeps its own copy of the schedule and must know when it is offline.
 
-const CACHE = 'srs-v19-fix-pass';
+const CACHE = 'srs-v20-lobby-api';
 const FILES = [
   '/', '/index.html', '/manifest.json', '/icon.svg', '/icon-192.png', '/apple-touch-icon.png',
   '/shared/base.css', '/shared/format.js', '/shared/availability.js', '/shared/firebase.js', '/shared/dom.js', '/shared/demo.js',
@@ -24,7 +25,7 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/admin')) return;
+  if (event.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/')) return;
   event.respondWith(fetch(event.request)
     .then(response => {
       if (response.ok) {

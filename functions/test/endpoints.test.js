@@ -147,7 +147,7 @@ test('the lobby gets public rows only, with CORS and caching', async () => {
   const text = JSON.stringify(response.body);
   for (const secret of ['Secret reason', 'Private Person', 'Cancelled', 'Board Person', 'owner-', 'Park']) assert.equal(text.includes(secret), false, secret);
   assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
-  assert.equal(response.headers['Cache-Control'], 'public, max-age=60, s-maxage=60');
+  assert.equal(response.headers['Cache-Control'], 'public, max-age=0, s-maxage=60');
   assert.equal(response.headers['X-Content-Type-Options'], 'nosniff');
   assert.equal((await fetchLobby('HEAD')).statusCode, 200);
 });

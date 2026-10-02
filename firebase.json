@@ -6,6 +6,9 @@
       "redirects": [
         { "source": "/experiences/:path*", "destination": "/", "type": 301 }
       ],
+      "rewrites": [
+        { "source": "/api/lobby-schedule", "function": { "functionId": "publicLobbySchedule", "region": "us-west1" } }
+      ],
       "headers": [
         {
           "source": "**/*.@(html|js|css|json)",

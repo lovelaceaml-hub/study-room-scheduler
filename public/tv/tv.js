@@ -7,7 +7,9 @@ import { DEMO_CONFIG, demoDay, demoDays, demoRows, demoToday } from '../shared/d
 import { paint } from '../shared/dom.js';
 import { roomStatus } from './status.js';
 
-const SCHEDULE_URL = 'https://us-west1-lvz-rooms.cloudfunctions.net/publicLobbySchedule';
+// Served through Hosting so the CDN caches it (firebase.json rewrites it to
+// the publicLobbySchedule function).
+const SCHEDULE_URL = '/api/lobby-schedule';
 const CACHE_KEY = 'srs-tv-schedule';
 const REFRESH_MS = 60000;
 const RETRY_MS = [3000, 6000, 12000, 30000, 60000];
@@ -65,7 +67,7 @@ async function fetchSchedule() {
   const abort = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   let next;
   try {
-    const response = await fetch(SCHEDULE_URL, { cache: 'no-store', credentials: 'omit', signal: controller.signal });
+    const response = await fetch(SCHEDULE_URL, { credentials: 'omit', signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
     if (!valid(payload)) throw new Error('Unexpected schedule format');
