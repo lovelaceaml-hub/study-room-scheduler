@@ -183,7 +183,8 @@ export function createMineSheet({ getState, onReserve }) {
   }
 
   // The ends the server allows now. While the reservation is under way the
-  // first of them reads "Now".
+  // first of them reads "Soonest": a time that has begun cannot be freed, so
+  // it is the end of the half hour now under way.
   function endHtml(item) {
     const { earlyEnds } = actionsOf(item);
     const clock = nowIn(config().timeZone);
@@ -192,8 +193,8 @@ export function createMineSheet({ getState, onReserve }) {
     return heading('End early', 'Choose the new end time. The time after it opens for others.') + `
       <div class="times">${earlyEnds.map(end => `
         <button type="button" class="time${end === soonest ? ' now' : ''}" data-action="end-pick" data-end="${esc(end)}" data-key="end-${esc(end)}"${disabled()}
-          aria-label="${esc(`End at ${formatTime(end)}${end === soonest ? ', now' : ''}, frees ${formatDuration(toMinutes(item.end) - toMinutes(end))}`)}">
-          ${end === soonest ? '<small class="now-label">Now</small>' : ''}${formatTime(end)}<small>Frees ${formatDuration(toMinutes(item.end) - toMinutes(end))}</small>
+          aria-label="${esc(`End at ${formatTime(end)}${end === soonest ? ', the soonest' : ''}, frees ${formatDuration(toMinutes(item.end) - toMinutes(end))}`)}">
+          ${end === soonest ? '<small class="now-label">Soonest</small>' : ''}${formatTime(end)}<small>Frees ${formatDuration(toMinutes(item.end) - toMinutes(end))}</small>
         </button>`).join('')}</div>`;
   }
 

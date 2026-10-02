@@ -10,7 +10,7 @@ import {
 import { rangeChoice, startChoices, endChoices, earliestStart, takeoverEffect } from '../shared/availability.js';
 import { book, canBook, refresh, newRequestId, NAME_KEY } from './store.js';
 import { createSheet } from './sheet.js';
-import { purposeLabel, detailLabel, placeLabel, unitLabel, connectionText } from './text.js';
+import { purposeLabel, detailLabel, placeLabel, unitLabel, connectionText, reservationActions } from './text.js';
 import { ICONS } from './icons.js';
 import { announce } from './announce.js';
 
@@ -33,6 +33,9 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   // The id sent with this draft, kept while the draft stays the same so a
   // retry is recognised by the server.
   let request = null; // { key, id }
+  // After a lost answer: the ids of this device's reservations before it was
+  // sent, so a reservation that appears later is recognised as this one.
+  let unconfirmed = null;
 
   const sheet = createSheet(dialog, {
     // Escape and Android Back go back one step.
@@ -83,6 +86,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     saved = null;
     wasReady = true;
     request = null;
+    unconfirmed = null;
     step = steps()[0];
     wasLimited = limitReached();
     sheet.open();
@@ -126,6 +130,14 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   // interrupted.
   function update() {
     if (!sheet.isOpen || saving) return;
+    // An answer was lost: once the schedule shows the reservation was made
+    // after all, say so instead of offering to book it again.
+    const made = unconfirmed ? madeSince(unconfirmed) : null;
+    if (made) {
+      succeed({ id: made.id, unit: made.unit });
+      render();
+      return;
+    }
     const ready = canBook(state());
     const readyChanged = ready !== wasReady;
     wasReady = ready;
@@ -206,7 +218,10 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   const disabled = () => canBook(state()) && !saving ? '' : ' disabled';
 
   function limitHtml() {
-    return heading('Daily limit reached', esc(`You already have ${maxPerDay()} reservations on ${formatDay(draft.date)}, the most one device can hold. To make another, cancel one in My reservations.`))
+    // Finished reservations still count, and cannot be cancelled.
+    const cancellable = state().mine.some(item => item.date === draft.date && reservationActions(config(), item).canCancel);
+    const next = cancellable ? 'To make another, cancel one that hasn’t ended in My reservations.' : 'You can reserve again on another day.';
+    return heading('Daily limit reached', esc(`You already have ${maxPerDay()} reservations on ${formatDay(draft.date)}, the most one device can hold. ${next}`))
       + '<button type="button" class="primary" data-action="mine" data-key="mine">My reservations</button>';
   }
 
@@ -276,6 +291,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       const whose = row.mine ? 'Your reservation there' : `${row.name}’s reservation there`;
       if (effect === 'shortened') return `${whose} (${formatRange(row.start, row.end)}) will end at ${formatTime(toEnd)}.`;
       if (effect === 'moved') return `${whose} will move to another ${kind}.`;
+      if (effect === 'released') return `${whose} will lose this ${kind}, because no other ${kind} is free.`;
       return `${whose} will be replaced, because no other ${kind} is free.`;
     });
     if (affected.some(item => !item.row.mine)) lines.push('They see why in My reservations.');
@@ -340,9 +356,15 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       takeover: draft.takeover,
       takeoverUnit: draft.takeover ? draft.unit : null
     };
-    const key = JSON.stringify(sending);
+    // The same reservation keeps its request id through every retry, even when
+    // the unit or takeover changes (a lost answer may have taken the free
+    // unit itself), so the server answers a retry with the first result
+    // instead of booking twice. Reusing an id is always safe: the server
+    // either made that reservation or made nothing.
+    const { takeover, takeoverUnit, ...what } = sending;
+    const key = JSON.stringify(what);
     if (request?.key !== key) request = { key, id: newRequestId() };
-    const before = new Set(state().mine.map(item => item.id));
+    const before = unconfirmed || new Set(state().mine.map(item => item.id));
     saving = true;
     sheet.locked = true;
     error = '';
@@ -354,7 +376,10 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       // The answer was lost, but the reservation may have been made anyway.
       const made = failure.lost ? madeSince(before) : null;
       if (made) succeed({ id: made.id, unit: made.unit });
-      else error = problem() || failure.message;
+      else {
+        if (failure.lost) unconfirmed = before;
+        error = problem() || failure.message;
+      }
     } finally {
       saving = false;
       sheet.locked = false;
@@ -367,6 +392,8 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     past = [];
     step = 'done';
     request = null;
+    unconfirmed = null;
+    error = '';
     announce('Reservation confirmed.');
   }
 

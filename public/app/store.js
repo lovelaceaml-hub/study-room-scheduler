@@ -138,7 +138,7 @@ export async function book(request) {
     requestId: request.requestId
   };
   if (request.takeover && request.takeoverUnit) data.takeoverUnit = request.takeoverUnit;
-  const result = await send('memberSubmitBooking', data, 'The reservation didn’t go through. Try again.');
+  const result = await send('memberSubmitBooking', data, 'We couldn’t confirm the reservation. Check your connection, then try again.');
   // A practice name in demo mode is never kept for the real app.
   if (!demo) writeStored(NAME_KEY, request.name);
   return result;
