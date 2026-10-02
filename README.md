@@ -30,7 +30,9 @@ Members reserve study rooms, whiteboards and TVs; the lobby TV shows the day's r
 - Admin (PIN-protected; it locks again after 20 minutes without a change) sees full names,
   adds reservations or holds on the same days members can book, cancels, ends early,
   restores, gives a reservation a new unit when a priority reservation took one, keeps
-  private notes and removes records older than 8 weeks.
+  private notes and removes records older than 8 weeks. The day's list can be searched by
+  name, contact or member, purpose and unit, and "Hide cancelled" (remembered on that
+  device) hides cancelled reservations.
 
 ## Changing the rules
 

@@ -61,6 +61,10 @@ label { font-size: 13px; font-weight: 500; }
 .day-button[aria-pressed="true"], .type-button[aria-pressed="true"] { border-color: #adbea1; background: var(--primary-tint); color: var(--primary-dark); }
 
 /* Booking list */
+.list-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; margin-bottom: 14px; }
+.list-tools .field { flex: 1 1 220px; }
+.check { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; font-size: 15px; cursor: pointer; }
+.check input { width: 20px; min-height: 20px; height: 20px; margin: 0; accent-color: var(--primary-dark); }
 .entries { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .entry { padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-soft); }
 .entry.inactive .entry-time, .entry.inactive .entry-name b { color: var(--muted); }
