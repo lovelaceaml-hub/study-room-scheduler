@@ -7,17 +7,25 @@ import { writeStored } from '../shared/format.js';
 import { demoBackend } from './demo-backend.js';
 
 const REFRESH_MS = 15000;
+// A schedule that has not arrived by then is reported, so the page never
+// spins forever behind a stalled network.
+const LOAD_TIMEOUT_MS = 20000;
+const SCHEDULE_VERSION = 2;
 export const NAME_KEY = 'srs-name';
 
 const demo = new URLSearchParams(location.search).get('demo') === '1';
 
 // status: 'connecting' | 'live' | 'demo' | 'offline' | 'error'
+//   | 'slow' (no answer in time) | 'outdated' (the server sends a newer schedule format)
 let state = { status: 'connecting', demo, config: null, days: [], bookings: [], mine: [] };
 const listeners = new Set();
 let backend = null;
 let timer = null;
-let loading = null;
+let loading = null; // { generation, promise }
 let loadedAt = 0;
+// Goes up with every change sent, so a load that began before the change
+// can never overwrite what came after it.
+let generation = 0;
 
 function update(changes) {
   state = { ...state, ...changes };
@@ -40,44 +48,84 @@ async function api() {
   return backend;
 }
 
+function withTimeout(promise, ms) {
+  let clock;
+  const late = new Promise((resolve, reject) => {
+    clock = setTimeout(() => reject(Object.assign(new Error('The schedule is taking too long to load.'), { slow: true })), ms);
+  });
+  return Promise.race([promise, late]).finally(() => clearTimeout(clock));
+}
+
 // Reloads the schedule. Never throws: a failure shows up as the status.
-export function refresh() {
-  loading ??= load().finally(() => { loading = null; });
-  return loading;
+// `fresh` starts a new load even while one is running, and makes the page
+// ignore every load that began earlier.
+export function refresh({ fresh = false } = {}) {
+  if (fresh) generation += 1;
+  if (loading?.generation === generation) return loading.promise;
+  const current = generation;
+  const promise = load(current).finally(() => {
+    if (loading?.promise === promise) loading = null;
+  });
+  loading = { generation: current, promise };
+  return promise;
 }
 
-async function load() {
+async function load(current) {
   clearTimeout(timer);
+  let changes;
   try {
-    const view = await (await api()).call('memberSchedule');
-    if (view?.version !== 2 || !view.config) throw new Error('Unexpected schedule format');
-    loadedAt = Date.now();
-    update({ status: demo ? 'demo' : 'live', config: view.config, days: view.days, bookings: view.bookings, mine: view.mine });
-  } catch {
-    update({ status: navigator.onLine === false ? 'offline' : 'error' });
-  } finally {
-    timer = setTimeout(refresh, REFRESH_MS);
-  }
-}
-
-async function send(name, data, fallback) {
-  if (!canBook()) throw new Error('The schedule is not connected. Wait until it is live, then try again.');
-  try {
-    const result = await (await api()).call(name, data);
-    // A refresh already running may have started before this change, so
-    // wait for it and load again.
-    await loading;
-    await refresh();
-    return result;
+    const view = await withTimeout(api().then(server => server.call('memberSchedule')), LOAD_TIMEOUT_MS);
+    if (typeof view?.version !== 'number') throw new Error('Unexpected schedule format');
+    if (view.version !== SCHEDULE_VERSION) {
+      changes = { status: 'outdated' };
+    } else {
+      if (!view.config || !Array.isArray(view.days)) throw new Error('Unexpected schedule format');
+      changes = { status: demo ? 'demo' : 'live', config: view.config, days: view.days, bookings: view.bookings || [], mine: view.mine || [] };
+    }
   } catch (error) {
-    throw new Error(errorMessage(error, fallback));
+    changes = { status: error.slow ? 'slow' : navigator.onLine === false ? 'offline' : 'error' };
   }
+  // A change was sent while this was loading; the load started after it wins.
+  if (current !== generation) return;
+  if (changes.config) loadedAt = Date.now();
+  update(changes);
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    // A hidden page waits; it reloads as soon as it is shown again.
+    if (!document.hidden) refresh();
+  }, REFRESH_MS);
 }
 
-// `request`: { date, type, unit, start, end, purpose, name, reservedFor, takeover }.
+// Sends a change, then waits for a schedule that includes it. A failure is
+// thrown as an Error whose message is for the member; `lost` is true when the
+// server may have made the change anyway (the answer never arrived). The
+// schedule is reloaded either way, so the page shows what really happened.
+async function send(name, data, fallback) {
+  if (!canBook()) throw Object.assign(new Error('The schedule is not connected. Wait until it is live, then try again.'), { lost: false });
+  let result;
+  try {
+    result = await (await api()).call(name, data);
+  } catch (error) {
+    await refresh({ fresh: true });
+    const message = errorMessage(error, '');
+    throw Object.assign(new Error(message || fallback), { lost: !message });
+  }
+  await refresh({ fresh: true });
+  return result;
+}
+
+// A new id for one booking draft: the server answers a repeat of the same id
+// with the first result, so a retry after a lost answer never books twice.
+export function newRequestId() {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID().replaceAll('-', '');
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_');
+}
+
+// `request`: { date, type, unit, start, end, purpose, name, reservedFor, takeover, takeoverUnit, requestId }.
 // `unit` is null to let the server pick any free unit.
 export async function book(request) {
-  const result = await send('memberSubmitBooking', {
+  const data = {
     date: request.date,
     start: request.start,
     end: request.end,
@@ -86,9 +134,13 @@ export async function book(request) {
     purpose: request.purpose,
     name: request.name,
     reservedFor: request.reservedFor,
-    allowTakeover: request.takeover
-  }, 'The connection dropped before the reservation was confirmed. Check My reservations before trying again.');
-  writeStored(NAME_KEY, request.name);
+    allowTakeover: request.takeover,
+    requestId: request.requestId
+  };
+  if (request.takeover && request.takeoverUnit) data.takeoverUnit = request.takeoverUnit;
+  const result = await send('memberSubmitBooking', data, 'We couldn’t confirm the reservation. Check your connection, then try again.');
+  // A practice name in demo mode is never kept for the real app.
+  if (!demo) writeStored(NAME_KEY, request.name);
   return result;
 }
 
@@ -103,5 +155,5 @@ export function endEarly(id, end) {
 addEventListener('offline', () => { if (!demo) update({ status: 'offline' }); });
 addEventListener('online', () => refresh());
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && (!canBook() || Date.now() - loadedAt > REFRESH_MS)) refresh();
+  if (!document.hidden && (!canBook() || Date.now() - loadedAt >= REFRESH_MS)) refresh();
 });

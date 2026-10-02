@@ -12,11 +12,18 @@
 //   assignments             { room, whiteboard, tv } unit ids or null
 //   status                  'approved' | 'cancelled' | 'overridden' (older records may be 'pending' or 'declined')
 //   ownerUid                the device that booked it; null for Admin bookings
+//   takeover                true when a member's reservation took a lower-priority unit
 //   endedEarlyFrom          the end time before the first "End early"
 //   priorityNotice          what a priority reservation changed (see takeOver in actions.js)
+//   cancelledBy             'member' | 'admin' once cancelled (older records have none)
+//   updatedBy               the device or Admin that last changed it
+//
+// A unit counts as held when `assignments[type]` is one of that type's unit
+// ids. `needs` says which types a reservation asked for; older records may
+// have no `needs`, and then the types they hold stand in for it.
 
-const { RESOURCES, PURPOSES, HOLD, NAME_MAX, NOTE_MAX } = require('./config');
-const { toMinutes, timeError, hasPassed } = require('./schedule');
+const { RESOURCES, PURPOSES, HOLD, NAME_MAX, NOTE_MAX, HOLD_REASON_MAX } = require('./config');
+const { toMinutes, timeError, hasPassed, clockAt } = require('./schedule');
 
 const TYPES = Object.keys(RESOURCES);
 const PURPOSE_ORDER = Object.keys(PURPOSES);
@@ -48,6 +55,35 @@ function emptyAssignments() {
   return Object.fromEntries(TYPES.map(type => [type, null]));
 }
 
+// The unit of `type` that `booking` holds, or null.
+function heldUnit(booking, type) {
+  const unit = booking?.assignments?.[type];
+  return unitIds(type).includes(unit) ? unit : null;
+}
+
+// { room, whiteboard, tv } with only the units `booking` really holds.
+function heldAssignments(booking) {
+  return Object.fromEntries(TYPES.map(type => [type, heldUnit(booking, type)]));
+}
+
+// The types `booking` holds a unit of.
+function typesHeld(booking) {
+  return TYPES.filter(type => heldUnit(booking, type));
+}
+
+// The types `booking` asked for. Older records without `needs` count the
+// types they hold.
+function neededTypes(booking) {
+  if (!booking?.needs || typeof booking.needs !== 'object') return typesHeld(booking);
+  return TYPES.filter(type => booking.needs[type] === true);
+}
+
+// Needed types with no unit, such as a room a priority reservation took from
+// a reservation that kept its TV.
+function missingTypes(booking) {
+  return neededTypes(booking).filter(type => !heldUnit(booking, type));
+}
+
 // Records from before September 2026 may carry retired purposes such as
 // 'meeting'; they are treated as Other.
 function purposeOf(booking) {
@@ -64,7 +100,7 @@ function overlaps(first, second) {
 // Approved bookings holding `unitId` during `candidate`'s time.
 function holdersOf(type, unitId, candidate, approved) {
   return approved.filter(existing => existing.status === 'approved'
-    && existing.assignments?.[type] === unitId
+    && heldUnit(existing, type) === unitId
     && overlaps(candidate, existing));
 }
 
@@ -76,29 +112,49 @@ function freeUnit(type, candidate, approved, requestedUnit = null) {
 }
 
 // When no unit of `type` is free, the unit a priority reservation may take:
-// one whose every holder has a purpose in `canTake`. Fewest holders first,
-// then unit order. When `requestedUnit` is set, only that unit is considered.
-// Returns { unitId, holders } or null.
-function takeoverTarget(type, candidate, approved, requestedUnit = null) {
+// one whose every holder has a purpose in `canTake`. Lowest priority first:
+// the unit whose most important holder is least important (a unit held only
+// by Other before one held by any New Member), then the fewest holders, then
+// unit order. When `requestedUnit` is set, only that unit is considered.
+// Returns { unitId, holders } with holders most important first, or null.
+function takeoverTarget(type, candidate, approved, requestedUnit = null, now = new Date()) {
   if (freeUnit(type, candidate, approved)) return null;
   const canTake = PURPOSES[candidate.purpose]?.canTake || [];
   if (!canTake.length) return null;
   const units = unitIds(type).filter(id => requestedUnit == null || id === requestedUnit);
   const options = units.map(unitId => {
     const holders = holdersOf(type, unitId, candidate, approved);
-    const takeable = holders.every(holder => holder.purpose !== HOLD && canTake.includes(purposeOf(holder)));
+    const takeable = holders.every(holder => holder.purpose !== HOLD && canTake.includes(purposeOf(holder))
+      && !inUse(holder, candidate, now));
     return holders.length && takeable ? { unitId, holders: sortByPriority(holders) } : null;
   }).filter(Boolean);
-  options.sort((a, b) => a.holders.length - b.holders.length || units.indexOf(a.unitId) - units.indexOf(b.unitId));
+  const topRank = option => rankOf(option.holders[0]);
+  options.sort((a, b) => topRank(b) - topRank(a)
+    || a.holders.length - b.holders.length
+    || units.indexOf(a.unitId) - units.indexOf(b.unitId));
   return options[0] || null;
 }
 
+// A reservation already under way is never moved or replaced. One that began
+// earlier than the priority reservation is shortened instead; one that began
+// this very minute, at the same time, cannot be, so its unit is not taken.
+function inUse(holder, candidate, now) {
+  if (shortenedEnd(holder, candidate)) return false;
+  const clock = clockAt(now);
+  return holder.date < clock.date || (holder.date === clock.date && toMinutes(holder.start) <= clock.minutes);
+}
+
+// 0 for the most important purpose.
+function rankOf(booking) {
+  return PURPOSE_ORDER.indexOf(purposeOf(booking));
+}
+
+// Most important first; the older reservation first within a purpose.
 function sortByPriority(bookings) {
-  const rank = booking => PURPOSE_ORDER.indexOf(purposeOf(booking));
   const created = booking => (typeof booking.createdAt?.toMillis === 'function'
     ? booking.createdAt.toMillis()
     : Number(booking.createdAt)) || 0;
-  return bookings.slice().sort((a, b) => rank(a) - rank(b) || created(a) - created(b));
+  return bookings.slice().sort((a, b) => rankOf(a) - rankOf(b) || created(a) - created(b));
 }
 
 // A reservation that started before the priority reservation keeps its unit
@@ -112,38 +168,74 @@ function conflictWith(candidate, approved, excludeId = null) {
   return approved.find(existing => existing.id !== excludeId
     && existing.status === 'approved'
     && overlaps(candidate, existing)
-    && TYPES.some(type => candidate.assignments[type] && candidate.assignments[type] === existing.assignments?.[type])) || null;
+    && TYPES.some(type => heldUnit(candidate, type) && heldUnit(candidate, type) === heldUnit(existing, type))) || null;
 }
 
-function text(value, max, field, required) {
-  const result = typeof value === 'string' ? value.trim() : '';
+// Control characters and the bidi controls that could reorder what other
+// people see. Joiners (ZWJ, ZWNJ) stay: some names and emoji need them.
+const CONTROLS = /[\p{Cc}\u202A-\u202E\u2066-\u2069]/gu;
+
+// Typed text, cleaned: one space between words, no control characters, NFC.
+// With `lines`, line breaks are kept (private notes). Lengths count UTF-16
+// units, as a browser's maxlength does.
+function cleanText(value, lines = false) {
+  if (typeof value !== 'string') return '';
+  const normal = value.normalize('NFC');
+  if (lines) {
+    const kept = { '\n': '\n', '\t': ' ' };
+    return normal.replace(/\r\n?/g, '\n').replace(CONTROLS, match => kept[match] ?? '').trim();
+  }
+  return normal.replace(/\s/gu, ' ').replace(CONTROLS, '').replace(/ {2,}/g, ' ').trim();
+}
+
+function text(value, max, field, required, lines = false) {
+  const result = cleanText(value, lines);
   if (required && !/[\p{L}\p{N}]/u.test(result)) throw new Error(`${field} is required.`);
   if (result.length > max) throw new Error(`${field} must be ${max} characters or fewer.`);
   return result;
 }
 
-// A member's reservation request. Throws an Error with a message for the member.
-function parseMemberRequest(data, now = new Date()) {
-  const input = data && typeof data === 'object' ? data : {};
+// A browser's id for one reservation request, so a retry is not a second booking.
+const REQUEST_ID = /^[A-Za-z0-9_-]{16,64}$/;
+
+// The date and times every request shares, checked against the clock.
+function parseWhen(input, now) {
   const date = typeof input.date === 'string' ? input.date : '';
   const problem = timeError(date, input.start, input.end, now);
   if (problem) throw new Error(problem);
   if (hasPassed(date, input.start, now)) throw new Error('That start time has already passed. Choose a later time.');
+  return { date, start: input.start, end: input.end };
+}
+
+// null, or a unit id of `type`.
+function optionalUnit(value, type) {
+  if (value == null) return null;
+  if (!unitIds(type).includes(value)) throw new Error('Choose a valid unit.');
+  return value;
+}
+
+// A member's reservation request. Throws an Error with a message for the member.
+function parseMemberRequest(data, now = new Date()) {
+  const input = data && typeof data === 'object' ? data : {};
+  const when = parseWhen(input, now);
   const type = input.resourceType;
   if (!TYPES.includes(type)) throw new Error('Choose a study room, whiteboard or TV.');
   if (!isPurpose(input.purpose)) throw new Error('Choose what the reservation is for.');
-  const requestedUnit = input.requestedUnit == null ? null : input.requestedUnit;
-  if (requestedUnit !== null && !unitIds(type).includes(requestedUnit)) throw new Error('Choose a valid unit.');
+  if (input.requestId != null && !(typeof input.requestId === 'string' && REQUEST_ID.test(input.requestId))) {
+    throw new Error('Reload the page and try again.');
+  }
   return {
-    date,
-    start: input.start,
-    end: input.end,
+    ...when,
     type,
-    requestedUnit,
+    requestedUnit: optionalUnit(input.requestedUnit, type),
     purpose: input.purpose,
     // Taking a lower-priority reservation's unit only happens when the member
-    // was shown that and confirmed it.
+    // was shown that and confirmed it, and then only the unit they were shown
+    // (`takeoverUnit`; older pages do not send it).
     allowTakeover: input.allowTakeover === true,
+    takeoverUnit: optionalUnit(input.takeoverUnit, type),
+    // Makes a repeated request (a lost response, a double tap) harmless.
+    requestId: input.requestId ?? null,
     name: text(input.name, NAME_MAX, 'Your name', true),
     reservedFor: text(input.reservedFor, PURPOSES[input.purpose].detailMax, PURPOSES[input.purpose].detailLabel, true)
   };
@@ -152,10 +244,7 @@ function parseMemberRequest(data, now = new Date()) {
 // A booking the Admin adds directly. Units are chosen by the Admin.
 function parseAdminBooking(data, now = new Date()) {
   const input = data && typeof data === 'object' ? data : {};
-  const date = typeof input.date === 'string' ? input.date : '';
-  const problem = timeError(date, input.start, input.end, now);
-  if (problem) throw new Error(problem);
-  if (hasPassed(date, input.start, now)) throw new Error('That start time has already passed. Choose a later time.');
+  const when = parseWhen(input, now);
   const purpose = input.purpose === HOLD || isPurpose(input.purpose) ? input.purpose : '';
   if (!purpose) throw new Error('Choose what the reservation is for.');
   const needs = {};
@@ -169,33 +258,38 @@ function parseAdminBooking(data, now = new Date()) {
   }
   if (!TYPES.some(type => needs[type])) throw new Error('Choose at least one room, whiteboard or TV.');
   return {
-    date,
-    start: input.start,
-    end: input.end,
+    ...when,
     name: text(input.name, NAME_MAX, 'Name', true),
     purpose,
     reservedFor: purpose === HOLD
-      ? text(input.reservedFor, 240, 'Reason', false)
+      ? text(input.reservedFor, HOLD_REASON_MAX, 'Reason', false)
       : text(input.reservedFor, PURPOSES[purpose].detailMax, PURPOSES[purpose].detailLabel, false),
     needs,
     assignments,
-    note: text(input.note, NOTE_MAX, 'Note', false)
+    note: text(input.note, NOTE_MAX, 'Note', false, true)
   };
 }
 
 module.exports = {
   TYPES,
+  REQUEST_ID,
   isPurpose,
   unitIds,
   unitName,
   inSentence,
   emptyAssignments,
+  heldUnit,
+  heldAssignments,
+  typesHeld,
+  neededTypes,
+  missingTypes,
   purposeOf,
   overlaps,
   freeUnit,
   takeoverTarget,
   shortenedEnd,
   conflictWith,
+  text,
   parseMemberRequest,
   parseAdminBooking
 };

@@ -6,7 +6,7 @@
     "node": "22"
   },
   "scripts": {
-    "test": "node --test test/rules.test.js test/actions.test.js test/endpoints.test.js",
+    "test": "node --test test/rules.test.js test/actions.test.js test/guard.test.js test/takeover.test.js test/races.test.js test/endpoints.test.js",
     "test:rules": "node --test test/firestore-rules.test.js"
   },
   "dependencies": {

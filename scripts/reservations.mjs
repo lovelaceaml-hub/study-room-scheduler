@@ -62,7 +62,8 @@ if (full && bookings.length) {
 }
 
 const unitName = id => Object.values(RESOURCES).flatMap(resource => resource.units).find(unit => unit.id === id)?.name || id;
-const onSchedule = bookings.filter(booking => booking.status === 'approved' && booking.purpose !== HOLD).map(booking => booking.name);
+// Short names add a last initial only for people booked the same day, as on the app and TV.
+const onSchedule = date => bookings.filter(booking => booking.date === date && booking.status === 'approved' && booking.purpose !== HOLD).map(booking => booking.name);
 
 if (!bookings.length) console.log(`No reservations from ${todayAt()} on.`);
 let day = '';
@@ -73,7 +74,7 @@ for (const booking of bookings.sort((a, b) => `${a.date}${a.start}`.localeCompar
   }
   const places = Object.entries(booking.assignments || {}).filter(([, unit]) => unit).map(([, unit]) => unitName(unit)).join(', ') || 'no unit';
   const purpose = booking.purpose === HOLD ? 'Hold' : PURPOSES[booking.purpose]?.label || booking.purpose;
-  const name = full ? booking.name : booking.purpose === HOLD ? 'Reserved' : publicName(booking.name, onSchedule);
+  const name = full ? booking.name : booking.purpose === HOLD ? 'Reserved' : publicName(booking.name, onSchedule(booking.date));
   const parts = [`${booking.start}-${booking.end}`, places, booking.status, name, purpose, booking.reservedFor || booking.purposeOther || ''];
   if (full) parts.push(booking.ownerUid ? `device ${booking.ownerUid.slice(0, 6)}` : 'Admin', notes[booking.id] ? `note: ${notes[booking.id]}` : '');
   console.log(`  ${parts.filter(Boolean).join(' | ')}`);

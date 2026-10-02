@@ -10,7 +10,16 @@ import { chromium } from 'playwright';
 const root = normalize(new URL('../../public/', import.meta.url).pathname);
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
+// The browser tests run on a fixed church-clock time, so they never depend on
+// the weekday or the hour they happen to run at: Saturday, October 3, 2026,
+// 9:00 AM in Los Angeles (before the 10:00 AM opening). On that clock the
+// booking days are Saturday Oct 3 and Tuesday Oct 6.
+export const TEST_NOW = new Date('2026-10-03T09:00:00-07:00');
+
 export async function start() {
+  // Launch the browser first, so a browser that cannot start fails the run
+  // instead of leaving the file server holding the process open.
+  const browser = await chromium.launch();
   const server = createServer(async (request, response) => {
     try {
       const path = new URL(request.url, 'http://localhost').pathname;
@@ -24,8 +33,12 @@ export async function start() {
       response.end('Not found');
     }
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const browser = await chromium.launch();
+  try {
+    await new Promise((resolve, reject) => server.listen(0, '127.0.0.1', resolve).on('error', reject));
+  } catch (error) {
+    await browser.close();
+    throw error;
+  }
   return {
     base: `http://127.0.0.1:${server.address().port}`,
     browser,
@@ -60,8 +73,11 @@ export async function fakeFirebase(context, backendSource) {
   });
 }
 
-export async function newPage(browser, { width = 390, height = 844, backend = null } = {}) {
-  const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', serviceWorkers: 'block' });
+// `now` sets the page's clock (a Date, or null for the real clock). The clock
+// keeps running from there; tests move it on with `page.clock.fastForward`.
+export async function newPage(browser, { width = 390, height = 844, backend = null, now = TEST_NOW, timezoneId = 'America/Los_Angeles' } = {}) {
+  const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', serviceWorkers: 'block', timezoneId });
+  if (now) await context.clock.install({ time: now });
   if (backend) await fakeFirebase(context, backend);
   const page = await context.newPage();
   page.setDefaultTimeout(5000);

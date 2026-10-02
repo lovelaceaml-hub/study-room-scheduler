@@ -1,0 +1,58 @@
+# Tests: runs every suite on each pull request (Dependabot's included) and
+# when started from the Actions tab. It deploys nothing and uses no secrets.
+# Pushes to other branches also run the rules and browser tests as part of
+# "Firebase preview"; this workflow adds pull requests and the Firestore
+# rules test, which needs the emulator.
+name: Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rules-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install test dependencies
+        run: |
+          npm ci
+          npm ci --prefix functions
+      - name: Install the Chromium browser for the tests
+        run: npx playwright install --with-deps chromium
+      - name: Rules, database actions, endpoints and browser/server agreement
+        run: npm test
+      - name: App, Admin and TV in a real browser (fictional data, fake Firebase)
+        run: npm run test:browser
+
+  firestore-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install test dependencies
+        run: npm ci --prefix functions
+      - name: Browsers cannot read or write the database (Firestore emulator, demo project)
+        run: npm run test:rules
