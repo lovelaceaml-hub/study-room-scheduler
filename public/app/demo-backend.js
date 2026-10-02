@@ -1,93 +1,215 @@
 // Stands in for the Cloud Functions in demo mode (?demo=1). It answers the
-// same calls with the sample schedule, and keeps practice reservations in
-// memory until the page is closed.
+// same calls with the sample schedule, following the server's rules, and
+// keeps practice reservations in memory until the page is closed.
 
 import { DEMO_CONFIG, demoDays, demoRows } from '../shared/demo.js';
-import { rangeChoice, earlierEnds } from '../shared/availability.js';
-import { hasText, toMinutes } from '../shared/format.js';
+import {
+  rangeChoice, takeoverEffect, earliestStart, earlierEnds, earlyEndChoices, hasEnded, unitsOf, validRange
+} from '../shared/availability.js';
+import { hasText, toMinutes, toTime, inSentence } from '../shared/format.js';
 
-// Roughly how the server shortens names on the schedule: "Brother Sam Lee" -> "B Sam".
-function shortName(name) {
-  const words = name.trim().split(/\s+/);
-  const title = { brother: 'B', sister: 'S', elder: 'E', missionary: 'M', deacon: 'D', deaconess: 'D', pastor: 'P' }[words[0].toLowerCase()];
-  return title && words[1] ? `${title} ${words[1]}` : words[0];
+// ---------- Public names (mirrors publicName in functions/lib/names.js) ----------
+
+const TITLES = {
+  brother: 'B', bro: 'B', sister: 'S', sis: 'S', elder: 'E', missionary: 'M', deacon: 'D', deaconess: 'D', pastor: 'P'
+};
+
+function nameKey(value) {
+  return String(value || '').normalize('NFKC').trim().toLocaleLowerCase('en-US');
 }
+
+function parseName(value) {
+  const words = String(value || '').trim().split(/\s+/).filter(Boolean);
+  let title = '';
+  let titleWord = '';
+  if (words.length) {
+    const first = words[0].replace(/[.,]+$/g, '');
+    title = TITLES[first.toLocaleLowerCase('en-US')] || (/^[BSEMDP]$/i.test(first) ? first.toUpperCase() : '');
+    if (title) titleWord = words.shift().replace(/,+$/, '');
+  }
+  const given = words.shift() || '';
+  const surname = words.join(' ');
+  const bareSurname = surname.replace(/[.,]+/g, '');
+  const surnameKey = words.length === 1 && /^\p{L}$/u.test(bareSurname)
+    ? `initial:${nameKey(bareSurname)}`
+    : `name:${nameKey(surname)}`;
+  const initial = [...surname.replace(/^[^\p{L}\p{N}]+/u, '')][0] || '';
+  return { title, titleWord, given, givenKey: nameKey(given), surnameKey, initial: initial.toLocaleUpperCase('en-US') };
+}
+
+// How a name appears on the schedule: "Brother John Smith" and "Bro. John
+// Smith" become "B John"; with another John on the same day, "B John S".
+// A name that is only a title shows that word as typed. `others` are the full
+// names of everyone else on the schedule that day.
+export function shortName(value, others = []) {
+  const name = parseName(value);
+  if (!name.given) return name.titleWord || 'Reserved';
+  const shared = others.some(other => {
+    const parsed = parseName(other);
+    return parsed.givenKey === name.givenKey && parsed.surnameKey !== name.surnameKey;
+  });
+  return [name.title, name.given, shared ? name.initial : ''].filter(Boolean).join(' ');
+}
+
+// ---------- The fake server ----------
 
 function refusal(code, message) {
   return Object.assign(new Error(message), { code: `functions/${code}` });
 }
 
+function overlaps(row, start, end) {
+  return toMinutes(row.start) < end && start < toMinutes(row.end);
+}
+
 export function demoBackend() {
+  const config = DEMO_CONFIG;
   const days = demoDays();
-  let rows = demoRows(days);
-  const mine = [];
+  let sample = demoRows(days);
+  const mine = []; // practice reservations, with full names
+  const answered = new Map(); // requestId -> first result
   let count = 0;
+
+  // Every row on the schedule. Practice names are shortened against
+  // everyone else on the same day, as the server does.
+  function scheduleRows() {
+    const active = mine.filter(item => item.status === 'approved' && item.unit);
+    const namesOn = date => [...sample, ...active].filter(row => row.date === date && row.purpose !== config.hold).map(row => row.name);
+    return [
+      ...sample.map(row => ({ ...row })),
+      ...active.map(item => ({
+        id: item.id, date: item.date, type: item.type, unit: item.unit, start: item.start, end: item.end,
+        name: shortName(item.name, namesOn(item.date)), purpose: item.purpose, reservedFor: item.reservedFor, mine: true
+      }))
+    ];
+  }
+
+  // A practice reservation as My reservations sees it.
+  function view(item) {
+    const active = item.status === 'approved';
+    const ended = active && hasEnded(config, item.date, item.end);
+    const earlyEnds = active && !ended ? earlyEndChoices(config, item.date, item.start, item.end) : [];
+    return {
+      ...item,
+      notice: item.status === 'cancelled' ? null : item.notice,
+      ended,
+      earlyEnds,
+      canEndEarly: earlyEnds.length > 0,
+      canCancel: active && !ended,
+      byAdmin: false
+    };
+  }
 
   function ownRow(id) {
     const reservation = mine.find(item => item.id === id);
-    if (!reservation || reservation.status !== 'approved') throw refusal('failed-precondition', 'This reservation is no longer active.');
+    if (!reservation) throw refusal('not-found', 'That reservation no longer exists.');
+    if (reservation.status !== 'approved') throw refusal('failed-precondition', 'This reservation was already cancelled or replaced.');
+    if (hasEnded(config, reservation.date, reservation.end)) throw refusal('failed-precondition', 'This reservation has already ended.');
     return reservation;
+  }
+
+  // Applies a takeover the way the server does: a reservation that began
+  // earlier now ends when the new one starts; any other moves to a free unit,
+  // or is replaced when none is free.
+  function takeOver(effect, day, type, start, end, purpose) {
+    const notice = fields => ({ fromUnit: effect.unit, byPurpose: purpose, toUnit: null, toEnd: null, ...fields });
+    const practice = row => (row.mine ? mine.find(item => item.id === row.id) : null);
+    const pool = scheduleRows().filter(row => row.type === type && !effect.affected.some(item => item.row.id === row.id));
+    pool.push({ date: day.date, unit: effect.unit, start: toTime(start), end: toTime(end) });
+    for (const { row, toEnd } of effect.affected.filter(item => item.effect === 'shortened')) {
+      pool.push({ ...row, end: toEnd });
+      const own = practice(row);
+      if (own) Object.assign(own, { end: toEnd, notice: notice({ kind: 'shortened', toUnit: effect.unit, toEnd }) });
+      else sample = sample.map(item => (item.id === row.id ? { ...item, end: toEnd } : item));
+    }
+    for (const { row } of effect.affected.filter(item => item.effect !== 'shortened')) {
+      const free = unitsOf(config, type).map(unit => unit.id).find(unit => !pool.some(other => other.date === row.date
+        && other.unit === unit && overlaps(other, toMinutes(row.start), toMinutes(row.end))));
+      const own = practice(row);
+      if (free) {
+        pool.push({ ...row, unit: free });
+        if (own) Object.assign(own, { unit: free, notice: notice({ kind: 'moved', toUnit: free }) });
+        else sample = sample.map(item => (item.id === row.id ? { ...item, unit: free } : item));
+      } else if (own) {
+        Object.assign(own, { status: 'overridden', unit: null, notice: notice({ kind: 'released' }) });
+      } else {
+        sample = sample.filter(item => item.id !== row.id);
+      }
+    }
   }
 
   const calls = {
     memberSchedule() {
-      return { version: 2, config: DEMO_CONFIG, days, bookings: rows.map(row => ({ ...row })), mine: mine.map(row => ({ ...row })) };
+      return { version: 2, config, days, bookings: scheduleRows(), mine: mine.map(view) };
     },
 
     memberSubmitBooking(data) {
+      if (data.requestId && answered.has(data.requestId)) return { ...answered.get(data.requestId), repeated: true };
       const day = days.find(item => item.date === data.date);
-      const purpose = DEMO_CONFIG.purposes[data.purpose];
-      if (!day || !purpose) throw refusal('invalid-argument', 'Choose an open day and what the reservation is for.');
-      if (!hasText(data.name)) throw refusal('invalid-argument', 'Your name is required.');
-      if (!hasText(data.reservedFor)) throw refusal('invalid-argument', `${purpose.detailLabel} is required.`);
+      const purpose = Object.hasOwn(config.purposes, data.purpose ?? '') ? config.purposes[data.purpose] : null;
+      const type = data.resourceType;
       const start = toMinutes(data.start);
       const end = toMinutes(data.end);
-      const choice = rangeChoice(DEMO_CONFIG, rows, day, data.resourceType, start, end, data.purpose, data.requestedUnit ?? null);
-      if (!choice || (choice.takeover && !data.allowTakeover)) throw refusal('already-exists', 'That time was just taken. Choose another time.');
-      if (choice.takeover) {
-        rows = rows.filter(row => !(row.date === data.date && row.unit === choice.unit
-          && toMinutes(row.start) < end && start < toMinutes(row.end)));
+      if (!day || !validRange(config, day, start, end)) throw refusal('invalid-argument', 'That day is not open for reservations.');
+      if (start < earliestStart(config, data.date)) throw refusal('invalid-argument', 'That start time has already passed. Choose a later time.');
+      if (!Object.hasOwn(config.resources, type ?? '')) throw refusal('invalid-argument', 'Choose a study room, whiteboard or TV.');
+      if (!purpose) throw refusal('invalid-argument', 'Choose what the reservation is for.');
+      if (!hasText(data.name)) throw refusal('invalid-argument', 'Your name is required.');
+      if (!hasText(data.reservedFor)) throw refusal('invalid-argument', `${purpose.detailLabel} is required.`);
+      if (mine.filter(item => item.date === data.date && item.status === 'approved').length >= config.maxActivePerDay) {
+        throw refusal('resource-exhausted', `You already have ${config.maxActivePerDay} reservations on this day. Cancel one in My reservations to make another.`);
       }
+      const rows = scheduleRows().filter(row => row.type === type);
+      const requested = data.requestedUnit ?? null;
+      const shown = data.takeoverUnit ?? null;
+      const choice = rangeChoice(config, rows, day, type, start, end, data.purpose, requested);
+      // With a takeover, only the unit the member was shown (or chose) may be taken.
+      const confirmed = data.allowTakeover === true && !(requested && shown && requested !== shown);
+      const effect = choice?.takeover && confirmed
+        ? takeoverEffect(config, rows, day, type, start, end, data.purpose, shown ?? requested)
+        : null;
+      if (!choice || (choice.takeover && !effect)) {
+        const unitName = unitsOf(config, type).find(unit => unit.id === requested)?.name;
+        throw refusal('already-exists', data.allowTakeover === true && shown ? 'The schedule changed. Check the time and confirm again.'
+          : unitName ? `${unitName} is taken for part of that time. Choose another time.`
+          : `No ${inSentence(config.resources[type].plural)} are free for that whole time. Choose another time.`);
+      }
+      if (effect) takeOver(effect, day, type, start, end, data.purpose);
       count += 1;
-      const reservation = {
-        id: `demo-mine-${count}`,
+      const result = { id: `demo-mine-${count}`, unit: effect ? effect.unit : choice.unit, takeover: Boolean(effect) };
+      mine.push({
+        id: result.id,
         date: data.date,
         start: data.start,
         end: data.end,
-        type: data.resourceType,
-        unit: choice.unit,
+        type,
+        unit: result.unit,
         purpose: data.purpose,
         name: data.name.trim(),
-        reservedFor: data.reservedFor.trim()
-      };
-      rows.push({ ...reservation, name: shortName(reservation.name), mine: true });
-      mine.push({
-        ...reservation,
+        reservedFor: data.reservedFor.trim(),
         status: 'approved',
         endedEarlyFrom: null,
-        notice: null,
-        canCancel: true,
-        canEndEarly: earlierEnds(DEMO_CONFIG, data.start, data.end).length > 0
+        notice: null
       });
-      return { id: reservation.id, unit: choice.unit };
+      if (data.requestId) answered.set(data.requestId, result);
+      return result;
     },
 
     memberCancelBooking({ bookingId }) {
       const reservation = ownRow(bookingId);
-      Object.assign(reservation, { status: 'cancelled', canCancel: false, canEndEarly: false });
-      rows = rows.filter(row => row.id !== bookingId);
+      reservation.status = 'cancelled';
       return { ok: true };
     },
 
     memberEndBookingEarly({ bookingId, end }) {
       const reservation = ownRow(bookingId);
-      if (!earlierEnds(DEMO_CONFIG, reservation.start, reservation.end).includes(end)) {
-        throw refusal('failed-precondition', 'Choose an earlier end time on the 30-minute grid.');
+      if (!earlierEnds(config, reservation.start, reservation.end).includes(end)) {
+        throw refusal('failed-precondition', `Choose an earlier end time on the ${config.slotMinutes}-minute grid.`);
+      }
+      if (!earlyEndChoices(config, reservation.date, reservation.start, reservation.end).includes(end)) {
+        throw refusal('failed-precondition', 'Choose an end time from now on.');
       }
       reservation.endedEarlyFrom ??= reservation.end;
       reservation.end = end;
-      reservation.canEndEarly = earlierEnds(DEMO_CONFIG, reservation.start, end).length > 0;
-      rows = rows.map(row => row.id === bookingId ? { ...row, end } : row);
       return { end };
     }
   };
@@ -96,7 +218,7 @@ export function demoBackend() {
     uid: 'demo',
     async call(name, data = {}) {
       await new Promise(resolve => setTimeout(resolve, 150));
-      return calls[name](data);
+      return structuredClone(calls[name](data));
     }
   };
 }
