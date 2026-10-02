@@ -1,22 +1,26 @@
-// The booking sheet. From the Reserve button the steps are: what, what for,
-// start, end, names, confirm. From a tapped open time the unit and start are
-// already chosen, so it skips to what for, end, names, confirm.
+// The booking sheet. From the Reserve button the day and kind on screen are
+// already chosen, so the steps are: what for, start, end, names, confirm
+// (with "Reserve something else", what comes first). From a tapped open time
+// the unit and start are chosen too, so it skips to what for, end, names,
+// confirm.
 
 import {
   escapeHtml as esc, formatTime, formatRange, formatDuration, formatDay, hasText, inSentence, readStored, toTime
 } from '../shared/format.js';
-import { rangeChoice, startChoices, endChoices, earliestStart, unitName } from '../shared/availability.js';
-import { book, canBook, refresh, NAME_KEY } from './store.js';
+import { rangeChoice, startChoices, endChoices, earliestStart, takeoverEffect } from '../shared/availability.js';
+import { book, canBook, refresh, newRequestId, NAME_KEY } from './store.js';
 import { createSheet } from './sheet.js';
-import { purposeLabel, detailLabel, placeLabel } from './text.js';
+import { purposeLabel, detailLabel, placeLabel, unitLabel, connectionText } from './text.js';
 import { ICONS } from './icons.js';
 import { announce } from './announce.js';
 
 const TAKEOVER_LABEL = 'Priority override';
+const NOT_OPEN = 'This time is no longer open. Go back and choose another time.';
+const PASSED = 'This start time has passed. Close this and choose a later time.';
+const CHANGED = 'The schedule changed while you were deciding. Check the details and confirm again.';
 
 export function createBookingSheet({ getState, onShow, onOpenMine }) {
   const dialog = document.getElementById('booking-sheet');
-  const sheet = createSheet(dialog);
   let draft = null;
   let step = '';
   let past = [];
@@ -25,24 +29,48 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   let errorField = null; // 'name' | 'detail' when a field caused the error
   let saved = null;
   let wasReady = true;
+  let wasLimited = false;
+  // The id sent with this draft, kept while the draft stays the same so a
+  // retry is recognised by the server.
+  let request = null; // { key, id }
+
+  const sheet = createSheet(dialog, {
+    // Escape and Android Back go back one step.
+    onEscape: () => (past.length && step !== 'done' ? back() : sheet.close()),
+    // After the first step only the X closes, so a stray tap keeps the draft.
+    closeOnOutside: () => !past.length || step === 'done'
+  });
 
   const state = () => getState();
   const config = () => state().config;
   const day = () => state().days.find(item => item.date === draft.date) || null;
   const rows = () => state().bookings.filter(row => row.type === draft.type);
-  const steps = () => draft.fixed ? ['purpose', 'end', 'names', 'confirm'] : ['type', 'purpose', 'start', 'end', 'names', 'confirm'];
+  const steps = () => draft.fixed ? ['purpose', 'end', 'names', 'confirm']
+    : draft.typeGiven ? ['purpose', 'start', 'end', 'names', 'confirm']
+    : ['type', 'purpose', 'start', 'end', 'names', 'confirm'];
+  const maxPerDay = () => config().maxActivePerDay ?? 4;
 
-  // `preset`: { date } from the Reserve button, or { date, type, unit, start } from a tapped time.
+  // `preset`: { date, type } from the Reserve button, { date } from "Reserve
+  // something else", or { date, type, unit, start } from a tapped time.
   function open(preset = {}) {
+    // Still saving the last one: show it rather than starting over.
+    if (saving) {
+      sheet.open();
+      render({ focus: 'h2' });
+      return;
+    }
     const current = state();
     if (!canBook(current) || !current.days.length) return;
-    const fixed = Boolean(preset.unit);
+    const date = current.days.some(item => item.date === preset.date) ? preset.date : current.days[0].date;
+    const type = Object.hasOwn(current.config.resources, preset.type ?? '') ? preset.type : null;
+    const fixed = Boolean(type && preset.unit);
     draft = {
-      date: preset.date || current.days[0].date,
-      type: preset.type || null,
-      unit: preset.unit || null,
+      date,
+      type,
+      unit: fixed ? preset.unit : null,
       fixed,
-      start: preset.start ?? null,
+      typeGiven: Boolean(type),
+      start: fixed ? preset.start ?? null : null,
       end: null,
       purpose: null,
       takeover: false,
@@ -54,7 +82,9 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     errorField = null;
     saved = null;
     wasReady = true;
-    step = fixed ? 'purpose' : 'type';
+    request = null;
+    step = steps()[0];
+    wasLimited = limitReached();
     sheet.open();
     render({ focus: 'h2' });
   }
@@ -78,47 +108,107 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     render({ focus: 'h2' });
   }
 
+  // This device already holds as many reservations on the day as it may.
+  function limitReached() {
+    if (!draft || step === 'done') return false;
+    const active = state().mine.filter(item => item.date === draft.date && item.status === 'approved').length;
+    return active >= maxPerDay();
+  }
+
+  // A time that has begun cannot be reserved.
+  function startPassed() {
+    return draft.start != null && draft.start < earliestStart(config(), draft.date);
+  }
+
   // Called on every schedule refresh. Only the steps that list open times
   // and the confirmation depend on the schedule; the others are redrawn only
-  // when the connection comes or goes, so typing is never interrupted.
+  // when the connection or the day's limit changes, so typing is never
+  // interrupted.
   function update() {
     if (!sheet.isOpen || saving) return;
     const ready = canBook(state());
     const readyChanged = ready !== wasReady;
     wasReady = ready;
+    const limited = limitReached();
+    const limitChanged = limited !== wasLimited;
+    wasLimited = limited;
     if (!day()) error = 'This day is no longer open for reservations. Close this and choose another day.';
-    if (['start', 'end', 'confirm'].includes(step) || readyChanged || !day()) render();
+    else if (step === 'confirm') followSchedule();
+    if (['start', 'end', 'confirm'].includes(step) || readyChanged || limitChanged || !day()) render();
+  }
+
+  // Keeps the confirmation in line with the schedule: the unit the server
+  // would give now, and a warning when a takeover appeared, went away or
+  // moved to another unit. Returns false when the member must look again.
+  function followSchedule() {
+    const choice = currentChoice();
+    if (!choice) return true;
+    if (choice.takeover !== draft.takeover || (choice.takeover && choice.unit !== draft.unit)) {
+      Object.assign(draft, { unit: choice.unit, takeover: choice.takeover });
+      error = CHANGED;
+      return false;
+    }
+    draft.unit = choice.unit;
+    return true;
   }
 
   // ---------- Markup ----------
 
   function render({ focus = null } = {}) {
+    const limited = !saving && limitReached();
     const index = steps().indexOf(step);
-    const title = step === 'done' ? 'Done' : `Step ${index + 1} of ${steps().length}`;
-    const chips = step === 'done' ? [] : [
+    const title = saving ? 'Saving…' : step === 'done' ? 'Done' : limited ? 'Reserve' : `Step ${index + 1} of ${steps().length}`;
+    const chips = step === 'done' || limited ? [] : [
       formatDay(draft.date),
-      draft.type ? (draft.fixed ? unitName(config(), draft.unit) : config().resources[draft.type].label) : '',
+      draft.type ? (draft.fixed ? placeLabel(config(), draft.type, draft.unit) : config().resources[draft.type].label) : '',
       draft.start != null ? formatTime(draft.start) : ''
     ].filter(Boolean);
+    const showBack = past.length && step !== 'done' && !saving && !limited;
     sheet.render(`
       <div class="sheet-bar">
-        <button type="button" class="icon-button" data-action="back" data-key="back" aria-label="Back"${past.length && step !== 'done' ? '' : ' hidden'}>${ICONS.back}</button>
+        <button type="button" class="icon-button" data-action="back" data-key="back" aria-label="Back"${showBack ? '' : ' hidden'}>${ICONS.back}</button>
         <span class="sheet-step">${title}</span>
-        <button type="button" class="icon-button" data-action="close" data-key="close" aria-label="Close">${ICONS.close}</button>
+        <button type="button" class="icon-button" data-action="close" data-key="close" aria-label="Close"${saving ? ' disabled' : ''}>${ICONS.close}</button>
       </div>
       ${chips.length ? `<p class="chips">${chips.map(chip => `<span>${esc(chip)}</span>`).join('')}</p>` : ''}
-      ${!canBook(state()) && step !== 'done' ? '<div class="sheet-status" role="status">The schedule is reconnecting. Your choices are kept. <button type="button" class="text-button" data-action="retry" data-key="retry">Try again</button></div>' : ''}
-      <section class="step">${STEPS[step]()}</section>
-      ${INLINE_ERROR_STEPS.includes(step) ? '' : errorLine()}
+      ${step === 'done' ? '' : bannerHtml()}
+      <section class="step">${limited ? limitHtml() : STEPS[step]()}</section>
+      ${INLINE_ERROR_STEPS.includes(step) && !limited ? '' : errorLine()}
     `, { focus });
+  }
+
+  function bannerHtml() {
+    if (canBook(state())) return '';
+    const problem = connectionText(state().status);
+    if (problem?.action === 'reload') {
+      return `<div class="sheet-status" role="status"><span>${esc(problem.text)}</span> <button type="button" class="text-button" data-action="reload" data-key="reload">Reload</button></div>`;
+    }
+    return '<div class="sheet-status" role="status"><span>The schedule is reconnecting. Your choices are kept.</span> <button type="button" class="text-button" data-action="retry" data-key="retry">Try again</button></div>';
+  }
+
+  // The message under the current step: a start that has passed or a time
+  // that is no longer open outranks the last error.
+  function currentError() {
+    if (saving || !['names', 'confirm'].includes(step)) return error;
+    if (startPassed()) return PASSED;
+    if (step === 'confirm' && day() && !currentChoice()) return NOT_OPEN;
+    return error;
   }
 
   // These steps show the error just above their main button.
   const INLINE_ERROR_STEPS = ['names', 'confirm'];
-  const errorLine = () => error ? `<p class="form-error" id="booking-error" role="alert">${esc(error)}</p>` : '';
+  const errorLine = () => {
+    const message = currentError();
+    return message ? `<p class="form-error" id="booking-error" role="alert">${esc(message)}</p>` : '';
+  };
   const invalid = field => errorField === field ? ' aria-invalid="true" aria-describedby="booking-error"' : '';
   const heading = (text, hint = '') => `<h2 id="booking-title" tabindex="-1">${text}</h2>${hint ? `<p class="hint">${hint}</p>` : ''}`;
   const disabled = () => canBook(state()) && !saving ? '' : ' disabled';
+
+  function limitHtml() {
+    return heading('Daily limit reached', esc(`You already have ${maxPerDay()} reservations on ${formatDay(draft.date)}, the most one device can hold. To make another, cancel one in My reservations.`))
+      + '<button type="button" class="primary" data-action="mine" data-key="mine">My reservations</button>';
+  }
 
   const STEPS = {
     type: () => heading('What do you need?') + `<div class="choices">${Object.entries(config().resources).map(([type, resource]) => `
@@ -138,6 +228,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     },
 
     end: () => {
+      if (startPassed()) return heading('End time', PASSED);
       const choices = day() ? endChoices(config(), rows(), day(), draft.type, draft.start, draft.purpose, draft.fixed ? draft.unit : null) : [];
       if (!choices.length) {
         return heading('End time', draft.fixed
@@ -155,7 +246,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       return heading('Your details', `Others see a short form of your name (like “B John”) and the ${inSentence(label)} on the schedule.`) + `
         <form class="form" data-form="names" novalidate>
           <label for="booking-name">Your name</label>
-          <input id="booking-name" name="name" data-key="name" maxlength="120" autocomplete="name" value="${esc(draft.name)}" required${invalid('name')}>
+          <input id="booking-name" name="name" data-key="name" maxlength="${config().nameMax ?? 120}" autocomplete="name" value="${esc(draft.name)}" required${invalid('name')}>
           <label for="booking-detail">${esc(label)}</label>
           ${long
             ? `<textarea id="booking-detail" name="reservedFor" data-key="detail" maxlength="${max}" rows="3" required${invalid('detail')}>${esc(draft.reservedFor)}</textarea>`
@@ -167,7 +258,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
 
     confirm: () => heading('Confirm reservation') + summary(draft.unit) + (draft.takeover ? takeoverNote() : '')
       + (state().demo ? '<p class="hint">Demo mode: this practice reservation disappears when you close the page.</p>' : '') + errorLine() + `
-      <button type="button" class="primary" data-action="confirm" data-key="confirm"${disabled()} aria-busy="${saving}">${saving ? 'Reserving…' : 'Confirm reservation'}</button>`,
+      <button type="button" class="primary" data-action="confirm" data-key="confirm"${disabled()} aria-busy="${saving}">${saving ? '<span class="spinner" aria-hidden="true"></span>Reserving…' : 'Confirm reservation'}</button>`,
 
     done: () => `<div class="done-mark" aria-hidden="true">${ICONS.check}</div>` + heading('Reservation confirmed', 'To cancel or end early, open My reservations.') + summary(saved.unit) + `
       <button type="button" class="primary" data-action="show" data-key="show">See it on the schedule</button>
@@ -175,10 +266,23 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       <button type="button" class="text-button" data-action="again" data-key="again">Reserve something else</button>`
   };
 
+  // Who the takeover affects and what happens to each, as the server will do it.
   function takeoverNote() {
     const kind = inSentence(config().resources[draft.type].label);
-    const place = unitName(config(), draft.unit) || `a ${kind}`;
-    return `<p class="takeover-note" role="note"><strong>Priority override.</strong> Every ${kind} is taken at this time. If you confirm, you get ${esc(place)} from a lower-priority reservation. That reservation ends early, moves to another ${kind}, or is released, and its owner sees why in My reservations.</p>`;
+    const place = unitLabel(config(), draft.unit) || `a ${kind}`;
+    const preview = day() ? takeoverEffect(config(), rows(), day(), draft.type, draft.start, draft.end, draft.purpose, draft.unit) : null;
+    const affected = preview?.affected || [];
+    const lines = affected.map(({ row, effect, toEnd }) => {
+      const whose = row.mine ? 'Your reservation there' : `${row.name}’s reservation there`;
+      if (effect === 'shortened') return `${whose} (${formatRange(row.start, row.end)}) will end at ${formatTime(toEnd)}.`;
+      if (effect === 'moved') return `${whose} will move to another ${kind}.`;
+      return `${whose} will be replaced, because no other ${kind} is free.`;
+    });
+    if (affected.some(item => !item.row.mine)) lines.push('They see why in My reservations.');
+    return `<div class="takeover-note" role="note">
+      <p><strong>${TAKEOVER_LABEL}.</strong> Every ${esc(kind)} is taken at this time, so you get ${esc(place)}.</p>
+      ${lines.map(line => `<p>${esc(line)}</p>`).join('')}
+    </div>`;
   }
 
   function timeButton(kind, minutes, takeover, detail = '') {
@@ -208,46 +312,85 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     return rangeChoice(config(), rows(), day(), draft.type, draft.start, end, draft.purpose, draft.fixed ? draft.unit : null);
   }
 
+  // Why the draft cannot be sent as it stands, or ''. Brings the takeover
+  // preview up to date as a side effect.
+  function problem() {
+    if (startPassed()) return PASSED;
+    if (!currentChoice()) return NOT_OPEN;
+    return followSchedule() ? '' : CHANGED;
+  }
+
   async function confirm() {
-    const choice = currentChoice();
-    if (!choice) {
-      error = 'This time is no longer open. Go back and choose another time.';
+    if (saving) return;
+    const stop = problem();
+    if (stop) {
+      error = stop;
       render();
       return;
     }
-    if (choice.takeover !== draft.takeover) {
-      Object.assign(draft, { unit: choice.unit, takeover: choice.takeover });
-      error = 'The schedule changed while you were deciding. Check the details and confirm again.';
-      render();
-      return;
-    }
+    const sending = {
+      date: draft.date,
+      type: draft.type,
+      unit: draft.fixed ? draft.unit : null,
+      start: toTime(draft.start),
+      end: toTime(draft.end),
+      purpose: draft.purpose,
+      name: draft.name,
+      reservedFor: draft.reservedFor,
+      takeover: draft.takeover,
+      takeoverUnit: draft.takeover ? draft.unit : null
+    };
+    const key = JSON.stringify(sending);
+    if (request?.key !== key) request = { key, id: newRequestId() };
+    const before = new Set(state().mine.map(item => item.id));
     saving = true;
     sheet.locked = true;
     error = '';
     render();
     try {
-      const result = await book({
-        date: draft.date,
-        type: draft.type,
-        unit: draft.fixed ? draft.unit : null,
-        start: toTime(draft.start),
-        end: toTime(draft.end),
-        purpose: draft.purpose,
-        name: draft.name,
-        reservedFor: draft.reservedFor,
-        takeover: choice.takeover
-      });
-      saved = { id: result.id, unit: result.unit };
-      past = [];
-      step = 'done';
-      announce('Reservation confirmed.');
+      const result = await book({ ...sending, requestId: request.id });
+      succeed({ id: result.id, unit: result.unit });
     } catch (failure) {
-      error = failure.message;
+      // The answer was lost, but the reservation may have been made anyway.
+      const made = failure.lost ? madeSince(before) : null;
+      if (made) succeed({ id: made.id, unit: made.unit });
+      else error = problem() || failure.message;
     } finally {
       saving = false;
       sheet.locked = false;
-      render({ focus: step === 'done' ? 'h2' : null });
+      finishSave();
     }
+  }
+
+  function succeed(result) {
+    saved = result;
+    past = [];
+    step = 'done';
+    request = null;
+    announce('Reservation confirmed.');
+  }
+
+  // A reservation on this device for exactly the draft's time that was not
+  // there before it was sent.
+  function madeSince(before) {
+    return state().mine.find(item => !before.has(item.id) && item.status === 'approved'
+      && item.date === draft.date && item.type === draft.type
+      && item.start === toTime(draft.start) && item.end === toTime(draft.end)) || null;
+  }
+
+  // Shows the outcome. A second Back while saving closed the sheet, so it
+  // opens again on the result, unless another sheet is open by now.
+  function finishSave() {
+    if (!sheet.isOpen) {
+      if (document.querySelector('dialog[open]')) {
+        if (step !== 'done') announce(error);
+        return;
+      }
+      sheet.open();
+    }
+    wasReady = canBook(state());
+    wasLimited = limitReached();
+    render({ focus: step === 'done' || !dialog.contains(document.activeElement) ? 'h2' : null });
   }
 
   function saveNames(form) {
@@ -285,6 +428,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     if (action === 'close') sheet.close();
     else if (action === 'back') back();
     else if (action === 'retry') refresh();
+    else if (action === 'reload') location.reload();
     else if (action === 'confirm') confirm();
     else if (action === 'show') {
       sheet.close();
