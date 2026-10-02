@@ -75,6 +75,8 @@ function backend(fixture, { oldServer = false } = {}) {
     const oldServer = ${oldServer};
     let rules = null;
     let count = 0;
+    // Like the server, a repeated request id gets the first answer.
+    const answered = new Map();
     window.__state = state;
     window.__hooks = {};
     async function mineView(item) {
@@ -92,12 +94,15 @@ function backend(fixture, { oldServer = false } = {}) {
         return { version: 2, ...structuredClone(state), mine: await Promise.all(state.mine.map(mineView)) };
       },
       memberSubmitBooking(data) {
+        if (data.requestId && answered.has(data.requestId)) return { ...answered.get(data.requestId), repeated: true };
         count += 1;
         const unit = data.takeoverUnit || data.requestedUnit || { room: 'room-2', whiteboard: 'wb-1', tv: 'tv-1' }[data.resourceType];
         const id = 'new-' + count;
         state.bookings.push({ id, date: data.date, type: data.resourceType, unit, start: data.start, end: data.end, name: data.name.split(' ')[0], purpose: data.purpose, reservedFor: data.reservedFor, mine: true });
         state.mine.push({ id, date: data.date, start: data.start, end: data.end, endedEarlyFrom: null, status: 'approved', type: data.resourceType, unit, purpose: data.purpose, name: data.name, reservedFor: data.reservedFor, notice: null });
-        return { id, unit, takeover: data.allowTakeover === true };
+        const result = { id, unit, takeover: data.allowTakeover === true };
+        if (data.requestId) answered.set(data.requestId, result);
+        return result;
       },
       memberCancelBooking(data) {
         state.bookings = state.bookings.filter(row => row.id !== data.bookingId);
@@ -896,6 +901,43 @@ test('a reservation made behind a lost answer is recognised, not booked again as
   assert.equal((await calls(page, 'memberSubmitBooking')).length, 1, 'nothing was sent again');
   assert.deepEqual(await page.evaluate(() => window.__state.bookings.filter(item => item.start === '17:00').map(item => `${item.unit}:${item.name}`)),
     ['room-1:Avery', 'room-2:Avery', 'room-3:Avery', 'room-4:Sam'], 'nobody was displaced');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+// The answer is lost while the server is still saving, so the reload that
+// follows fails and the next one comes back without the reservation. The
+// member then fixes a typo in their name and confirms again: the page must
+// send the same request id, so the server answers with the first reservation.
+test('after a lost answer, editing the name and confirming again books once', async () => {
+  const { page, errors, context, sheet } = await openApp();
+  await tapToConfirm(page, sheet, 'Room 2', '1:00 PM');
+  await page.evaluate(() => {
+    window.__hooks.memberSubmitBooking = data => {
+      delete window.__hooks.memberSubmitBooking;
+      window.__saveLate = () => window.__server.memberSubmitBooking(data);
+      throw { code: 'unavailable', message: 'unavailable' };
+    };
+    window.__hooks.memberSchedule = () => {
+      delete window.__hooks.memberSchedule;
+      throw { code: 'unavailable', message: 'unavailable' };
+    };
+  });
+  await sheet.getByRole('button', { name: 'Confirm reservation', exact: true }).click();
+  await sheet.getByText('We couldn’t confirm the reservation. Check your connection, then try again.').waitFor();
+  await sheet.locator('.sheet-status').getByRole('button', { name: 'Try again' }).click();
+  await sheet.locator('.sheet-status').waitFor({ state: 'detached' });
+  assert.equal(await sheet.getByRole('heading', { name: 'Confirm reservation' }).count(), 1, 'the reload did not show it yet');
+  await page.evaluate(() => window.__saveLate());
+  await sheet.getByRole('button', { name: 'Back' }).click();
+  await page.getByLabel('Your name').fill('Sam Sampel');
+  await sheet.getByRole('button', { name: 'Continue', exact: true }).click();
+  await sheet.getByRole('button', { name: 'Confirm reservation', exact: true }).click();
+  await sheet.getByRole('heading', { name: 'Reservation confirmed' }).waitFor();
+  const ids = (await calls(page, 'memberSubmitBooking')).map(call => call.data.requestId);
+  assert.equal(ids.length, 2);
+  assert.equal(ids[1], ids[0], 'the edited retry sends the same request id');
+  assert.equal(await page.evaluate(() => window.__state.mine.filter(item => item.id.startsWith('new-')).length), 1, 'exactly one reservation');
   assert.deepEqual(errors, []);
   await context.close();
 });

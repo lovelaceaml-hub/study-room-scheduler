@@ -29,9 +29,10 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   let errorField = null; // 'name' | 'detail' when a field caused the error
   let saved = null;
   let wasReady = true;
-  // The id sent with this draft, kept while the draft stays the same so a
-  // retry is recognised by the server.
-  let request = null; // { key, id }
+  // The id sent with this draft, kept while the draft stays the same (after
+  // a lost answer, while its time and place stay the same) so a retry is
+  // recognised by the server.
+  let request = null; // { key, place, id }
   // After a lost answer: the ids of this device's reservations before it was
   // sent, so a reservation that appears later is recognised as this one.
   let unconfirmed = null;
@@ -336,11 +337,16 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     // The same reservation keeps its request id through every retry, even when
     // the unit or takeover changes (a lost answer may have taken the free
     // unit itself), so the server answers a retry with the first result
-    // instead of booking twice. Reusing an id is always safe: the server
-    // either made that reservation or made nothing.
+    // instead of booking twice. After a lost answer it is kept even when the
+    // names change, since the server may already hold the reservation under
+    // the first ones. Reusing an id is always safe: the server either made
+    // that reservation or made nothing.
     const { takeover, takeoverUnit, ...what } = sending;
+    const { name, reservedFor, ...when } = what;
     const key = JSON.stringify(what);
-    if (request?.key !== key) request = { key, id: newRequestId() };
+    const place = JSON.stringify(when);
+    const same = request && (request.key === key || (unconfirmed && request.place === place));
+    request = same ? { ...request, key } : { key, place, id: newRequestId() };
     const before = unconfirmed || new Set(state().mine.map(item => item.id));
     saving = true;
     sheet.locked = true;
