@@ -96,6 +96,9 @@ body { font-size: clamp(16px, 1.1vw, 22px); }
 }
 .tv-booking small { overflow: hidden; font-size: 0.75em; white-space: nowrap; text-overflow: ellipsis; }
 .tv-booking.short { padding: 0 0.3em; }
+/* Words are never split ("Res/er…"); a word too long for a narrow block is
+   cut off at its edge, as calendars do. */
+.tv-booking b { overflow-wrap: normal; }
 .tv-service { background: repeating-linear-gradient(115deg, #f8f7ef, #f8f7ef 5px, #e6e6d8 5px, #e6e6d8 6px); }
 .tv-now { position: absolute; z-index: 2; top: 0; bottom: 0; width: 2px; background: var(--danger); }
 

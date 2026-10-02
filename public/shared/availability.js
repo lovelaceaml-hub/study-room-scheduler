@@ -106,7 +106,9 @@ function takeoverOption(config, rows, day, type, start, end, purpose, units, now
 // { unit, affected: [{ row, effect, toEnd }] }, or null when the range is not
 // a takeover. `effect` is 'shortened' (it began earlier, so it now ends when
 // this one starts, `toEnd`), 'moved' (another unit is free for its whole
-// time) or 'replaced' (none is). Reservations on one unit never overlap each
+// time), 'replaced' (none is) or 'released' (none is, but the reservation
+// also holds a unit of another type, which it keeps: an Admin reservation
+// with a room and a TV keeps the TV). Reservations on one unit never overlap each
 // other, so the order the server places them in cannot change the outcome.
 // Mirrors takeOver in functions/lib/actions.js.
 export function takeoverEffect(config, rows, day, type, start, end, purpose, unitId = null, now = new Date()) {
@@ -125,7 +127,8 @@ export function takeoverEffect(config, rows, day, type, start, end, purpose, uni
   for (const item of affected.filter(entry => !entry.effect)) {
     const unit = candidates(config, type, null)
       .find(id => holders(pool, day.date, id, toMinutes(item.row.start), toMinutes(item.row.end)).length === 0);
-    item.effect = unit ? 'moved' : 'replaced';
+    const keepsOther = rows.some(row => row.id === item.row.id && row.date === day.date && row.type !== type);
+    item.effect = unit ? 'moved' : keepsOther ? 'released' : 'replaced';
   }
   return { unit: choice.unit, affected };
 }

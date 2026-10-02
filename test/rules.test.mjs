@@ -258,7 +258,8 @@ test('the takeover preview matches what the server does', async () => {
     for (const { row: holder, effect, toEnd } of preview.affected) {
       const after = (await db.collection('bookings').doc(holder.id).get()).data();
       // An Admin reservation that also holds a TV keeps it when its room is replaced.
-      const actual = after.status === 'overridden' || !after.assignments.room ? 'replaced'
+      const actual = after.status === 'overridden' ? 'replaced'
+        : !after.assignments.room ? 'released'
         : after.end !== holder.end ? 'shortened'
           : after.assignments.room !== holder.unit ? 'moved' : 'unchanged';
       assert.equal(actual, effect, JSON.stringify({ round, records, start, end, purpose, holder }));
