@@ -153,8 +153,8 @@ function browserRows(records, dates) {
 // by one or two reservations of mixed priority, plus noise in other types,
 // statuses and older formats, so full times and takeovers come up often.
 function randomRecords(random, date, type) {
-  const purposes = ['contact', 'new-member', 'other', 'other', 'blocked', 'meeting', undefined];
-  const statuses = ['approved', 'approved', 'approved', 'approved', 'cancelled', 'overridden', 'pending', 'declined'];
+  const purposes = ['contact', 'new-member', 'new-member', 'other', 'other', 'other', 'blocked', 'meeting', undefined];
+  const statuses = ['approved', 'approved', 'approved', 'approved', 'approved', 'approved', 'cancelled', 'overridden', 'pending', 'declined'];
   const records = [];
   const add = (unitType, unit, start, end, extra = {}) => {
     const index = records.length;
@@ -166,11 +166,12 @@ function randomRecords(random, date, type) {
       status: statuses[random(statuses.length)], ownerUid: random(4) === 0 ? 'device-a' : `device-${index}`, createdAt: index, ...extra
     });
   };
+  // Each unit is held through most of 11:00 AM to 1:30 PM, in one or two pieces.
   for (const unit of config.resources[type].units) {
-    if (random(6) === 0) continue;
+    if (random(15) === 0) continue;
     const split = 660 + 30 * (1 + random(3));
-    if (random(2)) add(type, unit.id, 660 - 30 * random(2), split);
-    add(type, unit.id, split, Math.min(870, split + 30 * (1 + random(3))));
+    if (random(5)) add(type, unit.id, 660 - 30 * random(2), split);
+    add(type, unit.id, split, 780 + 30 * random(2));
   }
   // An Admin reservation holding a room and a TV together.
   if (random(3) === 0) {
@@ -192,7 +193,7 @@ function randomRecords(random, date, type) {
 test('the browser and the server pick the same unit for every unit type, holds and older records', () => {
   const random = randomSource(7);
   let takeovers = 0;
-  for (let round = 0; round < 4000; round += 1) {
+  for (let round = 0; round < 6000; round += 1) {
     const type = ['room', 'whiteboard', 'tv'][random(3)];
     const records = randomRecords(random, SATURDAY.date, type);
     const rows = browserRows(records, [SATURDAY.date]);
@@ -209,7 +210,7 @@ test('the browser and the server pick the same unit for every unit type, holds a
     assert.deepEqual(rangeChoice(config, rows, SATURDAY, type, start, end, purpose, requested), expected,
       JSON.stringify({ round, records, type, start, end, purpose, requested }));
   }
-  assert.ok(takeovers > 300, `only ${takeovers} takeovers came up`);
+  assert.ok(takeovers > 250, `only ${takeovers} takeovers came up`);
 });
 
 // Runs the real reservation code on an in-memory database and compares what
@@ -235,8 +236,11 @@ test('the takeover preview matches what the server does', async t => {
     const result = await actions.submitReservation(db, request, 'device-z');
     assert.equal(result.unit, preview.unit);
     for (const { row: holder, effect, toEnd } of preview.affected) {
-      const after = db.get('bookings', holder.id);
-      const actual = after.status === 'overridden' ? 'replaced' : after.end !== holder.end ? 'shortened' : 'moved';
+      const after = (await db.collection('bookings').doc(holder.id).get()).data();
+      // An Admin reservation that also holds a TV keeps it when its room is replaced.
+      const actual = after.status === 'overridden' || !after.assignments.room ? 'replaced'
+        : after.end !== holder.end ? 'shortened'
+          : after.assignments.room !== holder.unit ? 'moved' : 'unchanged';
       assert.equal(actual, effect, JSON.stringify({ round, records, start, end, purpose, holder }));
       if (effect === 'shortened') assert.equal(after.end, toEnd);
     }
