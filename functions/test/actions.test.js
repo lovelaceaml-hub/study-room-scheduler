@@ -311,3 +311,14 @@ test('old records go in bounded batches with their notes, and expired Admin reco
   for (let index = 0; index < 250; index += 1) seedBooking(db, `again${String(index).padStart(3, '0')}`, { date: '2026-07-01' });
   assert.deepEqual(await actions.removeOldRecords(db, now), { removed: 250, more: false }, 'exactly 250 leaves nothing more');
 });
+
+test('schedules read more than 30 dates in groups, as Firestore allows at most 30 in one query', async () => {
+  const db = new FakeFirestore();
+  const dates = Array.from({ length: 35 }, (_, index) => `2026-11-${String(index % 30 + 1).padStart(2, '0')}`).slice(0, 30)
+    .concat(['2026-12-01', '2026-12-02', '2026-12-03', '2026-12-04', '2026-12-05']);
+  seedBooking(db, 'early', { date: '2026-11-01', ownerUid: 'device-a', assignments: { room: 'room-1' } });
+  seedBooking(db, 'late', { date: '2026-12-05', ownerUid: 'device-a', status: 'cancelled', assignments: { room: 'room-2' } });
+  assert.deepEqual((await actions.allRecordsFor(db, dates)).map(record => record.id).sort(), ['early', 'late']);
+  assert.deepEqual((await actions.scheduleRecordsFor(db, dates, 'device-a')).map(record => record.id).sort(), ['early', 'late']);
+  assert.deepEqual(await actions.allRecordsFor(db, []), []);
+});

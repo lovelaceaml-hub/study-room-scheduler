@@ -77,10 +77,11 @@ npm run test:rules     # browsers cannot read or write the database (Firestore e
 ```
 
 The tests never reach the live project. Database tests use an in-memory Firestore that runs
-transactions one at a time, as Firestore does, so they also check that two people can never
-get the same unit. Tests that depend on the date run on a fixed clock (Saturday, October 3,
-2026, 9:00 AM in Los Angeles), so they pass on any day and at any hour. GitHub runs all three
-on every pull request ("Tests").
+transactions one at a time (Firestore's transactions behave as if they did), so they also
+check that two people can never get the same unit. Tests that depend on the date run on a
+fixed clock (the browser tests on Saturday, October 3, 2026, 9:00 AM in Los Angeles; the
+server tests on the Thursday before), so they pass on any day and at any hour. GitHub runs all
+three on every pull request ("Tests").
 
 ## Looking at live data
 
@@ -94,7 +95,9 @@ on every pull request ("Tests").
 Pushing a branch other than `main` publishes a 7-day preview (see the Actions run summary).
 Previews use the live database and Functions, so look but do not book.
 
-When `functions/` changed, deploy Functions first, from a Mac signed in to Firebase:
+When `functions/` changed, deploy Functions first, from a Mac signed in to Firebase, with
+Node 22 and `npm install --prefix functions` done (the deploy runs the server tests first and
+stops if one fails):
 
 ```sh
 firebase deploy --only functions --project lvz-rooms

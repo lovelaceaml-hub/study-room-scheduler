@@ -185,6 +185,7 @@ function text(value, max, field, required, lines = false) {
   return result;
 }
 
+// A browser's id for one reservation request, so a retry is not a second booking.
 const REQUEST_ID = /^[A-Za-z0-9_-]{16,64}$/;
 
 // The date and times every request shares, checked against the clock.
@@ -261,6 +262,7 @@ function parseAdminBooking(data, now = new Date()) {
 
 module.exports = {
   TYPES,
+  REQUEST_ID,
   isPurpose,
   unitIds,
   unitName,

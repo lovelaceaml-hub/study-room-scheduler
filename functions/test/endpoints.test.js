@@ -17,7 +17,7 @@ const { mock, beforeEach } = require('node:test');
 const firestore = require('firebase-admin/firestore');
 const config = require('../lib/config');
 const { FakeFirestore } = require('./support/fake-firestore');
-const { THURSDAY, SATURDAY, useFixedClock, seedBooking, call, settle, hasCode } = require('./support/fixtures');
+const { THURSDAY, SATURDAY, useFixedClock, setClock, local, seedBooking, call, settle, hasCode } = require('./support/fixtures');
 
 const db = new FakeFirestore();
 firestore.getFirestore = () => db;
@@ -99,6 +99,19 @@ test('a member books, ends early and cancels through the endpoints', async () =>
   assert.equal(db.read('bookings', booked.id).cancelledBy, 'member');
   await assert.rejects(run('memberSubmitBooking', 'device-a', { ...member, name: ' ' }), { code: 'invalid-argument', message: 'Your name is required.' });
   await assert.rejects(run('memberSubmitBooking', 'device-a', { ...member, takeoverUnit: 'wb-1' }), { code: 'invalid-argument', message: 'Choose a valid unit.' });
+});
+
+test('a retry whose first answer was lost gets that answer, even after the start time or the request limit', async () => {
+  setClock(local(SATURDAY, '10:59:30'));
+  const first = await run('memberSubmitBooking', 'device-a', { ...member, requestId: 'lost-answer-0123456789' });
+  setClock(local(SATURDAY, '11:01:05'));
+  assert.deepEqual(await run('memberSubmitBooking', 'device-a', { ...member, requestId: 'lost-answer-0123456789' }), { ...first, repeated: true });
+  await assert.rejects(run('memberSubmitBooking', 'device-a', { ...member, requestId: 'a-new-request-0123456789' }),
+    { code: 'invalid-argument', message: 'That start time has already passed. Choose a later time.' });
+  for (let attempt = 0; attempt < 9; attempt += 1) await settle(run('memberSubmitBooking', 'device-a', { ...member, start: '22:00', end: '22:30' }));
+  assert.deepEqual(await run('memberSubmitBooking', 'device-a', { ...member, requestId: 'lost-answer-0123456789' }), { ...first, repeated: true });
+  await assert.rejects(run('memberSubmitBooking', 'device-b', { ...member, start: '16:00', end: '17:00', requestId: 'lost-answer-0123456789' }),
+    { code: 'permission-denied', message: 'Reload the page and try again.' }, 'another device cannot reuse the id');
 });
 
 test('the 9th reservation request from one device in 15 minutes is refused', async () => {

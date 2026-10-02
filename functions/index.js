@@ -48,6 +48,8 @@ exports.memberSchedule = member(async request => {
 
 exports.memberSubmitBooking = member(async request => {
   const uid = guard.requireUser(request);
+  const repeat = await actions.repeatedReservation(db, request.data?.requestId, uid);
+  if (repeat) return repeat;
   await guard.limitReservationRequests(db, request);
   const reservation = checked(() => parseMemberRequest(request.data));
   return actions.submitReservation(db, reservation, uid);

@@ -8,7 +8,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { RESOURCES, MAX_ACTIVE_PER_DAY, KEEP_DAYS, NOTE_MAX } = require('./config');
 const { addDays, todayAt, hasEnded, earlyEndError } = require('./schedule');
 const {
-  TYPES, unitIds, unitName, inSentence, emptyAssignments, heldUnit, heldAssignments, typesHeld, neededTypes,
+  TYPES, REQUEST_ID, unitIds, unitName, inSentence, emptyAssignments, heldUnit, heldAssignments, typesHeld, neededTypes,
   freeUnit, takeoverTarget, shortenedEnd, conflictWith, text
 } = require('./bookings');
 const { removeExpired } = require('./guard');
@@ -27,21 +27,29 @@ function records(snapshot) {
   return snapshot.docs.map(document => ({ id: document.id, ...document.data() }));
 }
 
+// Firestore takes at most 30 values in one 'in' filter. The window is a few
+// days, but special days opening early could add more.
+const IN_LIMIT = 30;
+
+async function onDates(dates, query) {
+  const groups = [];
+  for (let index = 0; index < dates.length; index += IN_LIMIT) groups.push(dates.slice(index, index + IN_LIMIT));
+  return (await Promise.all(groups.map(group => query(group).get()))).flatMap(records);
+}
+
 // Every booking on `dates`, in any status (for Admin).
 async function allRecordsFor(db, dates) {
-  if (!dates.length) return [];
-  return records(await db.collection(BOOKINGS).where('date', 'in', dates).limit(RECORD_LIMIT).get());
+  return onDates(dates, group => db.collection(BOOKINGS).where('date', 'in', group).limit(RECORD_LIMIT));
 }
 
 // Active bookings on `dates`, plus this device's own in any status.
 async function scheduleRecordsFor(db, dates, uid = null) {
-  if (!dates.length) return [];
   const [active, own] = await Promise.all([
-    db.collection(BOOKINGS).where('date', 'in', dates).where('status', '==', 'approved').limit(RECORD_LIMIT).get(),
-    uid ? db.collection(BOOKINGS).where('ownerUid', '==', uid).where('date', 'in', dates).get() : null
+    onDates(dates, group => db.collection(BOOKINGS).where('date', 'in', group).where('status', '==', 'approved').limit(RECORD_LIMIT)),
+    uid ? onDates(dates, group => db.collection(BOOKINGS).where('ownerUid', '==', uid).where('date', 'in', group)) : []
   ]);
-  const byId = new Map(records(active).map(record => [record.id, record]));
-  if (own) for (const record of records(own)) byId.set(record.id, record);
+  const byId = new Map(active.map(record => [record.id, record]));
+  for (const record of own) byId.set(record.id, record);
   return [...byId.values()];
 }
 
@@ -78,6 +86,15 @@ function submitResult(id, record, repeated = false) {
   const type = neededTypes(record)[0];
   const result = { id, unit: heldUnit(record, type), takeover: record.takeover === true };
   return repeated ? { ...result, repeated: true } : result;
+}
+
+// The first result again when this device already made the reservation
+// `requestId` names, or null. A member whose answer was lost may retry after
+// the start time or the request limit would refuse a new request.
+async function repeatedReservation(db, requestId, uid) {
+  if (typeof requestId !== 'string' || !REQUEST_ID.test(requestId)) return null;
+  const earlier = await db.collection(BOOKINGS).doc(`r-${requestId}`).get();
+  return earlier.exists && earlier.data().ownerUid === uid ? submitResult(earlier.id, earlier.data(), true) : null;
 }
 
 // Books the first free unit. When none is free for the whole time, a Contact
@@ -338,6 +355,7 @@ async function saveNote(db, id, value, uid) {
 module.exports = {
   allRecordsFor,
   scheduleRecordsFor,
+  repeatedReservation,
   submitReservation,
   cancelReservation,
   endEarly,

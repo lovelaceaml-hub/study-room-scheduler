@@ -92,12 +92,10 @@ function scheduleRows(records, dates, uid) {
   return rows;
 }
 
-// True when Admin cancelled it. Older records have no `cancelledBy`; then only
-// Admin could have left `updatedBy` set to someone other than the owner.
+// True when Admin cancelled it. Records cancelled before `cancelledBy` existed
+// are not guessed at: their `updatedBy` may come from an earlier Admin change.
 function cancelledByAdmin(booking) {
-  if (booking.status !== 'cancelled') return false;
-  if (booking.cancelledBy) return booking.cancelledBy === 'admin';
-  return !booking.ownerUid || (typeof booking.updatedBy === 'string' && booking.updatedBy !== booking.ownerUid);
+  return booking.status === 'cancelled' && booking.cancelledBy === 'admin';
 }
 
 // What a priority reservation changed: 'moved' to another unit, 'shortened'

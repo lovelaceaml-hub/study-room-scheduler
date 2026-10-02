@@ -470,7 +470,7 @@ test('a member cancel is not shown as an Admin cancel, and older records are rea
   assert.equal(cancelled({ cancelledBy: 'member', updatedBy: 'device-a' }), false);
   assert.equal(cancelled({ cancelledBy: 'admin' }), true);
   assert.equal(cancelled({}), false, 'older member cancels set no updatedBy');
-  assert.equal(cancelled({ updatedBy: 'admin-device' }), true, 'older Admin cancels set updatedBy to the Admin');
+  assert.equal(cancelled({ updatedBy: 'admin-device' }), false, 'an older record is not guessed at: Admin may have changed it before the member cancelled');
 });
 
 test('short names are worked out per date, the same way for the app and the TV', () => {
