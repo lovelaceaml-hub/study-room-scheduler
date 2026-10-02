@@ -59,9 +59,11 @@ function fixture(extra = [], changes = {}) {
 }
 
 // Runs in the page. Each answer is worked out first and then, when a test
-// holds that call (window.__hold), sent late, like a slow connection.
-// `legacy` answers like the server before the contract: no `note` or
-// `restorable` on rows, notes through a separate read, and no expiresInMs.
+// holds that call (window.__hold), sent late, like a slow connection. Rows
+// get `ended` and `earlyEnds` worked out at the server's time, unless a row
+// sets them itself. `legacy` answers like the server before the contract:
+// none of the newer row fields, notes through a separate read, and no
+// expiresInMs.
 const backend = state => `(() => {
   const state = ${JSON.stringify(state)};
   const SESSION_MS = ${20 * MINUTE};
@@ -83,9 +85,29 @@ const backend = state => `(() => {
     record.missing = types.filter(type => record.needs[type] && !record.assignments[type]);
     record.restorable = record.status !== 'approved' || record.missing.length > 0;
   };
+  // The church's date and minute at the server's time.
+  const clock = () => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: state.config.timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(new Date(serverNow()));
+    const part = type => parts.find(item => item.type === type).value;
+    return { date: part('year') + '-' + part('month') + '-' + part('day'), minutes: Number(part('hour')) * 60 + Number(part('minute')) };
+  };
+  const timeOf = value => String(Math.floor(value / 60)).padStart(2, '0') + ':' + String(value % 60).padStart(2, '0');
+  const timing = record => {
+    if ('earlyEnds' in record || !record.start || !record.end) return record;
+    const now = clock();
+    const ended = record.date < now.date || (record.date === now.date && minutes(record.end) <= now.minutes);
+    const earliest = record.date > now.date ? 0 : Math.ceil(now.minutes / 30) * 30;
+    const earlyEnds = [];
+    if (record.status === 'approved' && !ended) {
+      for (let end = minutes(record.start) + 30; end < minutes(record.end); end += 30) if (end >= earliest) earlyEnds.push(timeOf(end));
+    }
+    return { ...record, ended, earlyEnds };
+  };
   const rows = () => structuredClone(state.bookings).map(record => {
-    if (!state.legacy) return record;
-    const { note, byMember, restorable, missing, byAdmin, ...older } = record;
+    if (!state.legacy) return timing(record);
+    const { note, byMember, restorable, missing, byAdmin, ended, earlyEnds, ...older } = record;
     return { ...older, ownerUid: byMember ? 'device-x' : null };
   });
 
@@ -333,6 +355,21 @@ test('Cancel asks in the row first; end early, restore and notes each reach the 
   await avery.getByRole('button', { name: 'Add note' }).waitFor();
   assert.equal(await avery.getByText('Note: Brings own markers').count(), 0);
   assert.notEqual(await focusedKey(page), 'BODY');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+test('End early offers the ends the server sends', async () => {
+  const state = fixture([
+    row('e1', { tv: 'tv-1' }, { start: '16:00', end: '18:00', name: 'Server Ends Example', earlyEnds: ['17:00'], ended: false }),
+    row('e2', { tv: 'tv-2' }, { start: '16:00', end: '18:00', name: 'Ended Example', earlyEnds: [], ended: true })
+  ]);
+  const { page, errors, context } = await openAdmin({ state });
+  const server = entry(page, 'Server Ends Example');
+  await server.getByRole('button', { name: 'End early' }).click();
+  assert.deepEqual(await server.getByLabel('New end time').locator('option').allTextContents(), ['5:00 PM']);
+  await entry(page, 'Ended Example').getByRole('button', { name: 'Cancel' }).waitFor();
+  assert.equal(await entry(page, 'Ended Example').getByRole('button', { name: 'End early' }).count(), 0);
   assert.deepEqual(errors, []);
   await context.close();
 });

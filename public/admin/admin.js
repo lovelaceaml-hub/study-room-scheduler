@@ -503,8 +503,16 @@ function renderList() {
   for (const item of rows.values()) item.remove();
 }
 
+// The ends End early may offer. The server sends them (`earlyEnds`, already
+// without passed ends) and says when a reservation has `ended`; an older
+// server does not, so the page works them out on its own clock.
 function endChoices(record) {
-  if (record.status !== 'approved' || hasEnded(config(), record.date, record.end)) return [];
+  if (record.status !== 'approved') return [];
+  const ended = typeof record.ended === 'boolean' ? record.ended : hasEnded(config(), record.date, record.end);
+  if (ended) return [];
+  if (Array.isArray(record.earlyEnds)) {
+    return record.earlyEnds.filter(end => toMinutes(record.start) < toMinutes(end) && toMinutes(end) < toMinutes(record.end));
+  }
   return earlyEndChoices(config(), record.date, record.start, record.end);
 }
 
@@ -520,7 +528,7 @@ function entryHtml(record) {
     endChoices(record).length ? opener('open-end', 'End early') : '',
     missing.length && restorable(record) ? opener('open-restore', 'Choose a new unit') : '',
     opener('open-cancel', 'Cancel', true)
-  ] : [restorable(record) ? opener('open-restore', 'Restore') : ''];
+  ] : [restorable(record) && neededTypes(record).length ? opener('open-restore', 'Restore') : ''];
   actions.push(opener('open-note', note ? 'Edit note' : 'Add note'));
   const meta = [places(record), purposeLabel(record.purpose), detail ? `${detailLabel(record.purpose)}: ${detail}` : '', byMember(record) ? 'Made by a member' : 'Added by Admin'];
   const notice = noticeText(record);
