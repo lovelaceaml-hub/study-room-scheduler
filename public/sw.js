@@ -2,9 +2,9 @@
 // connection drops, so the app and the lobby TV still open offline. Admin is
 // never cached; it needs a live connection anyway.
 
-const CACHE = 'srs-v18-one-app';
+const CACHE = 'srs-v19-fix-pass';
 const FILES = [
-  '/', '/index.html', '/manifest.json', '/icon.svg',
+  '/', '/index.html', '/manifest.json', '/icon.svg', '/icon-192.png', '/apple-touch-icon.png',
   '/shared/base.css', '/shared/format.js', '/shared/availability.js', '/shared/firebase.js', '/shared/dom.js', '/shared/demo.js',
   '/app/app.css', '/app/main.js', '/app/store.js', '/app/demo-backend.js', '/app/sheet.js', '/app/booking.js',
   '/app/details.js', '/app/mine.js', '/app/text.js', '/app/icons.js', '/app/announce.js',
@@ -28,8 +28,9 @@ self.addEventListener('fetch', event => {
   event.respondWith(fetch(event.request)
     .then(response => {
       if (response.ok) {
+        // Kept alive until the copy is stored, so the next offline visit finds it.
         const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put(event.request, copy));
+        event.waitUntil(caches.open(CACHE).then(cache => cache.put(event.request, copy)));
       }
       return response;
     })
