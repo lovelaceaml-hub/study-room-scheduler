@@ -11,8 +11,9 @@ const OPEN = '10:00';
 const CLOSE = '23:00';
 const SLOT_MINUTES = 30;
 
-// How far ahead members can book, counting today.
-const BOOKING_WINDOW_DAYS = 7;
+// How far ahead members and Admin can book, counting today: today plus the
+// next 3 days.
+const BOOKING_WINDOW_DAYS = 4;
 
 // Regular booking days by weekday (0 = Sunday, 6 = Saturday), each with the
 // services that block reservations on that day.
@@ -28,8 +29,9 @@ const WEEKLY_DAYS = {
 };
 
 // One-off booking days. Members can book a special day from `opens` through
-// the day itself. A special day on a regular weekday replaces that day's
-// services. Example:
+// the day itself, whatever the booking window says. A special day on a
+// regular weekday replaces that day entirely: its services and its `opens`.
+// Example:
 //   { date: '2026-12-21', opens: '2026-12-13', services: [
 //     { start: '10:00', end: '11:00', label: 'Morning service' }
 //   ] }
@@ -98,6 +100,8 @@ const HOLD = 'blocked';
 
 const NAME_MAX = 120;
 const NOTE_MAX = 1000;
+// The reason Admin gives for a hold. Only Admin sees it.
+const HOLD_REASON_MAX = 240;
 
 // Per device, per day: active reservations one device may hold.
 const MAX_ACTIVE_PER_DAY = 4;
@@ -107,11 +111,14 @@ const MAX_ACTIVE_PER_DAY = 4;
 const MAX_REQUESTS_PER_DEVICE = 8;
 const MAX_REQUESTS_PER_NETWORK = 60;
 
-// Admin PIN: wrong PINs allowed per address, and in total, per window. The
-// next wrong PIN locks Admin for the rest of the window.
+// Admin PIN: wrong PINs allowed per address, and in total, in one window. The
+// next attempt is still checked, but it locks PIN sign-in (for that address,
+// or for everyone) for RATE_WINDOW_MINUTES from that attempt. A correct PIN
+// clears its address and is not counted in the total.
 const MAX_PIN_FAILURES = 5;
 const MAX_PIN_FAILURES_TOTAL = 20;
 const RATE_WINDOW_MINUTES = 15;
+// Admin stays unlocked this long after the PIN or the last Admin change.
 const ADMIN_SESSION_MINUTES = 20;
 
 // "Remove old records" deletes reservations dated more than this many days ago.
@@ -130,6 +137,7 @@ module.exports = {
   HOLD,
   NAME_MAX,
   NOTE_MAX,
+  HOLD_REASON_MAX,
   MAX_ACTIVE_PER_DAY,
   MAX_REQUESTS_PER_DEVICE,
   MAX_REQUESTS_PER_NETWORK,
