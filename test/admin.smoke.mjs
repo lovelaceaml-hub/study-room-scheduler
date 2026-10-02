@@ -69,7 +69,7 @@ const backend = state => `(() => {
   const SESSION_MS = ${20 * MINUTE};
   const TOKEN = ${JSON.stringify(TOKEN)};
   const LOCKED_OUT = 'Too many PIN attempts. Wait 15 minutes and try again.';
-  Object.assign(window, { __state: state, __hold: {}, __refuse: {}, __skew: 0, __answered: [], __kill: false, __failSchedule: false });
+  Object.assign(window, { __state: state, __hold: {}, __refuse: {}, __skew: 0, __computed: [], __answered: [], __kill: false, __failSchedule: false });
   let session = null;
   let wrongPins = 0;
   const serverNow = () => Date.now() - window.__skew;
@@ -194,6 +194,7 @@ const backend = state => `(() => {
       let result;
       let failure;
       try { result = answer(name, data); } catch (error) { failure = error; }
+      window.__computed.push(key);
       if (window.__hold[key]) await window.__hold[key];
       if (failure) throw failure;
       return result;
@@ -239,6 +240,11 @@ async function refreshNow(page) {
   await page.waitForFunction(count => window.__answered.filter(item => item === 'adminSchedule:').length > count, before);
   await settle(page);
 }
+
+// Waits until the server has worked out an answer to `key` (more than
+// `count` of them), whether or not it is held.
+const computed = (page, key, count = 0) => page.waitForFunction(([callKey, before]) => window.__computed.filter(item => item === callKey).length > before, [key, count]);
+const computedCount = (page, key) => page.evaluate(callKey => window.__computed.filter(item => item === callKey).length, key);
 
 // Holds a call's answer until `release(page, key)`.
 const hold = (page, key) => page.evaluate(callKey => {
@@ -447,7 +453,7 @@ test('Lock during a save leaves a clean lock screen and drops the answer', async
   await entry(page, 'Avery Example').getByRole('button', { name: 'Add note' }).click();
   await page.getByLabel(/Private note \(only Admin/).fill('Fictional note');
   await page.getByRole('button', { name: 'Save note' }).click();
-  await page.waitForFunction(() => window.__calls.some(call => call.data.action === 'save'));
+  await computed(page, 'adminNoteAction:save');
   await page.getByRole('button', { name: 'Lock' }).click();
   await lockScreenIsClean(page);
   await release(page, 'adminNoteAction:save');
@@ -457,6 +463,11 @@ test('Lock during a save leaves a clean lock screen and drops the answer', async
   assert.equal(await page.locator('.message').count(), 0);
   await unlock(page);
   await page.getByRole('heading', { name: /^Reservations on/ }).waitFor();
+  await page.locator(`[data-date="${DAY}"]`).click();
+  await entry(page, 'Avery Example').getByRole('button', { name: 'Edit note' }).click();
+  await page.getByLabel(/Private note \(only Admin/).fill('Saved after unlocking');
+  await page.getByRole('button', { name: 'Save note' }).click();
+  await entry(page, 'Avery Example').getByText('Note: Saved after unlocking').waitFor();
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -467,6 +478,7 @@ test('Admin locking itself during Remove old records leaves a clean lock screen'
   await page.getByRole('button', { name: 'Remove old records' }).click();
   await page.getByRole('button', { name: 'Yes, delete them' }).click();
   await page.getByRole('button', { name: 'Removing…' }).waitFor();
+  await computed(page, 'adminBookingAction:remove-old');
   await page.clock.fastForward(20 * MINUTE);
   await page.getByText(EXPIRED, { exact: true }).waitFor();
   await lockScreenIsClean(page);
@@ -475,6 +487,10 @@ test('Admin locking itself during Remove old records leaves a clean lock screen'
   await settle(page);
   await lockScreenIsClean(page);
   assert.equal(await page.locator('.message').count(), 0);
+  await unlock(page);
+  await page.getByRole('button', { name: 'Remove old records' }).click();
+  await page.getByRole('button', { name: 'Yes, delete them' }).click();
+  await page.getByText('There were no old records to remove.').waitFor();
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -542,9 +558,9 @@ test('a device clock 30 minutes fast still unlocks, and only changes keep Admin 
 test('a refresh that started before a cancel never shows the old state', async () => {
   const { page, errors, context } = await openAdmin();
   await hold(page, 'adminSchedule:');
-  const before = await calls(page, 'adminSchedule');
+  const before = await computedCount(page, 'adminSchedule:');
   await page.clock.fastForward(15000);
-  await page.waitForFunction(count => window.__calls.filter(call => call.name === 'adminSchedule').length > count, before);
+  await computed(page, 'adminSchedule:', before);
   const john = entry(page, 'Brother John Smith');
   await john.getByRole('button', { name: 'Cancel' }).click();
   await john.getByRole('button', { name: 'Yes, cancel it' }).click();
@@ -562,13 +578,14 @@ test('a refresh that started before a cancel never shows the old state', async (
 test('Lock during a refresh shows a clean lock screen', async () => {
   const { page, errors, context } = await openAdmin();
   await hold(page, 'adminSchedule:');
-  const before = await calls(page, 'adminSchedule');
+  const before = await computedCount(page, 'adminSchedule:');
   await page.clock.fastForward(15000);
-  await page.waitForFunction(count => window.__calls.filter(call => call.name === 'adminSchedule').length > count, before);
+  await computed(page, 'adminSchedule:', before);
   await page.getByRole('button', { name: 'Lock' }).click();
   await lockScreenIsClean(page);
+  const answeredBefore = await answered(page, 'adminSchedule:');
   await release(page, 'adminSchedule:');
-  await page.waitForFunction(count => window.__answered.filter(item => item === 'adminSchedule:').length > count, before);
+  await page.waitForFunction(count => window.__answered.filter(item => item === 'adminSchedule:').length > count, answeredBefore);
   await settle(page);
   await lockScreenIsClean(page);
   assert.equal(await page.locator('.form-error').count(), 0);

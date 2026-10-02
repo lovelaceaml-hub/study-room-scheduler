@@ -146,7 +146,7 @@ function render() {
       load();
       paint(board, '<p class="tv-empty">Loading the schedule…</p>');
     } else {
-      paint(board, `<section class="tv-empty"><h2>No current schedule</h2><p>Not connected since ${esc(stamp(savedAt))}.</p></section>`);
+      paint(board, `<section class="tv-empty"><h2>No current schedule</h2><p>${savedAt ? `Not connected since ${esc(stamp(savedAt))}.` : 'Not connected.'}</p></section>`);
     }
     return;
   }

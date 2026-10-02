@@ -597,6 +597,7 @@ const PANELS = {
   },
 
   cancel(record) {
+    if (record.status !== 'approved') return '';
     const what = [places(record), formatDay(record.date), formatRange(record.start, record.end)].filter(Boolean).join(', ');
     return `<div class="confirm" role="group" aria-labelledby="panel-question">
       <h3 id="panel-question" tabindex="-1" data-key="panel-question">Cancel this reservation?</h3>
