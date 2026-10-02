@@ -1,7 +1,7 @@
 /* Lobby TV. Sized to read from across the lobby; everything scales with the
    screen width. Colors come from /shared/base.css. */
 
-body { font-size: clamp(14px, 1.1vw, 22px); }
+body { font-size: clamp(16px, 1.1vw, 22px); }
 
 .tv {
   display: grid;
@@ -38,12 +38,23 @@ body { font-size: clamp(14px, 1.1vw, 22px); }
 .tv-board { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: clamp(12px, 1.4vw, 26px); min-height: 0; }
 
 .tv-rooms { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: clamp(10px, 1vw, 20px); }
-.tv-room { padding: clamp(14px, 1.3vw, 26px); border-radius: var(--radius-large); background: var(--surface); box-shadow: var(--shadow); }
+.tv-room {
+  min-width: 0;
+  padding: clamp(14px, 1.3vw, 26px);
+  border-left: 0.6em solid var(--line-strong);
+  border-radius: var(--radius-large);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow-wrap: anywhere;
+}
 .tv-room h2 { font: 400 1.5em/1.1 var(--serif); }
 .tv-room-state { margin: 0.4em 0 0; color: var(--primary-dark); font-size: 1.2em; font-weight: 600; }
-.tv-room.busy .tv-room-state { color: var(--contact-ink); }
-.tv-room.busy { background: var(--contact); }
 .tv-room-detail { margin: 0.3em 0 0; color: var(--muted); }
+/* Free and in-use cards differ from across the lobby by their left bar. */
+.tv-room.free { border-left-color: var(--primary); }
+.tv-room.busy { border-left-color: var(--danger); background: var(--contact); }
+.tv-room.busy .tv-room-state { color: var(--contact-ink); }
+.tv-room.closed .tv-room-state { color: var(--muted); }
 
 .tv-timeline {
   display: grid;
@@ -60,8 +71,8 @@ body { font-size: clamp(14px, 1.1vw, 22px); }
 .tv-label { align-self: center; font-weight: 600; }
 .tv-track { position: relative; }
 .tv-tick { position: absolute; top: 0.3em; transform: translateX(-50%); color: var(--muted); font-size: 0.8em; white-space: nowrap; }
-.tv-tick:first-child { transform: none; }
-.tv-tick:last-of-type { transform: translateX(-100%); }
+.tv-tick.first { transform: none; }
+.tv-tick.last { transform: translateX(-100%); }
 .tv-booking, .tv-service {
   position: absolute;
   top: 0.35em;
@@ -72,11 +83,19 @@ body { font-size: clamp(14px, 1.1vw, 22px); }
   overflow: hidden;
   padding: 0 0.5em;
   border-radius: 10px;
-  white-space: nowrap;
 }
-.tv-booking { z-index: 1; border: 1px solid #fff; background: var(--new-member); color: var(--new-member-ink); }
-.tv-booking b { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-.tv-booking small { font-size: 0.75em; }
+.tv-booking { z-index: 1; border: 1px solid #fff; background: var(--new-member); color: var(--new-member-ink); line-height: 1.15; }
+/* Names may take two lines; anything longer ends in an ellipsis. */
+.tv-booking b {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.tv-booking small { overflow: hidden; font-size: 0.75em; white-space: nowrap; text-overflow: ellipsis; }
+.tv-booking.short { padding: 0 0.3em; }
 .tv-service { background: repeating-linear-gradient(115deg, #f8f7ef, #f8f7ef 5px, #e6e6d8 5px, #e6e6d8 6px); }
 .tv-now { position: absolute; z-index: 2; top: 0; bottom: 0; width: 2px; background: var(--danger); }
 
