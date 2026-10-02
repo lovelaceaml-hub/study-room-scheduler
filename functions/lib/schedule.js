@@ -53,38 +53,51 @@ function todayAt(now = new Date()) {
   return clockAt(now).date;
 }
 
-// True when `start` on `date` is before the slot now under way. The slot in
-// progress can still be booked.
-function hasPassed(date, start, now = new Date()) {
+// Compares a time on `date` with the current minute: negative when it is
+// earlier (or `date` is past), 0 in the current minute, positive when later.
+function sinceNow(date, time, now) {
   const clock = clockAt(now);
-  if (date !== clock.date) return date < clock.date;
-  return toMinutes(start) < clock.minutes - (clock.minutes % SLOT_MINUTES);
+  if (date !== clock.date) return date < clock.date ? -1 : 1;
+  return toMinutes(time) - clock.minutes;
 }
 
-function specialDay(date) {
-  return SPECIAL_DAYS.find(day => day.date === date) || null;
+// True when `start` on `date` is before the current minute. Nothing that has
+// already started can be reserved: at 11:10 the earliest start is 11:30, and
+// at exactly 11:00 it is 11:00.
+function hasPassed(date, start, now = new Date()) {
+  return sinceNow(date, start, now) < 0;
+}
+
+// True once a reservation ending at `end` on `date` is over.
+function hasEnded(date, end, now = new Date()) {
+  return sinceNow(date, end, now) <= 0;
+}
+
+// What decides a date: its special day if it has one, otherwise its weekday.
+// Returns { services, opens } or null when `date` is not a booking day. A
+// regular day opens BOOKING_WINDOW_DAYS before it, counting the day itself.
+function dayRule(date) {
+  const special = SPECIAL_DAYS.find(day => day.date === date);
+  if (special) return { services: special.services, opens: special.opens };
+  const weekly = WEEKLY_DAYS[weekdayOf(date)];
+  return weekly ? { services: weekly, opens: addDays(date, 1 - BOOKING_WINDOW_DAYS) } : null;
 }
 
 // The services on a booking day, or null when `date` is not a booking day.
 function servicesOn(date) {
-  const special = specialDay(date);
-  if (special) return special.services.map(service => ({ ...service }));
-  const weekly = WEEKLY_DAYS[weekdayOf(date)];
-  return weekly ? weekly.map(service => ({ ...service })) : null;
+  const rule = dayRule(date);
+  return rule ? rule.services.map(service => ({ ...service })) : null;
 }
 
-// The days members can book right now, in order.
+// The days that can be booked right now, in order.
 function bookableDates(now = new Date()) {
   const today = todayAt(now);
-  const dates = [];
-  for (let offset = 0; offset < BOOKING_WINDOW_DAYS; offset += 1) {
-    const date = addDays(today, offset);
-    if (WEEKLY_DAYS[weekdayOf(date)]) dates.push(date);
-  }
-  for (const day of SPECIAL_DAYS) {
-    if (day.opens <= today && today <= day.date) dates.push(day.date);
-  }
-  return [...new Set(dates)].sort();
+  const candidates = SPECIAL_DAYS.map(day => day.date);
+  for (let offset = 0; offset < BOOKING_WINDOW_DAYS; offset += 1) candidates.push(addDays(today, offset));
+  return [...new Set(candidates)].filter(date => {
+    const rule = dayRule(date);
+    return rule !== null && rule.opens <= today && today <= date;
+  }).sort();
 }
 
 // The lobby TV also shows today, even when today is not a booking day.
@@ -115,7 +128,7 @@ function timeError(date, start, end, now = new Date()) {
   return null;
 }
 
-// Every time this reservation could end at instead: after its first slot and
+// Every time a reservation could end at instead: after its first slot and
 // before its current end.
 function earlierEnds(start, end) {
   const from = toMinutes(start);
@@ -126,12 +139,19 @@ function earlierEnds(start, end) {
   return ends;
 }
 
+// The ends End early may choose for `booking` now: earlier ends that have not
+// already passed. At 11:10 the earliest is 11:30.
+function earlyEnds(booking, now = new Date()) {
+  if (!booking) return [];
+  return earlierEnds(booking.start, booking.end).filter(end => !hasPassed(booking.date, end, now));
+}
+
 // Why a reservation cannot be moved to end at `end`, or null when it can.
 function earlyEndError(booking, end, now = new Date()) {
   if (!booking || !earlierEnds(booking.start, booking.end).includes(end)) {
-    return 'Choose an earlier end time on the 30-minute grid.';
+    return `Choose an earlier end time on the ${SLOT_MINUTES}-minute grid.`;
   }
-  return timeError(booking.date, booking.start, end, now);
+  return earlyEnds(booking, now).includes(end) ? null : 'Choose an end time from now on.';
 }
 
 module.exports = {
@@ -141,11 +161,13 @@ module.exports = {
   addDays,
   todayAt,
   hasPassed,
+  hasEnded,
   servicesOn,
   bookableDates,
   lobbyDates,
   dayInfo,
   timeError,
   earlierEnds,
+  earlyEnds,
   earlyEndError
 };
