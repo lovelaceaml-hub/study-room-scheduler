@@ -8,7 +8,7 @@ const FILES = [
   '/shared/base.css', '/shared/format.js', '/shared/availability.js', '/shared/firebase.js', '/shared/dom.js', '/shared/demo.js',
   '/app/app.css', '/app/main.js', '/app/store.js', '/app/demo-backend.js', '/app/sheet.js', '/app/booking.js',
   '/app/details.js', '/app/mine.js', '/app/text.js', '/app/icons.js', '/app/announce.js',
-  '/tv.html', '/tv/tv.js', '/tv/tv.css'
+  '/tv.html', '/tv/tv.js', '/tv/status.js', '/tv/tv.css'
 ];
 
 self.addEventListener('install', event => {

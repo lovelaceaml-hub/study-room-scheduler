@@ -266,3 +266,20 @@ test('demo mode uses the same rules and days as the server, every day of the wee
     assert.deepEqual(demoDays(today), bookableDates(now).map(dayInfo), today);
   }
 });
+
+// The service worker stores these files for offline use. A missing file
+// stops it from installing, and a file left out is not there offline.
+test('the offline copy lists every page file, and only files that exist', async () => {
+  const { readFile, readdir } = await import('node:fs/promises');
+  const publicDir = new URL('../public/', import.meta.url);
+  const worker = await readFile(new URL('sw.js', publicDir), 'utf8');
+  const listed = JSON.parse(worker.slice(worker.indexOf('[', worker.indexOf('const FILES')), worker.indexOf('];') + 1).replace(/'/g, '"'));
+  for (const file of listed.filter(path => path !== '/')) {
+    await readFile(new URL(file.slice(1), publicDir));
+  }
+  for (const folder of ['app', 'shared', 'tv']) {
+    for (const name of await readdir(new URL(`${folder}/`, publicDir))) {
+      if (/\.(js|css)$/.test(name)) assert.ok(listed.includes(`/${folder}/${name}`), `/${folder}/${name} is not in sw.js`);
+    }
+  }
+});
