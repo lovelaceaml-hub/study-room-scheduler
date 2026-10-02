@@ -1,12 +1,16 @@
 'use strict';
 
-const FIREBASE_VERSION = '10.12.2';
 const CACHE_KEY = 'srs-tv-cache-v2';
+const PUBLIC_LOBBY_SCHEDULE_URL = 'https://us-west1-lvz-rooms.cloudfunctions.net/publicLobbySchedule';
+const SCHEDULE_REFRESH_MS = 60000;
+const PUBLIC_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const PUBLIC_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // The lobby display is intentionally limited to the four study rooms. Shared
 // equipment and pending requests are useful in the member/Admin app, but they
 // make a room-finding display harder to read from across the lobby.
 const ROOM_UNITS = [1, 2, 3, 4].map(n => ({ id: `room-${n}`, label: `Study Room ${n}` }));
+const ROOM_IDS = new Set(ROOM_UNITS.map(unit => unit.id));
 
 // 10:30 PM is the final bookable start. The display includes the resulting
 // 10:30–11:00 PM assignment, so every schedule ends at 11:00 PM.
@@ -33,11 +37,10 @@ const dayConfig = {
 let bookings = [];
 let lastUpdatedAt = 0;
 let selectedDate = '';
-let unsubscribe = null;
 let reconnectTimer = null;
+let refreshTimer = null;
 let reconnectDelay = 3000;
-let subscriptionGeneration = 0;
-let firebaseContextPromise = null;
+let scheduleRequestGeneration = 0;
 let renderedDate = '';
 
 function escapeHtml(value) {
@@ -148,6 +151,42 @@ function publicNameParts(name) {
 function toPublicBookings(entries) {
   const peers = entries.map(entry => entry.name).filter(Boolean);
   return entries.map(entry => toPublicBooking(entry.id, entry, peers));
+}
+
+function isPublicScheduleEntry(entry) {
+  return entry &&
+    typeof entry === 'object' &&
+    PUBLIC_DATE_PATTERN.test(entry.date) &&
+    PUBLIC_TIME_PATTERN.test(entry.start) &&
+    PUBLIC_TIME_PATTERN.test(entry.end) &&
+    entry.start < entry.end &&
+    ROOM_IDS.has(entry.room) &&
+    typeof entry.name === 'string' &&
+    entry.name.trim().length > 0;
+}
+
+function toPublicScheduleBooking(entry, index) {
+  return {
+    id: `lobby-${entry.date}-${entry.room}-${entry.start}-${entry.end}-${index}`,
+    date: entry.date,
+    start: entry.start,
+    end: entry.end,
+    name: entry.name,
+    status: 'approved',
+    needs: { room: true },
+    assignments: { room: entry.room }
+  };
+}
+
+function normalizePublicSchedule(payload) {
+  if (!payload || payload.version !== 1 || !Array.isArray(payload.bookings) || typeof payload.generatedAt !== 'string') {
+    throw new Error('The public lobby schedule response is malformed.');
+  }
+  const updatedAt = Date.parse(payload.generatedAt);
+  if (!Number.isFinite(updatedAt)) throw new Error('The public lobby schedule timestamp is malformed.');
+  const entries = payload.bookings.filter(isPublicScheduleEntry);
+  if (payload.bookings.length && !entries.length) throw new Error('The public lobby schedule contains no safe bookings.');
+  return { bookings: toPublicBookings(entries.map(toPublicScheduleBooking)), updatedAt };
 }
 
 // Keep the privacy formatter directly verifiable in the browser smoke test
@@ -463,7 +502,7 @@ function setSelectedDate(date, { updateUrl = true, restart = true } = {}) {
   render();
   updateLastUpdatedLabel();
   if (updateUrl) writeSelectedDateToUrl();
-  if (restart && !isDemoMode()) startFirebase();
+  if (restart && !isDemoMode()) startSchedule();
 }
 
 function scheduleReconnect(callback) {
@@ -475,72 +514,48 @@ function scheduleReconnect(callback) {
   reconnectDelay = Math.min(reconnectDelay * 2, 60000);
 }
 
-async function firebaseContext() {
-  if (!window.FIREBASE_CONFIG) throw new Error('Firebase configuration is unavailable.');
-  if (!firebaseContextPromise) {
-    firebaseContextPromise = Promise.all([
-      import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`),
-      import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`)
-    ]).then(([appMod, firestoreMod]) => {
-      const app = appMod.getApps().find(candidate => candidate.name === 'lobby-tv') ||
-        appMod.initializeApp(window.FIREBASE_CONFIG, 'lobby-tv');
-      return { firestoreMod, db: firestoreMod.getFirestore(app) };
-    });
-  }
-  return firebaseContextPromise;
+function scheduleRefresh() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null;
+    startSchedule();
+  }, SCHEDULE_REFRESH_MS);
 }
 
-function subscribeForSelectedDate(context, date, generation) {
-  if (unsubscribe) {
-    unsubscribe();
-    unsubscribe = null;
-  }
-  if (generation !== subscriptionGeneration || date !== selectedDate) return;
-  const { firestoreMod, db } = context;
-  setConnection('reconnecting', bookings.length ? 'Reconnecting' : 'Connecting');
-  const dateQuery = firestoreMod.query(
-    firestoreMod.collection(db, 'bookings'),
-    firestoreMod.where('date', '==', date)
-  );
-  unsubscribe = firestoreMod.onSnapshot(
-    dateQuery,
-    { includeMetadataChanges: true },
-    snapshot => {
-      if (generation !== subscriptionGeneration || date !== selectedDate) return;
-      if (!(snapshot.metadata.fromCache && snapshot.empty && bookings.length)) {
-        bookings = toPublicBookings(snapshot.docs.map(doc => ({id:doc.id, ...doc.data()})));
-        render();
-      }
-      if (snapshot.metadata.fromCache) {
-        setConnection('reconnecting', 'Reconnecting');
-      } else {
-        reconnectDelay = 3000;
-        lastUpdatedAt = Date.now();
-        saveCache();
-        setConnection('live', 'Live');
-      }
-    },
-    error => {
-      if (generation !== subscriptionGeneration || date !== selectedDate) return;
-      console.warn('Lobby schedule listener failed.', error);
-      setConnection('reconnecting', 'Reconnecting');
-      scheduleReconnect(startFirebase);
-    }
-  );
-}
-
-function startFirebase() {
+function startSchedule() {
   if (isDemoMode()) return;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
   const date = selectedDate;
-  const generation = ++subscriptionGeneration;
-  firebaseContext().then(context => {
-    if (generation !== subscriptionGeneration || date !== selectedDate) return;
-    subscribeForSelectedDate(context, date, generation);
+  const generation = ++scheduleRequestGeneration;
+  setConnection('reconnecting', bookings.length ? 'Reconnecting' : 'Connecting');
+  fetch(PUBLIC_LOBBY_SCHEDULE_URL, {
+    cache: 'no-store',
+    credentials: 'omit',
+    headers: { Accept: 'application/json' }
+  }).then(response => {
+    if (!response.ok) throw new Error(`Public lobby schedule request failed (${response.status}).`);
+    return response.json();
+  }).then(payload => normalizePublicSchedule(payload)).then(result => {
+    if (generation !== scheduleRequestGeneration || date !== selectedDate) return;
+    bookings = result.bookings.filter(booking => booking.date === selectedDate);
+    lastUpdatedAt = result.updatedAt;
+    reconnectDelay = 3000;
+    saveCache();
+    render();
+    setConnection('live', 'Live');
+    scheduleRefresh();
   }).catch(error => {
-    if (generation !== subscriptionGeneration || date !== selectedDate) return;
-    console.warn('Lobby schedule could not connect.', error);
+    if (generation !== scheduleRequestGeneration || date !== selectedDate) return;
+    console.warn('Public lobby schedule could not connect.', error);
     setConnection('reconnecting', bookings.length ? 'Reconnecting' : 'Schedule unavailable');
-    scheduleReconnect(startFirebase);
+    scheduleReconnect(startSchedule);
   });
 }
 
@@ -591,7 +606,7 @@ function updateClock() {
     return;
   }
   // Keep the date labels and the current-time marker fresh without changing
-  // a selected future schedule or reopening its Firestore listener.
+  // a selected future schedule or reopening its schedule request.
   if (selectedDate === today) render();
 }
 
@@ -608,7 +623,7 @@ function init() {
   if (isDemoMode()) {
     setConnection('live', 'Sample preview');
   } else {
-    startFirebase();
+    startSchedule();
   }
 
   document.getElementById('day-chooser').addEventListener('click', event => {
@@ -616,7 +631,7 @@ function init() {
     if (choice) setSelectedDate(choice.dataset.tvDate);
   });
   window.addEventListener('offline', () => { if (!isDemoMode()) setConnection('reconnecting', 'Reconnecting'); });
-  window.addEventListener('online', () => { if (!isDemoMode()) startFirebase(); });
+  window.addEventListener('online', () => { if (!isDemoMode()) startSchedule(); });
 
   updateClock();
   setInterval(updateClock, 1000);

@@ -92,6 +92,74 @@ try {
   });
   assert.equal(narrowTickGeometry.nonOverlapping, true, `Every visible narrow-screen hour label has its own horizontal space: ${JSON.stringify(narrowTickGeometry.visibleTicks)}`);
 
+  const publicScheduleUrl = 'https://us-west1-lvz-rooms.cloudfunctions.net/publicLobbySchedule';
+  const liveContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const livePage = await liveContext.newPage();
+  const liveFirebaseRequests = [];
+  const liveScheduleRequests = [];
+  const liveErrors = [];
+  livePage.on('pageerror', error => liveErrors.push(error.message));
+  livePage.on('request', request => {
+    if (request.url().includes('gstatic.com/firebasejs')) liveFirebaseRequests.push(request.url());
+  });
+  await livePage.addInitScript(() => {
+    const RealDate = Date;
+    const fixedTime = '2026-07-20T12:00:00-07:00';
+    class FixedDate extends RealDate {
+      constructor(...args) { super(...(args.length ? args : [fixedTime])); }
+      static now() { return new RealDate(fixedTime).valueOf(); }
+    }
+    window.Date = FixedDate;
+  });
+  await livePage.addInitScript(() => {
+    window.localStorage.setItem('srs-tv-cache-v2', JSON.stringify({ dates: {
+      '2026-07-21': { updatedAt: 1761000000000, bookings: [{
+        id: 'cached-room', date: '2026-07-21', start: '09:00', end: '10:00',
+        name: 'Elder Cached Member', status: 'approved', needs: { room: true }, assignments: { room: 'room-1' }
+      }] }
+    } }));
+  });
+  await livePage.route(publicScheduleUrl, async route => {
+    liveScheduleRequests.push(route.request().url());
+    if (liveScheduleRequests.length === 1) {
+      await route.fulfill({ status: 503, headers: { 'content-type': 'text/plain' }, body: 'Unavailable' });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        version: 1,
+        generatedAt: '2026-07-20T19:00:00.000Z',
+        bookings: [
+          { date: '2026-07-21', start: '10:00', end: '12:00', room: 'room-1', name: 'Brother Anthony Lovelace', ownerUid: 'private-owner' },
+          { date: '2026-07-21', start: '12:00', end: '13:00', room: 'room-2', name: 'Sister Kiana Davis', reservedFor: 'Private person' },
+          { date: '2026-07-21', start: '13:00', end: '14:00', room: 'room-3', name: 'Sister Kiana Kim', note: 'Private note' }
+        ]
+      })
+    });
+  });
+  try {
+    await livePage.goto(`http://127.0.0.1:${port}/tv.html?tv=1&test=1&date=2026-07-21`, { waitUntil: 'networkidle' });
+    assert.equal(liveScheduleRequests.length, 1, 'Live TV reads the public schedule endpoint');
+    assert.equal(await livePage.locator('.room-card[aria-label*="E Cached"]').count(), 1, 'A failed live request keeps the cached schedule visible');
+    await livePage.evaluate(() => window.dispatchEvent(new Event('online')));
+    await livePage.locator('.booking[aria-label*="B Anthony"]').waitFor();
+    assert.equal(liveScheduleRequests.length, 2, 'The online event retries the public schedule request');
+    assert.equal(liveFirebaseRequests.length, 0, 'Live TV does not load Firebase modules');
+    assert.equal(await livePage.locator('.booking').count(), 3, 'Live TV renders only the server-provided room bookings');
+    assert.equal(await livePage.locator('.booking[aria-label*="B Anthony"]').count(), 1);
+    assert.equal(await livePage.locator('.booking[aria-label*="S Kiana D"]').count(), 1, 'Same-given-name bookings receive a surname initial');
+    assert.equal(await livePage.locator('.booking[aria-label*="S Kiana K"]').count(), 1);
+    assert.equal(await livePage.getByText('Brother Anthony Lovelace').count(), 0, 'Live TV never renders a full name');
+    assert.equal(await livePage.getByText('Private person').count(), 0, 'Private endpoint fields never reach the display');
+    const liveCache = await livePage.evaluate(() => JSON.parse(localStorage.getItem('srs-tv-cache-v2')));
+    assert.equal(liveCache.dates['2026-07-21'].bookings.length, 3, 'The successful public response refreshes the cache');
+    assert.deepEqual(liveErrors, []);
+  } finally {
+    await liveContext.close();
+  }
+
   const checkRoomCardAt = async (fixedTime, roomIndex, expectedState, expectedNext) => {
     const scenarioContext = await browser.newContext({ viewport: { width: 1280, height: 720 }, timezoneId: 'America/Los_Angeles' });
     const scenario = await scenarioContext.newPage();
