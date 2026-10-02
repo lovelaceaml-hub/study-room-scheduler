@@ -859,3 +859,29 @@ test('the demo shortens names like the server', () => {
   assert.equal(shortName('Sis. Pat Lee', ['Sister Pat Sample']), 'S Pat L');
   assert.equal(shortName('Brother'), 'Brother');
 });
+
+// A refresh held back while a word is being composed, and stale markup after
+// it, never drop letters typed in the meantime (shared/dom.js paint).
+test('a background repaint never drops letters being typed', async () => {
+  const { context, page, errors } = await newPage(harness.browser, { now: null });
+  await page.goto(`${harness.base}/index.html?demo=1`);
+  await page.evaluate(async () => {
+    const { paint } = await import('/shared/dom.js');
+    const region = document.createElement('div');
+    document.body.append(region);
+    window.__render = value => paint(region, `<input aria-label="Name" data-key="name" value="${value}">`);
+    window.__render('');
+  });
+  const input = page.getByLabel('Name', { exact: true });
+  await input.focus();
+  await page.keyboard.type('Jon');
+  const client = await context.newCDPSession(page);
+  await client.send('Input.imeSetComposition', { text: 'a', selectionStart: 1, selectionEnd: 1 });
+  await page.evaluate(() => window.__render('Jon'));
+  await client.send('Input.insertText', { text: 'athan' });
+  await page.evaluate(() => window.__render('Jon'));
+  assert.equal(await input.inputValue(), 'Jonathan');
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.key), 'name');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
