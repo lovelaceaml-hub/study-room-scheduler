@@ -224,16 +224,20 @@ function parseMemberRequest(data, now = new Date()) {
   if (input.requestId != null && !(typeof input.requestId === 'string' && REQUEST_ID.test(input.requestId))) {
     throw new Error('Reload the page and try again.');
   }
+  const allowTakeover = input.allowTakeover === true;
+  const takeoverUnit = optionalUnit(input.takeoverUnit, type);
+  // A page from before `takeoverUnit` cannot say which unit the member was
+  // shown, so its takeover is refused rather than guessed.
+  if (allowTakeover && !takeoverUnit) throw new Error('This page is out of date. Reload the page and try again.');
   return {
     ...when,
     type,
     requestedUnit: optionalUnit(input.requestedUnit, type),
     purpose: input.purpose,
     // Taking a lower-priority reservation's unit only happens when the member
-    // was shown that and confirmed it, and then only the unit they were shown
-    // (`takeoverUnit`; older pages do not send it).
-    allowTakeover: input.allowTakeover === true,
-    takeoverUnit: optionalUnit(input.takeoverUnit, type),
+    // was shown that and confirmed it, and then only the unit they were shown.
+    allowTakeover,
+    takeoverUnit,
     // Makes a repeated request (a lost response, a double tap) harmless.
     requestId: input.requestId ?? null,
     name: text(input.name, NAME_MAX, 'Your name', true),

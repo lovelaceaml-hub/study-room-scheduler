@@ -5,7 +5,7 @@
 
 const { mock, before, beforeEach, after } = require('node:test');
 const config = require('../../lib/config');
-const { parseMemberRequest } = require('../../lib/bookings');
+const { parseMemberRequest, takeoverTarget, emptyAssignments, unitIds } = require('../../lib/bookings');
 
 // Thursday, October 1, 2026, 9:00 AM in Las Vegas. Saturday is the only day
 // open for reservations (today plus the next 3 days).
@@ -55,6 +55,18 @@ function memberRequest(fields = {}) {
   });
 }
 
+// A confirmed takeover as the page sends it: with the unit the page shows
+// (takeoverTarget's choice, which the browser mirrors), unless `fields` names
+// one. When nothing can be taken now, it names the unit the member was shown
+// earlier, so the server finds the schedule changed.
+function takeoverRequest(db, fields = {}) {
+  const request = memberRequest({ ...fields, allowTakeover: false, takeoverUnit: null });
+  const approved = db.all('bookings').filter(record => record.status === 'approved' && record.date === request.date);
+  const target = takeoverTarget(request.type, { ...request, assignments: emptyAssignments() }, approved, request.requestedUnit);
+  const shown = fields.takeoverUnit ?? target?.unitId ?? request.requestedUnit ?? unitIds(request.type)[0];
+  return memberRequest({ ...fields, allowTakeover: true, takeoverUnit: shown });
+}
+
 // A callable request from `uid` (null: signed out) at `address`.
 const call = (uid, data = {}, address = '203.0.113.5') => ({
   auth: uid ? { uid } : null,
@@ -74,5 +86,5 @@ async function settle(promise) {
 const hasCode = code => error => error.code === code;
 
 module.exports = {
-  THURSDAY, SATURDAY, TUESDAY, local, useFixedClock, setClock, seedBooking, memberRequest, call, settle, hasCode
+  THURSDAY, SATURDAY, TUESDAY, local, useFixedClock, setClock, seedBooking, memberRequest, takeoverRequest, call, settle, hasCode
 };

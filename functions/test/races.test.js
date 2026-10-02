@@ -9,7 +9,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { FakeFirestore } = require('./support/fake-firestore');
 const actions = require('../lib/actions');
-const { useFixedClock, seedBooking, memberRequest, settle } = require('./support/fixtures');
+const { useFixedClock, seedBooking, memberRequest, takeoverRequest, settle } = require('./support/fixtures');
 
 useFixedClock();
 
@@ -54,7 +54,7 @@ test('a takeover racing the holder\'s own cancel leaves one holder either way', 
     const db = new FakeFirestore();
     ['1', '2', '3', '4'].forEach(unit => seedBooking(db, `o${unit}`, { ownerUid: `device-${unit}`, assignments: { room: `room-${unit}` } }));
     const cancel = () => settle(actions.cancelReservation(db, 'o1', 'device-1'));
-    const take = () => settle(actions.submitReservation(db, memberRequest({ allowTakeover: true }), 'device-c'));
+    const take = () => settle(actions.submitReservation(db, takeoverRequest(db), 'device-c'));
     const [cancelled, taken] = cancelFirst ? await Promise.all([cancel(), take()]) : (await Promise.all([take(), cancel()])).reverse();
     assert.equal(taken.ok.unit, 'room-1');
     assert.equal(taken.ok.takeover, !cancelFirst, 'a free unit is booked without a takeover');
