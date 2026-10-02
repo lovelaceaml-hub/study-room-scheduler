@@ -1,7 +1,7 @@
 // Browser-side rules (public/shared) and their agreement with the server
 // rules (functions/lib). Every name here is fictional.
 
-import test from 'node:test';
+import test, { before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import {
@@ -25,6 +25,11 @@ const SATURDAY = { date: '2026-10-03', scheduled: true, services: servicesOn('20
 const TUESDAY = { date: '2026-10-06', scheduled: true, services: servicesOn('2026-10-06') };
 // Saturday, October 3, 2026 at the given church-clock time.
 const saturdayAt = time => new Date(`2026-10-03T${time}:00-07:00`);
+
+// Every test here runs on Saturday morning, before opening, unless it says
+// otherwise, so nothing depends on the real date.
+before(() => mock.timers.enable({ apis: ['Date'], now: saturdayAt('09:00') }));
+after(() => mock.timers.reset());
 
 function row(unit, start, end, purpose = 'other', date = SATURDAY.date) {
   return { id: `${unit}-${start}`, date, type: findUnit(config, unit).type, unit, start, end, purpose, name: 'Sample', reservedFor: '', mine: false };
@@ -130,6 +135,22 @@ test('only Contact and New Member see priority overrides, and the lowest priorit
   assert.deepEqual(rangeChoice(config, crowded, SATURDAY, 'room', 660, 720, 'contact'), { unit: 'room-4', takeover: true });
 });
 
+test('a reservation already under way is never moved or replaced', () => {
+  const contacts = ['room-1', 'room-2', 'room-3'].map(unit => row(unit, '11:00', '12:00', 'contact'));
+  const records = rows => rows.map(item => ({ ...item, status: 'approved', assignments: { room: item.unit } }));
+  const choose = (rows, start, now) => [
+    rangeChoice(config, rows, SATURDAY, 'room', toMinutes(start), toMinutes(start) + 60, 'contact', null, now),
+    serverBookings.takeoverTarget('room', { date: SATURDAY.date, start, end: toTime(toMinutes(start) + 60), purpose: 'contact' }, records(rows), null, now)?.unitId ?? null
+  ];
+  const startedAtEleven = [...contacts, row('room-4', '11:00', '12:00')];
+  assert.deepEqual(choose(startedAtEleven, '11:00', saturdayAt('10:59')), [{ unit: 'room-4', takeover: true }, 'room-4'], 'not started yet');
+  assert.deepEqual(choose(startedAtEleven, '11:00', new Date(saturdayAt('11:00').getTime() + 40000)), [null, null], 'began this very minute');
+  const startedEarlier = [...contacts.map(item => ({ ...item, start: '10:30' })), row('room-4', '10:30', '12:00')];
+  assert.deepEqual(choose(startedEarlier, '11:30', saturdayAt('11:10')), [{ unit: 'room-4', takeover: true }, 'room-4'], 'began earlier: shortened, not moved');
+  const preview = takeoverEffect(config, startedEarlier, SATURDAY, 'room', 690, 750, 'contact', null, saturdayAt('11:10'));
+  assert.deepEqual(preview.affected.map(item => [item.effect, item.toEnd]), [['shortened', '11:30']]);
+});
+
 test('the takeover preview says what happens to the reservation it affects', () => {
   // Saturday 12:00 to 1:00 PM, every room taken; Contact reservations hold rooms 1 to 3.
   const contacts = ['room-1', 'room-2', 'room-3'].map(unit => row(unit, '12:00', '13:00', 'contact'));
@@ -215,8 +236,7 @@ test('the browser and the server pick the same unit for every unit type, holds a
 
 // Runs the real reservation code on an in-memory database and compares what
 // happened to each holder with what the browser previewed.
-test('the takeover preview matches what the server does', async t => {
-  t.mock.timers.enable({ apis: ['Date'], now: saturdayAt('09:00') });
+test('the takeover preview matches what the server does', async () => {
   const random = randomSource(11);
   let checked = 0;
   for (let round = 0; round < 1500; round += 1) {

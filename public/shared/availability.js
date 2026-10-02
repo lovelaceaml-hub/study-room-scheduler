@@ -61,19 +61,21 @@ function candidates(config, type, unitId) {
 // How `purpose` could get a unit of `type` for the whole range:
 // { unit, takeover: false } when one is free, { unit, takeover: true } when it
 // would take a lower-priority reservation's unit, or null. A takeover is only
-// offered when no unit of that type is free at all, never takes an Admin hold,
+// offered when no unit of that type is free at all, never takes an Admin hold
+// or a reservation already under way that cannot be shortened (one that began
+// this very minute),
 // and takes from the lowest priorities first: a unit held only by Other comes
 // before one with a New Member reservation, then fewer reservations, then unit
 // order. `unitId` limits the choice to one unit. Mirrors takeoverTarget in
 // functions/lib/bookings.js.
-export function rangeChoice(config, rows, day, type, start, end, purpose, unitId = null) {
+export function rangeChoice(config, rows, day, type, start, end, purpose, unitId = null, now = new Date()) {
   if (!validRange(config, day, start, end)) return null;
   const isFree = id => holders(rows, day.date, id, start, end).length === 0;
   const units = candidates(config, type, unitId);
   const free = units.find(isFree);
   if (free) return { unit: free, takeover: false };
   if (candidates(config, type, null).some(isFree)) return null;
-  const option = takeoverOption(config, rows, day, type, start, end, purpose, units);
+  const option = takeoverOption(config, rows, day, type, start, end, purpose, units, now);
   return option ? { unit: option.id, takeover: true } : null;
 }
 
@@ -82,14 +84,18 @@ function rankOf(config, purpose) {
   return order.includes(purpose) ? order.indexOf(purpose) : order.length;
 }
 
-function takeoverOption(config, rows, day, type, start, end, purpose, units) {
+function takeoverOption(config, rows, day, type, start, end, purpose, units, now) {
   const canTake = config.purposes[purpose]?.canTake || [];
   if (!canTake.length) return null;
+  const clock = nowIn(config.timeZone, now);
+  const inUse = row => toMinutes(row.start) >= start
+    && (day.date < clock.date || (day.date === clock.date && toMinutes(row.start) <= clock.minutes));
   // The most important reservation on a unit decides how protected it is.
   const protection = taken => Math.min(...taken.map(row => rankOf(config, row.purpose)));
   const options = units
     .map(id => ({ id, taken: holders(rows, day.date, id, start, end) }))
-    .filter(option => option.taken.length && option.taken.every(row => row.purpose !== config.hold && canTake.includes(row.purpose)));
+    .filter(option => option.taken.length
+      && option.taken.every(row => row.purpose !== config.hold && canTake.includes(row.purpose) && !inUse(row)));
   options.sort((a, b) => protection(b.taken) - protection(a.taken)
     || a.taken.length - b.taken.length
     || units.indexOf(a.id) - units.indexOf(b.id));
@@ -103,8 +109,8 @@ function takeoverOption(config, rows, day, type, start, end, purpose, units) {
 // time) or 'replaced' (none is). Reservations on one unit never overlap each
 // other, so the order the server places them in cannot change the outcome.
 // Mirrors takeOver in functions/lib/actions.js.
-export function takeoverEffect(config, rows, day, type, start, end, purpose, unitId = null) {
-  const choice = rangeChoice(config, rows, day, type, start, end, purpose, unitId);
+export function takeoverEffect(config, rows, day, type, start, end, purpose, unitId = null, now = new Date()) {
+  const choice = rangeChoice(config, rows, day, type, start, end, purpose, unitId, now);
   if (!choice?.takeover) return null;
   const taken = holders(rows, day.date, choice.unit, start, end);
   const pool = rows.filter(row => !taken.includes(row))

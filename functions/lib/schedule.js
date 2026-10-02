@@ -155,6 +155,7 @@ function earlyEndError(booking, end, now = new Date()) {
 }
 
 module.exports = {
+  clockAt,
   toMinutes,
   toTime,
   weekdayOf,

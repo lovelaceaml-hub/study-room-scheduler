@@ -130,6 +130,16 @@ test('a reservation already under way is shortened, never moved or released', as
   await actions.submitReservation(db, contact({ start: '11:00', end: '12:00' }), 'device-c');
   saved = db.read('bookings', 'begun');
   assert.deepEqual([saved.status, saved.assignments.room, saved.end], ['approved', 'room-4', '11:00']);
+
+  // One that began this very minute, at the same time, cannot be shortened,
+  // so its unit is not taken at all.
+  db = new FakeFirestore();
+  contactsOn(db, ['4']);
+  seedBooking(db, 'same', { purpose: 'other', start: '11:00', end: '12:00', assignments: { room: 'room-4' } });
+  setClock(local(SATURDAY, '11:00:40'));
+  await assert.rejects(actions.submitReservation(db, contact({ start: '11:00', end: '12:00' }), 'device-c'), hasCode('already-exists'));
+  saved = db.read('bookings', 'same');
+  assert.deepEqual([saved.status, saved.assignments.room, saved.end], ['approved', 'room-4', '12:00']);
 });
 
 test('a moved reservation is told where it went, and loses the notice once cancelled', async () => {

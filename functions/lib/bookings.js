@@ -23,7 +23,7 @@
 // have no `needs`, and then the types they hold stand in for it.
 
 const { RESOURCES, PURPOSES, HOLD, NAME_MAX, NOTE_MAX, HOLD_REASON_MAX } = require('./config');
-const { toMinutes, timeError, hasPassed } = require('./schedule');
+const { toMinutes, timeError, hasPassed, clockAt } = require('./schedule');
 
 const TYPES = Object.keys(RESOURCES);
 const PURPOSE_ORDER = Object.keys(PURPOSES);
@@ -117,14 +117,15 @@ function freeUnit(type, candidate, approved, requestedUnit = null) {
 // by Other before one held by any New Member), then the fewest holders, then
 // unit order. When `requestedUnit` is set, only that unit is considered.
 // Returns { unitId, holders } with holders most important first, or null.
-function takeoverTarget(type, candidate, approved, requestedUnit = null) {
+function takeoverTarget(type, candidate, approved, requestedUnit = null, now = new Date()) {
   if (freeUnit(type, candidate, approved)) return null;
   const canTake = PURPOSES[candidate.purpose]?.canTake || [];
   if (!canTake.length) return null;
   const units = unitIds(type).filter(id => requestedUnit == null || id === requestedUnit);
   const options = units.map(unitId => {
     const holders = holdersOf(type, unitId, candidate, approved);
-    const takeable = holders.every(holder => holder.purpose !== HOLD && canTake.includes(purposeOf(holder)));
+    const takeable = holders.every(holder => holder.purpose !== HOLD && canTake.includes(purposeOf(holder))
+      && !inUse(holder, candidate, now));
     return holders.length && takeable ? { unitId, holders: sortByPriority(holders) } : null;
   }).filter(Boolean);
   const topRank = option => rankOf(option.holders[0]);
@@ -132,6 +133,15 @@ function takeoverTarget(type, candidate, approved, requestedUnit = null) {
     || a.holders.length - b.holders.length
     || units.indexOf(a.unitId) - units.indexOf(b.unitId));
   return options[0] || null;
+}
+
+// A reservation already under way is never moved or replaced. One that began
+// earlier than the priority reservation is shortened instead; one that began
+// this very minute, at the same time, cannot be, so its unit is not taken.
+function inUse(holder, candidate, now) {
+  if (shortenedEnd(holder, candidate)) return false;
+  const clock = clockAt(now);
+  return holder.date < clock.date || (holder.date === clock.date && toMinutes(holder.start) <= clock.minutes);
 }
 
 // 0 for the most important purpose.
