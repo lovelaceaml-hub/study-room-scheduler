@@ -99,7 +99,7 @@ async function repeatedReservation(db, requestId, uid) {
 
 // Books the first free unit. When none is free for the whole time, a Contact
 // or New Member reservation the member confirmed takes a unit held only by
-// lower priorities (only `takeoverUnit`, when the page sent it):
+// lower priorities (only `takeoverUnit`, the unit the member was shown):
 //   - a holder that started earlier keeps its unit and now ends when this one starts;
 //   - any other holder moves to another free unit, or is released if none is free.
 // Each affected holder gets a `priorityNotice` so My reservations can explain it.
@@ -152,16 +152,15 @@ async function submitReservation(db, request, uid) {
 }
 
 // The takeover the member confirmed, if it is still possible. It may only take
-// the unit the member was shown (`takeoverUnit`), or the unit they chose; an
-// older page sends neither, and then any unit may be taken.
+// the unit the member was shown (`takeoverUnit`, which matches any unit they chose).
 function confirmedTarget(request, candidate, approved) {
   const { allowTakeover, requestedUnit, takeoverUnit } = request;
-  if (!allowTakeover || (requestedUnit && takeoverUnit && requestedUnit !== takeoverUnit)) return null;
-  return takeoverTarget(request.type, candidate, approved, takeoverUnit || requestedUnit);
+  if (!allowTakeover || !takeoverUnit || (requestedUnit && requestedUnit !== takeoverUnit)) return null;
+  return takeoverTarget(request.type, candidate, approved, takeoverUnit);
 }
 
 function takenMessage(request) {
-  if (request.allowTakeover && request.takeoverUnit) return 'The schedule changed. Check the time and confirm again.';
+  if (request.allowTakeover) return 'The schedule changed. Check the time and confirm again.';
   return request.requestedUnit
     ? `${unitName(request.requestedUnit)} is taken for part of that time. Choose another time.`
     : `No ${inSentence(RESOURCES[request.type].plural)} are free for that whole time. Choose another time.`;

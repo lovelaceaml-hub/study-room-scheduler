@@ -99,6 +99,8 @@ test('a member books, ends early and cancels through the endpoints', async () =>
   assert.equal(db.read('bookings', booked.id).cancelledBy, 'member');
   await assert.rejects(run('memberSubmitBooking', 'device-a', { ...member, name: ' ' }), { code: 'invalid-argument', message: 'Your name is required.' });
   await assert.rejects(run('memberSubmitBooking', 'device-a', { ...member, takeoverUnit: 'wb-1' }), { code: 'invalid-argument', message: 'Choose a valid unit.' });
+  await assert.rejects(run('memberSubmitBooking', 'device-a', { ...member, allowTakeover: true }),
+    { code: 'invalid-argument', message: 'This page is out of date. Reload the page and try again.' });
 });
 
 test('a retry whose first answer was lost gets that answer, even after the start time or the request limit', async () => {
@@ -145,7 +147,7 @@ test('the lobby gets public rows only, with CORS and caching', async () => {
   const text = JSON.stringify(response.body);
   for (const secret of ['Secret reason', 'Private Person', 'Cancelled', 'Board Person', 'owner-', 'Park']) assert.equal(text.includes(secret), false, secret);
   assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
-  assert.equal(response.headers['Cache-Control'], 'public, max-age=60, s-maxage=60');
+  assert.equal(response.headers['Cache-Control'], 'public, max-age=0, s-maxage=60');
   assert.equal(response.headers['X-Content-Type-Options'], 'nosniff');
   assert.equal((await fetchLobby('HEAD')).statusCode, 200);
 });

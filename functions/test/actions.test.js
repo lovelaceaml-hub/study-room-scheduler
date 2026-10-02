@@ -10,7 +10,7 @@ const { Timestamp } = require('firebase-admin/firestore');
 const { FakeFirestore } = require('./support/fake-firestore');
 const actions = require('../lib/actions');
 const {
-  SATURDAY, TUESDAY, local, useFixedClock, setClock, seedBooking, memberRequest, settle, hasCode
+  SATURDAY, TUESDAY, local, useFixedClock, setClock, seedBooking, memberRequest, takeoverRequest, settle, hasCode
 } = require('./support/fixtures');
 
 useFixedClock();
@@ -40,7 +40,7 @@ test('a full time is refused unless the member confirmed a takeover', async () =
     { code: 'already-exists', message: 'No study rooms are free for that whole time. Choose another time.' });
   await assert.rejects(actions.submitReservation(db, memberRequest({ requestedUnit: 'room-2' }), 'device-a'),
     { code: 'already-exists', message: 'Room 2 is taken for part of that time. Choose another time.' });
-  const result = await actions.submitReservation(db, memberRequest({ allowTakeover: true }), 'device-a');
+  const result = await actions.submitReservation(db, takeoverRequest(db), 'device-a');
   assert.deepEqual([result.unit, result.takeover], ['room-1', true]);
   assert.equal(db.read('bookings', result.id).takeover, true);
   assert.equal(db.read('bookings', '1').status, 'overridden');
@@ -55,7 +55,7 @@ test('a takeover shortens an earlier reservation and moves a later one when it c
   seedBooking(db, 'x', { start: '11:00', end: '11:30', purpose: 'contact', assignments: { room: 'room-2' } });
   seedBooking(db, 'y', { purpose: 'contact', assignments: { room: 'room-3' } });
   seedBooking(db, 'z', { purpose: 'contact', assignments: { room: 'room-4' } });
-  const result = await actions.submitReservation(db, memberRequest({ allowTakeover: true }), 'device-a');
+  const result = await actions.submitReservation(db, takeoverRequest(db), 'device-a');
   assert.equal(result.unit, 'room-1');
   assert.equal(db.read('bookings', 'earlier').end, '11:00');
   assert.equal(db.read('bookings', 'earlier').priorityNotice.kind, 'shortened');
@@ -139,7 +139,7 @@ test('a repeated request returns the first result instead of booking twice', asy
   // A takeover's repeat says it was a takeover.
   ['2', '3', '4'].forEach(unit => seedBooking(db, `o${unit}`, { start: '17:00', end: '18:00', assignments: { room: `room-${unit}` } }));
   seedBooking(db, 'o1', { start: '17:00', end: '18:00', assignments: { room: 'room-1' } });
-  const takeover = memberRequest({ start: '17:00', end: '18:00', allowTakeover: true, requestId: 'takeover-0123456789' });
+  const takeover = takeoverRequest(db, { start: '17:00', end: '18:00', requestId: 'takeover-0123456789' });
   const taken = await actions.submitReservation(db, takeover, 'device-c');
   assert.deepEqual(await actions.submitReservation(db, takeover, 'device-c'), { ...taken, takeover: true, repeated: true });
 });
@@ -172,9 +172,6 @@ test('a confirmed takeover takes only the unit the member was shown', async () =
   const free = await actions.submitReservation(db, memberRequest({ allowTakeover: true, takeoverUnit: 'room-2' }), 'device-a');
   assert.deepEqual([free.unit, free.takeover], ['room-3', false], 'a unit that came free is booked instead');
 
-  db = new FakeFirestore();
-  full(db);
-  assert.equal((await actions.submitReservation(db, memberRequest({ allowTakeover: true }), 'device-a')).unit, 'room-1', 'an older page: lowest priority first');
 });
 
 test('Admin adds, cancels and restores bookings without double-booking a unit', async () => {

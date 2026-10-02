@@ -37,7 +37,7 @@ after(async () => harness?.stop());
 async function openTv({ now = TEST_NOW, width = 1920, height = 1080, query = '', bookings = BOOKINGS, timezoneId, cached = null, online = true } = {}) {
   const session = await newPage(harness.browser, { width, height, now, timezoneId });
   const state = { online, hang: false, requests: 0 };
-  await session.context.route('**/publicLobbySchedule', async route => {
+  await session.context.route('**/api/lobby-schedule', async route => {
     state.requests += 1;
     if (state.hang) return;
     if (!state.online) return route.abort();
@@ -246,7 +246,7 @@ test('a tapped day goes back to Today two minutes after the last tap', async () 
 
 test('the TV registers the service worker so it opens offline', async () => {
   const context = await harness.browser.newContext({ viewport: { width: 1920, height: 1080 }, serviceWorkers: 'allow', timezoneId: 'America/Los_Angeles' });
-  await context.route('**/publicLobbySchedule', route => route.fulfill({ json: payloadAt(new Date()) }));
+  await context.route('**/api/lobby-schedule', route => route.fulfill({ json: payloadAt(new Date()) }));
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

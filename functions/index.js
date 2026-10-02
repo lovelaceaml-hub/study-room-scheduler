@@ -87,7 +87,9 @@ exports.publicLobbySchedule = onRequest({ region: REGION }, async (request, resp
   const now = new Date();
   const dates = lobbyDates(now);
   const view = lobbyView(await actions.scheduleRecordsFor(db, dates), dates, now);
-  response.set('Cache-Control', 'public, max-age=60, s-maxage=60');
+  // Every TV shares one copy a minute from the Hosting CDN (/api/lobby-schedule);
+  // browsers keep none, so a TV's copy is never older than the CDN's.
+  response.set('Cache-Control', 'public, max-age=0, s-maxage=60');
   response.set('X-Content-Type-Options', 'nosniff');
   response.json(view);
 });

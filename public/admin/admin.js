@@ -4,12 +4,13 @@
 // The session (PIN, token, when the page locks) lives in session.js.
 
 import { errorMessage } from '../shared/firebase.js';
-import { escapeHtml as esc, formatTime, formatRange, formatDay, formatHour, inSentence, listOf, weekdayName, monthDay, nowIn, toMinutes, toTime, hasText } from '../shared/format.js';
+import { escapeHtml as esc, formatTime, formatRange, formatDay, formatHour, inSentence, listOf, weekdayName, monthDay, nowIn, toMinutes, toTime, hasText, readStored, writeStored } from '../shared/format.js';
 import { unitsOf, unitName, findUnit, slotStarts, serviceAt, validRange, earliestStart, hasEnded, earlyEndChoices } from '../shared/availability.js';
 import { paint } from '../shared/dom.js';
 import * as admin from './session.js';
 
 const REFRESH_MS = 15000;
+const HIDE_CANCELLED_KEY = 'srs-admin-hide-cancelled';
 const STATUS_LABELS = { approved: 'Confirmed', cancelled: 'Cancelled', overridden: 'Replaced', pending: 'Pending', declined: 'Declined' };
 // Used when the server does not send a value (an older server during a deploy).
 const DEFAULTS = {
@@ -38,7 +39,8 @@ let confirmingRemove = false;
 const filled = new WeakSet();
 // panel: the open row form, { id, kind: 'end' | 'restore' | 'note' | 'cancel', values },
 // where `values` keeps what the Admin picked or typed across refreshes.
-const view = { date: null, type: 'room', panel: null };
+const view = { date: null, type: 'room', panel: null, search: '' };
+let hideCancelled = readStored(HIDE_CANCELLED_KEY) === '1';
 let form = blankForm();
 
 // ---------- Rules ----------
@@ -238,7 +240,7 @@ function lockScreen({ reason = '', keep = false } = {}) {
     if (view.panel?.kind === 'cancel') view.panel = null;
   } else {
     form = blankForm();
-    Object.assign(view, { date: null, type: 'room', panel: null });
+    Object.assign(view, { date: null, type: 'room', panel: null, search: '' });
   }
   showLockButton(false);
   renderLock(reason);
@@ -398,7 +400,13 @@ function build() {
     <div class="columns" data-role="day">
       <section class="card" aria-labelledby="list-title">
         <h2 id="list-title" tabindex="-1"></h2>
-        <p class="hint" data-role="list-empty" hidden>No reservations on this day.</p>
+        <div class="list-tools">
+          <div class="field"><label for="list-search">Search this day</label>
+            <input id="list-search" type="search" autocomplete="off" data-key="list-search"
+              aria-describedby="list-shown" placeholder="Name, contact, purpose or unit"></div>
+          <label class="check"><input type="checkbox" id="hide-cancelled" data-key="hide-cancelled"> Hide cancelled</label>
+        </div>
+        <p class="hint" id="list-shown" data-role="list-empty" aria-live="polite"></p>
         <ul class="entries" data-role="entries"></ul>
       </section>
       <section class="card" aria-labelledby="map-title">
@@ -432,6 +440,8 @@ function build() {
   $('#add-name').value = form.name;
   $('#add-detail').value = form.reservedFor;
   $('#add-note').value = form.note;
+  $('#list-search').value = view.search;
+  $('#hide-cancelled').checked = hideCancelled;
   built = true;
 }
 
@@ -475,12 +485,36 @@ function showBusy() {
 
 // ---------- Reservation list ----------
 
+// Lowercase, without accents, so "jose" finds "José".
+const folded = value => String(value || '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
+
+// What the search looks through: the names, contact or member, purpose and units.
+function searchText(record) {
+  return folded([record.name, record.reservedFor, record.purposeOther, purposeLabel(record.purpose), places(record)].join(' '));
+}
+
+// The record with an open panel always stays, so a filter never loses what
+// is being typed there.
+function shown(record, words) {
+  if (view.panel?.id === record.id) return true;
+  if (hideCancelled && record.status === 'cancelled') return false;
+  const text = searchText(record);
+  return words.every(word => text.includes(word));
+}
+
 function renderList() {
   $('#list-title').textContent = `Reservations on ${formatDay(view.date)}`;
-  const items = bookingsOnDay().sort((a, b) => toMinutes(a.start) - toMinutes(b.start)
+  const all = bookingsOnDay();
+  const words = folded(view.search).split(/\s+/).filter(Boolean);
+  const items = all.filter(record => shown(record, words)).sort((a, b) => toMinutes(a.start) - toMinutes(b.start)
     || String(a.name || '').localeCompare(String(b.name || '')));
   if (view.panel && !items.some(record => record.id === view.panel.id)) view.panel = null;
-  part('list-empty').hidden = items.length > 0;
+  const status = part('list-empty');
+  const text = !all.length ? 'No reservations on this day.'
+    : !items.length ? 'No reservations on this day match.'
+      : items.length < all.length ? `Showing ${items.length} of ${all.length}.` : '';
+  if (status.textContent !== text) status.textContent = text;
+  status.hidden = !text;
   const list = part('entries');
   // Each row is kept and only its changed parts are redrawn, so an open
   // panel (and a note being typed there) survives a refresh.
@@ -890,6 +924,15 @@ root.addEventListener('click', event => {
 // never undoes a choice.
 root.addEventListener('input', event => {
   const field = event.target;
+  if (field.id === 'list-search' || field.id === 'hide-cancelled') {
+    if (field.id === 'list-search') view.search = field.value;
+    else {
+      hideCancelled = field.checked;
+      writeStored(HIDE_CANCELLED_KEY, hideCancelled ? '1' : '0');
+    }
+    renderList();
+    return;
+  }
   if (field.closest('.entry-panel')) {
     if (view.panel) view.panel.values[field.name] = field.value;
     return;

@@ -814,6 +814,47 @@ test('an older record with no name, purpose or units still shows', async () => {
   await context.close();
 });
 
+test('Search and Hide cancelled filter the day, survive a refresh, and Lock clears the search', async () => {
+  const { page, errors, context } = await openAdmin({ state: fixture([row('r5', { room: 'room-4' }, { start: '17:00', end: '18:00', name: 'José Ruiz', reservedFor: 'Choir' })]) });
+  const search = page.getByLabel('Search this day');
+  const hide = page.getByLabel('Hide cancelled');
+  const status = page.locator('#list-shown');
+  const names = () => page.locator('.entry-name b').allTextContents();
+  await search.fill('room 1');
+  assert.deepEqual(await names(), ['Brother John Smith']);
+  assert.equal(await status.textContent(), 'Showing 1 of 5.');
+  await search.fill('  PLANNING ');
+  assert.deepEqual(await names(), ['Avery Example'], 'the member detail, in any case');
+  await search.fill('jose choir');
+  assert.deepEqual(await names(), ['José Ruiz'], 'every word, without accents');
+  await search.fill('hold');
+  assert.deepEqual(await names(), ['Deep clean'], 'the purpose');
+  await search.fill('nobody');
+  assert.deepEqual(await names(), []);
+  assert.equal(await status.textContent(), 'No reservations on this day match.');
+  await search.fill('');
+  assert.equal(await status.isHidden(), true);
+  await hide.check();
+  assert.equal((await names()).includes('Grace Park'), false);
+  assert.equal(await status.textContent(), 'Showing 4 of 5.');
+  assert.equal(await page.evaluate(() => localStorage.getItem('srs-admin-hide-cancelled')), '1');
+  await search.fill('room');
+  await refreshNow(page);
+  assert.equal(await search.inputValue(), 'room', 'a refresh keeps the search');
+  assert.deepEqual(await names(), ['Brother John Smith', 'Deep clean', 'José Ruiz']);
+  // An open panel stays even when the search no longer matches its row.
+  await entry(page, 'Brother John Smith').getByRole('button', { name: 'Add note' }).click();
+  await search.fill('Avery');
+  assert.deepEqual(await names(), ['Brother John Smith', 'Avery Example']);
+  await page.locator('#lock').click();
+  await unlock(page);
+  await page.locator(`[data-date="${DAY}"]`).click();
+  assert.equal(await page.getByLabel('Search this day').inputValue(), '', 'Lock clears the search');
+  assert.equal(await page.getByLabel('Hide cancelled').isChecked(), true, 'Hide cancelled is remembered');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 test('on a phone nothing scrolls sideways and Add a reservation is one tap from the top', async () => {
   const { page, errors, context } = await openAdmin({ width: 390, height: 844 });
   assert.equal(await fitsWidth(page), true);

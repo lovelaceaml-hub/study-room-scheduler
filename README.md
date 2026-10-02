@@ -30,7 +30,9 @@ Members reserve study rooms, whiteboards and TVs; the lobby TV shows the day's r
 - Admin (PIN-protected; it locks again after 20 minutes without a change) sees full names,
   adds reservations or holds on the same days members can book, cancels, ends early,
   restores, gives a reservation a new unit when a priority reservation took one, keeps
-  private notes and removes records older than 8 weeks.
+  private notes and removes records older than 8 weeks. The day's list can be searched by
+  name, contact or member, purpose and unit, and "Hide cancelled" (remembered on that
+  device) hides cancelled reservations.
 
 ## Changing the rules
 
@@ -61,6 +63,8 @@ functions/         Cloud Functions
   test/            server tests, with an in-memory Firestore
 test/              browser/server agreement tests and browser tests
 firestore.rules    browsers cannot read or write the database directly
+firebase.json      Hosting; /api/lobby-schedule is the lobby TV's schedule (the
+                   publicLobbySchedule function), cached by the Hosting CDN for a minute
 legacy/            the old address, which redirects here
 ```
 

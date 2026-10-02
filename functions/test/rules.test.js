@@ -236,6 +236,8 @@ test('a member request names the field that is wrong', () => {
   assert.throws(parseMember({ resourceType: 'podium' }), /Choose a study room, whiteboard or TV/);
   assert.throws(parseMember({ requestedUnit: 'wb-1' }), /Choose a valid unit/);
   assert.throws(parseMember({ takeoverUnit: 'tv-1' }), /Choose a valid unit/);
+  assert.throws(parseMember({ allowTakeover: true }), /This page is out of date\. Reload the page/, 'a page from before takeoverUnit');
+  assert.throws(parseMember({ allowTakeover: true, requestedUnit: 'room-2' }), /This page is out of date/);
   assert.throws(parseMember({ start: '14:00', end: '15:00' }), /overlaps a service/);
   assert.throws(parseMember({ date: ['2026-10-03'] }), /not open/);
   assert.throws(() => bookings.parseMemberRequest(null, THURSDAY), /HH:MM/);

@@ -161,15 +161,16 @@ export function demoBackend() {
       const rows = scheduleRows().filter(row => row.type === type);
       const requested = data.requestedUnit ?? null;
       const shown = data.takeoverUnit ?? null;
+      if (data.allowTakeover === true && !shown) throw refusal('invalid-argument', 'This page is out of date. Reload the page and try again.');
       const choice = rangeChoice(config, rows, day, type, start, end, data.purpose, requested);
-      // With a takeover, only the unit the member was shown (or chose) may be taken.
-      const confirmed = data.allowTakeover === true && !(requested && shown && requested !== shown);
+      // With a takeover, only the unit the member was shown may be taken.
+      const confirmed = data.allowTakeover === true && !(requested && requested !== shown);
       const effect = choice?.takeover && confirmed
-        ? takeoverEffect(config, rows, day, type, start, end, data.purpose, shown ?? requested)
+        ? takeoverEffect(config, rows, day, type, start, end, data.purpose, shown)
         : null;
       if (!choice || (choice.takeover && !effect)) {
         const unitName = unitsOf(config, type).find(unit => unit.id === requested)?.name;
-        throw refusal('already-exists', data.allowTakeover === true && shown ? 'The schedule changed. Check the time and confirm again.'
+        throw refusal('already-exists', data.allowTakeover === true ? 'The schedule changed. Check the time and confirm again.'
           : unitName ? `${unitName} is taken for part of that time. Choose another time.`
           : `No ${inSentence(config.resources[type].plural)} are free for that whole time. Choose another time.`);
       }
