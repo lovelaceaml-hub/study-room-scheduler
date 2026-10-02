@@ -31,7 +31,15 @@ export const DEMO_CONFIG = {
     contact: { label: 'Contact', detailLabel: 'Contact name', detailMax: 120, canTake: ['new-member', 'other'] },
     'new-member': { label: 'New Member', detailLabel: 'Member name', detailMax: 120, canTake: ['other'] },
     other: { label: 'Other', detailLabel: 'Purpose', detailMax: 240, canTake: [] }
-  }
+  },
+  windowDays: 4,
+  hold: 'blocked',
+  nameMax: 120,
+  noteMax: 1000,
+  holdReasonMax: 240,
+  keepDays: 56,
+  sessionMinutes: 20,
+  maxActivePerDay: 4
 };
 
 function addDays(date, days) {
@@ -48,10 +56,10 @@ export function demoToday() {
   return nowIn(DEMO_CONFIG.timeZone).date;
 }
 
-// The Tuesday and Saturday in the next seven days, as the server would give them.
+// The booking days from today through the next three, as the server would give them.
 export function demoDays(today = demoToday()) {
   const days = [];
-  for (let offset = 0; offset < 7; offset += 1) {
+  for (let offset = 0; offset < DEMO_CONFIG.windowDays; offset += 1) {
     const date = addDays(today, offset);
     if (SERVICES[weekday(date)]) days.push(demoDay(date));
   }

@@ -26,7 +26,7 @@ const PAYLOAD = {
 
 let harness;
 before(async () => { harness = await start(); });
-after(async () => harness.stop());
+after(async () => harness?.stop());
 
 async function openTv(query = '') {
   const session = await newPage(harness.browser, { width: 1920, height: 1080 });
