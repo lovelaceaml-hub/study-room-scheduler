@@ -34,7 +34,8 @@ before(async () => { harness = await start(); });
 after(async () => harness?.stop());
 
 // `state.online` false refuses the request; `state.hang` never answers it.
-async function openTv({ now = TEST_NOW, width = 1920, height = 1080, query = '', bookings = BOOKINGS, timezoneId, cached = null, online = true } = {}) {
+// `serverAhead` is how far the server's clock is ahead of the page's.
+async function openTv({ now = TEST_NOW, width = 1920, height = 1080, query = '', bookings = BOOKINGS, timezoneId, cached = null, online = true, serverAhead = 0 } = {}) {
   const session = await newPage(harness.browser, { width, height, now, timezoneId });
   const state = { online, hang: false, requests: 0 };
   await session.context.route('**/api/lobby-schedule', async route => {
@@ -42,7 +43,7 @@ async function openTv({ now = TEST_NOW, width = 1920, height = 1080, query = '',
     if (state.hang) return;
     if (!state.online) return route.abort();
     const pageNow = await session.page.evaluate(() => Date.now()).catch(() => Date.now());
-    return route.fulfill({ json: payloadAt(new Date(pageNow), bookings) });
+    return route.fulfill({ json: payloadAt(new Date(pageNow + serverAhead), bookings) });
   });
   if (cached) {
     await session.page.goto(`${harness.base}/icon.svg`);
@@ -288,6 +289,25 @@ test('on a device set to UTC, the clock and "Updated" still use church time', as
   assert.equal(await page.locator('#clock').textContent(), '1:47 PM');
   assert.equal(await page.locator('#updated').textContent(), 'Updated 1:47 PM');
   assert.deepEqual(errors, []);
+  await context.close();
+});
+
+test('a TV clock that is wrong still shows "In use" and "Free until" by the server\'s clock', async () => {
+  const one = [{ date: SATURDAY, start: '11:00', end: '12:00', room: 'room-1', name: 'B John' }];
+  // 30 minutes fast: the server says 11:30, so B John is still in Room 1.
+  const fast = await openTv({ now: churchTime('12:00'), bookings: one, serverAhead: -30 * MINUTE });
+  await label(fast.page).filter({ hasText: 'Live' }).waitFor();
+  assert.equal(await fast.page.locator('#clock').textContent(), '11:30 AM');
+  assert.equal(await fast.page.locator('#updated').textContent(), 'Updated 11:30 AM');
+  assert.equal(await roomText(fast.page, 0), 'Room 1 | In use | B John until 12:00 PM');
+  await fast.context.close();
+
+  // 30 minutes slow: the server says 12:10, so B John has left Room 1.
+  const { page, errors, context } = await openTv({ now: churchTime('11:40'), bookings: one, serverAhead: 30 * MINUTE });
+  await label(page).filter({ hasText: 'Live' }).waitFor();
+  assert.equal(await page.locator('#clock').textContent(), '12:10 PM');
+  assert.equal(await roomText(page, 0), 'Room 1 | Free until 2:30 PM | Afternoon service at 2:30 PM');
+  assert.deepEqual([...fast.errors, ...errors], []);
   await context.close();
 });
 

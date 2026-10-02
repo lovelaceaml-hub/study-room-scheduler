@@ -139,7 +139,7 @@ export function demoBackend() {
 
   const calls = {
     memberSchedule() {
-      return { version: 2, config, days, bookings: scheduleRows(), mine: mine.map(view) };
+      return { version: 2, serverTime: Date.now(), config, days, bookings: scheduleRows(), mine: mine.map(view) };
     },
 
     memberSubmitBooking(data) {

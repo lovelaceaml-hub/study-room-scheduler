@@ -84,6 +84,7 @@ test('the member schedule has every active reservation, plus only this device\'s
   seedBooking(db, 'tuesday', { ownerUid: 'device-a', date: '2026-10-06', assignments: { room: 'room-3' } });
   const view = await run('memberSchedule', 'device-a');
   assert.equal(view.version, 2);
+  assert.equal(view.serverTime, Date.now(), 'the server time, so pages can correct a wrong device clock');
   assert.deepEqual(view.days.map(day => day.date), [SATURDAY]);
   assert.deepEqual(view.bookings.map(row => [row.id, row.mine]), [['mine', true], ['theirs', false]]);
   assert.deepEqual(view.mine.map(row => [row.id, row.status]), [['mine', 'approved'], ['my-cancel', 'cancelled']]);
@@ -215,7 +216,8 @@ test('Admin sees every reservation in any status, with notes, and reading does n
   const token = await signIn();
   mock.timers.tick(5 * MINUTE);
   const view = await run('adminSchedule', 'admin-device', { sessionToken: token });
-  assert.deepEqual(Object.keys(view), ['config', 'days', 'bookings']);
+  assert.deepEqual(Object.keys(view), ['serverTime', 'config', 'days', 'bookings']);
+  assert.equal(view.serverTime, Date.now());
   assert.deepEqual(view.bookings.map(row => [row.id, row.status, row.note, row.byAdmin, row.restorable]), [
     ['gone', 'cancelled', '', true, true], ['live', 'approved', 'Keys at the desk', false, false], ['replaced', 'overridden', '', false, true]
   ]);

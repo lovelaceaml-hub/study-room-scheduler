@@ -3,7 +3,7 @@
 // the same checks again when a reservation is sent; this only decides what
 // to offer. Times inside this module are minutes after midnight.
 
-import { toMinutes, toTime, nowIn } from './format.js';
+import { toMinutes, toTime, nowIn, serverNow } from './format.js';
 
 export function unitsOf(config, type) {
   return config.resources[type]?.units || [];
@@ -68,7 +68,7 @@ function candidates(config, type, unitId) {
 // before one with a New Member reservation, then fewer reservations, then unit
 // order. `unitId` limits the choice to one unit. Mirrors takeoverTarget in
 // functions/lib/bookings.js.
-export function rangeChoice(config, rows, day, type, start, end, purpose, unitId = null, now = new Date()) {
+export function rangeChoice(config, rows, day, type, start, end, purpose, unitId = null, now = serverNow()) {
   if (!validRange(config, day, start, end)) return null;
   const isFree = id => holders(rows, day.date, id, start, end).length === 0;
   const units = candidates(config, type, unitId);
@@ -111,7 +111,7 @@ function takeoverOption(config, rows, day, type, start, end, purpose, units, now
 // with a room and a TV keeps the TV). Reservations on one unit never overlap each
 // other, so the order the server places them in cannot change the outcome.
 // Mirrors takeOver in functions/lib/actions.js.
-export function takeoverEffect(config, rows, day, type, start, end, purpose, unitId = null, now = new Date()) {
+export function takeoverEffect(config, rows, day, type, start, end, purpose, unitId = null, now = serverNow()) {
   const choice = rangeChoice(config, rows, day, type, start, end, purpose, unitId, now);
   if (!choice?.takeover) return null;
   const taken = holders(rows, day.date, choice.unit, start, end);
@@ -159,14 +159,14 @@ export function endChoices(config, rows, day, type, start, purpose, unitId = nul
 // be reserved: on `date` itself that is the current time rounded up to the
 // grid (11:30 at 11:10, 11:00 at exactly 11:00); on any later day, 0. Mirrors
 // hasPassed in functions/lib/schedule.js.
-export function earliestStart(config, date, now = new Date()) {
+export function earliestStart(config, date, now = serverNow()) {
   const clock = nowIn(config.timeZone, now);
   if (date !== clock.date) return date < clock.date ? Infinity : 0;
   return Math.ceil(clock.minutes / config.slotMinutes) * config.slotMinutes;
 }
 
 // True once a reservation ending at `end` on `date` is over.
-export function hasEnded(config, date, end, now = new Date()) {
+export function hasEnded(config, date, end, now = serverNow()) {
   const clock = nowIn(config.timeZone, now);
   return date < clock.date || (date === clock.date && toMinutes(end) <= clock.minutes);
 }
@@ -181,7 +181,7 @@ export function earlierEnds(config, start, end) {
 
 // The ends End early can choose now: after the first slot, before the current
 // end, and not already passed. Mirrors earlyEnds in functions/lib/schedule.js.
-export function earlyEndChoices(config, date, start, end, now = new Date()) {
+export function earlyEndChoices(config, date, start, end, now = serverNow()) {
   const earliest = earliestStart(config, date, now);
   return earlierEnds(config, start, end).filter(time => toMinutes(time) >= earliest);
 }

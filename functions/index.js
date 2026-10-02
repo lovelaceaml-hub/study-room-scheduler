@@ -110,7 +110,7 @@ exports.adminSchedule = admin(async request => {
   const dates = bookableDates(now);
   const records = await actions.allRecordsFor(db, dates);
   const notes = await actions.notesFor(db, records.map(record => record.id));
-  return { config: clientConfig(), days: daysView(dates), bookings: adminRows(records, notes, now) };
+  return { serverTime: now.getTime(), config: clientConfig(), days: daysView(dates), bookings: adminRows(records, notes, now) };
 });
 
 async function bookingAction(data, uid) {

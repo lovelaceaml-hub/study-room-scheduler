@@ -4,7 +4,7 @@
 // The session (PIN, token, when the page locks) lives in session.js.
 
 import { errorMessage } from '../shared/firebase.js';
-import { escapeHtml as esc, formatTime, formatRange, formatDay, formatHour, inSentence, listOf, weekdayName, monthDay, nowIn, toMinutes, toTime, hasText, readStored, writeStored } from '../shared/format.js';
+import { escapeHtml as esc, formatTime, formatRange, formatDay, formatHour, inSentence, listOf, weekdayName, monthDay, nowIn, toMinutes, toTime, hasText, readStored, writeStored, serverNow, setServerTime } from '../shared/format.js';
 import { unitsOf, unitName, findUnit, slotStarts, serviceAt, validRange, earliestStart, hasEnded, earlyEndChoices } from '../shared/availability.js';
 import { paint } from '../shared/dom.js';
 import * as admin from './session.js';
@@ -62,7 +62,7 @@ function detailMax(purpose) {
 
 // '3:42 PM' on the church's clock for a moment on this device's clock.
 function clockTime(ms) {
-  return formatTime(nowIn(timeZone(), new Date(ms)).minutes);
+  return formatTime(nowIn(timeZone(), serverNow(ms)).minutes);
 }
 
 function keepText() {
@@ -280,8 +280,10 @@ async function load() {
   const epoch = admin.currentEpoch();
   const mark = changeMark;
   try {
+    const sentAt = Date.now();
     const result = await admin.call('adminSchedule');
     if (!result?.config || !Array.isArray(result.days) || !Array.isArray(result.bookings)) throw new Error('Unexpected schedule format');
+    setServerTime(result.serverTime, sentAt);
     const read = await notesOf(result);
     if (epoch !== admin.currentEpoch() || mark !== changeMark) return;
     schedule = result;

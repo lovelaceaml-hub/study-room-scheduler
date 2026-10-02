@@ -19,6 +19,7 @@ const { publicName } = require('../functions/lib/names.js');
 
 // Saturday, October 3, 2026 at a church-clock time.
 const saturdayAt = time => new Date(`2026-10-03T${time}:00-07:00`);
+const MINUTE = 60 * 1000;
 const daysAt = now => bookableDates(now).map(dayInfo);
 const TODAY = todayAt(TEST_NOW);
 // Tuesday: no time on it has passed, and the times below are clear of its services.
@@ -68,8 +69,9 @@ function schedule({ now = TEST_NOW, bookings = BOOKINGS, mine = MINE } = {}) {
 // normal answers; `window.__hooks[name]` replaces one call for a test. The
 // contract fields of `mine` (ended, earlyEnds, canCancel, byAdmin) follow
 // the page's clock, like the server's; `oldServer` leaves them out, like a
-// server from before the contract.
-function backend(fixture, { oldServer = false } = {}) {
+// server from before the contract. `serverAhead` is how far the server's
+// clock (sent as `serverTime`) is ahead of the page's.
+function backend(fixture, { oldServer = false, serverAhead = 0 } = {}) {
   return `(() => {
     const state = ${JSON.stringify(fixture)};
     const oldServer = ${oldServer};
@@ -91,7 +93,7 @@ function backend(fixture, { oldServer = false } = {}) {
     }
     window.__server = {
       async memberSchedule() {
-        return { version: 2, ...structuredClone(state), mine: await Promise.all(state.mine.map(mineView)) };
+        return { version: 2, serverTime: Date.now() + ${serverAhead}, ...structuredClone(state), mine: await Promise.all(state.mine.map(mineView)) };
       },
       memberSubmitBooking(data) {
         if (data.requestId && answered.has(data.requestId)) return { ...answered.get(data.requestId), repeated: true };
@@ -125,8 +127,8 @@ before(async () => { harness = await start(); });
 after(async () => harness?.stop());
 
 // Opens the app and shows `day` (null: leave the day the app picked).
-async function openApp(query = '', { fixture = schedule(), oldServer = false, day = DAY, ...options } = {}) {
-  const session = await newPage(harness.browser, { backend: backend(fixture, { oldServer }), ...options });
+async function openApp(query = '', { fixture = schedule(), oldServer = false, serverAhead = 0, day = DAY, ...options } = {}) {
+  const session = await newPage(harness.browser, { backend: backend(fixture, { oldServer, serverAhead }), ...options });
   await session.page.goto(`${harness.base}/${query}`);
   await session.page.locator('#reserve:not([disabled])').waitFor();
   if (day && !query.includes('view=mine')) await session.page.locator(`[data-date="${day}"]`).click();
@@ -173,6 +175,22 @@ test('the schedule shows public names, holds and my own reservation', async () =
   assert.deepEqual(await seriousAxe(page, 'body', 'schedule'), []);
   assert.deepEqual(errors, []);
   await context.close();
+});
+
+test('a phone clock that is wrong is offered start times by the server\'s clock', async () => {
+  // The server says 4:10 PM, so 4:30 PM is the first open start either way.
+  for (const [deviceTime, serverAhead] of [['16:40', -30 * MINUTE], ['15:40', 30 * MINUTE]]) {
+    const now = saturdayAt(deviceTime);
+    const { page, errors, context, sheet } = await openApp('', { now, serverAhead, fixture: schedule({ now: saturdayAt('16:10'), bookings: [], mine: [] }), day: null });
+    await page.locator(`[data-date="${TODAY}"][aria-pressed="true"]`).waitFor();
+    assert.equal(await page.locator('.open-slot[data-unit="room-1"]').first().getAttribute('data-start'), String(16 * 60 + 30), deviceTime);
+    await page.locator('#reserve').click();
+    await sheet.getByRole('button', { name: 'Other', exact: true }).click();
+    await sheet.getByRole('heading', { name: 'Start time' }).waitFor();
+    assert.equal(await sheet.locator('[data-start]').first().textContent().then(text => text.trim()), '4:30 PM', deviceTime);
+    assert.deepEqual(errors, []);
+    await context.close();
+  }
 });
 
 test('the page opens on the first day with time left, which on Saturday morning is today', async () => {

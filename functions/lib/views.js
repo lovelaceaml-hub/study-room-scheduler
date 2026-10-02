@@ -153,6 +153,7 @@ function myReservations(records, dates, uid, now) {
 function memberView(records, dates, uid, now = new Date()) {
   return {
     version: 2,
+    serverTime: now.getTime(),
     config: clientConfig(),
     days: daysView(dates),
     bookings: scheduleRows(records, dates, uid),
