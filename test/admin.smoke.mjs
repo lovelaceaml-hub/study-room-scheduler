@@ -63,7 +63,7 @@ const BACKEND = `(() => {
 
 let harness;
 before(async () => { harness = await start(); });
-after(async () => harness.stop());
+after(async () => harness?.stop());
 
 async function unlocked() {
   const session = await newPage(harness.browser, { width: 1280, height: 900, backend: BACKEND });

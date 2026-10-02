@@ -78,7 +78,7 @@ const BACKEND = `(() => {
 
 let harness;
 before(async () => { harness = await start(); });
-after(async () => harness.stop());
+after(async () => harness?.stop());
 
 async function openApp(query = '', options = {}) {
   const session = await newPage(harness.browser, { backend: BACKEND, ...options });
