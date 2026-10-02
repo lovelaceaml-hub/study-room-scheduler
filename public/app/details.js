@@ -2,25 +2,33 @@
 // person who made it can also cancel it or end it early from here.
 
 import { escapeHtml as esc, formatRange, formatDay } from '../shared/format.js';
-import { unitName } from '../shared/availability.js';
 import { cancel, canBook } from './store.js';
 import { createSheet } from './sheet.js';
-import { purposeLabel, detailLabel, HOLD } from './text.js';
+import { purposeLabel, detailLabel, placeLabel, reservationActions, HOLD } from './text.js';
 import { ICONS } from './icons.js';
 import { announce } from './announce.js';
 
 export function createDetailsSheet({ getState, onEndEarly }) {
   const dialog = document.getElementById('details-sheet');
-  const sheet = createSheet(dialog, { onClose: () => { selected = null; } });
   let selected = null; // { id, type }
   let confirming = false;
   let busy = false;
   let error = '';
+  // While cancelling, the selection outlives a forced close so the result can be shown.
+  const sheet = createSheet(dialog, { onClose: () => { if (!busy) selected = null; } });
 
   const row = () => selected && getState().bookings.find(item => item.id === selected.id && item.type === selected.type);
   const ownReservation = () => selected && getState().mine.find(item => item.id === selected.id);
 
   function open(id, type) {
+    if (busy) {
+      // Still cancelling the last one: show it rather than another.
+      if (row()) {
+        sheet.open();
+        render({ focus: 'h2' });
+      }
+      return;
+    }
     selected = { id, type };
     confirming = false;
     error = '';
@@ -37,6 +45,7 @@ export function createDetailsSheet({ getState, onEndEarly }) {
 
   function render({ focus = null } = {}) {
     const booking = row();
+    if (!booking) return;
     const { config } = getState();
     const hold = booking.purpose === HOLD;
     const items = [
@@ -48,10 +57,10 @@ export function createDetailsSheet({ getState, onEndEarly }) {
     ];
     sheet.render(`
       <div class="sheet-bar">
-        <span class="sheet-step">${booking.mine ? 'Your reservation' : 'Reservation'}</span>
-        <button type="button" class="icon-button" data-action="close" data-key="close" aria-label="Close">${ICONS.close}</button>
+        <span class="sheet-step">${busy ? 'Saving…' : booking.mine ? 'Your reservation' : 'Reservation'}</span>
+        <button type="button" class="icon-button" data-action="close" data-key="close" aria-label="Close"${busy ? ' disabled' : ''}>${ICONS.close}</button>
       </div>
-      <h2 id="details-title" tabindex="-1">${esc(unitName(config, booking.unit))}</h2>
+      <h2 id="details-title" tabindex="-1">${esc(placeLabel(config, booking.type, booking.unit))}</h2>
       <dl class="summary">${items.map(([term, value]) => `<div><dt>${esc(term)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>
       ${actionsHtml()}
       ${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
@@ -61,17 +70,19 @@ export function createDetailsSheet({ getState, onEndEarly }) {
   function actionsHtml() {
     const mine = ownReservation();
     if (!mine) return '';
+    const { ended, earlyEnds, canCancel } = reservationActions(getState().config, mine);
+    if (ended) return '<p class="hint">This reservation has finished.</p>';
     const disabled = canBook(getState()) && !busy ? '' : ' disabled';
     if (confirming) {
       return `<p class="hint">Cancel this reservation? Its time opens for others right away.</p>
         <div class="actions">
           <button type="button" class="primary danger" data-action="cancel-confirm" data-key="cancel-confirm"${disabled} aria-busy="${busy}">${busy ? 'Cancelling…' : 'Yes, cancel it'}</button>
-          <button type="button" class="text-button" data-action="cancel-keep" data-key="cancel-keep">Keep it</button>
+          <button type="button" class="text-button" data-action="cancel-keep" data-key="cancel-keep"${busy ? ' disabled' : ''}>Keep it</button>
         </div>`;
     }
     return `<div class="actions">
-      ${mine.canEndEarly ? `<button type="button" class="secondary" data-action="end-early" data-key="end-early"${disabled}>End early</button>` : ''}
-      ${mine.canCancel ? `<button type="button" class="secondary danger" data-action="cancel" data-key="cancel"${disabled}>Cancel reservation</button>` : ''}
+      ${earlyEnds.length ? `<button type="button" class="secondary" data-action="end-early" data-key="end-early"${disabled}>End early</button>` : ''}
+      ${canCancel ? `<button type="button" class="secondary danger" data-action="cancel" data-key="cancel"${disabled}>Cancel reservation</button>` : ''}
     </div>`;
   }
 
@@ -80,17 +91,37 @@ export function createDetailsSheet({ getState, onEndEarly }) {
     sheet.locked = true;
     error = '';
     render();
+    let failure = null;
     try {
       await cancel(selected.id);
-      busy = false;
-      sheet.locked = false;
+    } catch (problem) {
+      failure = problem;
+    }
+    busy = false;
+    sheet.locked = false;
+    if (!failure) {
       sheet.close();
+      selected = null;
+      // Closed by a second Back meanwhile: the block that had focus is gone.
+      if (document.activeElement === document.body) document.getElementById('reserve')?.focus({ preventScroll: true });
       announce('Reservation cancelled. Its time is open for others.');
-    } catch (failure) {
-      busy = false;
-      sheet.locked = false;
-      error = failure.message;
-      render();
+      return;
+    }
+    // Gone from the schedule meanwhile (cancelled or replaced elsewhere):
+    // nothing is left to show, so say what happened.
+    if (!row()) {
+      sheet.close();
+      selected = null;
+      announce(failure.message);
+      return;
+    }
+    error = failure.message;
+    // A second Back closed the sheet while cancelling: open it on the error.
+    if (!sheet.isOpen && !document.querySelector('dialog[open]')) sheet.open();
+    if (sheet.isOpen) render({ focus: dialog.contains(document.activeElement) ? null : 'h2' });
+    else {
+      selected = null;
+      announce(failure.message);
     }
   }
 
