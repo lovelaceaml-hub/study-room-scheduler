@@ -410,7 +410,7 @@ test('every page gets the rules it needs from the server', () => {
   assert.deepEqual(clientConfig(), {
     timeZone: 'America/Los_Angeles', open: '10:00', close: '23:00', slotMinutes: 30, windowDays: 4,
     resources: config.RESOURCES, purposes: config.PURPOSES, hold: 'blocked', nameMax: 120, noteMax: 1000,
-    holdReasonMax: 240, keepDays: 56, sessionMinutes: 20, maxActivePerDay: 4
+    holdReasonMax: 240, keepDays: 56, sessionMinutes: 20
   });
   assert.deepEqual(Object.keys(clientConfig().purposes), ['contact', 'new-member', 'other'], 'most important first');
 });

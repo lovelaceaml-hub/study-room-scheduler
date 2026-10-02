@@ -5,7 +5,7 @@
 
 const { FieldValue } = require('firebase-admin/firestore');
 const { HttpsError } = require('firebase-functions/v2/https');
-const { RESOURCES, MAX_ACTIVE_PER_DAY, KEEP_DAYS, NOTE_MAX } = require('./config');
+const { RESOURCES, KEEP_DAYS, NOTE_MAX } = require('./config');
 const { addDays, todayAt, hasEnded, earlyEndError } = require('./schedule');
 const {
   TYPES, REQUEST_ID, unitIds, unitName, inSentence, emptyAssignments, heldUnit, heldAssignments, typesHeld, neededTypes,
@@ -90,7 +90,7 @@ function submitResult(id, record, repeated = false) {
 
 // The first result again when this device already made the reservation
 // `requestId` names, or null. A member whose answer was lost may retry after
-// the start time or the request limit would refuse a new request.
+// the start time would refuse a new request.
 async function repeatedReservation(db, requestId, uid) {
   if (typeof requestId !== 'string' || !REQUEST_ID.test(requestId)) return null;
   const earlier = await db.collection(BOOKINGS).doc(`r-${requestId}`).get();
@@ -111,12 +111,6 @@ async function submitReservation(db, request, uid) {
       const earlier = await transaction.get(ref);
       if (earlier.exists && earlier.data().ownerUid === uid) return submitResult(ref.id, earlier.data(), true);
       if (earlier.exists) throw new HttpsError('permission-denied', 'Reload the page and try again.');
-    }
-    const mine = await transaction.get(db.collection(BOOKINGS)
-      .where('ownerUid', '==', uid).where('date', '==', request.date).where('status', '==', 'approved'));
-    if (mine.size >= MAX_ACTIVE_PER_DAY) {
-      throw new HttpsError('resource-exhausted',
-        `You already have ${MAX_ACTIVE_PER_DAY} reservations on this day. Cancel one in My reservations to make another.`);
     }
     const approved = await approvedOn(transaction, db, request.date);
     const candidate = { ...request, assignments: emptyAssignments() };

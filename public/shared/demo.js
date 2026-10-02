@@ -38,8 +38,7 @@ export const DEMO_CONFIG = {
   noteMax: 1000,
   holdReasonMax: 240,
   keepDays: 56,
-  sessionMinutes: 20,
-  maxActivePerDay: 4
+  sessionMinutes: 20
 };
 
 function addDays(date, days) {

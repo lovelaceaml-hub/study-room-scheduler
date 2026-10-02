@@ -14,7 +14,7 @@ const { lobbyDates, dayInfo } = require('../functions/lib/schedule.js');
 const { clientConfig } = require('../functions/lib/views.js');
 
 const CONFIG = {
-  windowDays: 4, hold: 'blocked', nameMax: 120, noteMax: 1000, holdReasonMax: 240, keepDays: 56, sessionMinutes: 20, maxActivePerDay: 4,
+  windowDays: 4, hold: 'blocked', nameMax: 120, noteMax: 1000, holdReasonMax: 240, keepDays: 56, sessionMinutes: 20,
   ...clientConfig()
 };
 const SATURDAY = '2026-10-03';

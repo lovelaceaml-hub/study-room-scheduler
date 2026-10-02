@@ -3,7 +3,7 @@
 // Cloud Functions for LV Zion Study Rooms. Each endpoint checks who is calling,
 // then hands off to lib/: config.js (the rules), schedule.js (dates and times),
 // bookings.js (booking rules), actions.js (database changes), views.js (what
-// each page may see) and guard.js (sign-in, limits, Admin PIN).
+// each page may see) and guard.js (sign-in, Admin PIN limits).
 
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
@@ -50,7 +50,6 @@ exports.memberSubmitBooking = member(async request => {
   const uid = guard.requireUser(request);
   const repeat = await actions.repeatedReservation(db, request.data?.requestId, uid);
   if (repeat) return repeat;
-  await guard.limitReservationRequests(db, request);
   const reservation = checked(() => parseMemberRequest(request.data));
   return actions.submitReservation(db, reservation, uid);
 });
@@ -61,7 +60,6 @@ exports.memberCancelBooking = member(async request => {
   return { ok: true };
 });
 
-// Ending early only frees time, so it needs no request limit.
 exports.memberEndBookingEarly = member(async request => {
   const uid = guard.requireUser(request);
   return actions.endEarly(db, request.data?.bookingId, request.data?.end, uid, uid);

@@ -27,8 +27,7 @@ function clientConfig() {
     noteMax: config.NOTE_MAX,
     holdReasonMax: config.HOLD_REASON_MAX,
     keepDays: config.KEEP_DAYS,
-    sessionMinutes: config.ADMIN_SESSION_MINUTES,
-    maxActivePerDay: config.MAX_ACTIVE_PER_DAY
+    sessionMinutes: config.ADMIN_SESSION_MINUTES
   };
 }
 

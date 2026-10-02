@@ -1,13 +1,12 @@
 'use strict';
 
-// Who is calling: the signed-in device, request limits, and the Admin PIN.
+// Who is calling: the signed-in device, and the Admin PIN with its limits.
 
 const crypto = require('node:crypto');
 const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const { HttpsError } = require('firebase-functions/v2/https');
 const {
-  MAX_REQUESTS_PER_DEVICE, MAX_REQUESTS_PER_NETWORK, MAX_PIN_FAILURES, MAX_PIN_FAILURES_TOTAL,
-  RATE_WINDOW_MINUTES, ADMIN_SESSION_MINUTES
+  MAX_PIN_FAILURES, MAX_PIN_FAILURES_TOTAL, RATE_WINDOW_MINUTES, ADMIN_SESSION_MINUTES
 } = require('./config');
 
 const LIMITS = 'adminRateLimits';
@@ -94,20 +93,6 @@ async function countAttempt(db, counters, now) {
     });
     return { blocked: -1, over, windowStarts: states.map(state => state.windowStart.toMillis()) };
   });
-}
-
-// Reservation requests are limited per device, and more loosely per network
-// so that everyone on the church Wi-Fi can still book.
-async function limitReservationRequests(db, request) {
-  const counters = [
-    { ref: limitRef(db, `member-device:${requireUser(request)}`), allowed: MAX_REQUESTS_PER_DEVICE, source: 'this device' },
-    { ref: limitRef(db, `member-submit:${networkOf(clientAddress(request))}`), allowed: MAX_REQUESTS_PER_NETWORK, source: 'this network' }
-  ];
-  const counted = await countAttempt(db, counters, Timestamp.now());
-  const refused = counted.blocked >= 0 ? counted.blocked : counted.over.indexOf(true);
-  if (refused >= 0) {
-    throw new HttpsError('resource-exhausted', `Too many reservation requests from ${counters[refused].source}. Wait a few minutes and try again.`);
-  }
 }
 
 // ---------- Admin PIN and sessions ----------
@@ -229,4 +214,4 @@ async function removeExpired(db, now = new Date()) {
   return { sessions: sessions.size, limits: limits.size };
 }
 
-module.exports = { requireUser, limitReservationRequests, startAdminSession, requireAdmin, removeExpired, networkOf };
+module.exports = { requireUser, startAdminSession, requireAdmin, removeExpired, networkOf };

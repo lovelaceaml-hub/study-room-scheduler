@@ -103,14 +103,6 @@ const NOTE_MAX = 1000;
 // The reason Admin gives for a hold. Only Admin sees it.
 const HOLD_REASON_MAX = 240;
 
-// Per device, per day: active reservations one device may hold.
-const MAX_ACTIVE_PER_DAY = 4;
-
-// Reservation requests allowed in a 15-minute window, per device and per
-// network address (everyone on the church Wi-Fi shares one address).
-const MAX_REQUESTS_PER_DEVICE = 8;
-const MAX_REQUESTS_PER_NETWORK = 60;
-
 // Admin PIN: wrong PINs allowed per address, and in total, in one window. The
 // next attempt is still checked, but it locks PIN sign-in (for that address,
 // or for everyone) for RATE_WINDOW_MINUTES from that attempt. A correct PIN
@@ -138,9 +130,6 @@ module.exports = {
   NAME_MAX,
   NOTE_MAX,
   HOLD_REASON_MAX,
-  MAX_ACTIVE_PER_DAY,
-  MAX_REQUESTS_PER_DEVICE,
-  MAX_REQUESTS_PER_NETWORK,
   MAX_PIN_FAILURES,
   MAX_PIN_FAILURES_TOTAL,
   RATE_WINDOW_MINUTES,
