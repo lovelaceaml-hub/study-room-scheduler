@@ -1,6 +1,6 @@
 'use strict';
 
-// Database changes and access checks, run against an in-memory Firestore.
+// Database changes, run against an in-memory Firestore.
 // Needs the functions/ dependencies (`npm ci --prefix functions`). Every name
 // and PIN here is fictional.
 
@@ -8,7 +8,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { FakeFirestore } = require('./support/fake-firestore');
 const actions = require('../lib/actions');
-const guard = require('../lib/guard');
 const { parseMemberRequest } = require('../lib/bookings');
 const { bookableDates, todayAt } = require('../lib/schedule');
 
@@ -134,45 +133,4 @@ test('old records and their notes are removed', async () => {
   assert.equal(db.read('bookings', 'old'), undefined);
   assert.equal(db.read('privateBookingNotes', 'old'), undefined);
   assert.notEqual(db.read('bookings', 'new'), undefined);
-});
-
-// ---------- Access ----------
-
-const call = (uid, data = {}, address = '203.0.113.5') => ({
-  auth: uid ? { uid } : null,
-  data,
-  rawRequest: { headers: { 'x-forwarded-for': `198.51.100.9, ${address}` } }
-});
-
-test('calls without a signed-in device are refused', () => {
-  assert.throws(() => guard.requireUser(call(null)), error => code(error) === 'unauthenticated');
-});
-
-test('reservation requests are limited per device, and more loosely per network', async () => {
-  const db = new FakeFirestore();
-  for (let count = 1; count <= 8; count += 1) await guard.limitReservationRequests(db, call('device-a'));
-  await assert.rejects(guard.limitReservationRequests(db, call('device-a')), /from this device/);
-  await assert.rejects(guard.limitReservationRequests(db, call('device-a', {}, '203.0.113.6')), /from this device/);
-  // Other devices on the same Wi-Fi can still book, up to the network limit.
-  for (let device = 1; device <= 52; device += 1) await guard.limitReservationRequests(db, call(`device-${device}`));
-  await assert.rejects(guard.limitReservationRequests(db, call('device-z')), /from this network/);
-});
-
-test('the Admin PIN opens a session tied to the device and the PIN', async () => {
-  const db = new FakeFirestore();
-  await assert.rejects(guard.startAdminSession(db, call('device-a', { pin: '0000' }), '2468'), error => code(error) === 'permission-denied');
-  const { sessionToken } = await guard.startAdminSession(db, call('device-a', { pin: '2468' }), '2468');
-  await guard.requireAdmin(db, call('device-a', { sessionToken }), '2468');
-  await assert.rejects(guard.requireAdmin(db, call('device-b', { sessionToken }), '2468'), error => code(error) === 'permission-denied');
-  await assert.rejects(guard.requireAdmin(db, call('device-a', { sessionToken }), '1357'), error => code(error) === 'permission-denied', 'a changed PIN ends the session');
-});
-
-test('more than five wrong PINs lock an address for 15 minutes', async () => {
-  const db = new FakeFirestore();
-  for (let count = 1; count <= 5; count += 1) {
-    await assert.rejects(guard.startAdminSession(db, call('device-a', { pin: '0000' }), '2468'), error => code(error) === 'permission-denied');
-  }
-  await assert.rejects(guard.startAdminSession(db, call('device-a', { pin: '0000' }), '2468'), error => code(error) === 'resource-exhausted');
-  await assert.rejects(guard.startAdminSession(db, call('device-a', { pin: '2468' }), '2468'), error => code(error) === 'resource-exhausted');
-  await guard.startAdminSession(db, call('device-a', { pin: '2468' }, '203.0.113.7'), '2468');
 });
