@@ -47,17 +47,19 @@ config.js itself makes sense (real dates, services on the grid, and so on).
 public/            the website (Firebase Hosting)
   index.html       member app
   app/             member app: main.js (schedule), booking.js, details.js, mine.js, store.js (data)
-  admin/           Admin page
-  tv.html, tv/     lobby TV
-  shared/          code and styles all three pages use
+  admin/           Admin page: admin.js, session.js (PIN, lock and session timing)
+  tv.html, tv/     lobby TV: tv.js, status.js (each room's "In use", "Free until" line)
+  shared/          code and styles all three pages use, including availability.js (the
+                   browser's copy of the booking rules)
   sw.js            offline support
 functions/         Cloud Functions
   index.js         the endpoints
   lib/config.js    the rules
   lib/             schedule.js (dates), bookings.js (booking rules), actions.js (database
                    changes), views.js (what each page may see), guard.js (sign-in, limits, PIN),
-                   names.js (public names)
-test/              rules tests and browser tests
+                   names.js (public names), config-check.js (refuses a config.js with mistakes)
+  test/            server tests, with an in-memory Firestore
+test/              browser/server agreement tests and browser tests
 firestore.rules    browsers cannot read or write the database directly
 legacy/            the old address, which redirects here
 ```
