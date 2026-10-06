@@ -108,6 +108,9 @@ jobs:
       - name: "Pre-release checks: browser tests (fictional data, fake Firebase)"
         run: npm run test:browser
 
+      - name: Read-only release checker against loopback fixtures
+        run: npm run test:release-check
+
       - name: Check the deploy guard refuses forbidden targets
         run: bash .github/scripts/deploy-guard.sh --self-test
 
@@ -143,6 +146,9 @@ jobs:
                 echo "> **Note:** this run could not check whether Functions or rules files changed (see the top of this summary). Only Hosting was deployed." ;;
             esac
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post-release read-only page and schedule check
+        run: node .github/scripts/preview-page-check.mjs https://lvrooms.web.app / /admin/ /tv.html --require-lobby-schedule
 
       - name: Remove the deploy credential
         if: always()

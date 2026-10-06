@@ -7,15 +7,22 @@
 // previews use the same live data as production. Service workers are blocked
 // so every request goes through that filter.
 //
-// Usage: node .github/scripts/preview-page-check.mjs <base URL> <path> [<path> ...]
+// Usage: node .github/scripts/preview-page-check.mjs <base URL> <path> [<path> ...] [--require-lobby-schedule]
 import { chromium } from 'playwright';
+import { assertLobbySchedule } from './lobby-schedule-check.mjs';
 
-const [base, ...paths] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const requireSchedule = args.includes('--require-lobby-schedule');
+const [base, ...paths] = args.filter(arg => arg !== '--require-lobby-schedule');
 if (!base || !/^https?:\/\/[^/]+$/.test(base.replace(/\/$/, '')) || paths.length === 0) {
-  console.error('usage: node preview-page-check.mjs <base URL> <path> [<path> ...]');
+  console.error('usage: node preview-page-check.mjs <base URL> <path> [<path> ...] [--require-lobby-schedule]');
   process.exit(2);
 }
 const origin = new URL(base).origin;
+if (requireSchedule && !paths.includes('/tv.html')) {
+  console.error('--require-lobby-schedule requires /tv.html');
+  process.exit(2);
+}
 const SETTLE_MS = 5000;
 const short = (u) => { try { const x = new URL(u); return x.origin + x.pathname; } catch { return String(u); } };
 
@@ -38,6 +45,16 @@ try {
     const pageErrors = [];
     const loadErrors = [];
     const consoleErrors = [];
+    const scheduleReads = [];
+    const checkSchedule = requireSchedule && path === '/tv.html';
+    if (checkSchedule) page.on('response', response => {
+      if (new URL(response.url()).origin !== origin || new URL(response.url()).pathname !== '/api/lobby-schedule') return;
+      const receivedAt = Date.now();
+      scheduleReads.push((async () => {
+        if (response.request().method() !== 'GET' || response.status() !== 200) throw new Error('lobby schedule: expected GET HTTP 200');
+        assertLobbySchedule(await response.json(), receivedAt);
+      })().then(() => null, error => error.message));
+    });
     page.on('pageerror', (error) => pageErrors.push(error?.message || String(error)));
     page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
     const ownAsset = (request) => request.url().startsWith(origin + '/') && ['document', 'script', 'stylesheet'].includes(request.resourceType());
@@ -56,6 +73,13 @@ try {
       loadErrors.push(`navigation failed: ${error.message.split('\n')[0]}`);
     }
     await page.waitForTimeout(SETTLE_MS);
+    if (checkSchedule) {
+      try {
+        await page.waitForFunction(() => document.querySelector('#connection')?.dataset.status === 'live' && document.querySelector('#board')?.children.length > 0 && !document.querySelector('#board')?.textContent.includes('Loading the schedule'), null, { timeout: 25000 });
+      } catch { loadErrors.push('TV did not render a live schedule'); }
+      if (!scheduleReads.length) loadErrors.push('TV did not request /api/lobby-schedule');
+      for (const problem of await Promise.all(scheduleReads)) if (problem) loadErrors.push(problem);
+    }
     const finalUrl = page.url();
     await page.close();
 
