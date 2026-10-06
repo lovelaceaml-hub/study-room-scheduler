@@ -7,8 +7,8 @@ const { mock, before, beforeEach, after } = require('node:test');
 const config = require('../../lib/config');
 const { parseMemberRequest, takeoverTarget, emptyAssignments, unitIds } = require('../../lib/bookings');
 
-// Thursday, October 1, 2026, 9:00 AM in Las Vegas. Saturday is the only day
-// open for reservations (today plus the next 3 days).
+// Thursday, October 1, 2026, 9:00 AM in Las Vegas. Thursday through Sunday
+// are open for reservations (today plus the next 3 days).
 const THURSDAY = new Date('2026-10-01T16:00:00Z');
 const SATURDAY = '2026-10-03';
 const TUESDAY = '2026-10-06';
@@ -19,18 +19,23 @@ function local(date, time) {
 }
 
 // Mocks Date (and so Timestamp.now) for every test in the file, starting each
-// test on Thursday morning, and keeps SPECIAL_DAYS empty. The array is shared
-// by reference with schedule.js, so it is emptied and refilled in place.
+// test on Thursday morning, keeps SPECIAL_DAYS empty and puts back any weekday
+// a test took out of WEEKLY_DAYS. Both are shared by reference with
+// schedule.js, so they are changed in place.
 function useFixedClock() {
   const saved = [...config.SPECIAL_DAYS];
+  const weekly = { ...config.WEEKLY_DAYS };
+  const restoreWeekly = () => Object.assign(config.WEEKLY_DAYS, weekly);
   before(() => mock.timers.enable({ apis: ['Date'], now: THURSDAY }));
   beforeEach(() => {
     mock.timers.setTime(THURSDAY.getTime());
     config.SPECIAL_DAYS.length = 0;
+    restoreWeekly();
   });
   after(() => {
     mock.timers.reset();
     config.SPECIAL_DAYS.splice(0, config.SPECIAL_DAYS.length, ...saved);
+    restoreWeekly();
   });
 }
 

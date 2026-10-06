@@ -13,7 +13,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 // The browser tests run on a fixed church-clock time, so they never depend on
 // the weekday or the hour they happen to run at: Saturday, October 3, 2026,
 // 9:00 AM in Los Angeles (before the 10:00 AM opening). On that clock the
-// booking days are Saturday Oct 3 and Tuesday Oct 6.
+// booking days are Saturday Oct 3 through Tuesday Oct 6.
 export const TEST_NOW = new Date('2026-10-03T09:00:00-07:00');
 
 export async function start() {

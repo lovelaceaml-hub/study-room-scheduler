@@ -85,7 +85,7 @@ test('the member schedule has every active reservation, plus only this device\'s
   const view = await run('memberSchedule', 'device-a');
   assert.equal(view.version, 2);
   assert.equal(view.serverTime, Date.now(), 'the server time, so pages can correct a wrong device clock');
-  assert.deepEqual(view.days.map(day => day.date), [SATURDAY]);
+  assert.deepEqual(view.days.map(day => day.date), ['2026-10-01', '2026-10-02', SATURDAY, '2026-10-04']);
   assert.deepEqual(view.bookings.map(row => [row.id, row.mine]), [['mine', true], ['theirs', false]]);
   assert.deepEqual(view.mine.map(row => [row.id, row.status]), [['mine', 'approved'], ['my-cancel', 'cancelled']]);
   assert.equal(JSON.stringify(view).includes('device-b'), false);
@@ -136,7 +136,7 @@ test('the lobby gets public rows only, with CORS and caching', async () => {
   assert.equal(response.statusCode, 200);
   assert.deepEqual(Object.keys(response.body), ['version', 'generatedAt', 'config', 'days', 'bookings']);
   assert.equal(response.body.generatedAt, THURSDAY.toISOString());
-  assert.deepEqual(response.body.days.map(day => day.date), ['2026-10-01', SATURDAY]);
+  assert.deepEqual(response.body.days.map(day => day.date), ['2026-10-01', '2026-10-02', SATURDAY, '2026-10-04']);
   assert.deepEqual(response.body.bookings, [
     { date: SATURDAY, start: '11:00', end: '12:00', room: 'room-2', name: 'Reserved' },
     { date: SATURDAY, start: '11:00', end: '12:00', room: 'room-1', name: 'S Grace' }

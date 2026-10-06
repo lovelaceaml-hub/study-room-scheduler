@@ -278,7 +278,7 @@ test('unit names come from the server config', () => {
 
 test('demo mode uses the same rules and days as the server, every day of the week', t => {
   assert.deepEqual(DEMO_CONFIG, JSON.parse(JSON.stringify(config)));
-  assert.deepEqual(Object.keys(serverConfig.WEEKLY_DAYS).map(Number), [2, 6]);
+  assert.deepEqual(Object.keys(serverConfig.WEEKLY_DAYS).map(Number), [0, 1, 2, 3, 4, 5, 6]);
   const special = serverConfig.SPECIAL_DAYS.splice(0);
   t.after(() => serverConfig.SPECIAL_DAYS.push(...special));
   for (let offset = 0; offset < 14; offset += 1) {

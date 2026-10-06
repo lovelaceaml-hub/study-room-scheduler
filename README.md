@@ -9,7 +9,7 @@ Members reserve study rooms, whiteboards and TVs; the lobby TV shows the day's r
 
 ## How it works
 
-- Members book Tuesdays and Saturdays from today through the next three days, on a
+- Members book any day of the week from today through the next three days, on a
   30-minute grid from 10:00 AM to 11:00 PM, around service times. A time that has already
   begun can't be reserved: at 11:10 the earliest start is 11:30. A reservation is confirmed
   right away.
