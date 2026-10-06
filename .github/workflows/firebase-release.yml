@@ -1,7 +1,8 @@
 # Release: publishes main to the live site. It runs only when started from the
 # Actions tab ("Run workflow"), only from main, and only for the pinned Hosting
 # scope below, after the repository's own pre-release checks pass.
-# Functions, Firestore rules and indexes stay manual.
+# Functions and Firestore rules go out through "Firebase backend release"
+# (firebase-backend-release.yml); indexes stay manual.
 name: Firebase release (production)
 
 on:

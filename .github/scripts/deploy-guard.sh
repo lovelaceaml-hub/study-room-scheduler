@@ -8,6 +8,14 @@
 #   .github/scripts/deploy-guard.sh hosting:channel:deploy <channel> [--only <target>] --project <id> --expires <n>d --json
 #   .github/scripts/deploy-guard.sh --self-test
 #
+# Backend modes (Cloud Functions by name, Firestore rules) are handled by
+# backend-guard.sh, reached through this file so there is one entry point:
+#   .github/scripts/deploy-guard.sh functions-source
+#   .github/scripts/deploy-guard.sh functions-scope <NONE|ALL|name,name>
+#   .github/scripts/deploy-guard.sh command <functions|rules|list> npx --yes firebase-tools@15 ...
+#   .github/scripts/deploy-guard.sh functions-result <exit code> <log> <names...>
+# The Hosting checks below still refuse every Functions and rules target.
+#
 # Exit 0 means the command matches the pinned scope exactly. Anything else exits 1.
 set -euo pipefail
 
@@ -69,8 +77,15 @@ self_test() {
 }
 
 [ "$#" -ge 1 ] || fail "no command given (a bare 'firebase' call is not allowed)"
+case "$1" in
+  pinned|functions-scope|functions-only|functions-source|command|functions-result)
+    exec bash "$(dirname "${BASH_SOURCE[0]}")/backend-guard.sh" "$@" ;;
+esac
 if [ "$1" = "--self-test" ]; then
-  self_test
+  hosting_ok=0; backend_ok=0
+  self_test || hosting_ok=1
+  bash "$(dirname "${BASH_SOURCE[0]}")/backend-guard.sh" self-test || backend_ok=1
+  [ "$hosting_ok" -eq 0 ] && [ "$backend_ok" -eq 0 ]
   exit $?
 fi
 
