@@ -5,7 +5,12 @@
 import { nowIn } from './format.js';
 
 const SERVICES = {
+  0: [],
+  1: [],
   2: [{ start: '19:30', end: '20:30', label: 'Evening service' }],
+  3: [],
+  4: [],
+  5: [],
   6: [
     { start: '10:00', end: '11:00', label: 'Morning service' },
     { start: '14:30', end: '15:30', label: 'Afternoon service' },

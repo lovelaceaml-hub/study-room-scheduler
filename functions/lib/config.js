@@ -16,11 +16,17 @@ const SLOT_MINUTES = 30;
 const BOOKING_WINDOW_DAYS = 4;
 
 // Regular booking days by weekday (0 = Sunday, 6 = Saturday), each with the
-// services that block reservations on that day.
+// services that block reservations on that day. Every day can be booked; days
+// with no services are open the whole time.
 const WEEKLY_DAYS = {
+  0: [],
+  1: [],
   2: [
     { start: '19:30', end: '20:30', label: 'Evening service' }
   ],
+  3: [],
+  4: [],
+  5: [],
   6: [
     { start: '10:00', end: '11:00', label: 'Morning service' },
     { start: '14:30', end: '15:30', label: 'Afternoon service' },

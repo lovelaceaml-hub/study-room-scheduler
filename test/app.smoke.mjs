@@ -1,6 +1,6 @@
 // Member app in a real browser, against a fake Firebase that answers like
 // the Cloud Functions. Every page runs on the harness's fixed church clock
-// (Saturday, October 3, 2026, 9:00 AM; booking days Saturday Oct 3 and
+// (Saturday, October 3, 2026, 9:00 AM; booking days Saturday Oct 3 through
 // Tuesday Oct 6) unless a test sets another time, so nothing depends on the
 // day the tests run. Every name is fictional.
 
@@ -23,7 +23,7 @@ const MINUTE = 60 * 1000;
 const daysAt = now => bookableDates(now).map(dayInfo);
 const TODAY = todayAt(TEST_NOW);
 // Tuesday: no time on it has passed, and the times below are clear of its services.
-const DAY = daysAt(TEST_NOW).find(day => day.date !== TODAY).date;
+const DAY = daysAt(TEST_NOW).find(day => day.date !== TODAY && day.services.length).date;
 const DAY_LABEL = formatDay(DAY);
 // The server's rules, with the fields the server contract adds filled in
 // for a server that does not send them yet.
@@ -216,10 +216,10 @@ test('at 4:10 PM the first open start today is 4:30 PM', async () => {
   await context.close();
 });
 
-test('late on Saturday the page opens on Tuesday, and Saturday says it has no times left', async () => {
+test('late on Saturday the page opens on Sunday, and Saturday says it has no times left', async () => {
   const now = saturdayAt('23:10');
   const { page, errors, context } = await openApp('', { now, fixture: schedule({ now, bookings: [], mine: [] }), day: null });
-  await page.locator(`[data-date="${DAY}"][aria-pressed="true"]`).waitFor();
+  await page.locator('[data-date="2026-10-04"][aria-pressed="true"]').waitFor();
   await page.locator(`[data-date="${TODAY}"]`).click();
   await page.locator('#hint', { hasText: 'No more open times on this day.' }).waitFor();
   assert.equal(await page.locator('.open-slot').count(), 0);

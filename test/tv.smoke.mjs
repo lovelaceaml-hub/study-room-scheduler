@@ -24,8 +24,14 @@ const BOOKINGS = [
   { date: SATURDAY, start: '11:00', end: '12:30', room: 'room-1', name: 'B John' },
   { date: SATURDAY, start: '12:00', end: '13:00', room: 'room-3', name: 'Reserved' }
 ];
-const payloadAt = (now, bookings = BOOKINGS) => ({
-  version: 1, generatedAt: now.toISOString(), config: CONFIG, days: lobbyDates(now).map(dayInfo), bookings
+// `closed` lists dates to send as days with no room schedule, as a server
+// whose WEEKLY_DAYS leaves that weekday out would.
+const payloadAt = (now, bookings = BOOKINGS, closed = []) => ({
+  version: 1,
+  generatedAt: now.toISOString(),
+  config: CONFIG,
+  days: lobbyDates(now).map(dayInfo).map(day => closed.includes(day.date) ? { ...day, scheduled: false, services: [] } : day),
+  bookings
 });
 const churchTime = time => new Date(`2026-10-03T${time}:00-07:00`);
 
@@ -35,7 +41,7 @@ after(async () => harness?.stop());
 
 // `state.online` false refuses the request; `state.hang` never answers it.
 // `serverAhead` is how far the server's clock is ahead of the page's.
-async function openTv({ now = TEST_NOW, width = 1920, height = 1080, query = '', bookings = BOOKINGS, timezoneId, cached = null, online = true, serverAhead = 0 } = {}) {
+async function openTv({ now = TEST_NOW, width = 1920, height = 1080, query = '', bookings = BOOKINGS, closed = [], timezoneId, cached = null, online = true, serverAhead = 0 } = {}) {
   const session = await newPage(harness.browser, { width, height, now, timezoneId });
   const state = { online, hang: false, requests: 0 };
   await session.context.route('**/api/lobby-schedule', async route => {
@@ -43,7 +49,7 @@ async function openTv({ now = TEST_NOW, width = 1920, height = 1080, query = '',
     if (state.hang) return;
     if (!state.online) return route.abort();
     const pageNow = await session.page.evaluate(() => Date.now()).catch(() => Date.now());
-    return route.fulfill({ json: payloadAt(new Date(pageNow + serverAhead), bookings) });
+    return route.fulfill({ json: payloadAt(new Date(pageNow + serverAhead), bookings, closed) });
   });
   if (cached) {
     await session.page.goto(`${harness.base}/icon.svg`);
@@ -76,10 +82,10 @@ test('the TV shows each room and the day\'s reservations', async () => {
 });
 
 test('a day with no room schedule says so', async () => {
-  const { page, errors, context } = await openTv({ now: new Date('2026-10-04T12:00:00-07:00') });
+  const { page, errors, context } = await openTv({ now: new Date('2026-10-04T12:00:00-07:00'), closed: ['2026-10-04'] });
   await label(page).filter({ hasText: 'Live' }).waitFor();
   await page.getByRole('heading', { name: 'No room schedule today' }).waitFor();
-  await page.getByText(/^Rooms can be reserved on Tuesday/).waitFor();
+  await page.getByText('Rooms can be reserved on Monday, Tuesday, and Wednesday.').waitFor();
   assert.equal(await pressed(page), 'Today');
   assert.deepEqual(errors, []);
   await context.close();
@@ -126,12 +132,13 @@ test('a request that never answers is given up after 20 seconds', async () => {
 test('an old copy without today is not shown as today\'s schedule', async () => {
   const then = new Date('2026-09-29T15:42:00-07:00');
   const cached = { ...payloadAt(then, [{ date: '2026-09-29', start: '17:00', end: '18:00', room: 'room-1', name: 'B John' }]), savedAt: then.getTime() };
-  const { page, errors, context, state } = await openTv({ now: new Date('2026-10-02T09:15:00-07:00'), cached, online: false });
+  // The copy covers Tuesday through Friday, so on Saturday it has nothing for today.
+  const { page, errors, context, state } = await openTv({ now: new Date('2026-10-03T09:15:00-07:00'), cached, online: false, closed: [SATURDAY] });
   await page.getByRole('heading', { name: 'No current schedule' }).waitFor();
   await page.getByText('Not connected since Tue, Sep 29, 3:42 PM.').waitFor();
   assert.equal(await page.locator('#updated').textContent(), 'Updated Tue, Sep 29, 3:42 PM');
   assert.equal(await label(page).textContent(), 'Reconnecting');
-  assert.equal(await page.locator('#day-label').textContent(), 'Friday, October 2, 2026');
+  assert.equal(await page.locator('#day-label').textContent(), 'Saturday, October 3, 2026');
   assert.equal(await page.locator('.tv-day-button').count(), 0);
   assert.equal(await page.locator('.tv-booking').count(), 0);
   state.online = true;
@@ -150,8 +157,8 @@ test('at midnight the TV moves on to the new day', async () => {
     await page.clock.runFor(30000);
     await settle(page);
   }
-  await page.getByRole('heading', { name: 'No room schedule today' }).waitFor();
-  assert.equal(await page.locator('#day-label').textContent(), 'Sunday, October 4, 2026');
+  await page.locator('#day-label', { hasText: 'Sunday, October 4, 2026' }).waitFor();
+  assert.equal(await page.locator('.tv-room').count(), 4, 'Sunday has a room schedule');
   assert.equal(await pressed(page), 'Today');
   assert.equal(await page.locator('.tv-day-button', { hasText: 'Sat, Oct 3' }).count(), 0, 'yesterday is gone');
   assert.equal(await label(page).textContent(), 'Live');

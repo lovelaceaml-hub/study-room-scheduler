@@ -15,7 +15,7 @@ const { THURSDAY, SATURDAY, TUESDAY, local, useFixedClock } = require('./support
 
 useFixedClock();
 
-// Saturday before the morning service: Saturday and Tuesday are both open.
+// Saturday before the morning service: Saturday through Tuesday are open.
 const SATURDAY_MORNING = local(SATURDAY, '08:00');
 
 function approved(fields) {
@@ -35,19 +35,25 @@ function approved(fields) {
 test('members and Admin can book today plus the next 3 days', () => {
   assert.equal(config.BOOKING_WINDOW_DAYS, 4);
   const open = date => schedule.bookableDates(date);
-  assert.deepEqual(open(local('2026-09-30', '09:00')), [SATURDAY], 'Wednesday: Saturday');
-  assert.deepEqual(open(THURSDAY), [SATURDAY]);
-  assert.deepEqual(open(SATURDAY_MORNING), [SATURDAY, TUESDAY], 'Saturday: Saturday and Tuesday');
-  assert.deepEqual(open(local(SATURDAY, '23:59')), [SATURDAY, TUESDAY]);
-  assert.deepEqual(open(local('2026-10-04', '00:00')), [TUESDAY], 'Sunday: Tuesday');
-  assert.deepEqual(open(local('2026-10-05', '12:00')), [TUESDAY], 'Monday: Tuesday');
-  assert.deepEqual(open(local(TUESDAY, '12:00')), [TUESDAY]);
-  assert.deepEqual(open(local('2026-10-07', '00:00')), ['2026-10-10'], 'the next Wednesday: the next Saturday');
+  assert.deepEqual(Object.keys(config.WEEKLY_DAYS).map(Number), [0, 1, 2, 3, 4, 5, 6], 'every day is a booking day');
+  assert.deepEqual(open(local('2026-09-30', '09:00')), ['2026-09-30', '2026-10-01', '2026-10-02', SATURDAY], 'Wednesday: through Saturday');
+  assert.deepEqual(open(THURSDAY), ['2026-10-01', '2026-10-02', SATURDAY, '2026-10-04']);
+  assert.deepEqual(open(SATURDAY_MORNING), [SATURDAY, '2026-10-04', '2026-10-05', TUESDAY], 'Saturday: through Tuesday');
+  assert.deepEqual(open(local(SATURDAY, '23:59')), [SATURDAY, '2026-10-04', '2026-10-05', TUESDAY]);
+  assert.deepEqual(open(local('2026-10-04', '00:00')), ['2026-10-04', '2026-10-05', TUESDAY, '2026-10-07'], 'Sunday: through Wednesday');
+  assert.deepEqual(open(local(TUESDAY, '12:00')), [TUESDAY, '2026-10-07', '2026-10-08', '2026-10-09']);
+  assert.deepEqual(schedule.servicesOn('2026-10-05'), [], 'a day with no services is open all day');
+
+  // A weekday taken out of WEEKLY_DAYS is skipped.
+  delete config.WEEKLY_DAYS[0];
+  assert.deepEqual(open(THURSDAY), ['2026-10-01', '2026-10-02', SATURDAY], 'no Sunday');
 });
 
 test('the lobby also shows today when today is not a booking day', () => {
-  assert.deepEqual(schedule.lobbyDates(THURSDAY), ['2026-10-01', SATURDAY]);
-  assert.deepEqual(schedule.lobbyDates(local('2026-10-04', '12:00')), ['2026-10-04', TUESDAY]);
+  assert.deepEqual(schedule.lobbyDates(THURSDAY), schedule.bookableDates(THURSDAY), 'today is a booking day');
+  delete config.WEEKLY_DAYS[4];
+  assert.deepEqual(schedule.lobbyDates(THURSDAY), ['2026-10-01', '2026-10-02', SATURDAY, '2026-10-04']);
+  assert.deepEqual(schedule.bookableDates(THURSDAY), ['2026-10-02', SATURDAY, '2026-10-04']);
 });
 
 test('a special day is bookable from its opening day through the day itself', () => {
@@ -58,20 +64,20 @@ test('a special day is bookable from its opening day through the day itself', ()
   assert.equal(schedule.bookableDates(local('2026-10-12', '22:00')).includes('2026-10-12'), true);
   assert.equal(schedule.bookableDates(local('2026-10-13', '09:00')).includes('2026-10-12'), false);
   assert.deepEqual(schedule.servicesOn('2026-10-12'), day.services);
-  assert.deepEqual(schedule.lobbyDates(local('2026-10-12', '09:00')), ['2026-10-12', '2026-10-13']);
+  assert.deepEqual(schedule.lobbyDates(local('2026-10-12', '09:00')), ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15']);
 });
 
 test('a special day on a regular booking day obeys its own opening day and services', () => {
   // The next Saturday would normally open on Wednesday, October 7.
   config.SPECIAL_DAYS.push({ date: '2026-10-10', opens: '2026-10-09', services: [] });
-  assert.deepEqual(schedule.bookableDates(local('2026-10-07', '12:00')), []);
+  assert.deepEqual(schedule.bookableDates(local('2026-10-07', '12:00')), ['2026-10-07', '2026-10-08', '2026-10-09']);
   assert.equal(schedule.timeError('2026-10-10', '10:00', '11:00', local('2026-10-07', '12:00')), 'That day is not open for reservations.');
-  assert.deepEqual(schedule.bookableDates(local('2026-10-09', '00:00')), ['2026-10-10']);
+  assert.deepEqual(schedule.bookableDates(local('2026-10-09', '00:00')), ['2026-10-09', '2026-10-10', '2026-10-11', '2026-10-12']);
   assert.equal(schedule.timeError('2026-10-10', '10:00', '11:00', local('2026-10-09', '00:00')), null, 'no morning service that day');
 
   // Opening earlier than usual works too.
   config.SPECIAL_DAYS.push({ date: SATURDAY, opens: '2026-09-26', services: [] });
-  assert.deepEqual(schedule.bookableDates(local('2026-09-28', '12:00')), ['2026-09-29', SATURDAY]);
+  assert.deepEqual(schedule.bookableDates(local('2026-09-28', '12:00')), ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', SATURDAY]);
   assert.equal(schedule.timeError(SATURDAY, '10:00', '11:00', THURSDAY), null);
   config.SPECIAL_DAYS.length = 0;
   assert.equal(schedule.timeError(SATURDAY, '10:00', '11:00', THURSDAY), 'That time overlaps a service.');
@@ -90,8 +96,11 @@ test('reservation times stay on the grid, inside hours and clear of services', (
   assert.equal(error(SATURDAY, '22:30', '23:30'), 'Reservations must be between 10:00 AM and 11:00 PM.');
   assert.equal(error(SATURDAY, '09:30', '10:30'), 'Reservations must be between 10:00 AM and 11:00 PM.');
   assert.equal(error(SATURDAY, '12:00', '12:00'), 'Reservations must be between 10:00 AM and 11:00 PM.');
-  assert.equal(error('2026-10-05', '12:00', '13:00'), 'That day is not open for reservations.');
+  assert.equal(error('2026-10-05', '10:00', '23:00'), null, 'Monday has no services');
+  assert.equal(error('2026-10-07', '12:00', '13:00'), 'That day is not open for reservations.', 'outside the window');
   assert.equal(error('2026-10-10', '12:00', '13:00'), 'That day is not open for reservations.');
+  delete config.WEEKLY_DAYS[1];
+  assert.equal(error('2026-10-05', '12:00', '13:00'), 'That day is not open for reservations.', 'not a booking day');
   assert.equal(schedule.timeError(TUESDAY, '12:00', '13:00', THURSDAY), 'That day is not open for reservations.', 'Tuesday opens on Saturday');
 });
 
@@ -287,8 +296,9 @@ test('Admin limits: hold reason 240, notes 1000, names 120', () => {
 test('Admin adds under the same date rules as members', () => {
   assert.throws(parseAdmin({}, local(SATURDAY, '11:10')), /already passed/);
   assert.throws(parseAdmin({ date: TUESDAY }), /not open/, 'outside the window');
-  assert.throws(parseAdmin({ date: '2026-10-05' }, SATURDAY_MORNING), /not open/, 'not a booking day');
   assert.doesNotThrow(parseAdmin({ date: TUESDAY }, SATURDAY_MORNING));
+  delete config.WEEKLY_DAYS[1];
+  assert.throws(parseAdmin({ date: '2026-10-05' }, SATURDAY_MORNING), /not open/, 'not a booking day');
 });
 
 // ---------- Booking rules ----------
@@ -502,7 +512,9 @@ test('the lobby gets study rooms only, with public names and no private fields',
     { date: SATURDAY, start: '12:00', end: '13:00', room: 'room-3', name: 'Reserved' }
   ]);
   assert.equal(view.generatedAt, THURSDAY.toISOString());
-  assert.deepEqual(lobbyView([], ['2026-10-01'], THURSDAY).days, [{ date: '2026-10-01', scheduled: false, services: [] }]);
+  assert.deepEqual(lobbyView([], ['2026-10-01'], THURSDAY).days, [{ date: '2026-10-01', scheduled: true, services: [] }]);
+  delete config.WEEKLY_DAYS[4];
+  assert.deepEqual(lobbyView([], ['2026-10-01'], THURSDAY).days, [{ date: '2026-10-01', scheduled: false, services: [] }], 'not a booking day');
 });
 
 test('Admin rows carry everything Admin needs and nothing else', () => {
