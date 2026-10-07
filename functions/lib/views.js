@@ -98,8 +98,9 @@ function cancelledByAdmin(booking) {
 }
 
 // What a priority reservation changed: 'moved' to another unit, 'shortened'
-// to end earlier, or 'released' because nothing else was free. Nothing once
-// the reservation is cancelled.
+// to end earlier, or 'released' because nothing else was free. `forced` is
+// true when it was a Force override rather than priority. Nothing once the
+// reservation is cancelled.
 function noticeView(booking) {
   const notice = booking.priorityNotice;
   if (booking.status === 'cancelled' || !notice || !['moved', 'shortened', 'released'].includes(notice.kind)) return null;
@@ -109,7 +110,8 @@ function noticeView(booking) {
     toUnit: notice.toUnit || null,
     fromEnd: notice.fromEnd || null,
     toEnd: notice.toEnd || null,
-    byPurpose: notice.byPurpose || null
+    byPurpose: notice.byPurpose || null,
+    forced: notice.forced === true
   };
 }
 

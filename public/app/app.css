@@ -298,6 +298,8 @@ body.sheet-open { overflow: hidden; }
 .time small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .time.takeover { border-color: var(--note-line); background: var(--note); color: var(--note-ink); }
 .time .takeover-label { color: var(--note-ink); font-weight: 600; }
+.time.force { border-color: var(--danger-line); background: var(--danger-tint); color: var(--danger-dark); }
+.time.force .takeover-label { color: var(--danger-dark); }
 .time.now { border-color: #a9bd9a; background: var(--primary-tint); }
 .time .now-label { margin: 0 0 2px; color: var(--primary-dark); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
 
@@ -324,6 +326,9 @@ body.sheet-open { overflow: hidden; }
 .takeover-note { margin: 0 0 16px; padding: 10px 12px; border: 1px solid var(--note-line); border-radius: 12px; background: var(--note); color: var(--note-ink); font-size: 13px; overflow-wrap: anywhere; }
 .takeover-note p { margin: 0; }
 .takeover-note p + p { margin-top: 6px; }
+.force-note { border-color: var(--danger-line); background: var(--danger-tint); color: var(--danger-dark); }
+.force-offer { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+.force-offer .hint { margin: 0 0 10px; }
 
 .form-error { margin: 12px 0; color: var(--danger); font-size: 13px; font-weight: 500; }
 

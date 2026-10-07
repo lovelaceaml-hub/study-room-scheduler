@@ -25,7 +25,16 @@ const booking = createBookingSheet({
 });
 const details = createDetailsSheet({
   getState: () => state,
-  onEndEarly: id => mine.open({ view: 'end', id })
+  onEndEarly: id => mine.open({ view: 'end', id }),
+  // Force override from someone's reservation: its unit, from its start or
+  // from now if it is under way.
+  onForce: held => booking.open({
+    date: held.date,
+    type: held.type,
+    unit: held.unit,
+    start: Math.max(toMinutes(held.start), earliestStart(state.config, held.date)),
+    force: true
+  })
 });
 const mine = createMineSheet({
   getState: () => state,

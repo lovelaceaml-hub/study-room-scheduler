@@ -57,9 +57,10 @@ export function noticeText(config, reservation) {
   const by = config.purposes[notice.byPurpose]?.label || 'priority';
   const kind = inSentence(config.resources[reservation.type]?.label || 'unit');
   const from = unitLabel(config, notice.fromUnit) || `your ${kind}`;
-  if (notice.kind === 'shortened') return `A ${by} reservation needed ${from}, so this reservation now ends at ${formatTime(notice.toEnd)}.`;
-  if (notice.kind === 'moved') return `A ${by} reservation needed ${from}, so this reservation moved to ${unitLabel(config, notice.toUnit) || `another ${kind}`}.`;
-  return `A ${by} reservation needed ${from} and no other ${kind} was free, so this reservation was replaced. Choose another time.`;
+  const took = notice.forced ? `Another member used Force override on ${from}` : `A ${by} reservation needed ${from}`;
+  if (notice.kind === 'shortened') return `${took}, so this reservation now ends at ${formatTime(notice.toEnd)}.`;
+  if (notice.kind === 'moved') return `${took}, so this reservation moved to ${unitLabel(config, notice.toUnit) || `another ${kind}`}.`;
+  return `${took} and no other ${kind} was free, so this reservation was replaced. Choose another time.`;
 }
 
 // The connection problem a page or sheet explains, with the button that helps.

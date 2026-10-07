@@ -15,6 +15,7 @@ import { ICONS } from './icons.js';
 import { announce } from './announce.js';
 
 const TAKEOVER_LABEL = 'Priority override';
+const FORCE_LABEL = 'Force override';
 const NOT_OPEN = 'This time is no longer open. Go back and choose another time.';
 const PASSED = 'This start time has passed. Close this and choose a later time.';
 const CHANGED = 'The schedule changed while you were deciding. Check the details and confirm again.';
@@ -48,12 +49,14 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   const config = () => state().config;
   const day = () => state().days.find(item => item.date === draft.date) || null;
   const rows = () => state().bookings.filter(row => row.type === draft.type);
-  const steps = () => draft.fixed ? ['purpose', 'end', 'names', 'confirm']
+  // A Force override adds a warning step after the confirmation.
+  const steps = () => (draft.fixed ? ['purpose', 'end', 'names', 'confirm']
     : draft.typeGiven ? ['purpose', 'start', 'end', 'names', 'confirm']
-    : ['type', 'purpose', 'start', 'end', 'names', 'confirm'];
+    : ['type', 'purpose', 'start', 'end', 'names', 'confirm']).concat(draft.forced ? ['force'] : []);
 
   // `preset`: { date, type } from the Reserve button, { date } from "Reserve
-  // something else", or { date, type, unit, start } from a tapped time.
+  // something else", { date, type, unit, start } from a tapped time, or the
+  // same with `force: true` from "Force override" on someone's reservation.
   function open(preset = {}) {
     // Still saving the last one: show it rather than starting over.
     if (saving) {
@@ -76,6 +79,10 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       end: null,
       purpose: null,
       takeover: false,
+      // `force`: taken times are offered as Force overrides. `forced`: the
+      // chosen time is one, so the warning step must be confirmed.
+      force: preset.force === true,
+      forced: false,
       name: readStored(NAME_KEY) || '',
       reservedFor: ''
     };
@@ -104,8 +111,8 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     step = past.pop();
     error = '';
     errorField = null;
-    if (step === 'start') Object.assign(draft, { start: null, end: null, takeover: false });
-    if (step === 'end') Object.assign(draft, { end: null, takeover: false });
+    if (step === 'start') Object.assign(draft, { start: null, end: null, takeover: false, forced: false });
+    if (step === 'end') Object.assign(draft, { end: null, takeover: false, forced: false });
     if (!draft.fixed && (step === 'start' || step === 'end')) draft.unit = null;
     render({ focus: 'h2' });
   }
@@ -133,7 +140,8 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     wasReady = ready;
     if (!day()) error = 'This day is no longer open for reservations. Close this and choose another day.';
     else if (step === 'confirm') followSchedule();
-    if (['start', 'end', 'confirm'].includes(step) || readyChanged || !day()) render();
+    else if (step === 'force' && !followSchedule()) step = past.pop();
+    if (['start', 'end', 'confirm', 'force'].includes(step) || readyChanged || !day()) render();
   }
 
   // Keeps the confirmation in line with the schedule: the unit the server
@@ -142,8 +150,8 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   function followSchedule() {
     const choice = currentChoice();
     if (!choice) return true;
-    if (choice.takeover !== draft.takeover || (choice.takeover && choice.unit !== draft.unit)) {
-      Object.assign(draft, { unit: choice.unit, takeover: choice.takeover });
+    if (choice.takeover !== draft.takeover || choice.force !== draft.forced || (choice.takeover && choice.unit !== draft.unit)) {
+      Object.assign(draft, { unit: choice.unit, takeover: choice.takeover, forced: choice.force });
       error = CHANGED;
       return false;
     }
@@ -187,14 +195,14 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   // The message under the current step: a start that has passed or a time
   // that is no longer open outranks the last error.
   function currentError() {
-    if (saving || !['names', 'confirm'].includes(step)) return error;
+    if (saving || !['names', 'confirm', 'force'].includes(step)) return error;
     if (startPassed()) return PASSED;
-    if (step === 'confirm' && day() && !currentChoice()) return NOT_OPEN;
+    if (step !== 'names' && day() && !currentChoice()) return NOT_OPEN;
     return error;
   }
 
   // These steps show the error just above their main button.
-  const INLINE_ERROR_STEPS = ['names', 'confirm'];
+  const INLINE_ERROR_STEPS = ['names', 'confirm', 'force'];
   const errorLine = () => {
     const message = currentError();
     return message ? `<p class="form-error" id="booking-error" role="alert">${esc(message)}</p>` : '';
@@ -215,21 +223,26 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       </button>`).join('')}</div>`,
 
     start: () => {
-      const choices = day() ? startChoices(config(), rows(), day(), draft.type, draft.purpose, null, earliestStart(config(), draft.date)) : [];
-      if (!choices.length) return heading('Start time', 'No open times on this day. Close this and choose another day, or go back and choose something else.');
-      return heading('Start time', 'Only open times are shown.') + `<div class="times">${choices.map(choice => timeButton('start', choice.start, choice.takeover)).join('')}</div>`;
+      const choices = day() ? startChoices(config(), rows(), day(), draft.type, draft.purpose, null, earliestStart(config(), draft.date), draft.force) : [];
+      if (!choices.length) {
+        return heading('Start time', draft.force
+          ? 'No times on this day, even with Force override. Close this and choose another day, or go back and choose something else.'
+          : 'No open times on this day. Close this and choose another day, or go back and choose something else.') + forceOffer();
+      }
+      return heading('Start time', draft.force ? 'Times marked Force override are held by someone else.' : 'Only open times are shown.')
+        + `<div class="times">${choices.map(choice => timeButton('start', choice.start, choice)).join('')}</div>` + forceOffer();
     },
 
     end: () => {
       if (startPassed()) return heading('End time', PASSED);
-      const choices = day() ? endChoices(config(), rows(), day(), draft.type, draft.start, draft.purpose, draft.fixed ? draft.unit : null) : [];
+      const choices = day() ? endChoices(config(), rows(), day(), draft.type, draft.start, draft.purpose, draft.fixed ? draft.unit : null, draft.force) : [];
       if (!choices.length) {
         return heading('End time', draft.fixed
           ? 'This time is no longer open. Close this and choose another time.'
-          : 'This start time is no longer open. Go back and choose another.');
+          : 'This start time is no longer open. Go back and choose another.') + forceOffer();
       }
-      return heading('End time', `Starting at ${formatTime(draft.start)}.`)
-        + `<div class="times">${choices.map(choice => timeButton('end', choice.end, choice.takeover, formatDuration(choice.end - draft.start))).join('')}</div>`;
+      return heading('End time', `Starting at ${formatTime(draft.start)}.${draft.force ? ' Times marked Force override are held by someone else.' : ''}`)
+        + `<div class="times">${choices.map(choice => timeButton('end', choice.end, choice, formatDuration(choice.end - draft.start))).join('')}</div>` + forceOffer();
     },
 
     names: () => {
@@ -249,9 +262,19 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
         </form>`;
     },
 
-    confirm: () => heading('Confirm reservation') + summary(draft.unit) + (draft.takeover ? takeoverNote() : '')
-      + (state().demo ? '<p class="hint">Demo mode: this practice reservation disappears when you close the page.</p>' : '') + errorLine() + `
-      <button type="button" class="primary" data-action="confirm" data-key="confirm"${disabled()} aria-busy="${saving}">${saving ? '<span class="spinner" aria-hidden="true"></span>Reserving…' : 'Confirm reservation'}</button>`,
+    confirm: () => heading('Confirm reservation') + summary(draft.unit) + (draft.forced ? forceNote() : draft.takeover ? takeoverNote() : '')
+      + (state().demo ? '<p class="hint">Demo mode: this practice reservation disappears when you close the page.</p>' : '') + errorLine()
+      + (draft.forced
+        ? `<button type="button" class="primary danger" data-action="force-step" data-key="force-step"${disabled()}>${FORCE_LABEL}</button>`
+        : `<button type="button" class="primary" data-action="confirm" data-key="confirm"${disabled()} aria-busy="${saving}">${saving ? '<span class="spinner" aria-hidden="true"></span>Reserving…' : 'Confirm reservation'}</button>`),
+
+    // The warning a Force override must get past. It names who loses what.
+    force: () => heading('Are you sure?', 'This replaces another person’s reservation. Only do this if you know they no longer need it.')
+      + forceNote() + errorLine() + `
+      <div class="actions">
+        <button type="button" class="primary danger" data-action="confirm" data-key="confirm"${disabled()} aria-busy="${saving}">${saving ? '<span class="spinner" aria-hidden="true"></span>Reserving…' : 'Yes, override and reserve'}</button>
+        <button type="button" class="text-button" data-action="back" data-key="force-back"${saving ? ' disabled' : ''}>No, go back</button>
+      </div>`,
 
     done: () => `<div class="done-mark" aria-hidden="true">${ICONS.check}</div>` + heading('Reservation confirmed', 'To cancel or end early, open My reservations.') + summary(saved.unit) + `
       <button type="button" class="primary" data-action="show" data-key="show">See it on the schedule</button>
@@ -260,10 +283,9 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   };
 
   // Who the takeover affects and what happens to each, as the server will do it.
-  function takeoverNote() {
+  function effectLines() {
     const kind = inSentence(config().resources[draft.type].label);
-    const place = unitLabel(config(), draft.unit) || `a ${kind}`;
-    const preview = day() ? takeoverEffect(config(), rows(), day(), draft.type, draft.start, draft.end, draft.purpose, draft.unit) : null;
+    const preview = day() ? takeoverEffect(config(), rows(), day(), draft.type, draft.start, draft.end, draft.purpose, draft.unit, undefined, draft.force) : null;
     const affected = preview?.affected || [];
     const lines = affected.map(({ row, effect, toEnd }) => {
       const whose = row.mine ? 'Your reservation there' : `${row.name}’s reservation there`;
@@ -273,16 +295,40 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       return `${whose} will be replaced, because no other ${kind} is free.`;
     });
     if (affected.some(item => !item.row.mine)) lines.push('They see why in My reservations.');
+    return lines;
+  }
+
+  function takeoverNote() {
+    const kind = inSentence(config().resources[draft.type].label);
+    const place = unitLabel(config(), draft.unit) || `a ${kind}`;
     return `<div class="takeover-note" role="note">
       <p><strong>${TAKEOVER_LABEL}.</strong> Every ${esc(kind)} is taken at this time, so you get ${esc(place)}.</p>
-      ${lines.map(line => `<p>${esc(line)}</p>`).join('')}
+      ${effectLines().map(line => `<p>${esc(line)}</p>`).join('')}
     </div>`;
   }
 
-  function timeButton(kind, minutes, takeover, detail = '') {
-    const label = `${formatTime(minutes)}${detail ? `, ${detail}` : ''}${takeover ? `, ${TAKEOVER_LABEL}` : ''}`;
-    return `<button type="button" class="time${takeover ? ' takeover' : ''}" data-${kind}="${minutes}" data-key="${kind}-${minutes}" aria-label="${esc(label)}"${disabled()}>
-      ${formatTime(minutes)}${detail ? `<small>${esc(detail)}</small>` : ''}${takeover ? `<small class="takeover-label">${TAKEOVER_LABEL}</small>` : ''}
+  function forceNote() {
+    const place = unitLabel(config(), draft.unit) || `This ${inSentence(config().resources[draft.type].label)}`;
+    return `<div class="takeover-note force-note" role="alert">
+      <p><strong>${FORCE_LABEL}.</strong> ${esc(place)} is held by someone else at this time.</p>
+      ${effectLines().map(line => `<p>${esc(line)}</p>`).join('')}
+    </div>`;
+  }
+
+  // The button that turns Force override on for the time lists.
+  function forceOffer() {
+    if (draft.force) return '';
+    return `<div class="force-offer">
+      <p class="hint">Is the time you need taken? If you know that reservation is no longer needed, you can take its place.</p>
+      <button type="button" class="secondary danger" data-action="force" data-key="force"${disabled()}>${FORCE_LABEL}</button>
+    </div>`;
+  }
+
+  function timeButton(kind, minutes, { takeover, force }, detail = '') {
+    const mark = force ? FORCE_LABEL : takeover ? TAKEOVER_LABEL : '';
+    const label = `${formatTime(minutes)}${detail ? `, ${detail}` : ''}${mark ? `, ${mark}` : ''}`;
+    return `<button type="button" class="time${force ? ' force' : takeover ? ' takeover' : ''}" data-${kind}="${minutes}" data-key="${kind}-${minutes}" aria-label="${esc(label)}"${disabled()}>
+      ${formatTime(minutes)}${detail ? `<small>${esc(detail)}</small>` : ''}${mark ? `<small class="takeover-label">${mark}</small>` : ''}
     </button>`;
   }
 
@@ -303,7 +349,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   // The best unit for the whole range right now, honoring a tapped unit.
   function currentChoice(end = draft.end) {
     if (!day()) return null;
-    return rangeChoice(config(), rows(), day(), draft.type, draft.start, end, draft.purpose, draft.fixed ? draft.unit : null);
+    return rangeChoice(config(), rows(), day(), draft.type, draft.start, end, draft.purpose, draft.fixed ? draft.unit : null, undefined, draft.force);
   }
 
   // Why the draft cannot be sent as it stands, or ''. Brings the takeover
@@ -332,7 +378,8 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       name: draft.name,
       reservedFor: draft.reservedFor,
       takeover: draft.takeover,
-      takeoverUnit: draft.takeover ? draft.unit : null
+      takeoverUnit: draft.takeover ? draft.unit : null,
+      force: draft.forced
     };
     // The same reservation keeps its request id through every retry, even when
     // the unit or takeover changes (a lost answer may have taken the free
@@ -341,7 +388,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     // names change, since the server may already hold the reservation under
     // the first ones. Reusing an id is always safe: the server either made
     // that reservation or made nothing.
-    const { takeover, takeoverUnit, ...what } = sending;
+    const { takeover, takeoverUnit, force, ...what } = sending;
     const { name, reservedFor, ...when } = what;
     const key = JSON.stringify(what);
     const place = JSON.stringify(when);
@@ -409,7 +456,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     if (!hasText(name)) return showFieldError('name', 'Enter your name.');
     if (!hasText(reservedFor)) return showFieldError('detail', `Enter the ${inSentence(detailLabel(config(), draft.purpose))}.`);
     const choice = currentChoice();
-    if (choice) Object.assign(draft, { unit: choice.unit, takeover: choice.takeover });
+    if (choice) Object.assign(draft, { unit: choice.unit, takeover: choice.takeover, forced: choice.force });
     go('confirm');
   }
 
@@ -439,7 +486,13 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     else if (action === 'retry') refresh();
     else if (action === 'reload') location.reload();
     else if (action === 'confirm') confirm();
-    else if (action === 'show') {
+    else if (action === 'force') {
+      draft.force = true;
+      render({ focus: 'h2' });
+    } else if (action === 'force-step') {
+      if (problem()) render();
+      else go('force');
+    } else if (action === 'show') {
       sheet.close();
       onShow({ date: draft.date, type: draft.type, id: saved.id });
     } else if (action === 'mine') {
@@ -465,7 +518,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
         render();
         return;
       }
-      Object.assign(draft, { unit: choice.unit, takeover: choice.takeover });
+      Object.assign(draft, { unit: choice.unit, takeover: choice.takeover, forced: choice.force });
       go('names');
     }
   });

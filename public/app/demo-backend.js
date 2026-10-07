@@ -110,8 +110,8 @@ export function demoBackend() {
   // Applies a takeover the way the server does: a reservation that began
   // earlier now ends when the new one starts; any other moves to a free unit,
   // or is replaced when none is free.
-  function takeOver(effect, day, type, start, end, purpose) {
-    const notice = fields => ({ fromUnit: effect.unit, byPurpose: purpose, toUnit: null, toEnd: null, ...fields });
+  function takeOver(effect, day, type, start, end, purpose, forced) {
+    const notice = fields => ({ fromUnit: effect.unit, byPurpose: purpose, toUnit: null, toEnd: null, forced, ...fields });
     const practice = row => (row.mine ? mine.find(item => item.id === row.id) : null);
     const pool = scheduleRows().filter(row => row.type === type && !effect.affected.some(item => item.row.id === row.id));
     pool.push({ date: day.date, unit: effect.unit, start: toTime(start), end: toTime(end) });
@@ -158,20 +158,22 @@ export function demoBackend() {
       const rows = scheduleRows().filter(row => row.type === type);
       const requested = data.requestedUnit ?? null;
       const shown = data.takeoverUnit ?? null;
-      if (data.allowTakeover === true && !shown) throw refusal('invalid-argument', 'This page is out of date. Reload the page and try again.');
-      const choice = rangeChoice(config, rows, day, type, start, end, data.purpose, requested);
+      const force = data.forceOverride === true;
+      const allowTakeover = data.allowTakeover === true || force;
+      if (allowTakeover && !shown) throw refusal('invalid-argument', 'This page is out of date. Reload the page and try again.');
+      const choice = rangeChoice(config, rows, day, type, start, end, data.purpose, requested, undefined, force);
       // With a takeover, only the unit the member was shown may be taken.
-      const confirmed = data.allowTakeover === true && !(requested && requested !== shown);
+      const confirmed = allowTakeover && !(requested && requested !== shown);
       const effect = choice?.takeover && confirmed
-        ? takeoverEffect(config, rows, day, type, start, end, data.purpose, shown)
+        ? takeoverEffect(config, rows, day, type, start, end, data.purpose, shown, undefined, force)
         : null;
       if (!choice || (choice.takeover && !effect)) {
         const unitName = unitsOf(config, type).find(unit => unit.id === requested)?.name;
-        throw refusal('already-exists', data.allowTakeover === true ? 'The schedule changed. Check the time and confirm again.'
+        throw refusal('already-exists', allowTakeover ? 'The schedule changed. Check the time and confirm again.'
           : unitName ? `${unitName} is taken for part of that time. Choose another time.`
           : `No ${inSentence(config.resources[type].plural)} are free for that whole time. Choose another time.`);
       }
-      if (effect) takeOver(effect, day, type, start, end, data.purpose);
+      if (effect) takeOver(effect, day, type, start, end, data.purpose, force);
       count += 1;
       const result = { id: `demo-mine-${count}`, unit: effect ? effect.unit : choice.unit, takeover: Boolean(effect) };
       mine.push({
