@@ -127,6 +127,7 @@ async function submitReservation(db, request, uid) {
       status: 'approved',
       ownerUid: uid,
       takeover,
+      forced: takeover && request.forceOverride === true,
       createdAt: now,
       updatedAt: now
     });
@@ -147,10 +148,11 @@ async function submitReservation(db, request, uid) {
 
 // The takeover the member confirmed, if it is still possible. It may only take
 // the unit the member was shown (`takeoverUnit`, which matches any unit they chose).
+// A Force override may take any member reservation there.
 function confirmedTarget(request, candidate, approved) {
-  const { allowTakeover, requestedUnit, takeoverUnit } = request;
+  const { allowTakeover, requestedUnit, takeoverUnit, forceOverride } = request;
   if (!allowTakeover || !takeoverUnit || (requestedUnit && requestedUnit !== takeoverUnit)) return null;
-  return takeoverTarget(request.type, candidate, approved, takeoverUnit);
+  return takeoverTarget(request.type, candidate, approved, takeoverUnit, new Date(), forceOverride === true);
 }
 
 function takenMessage(request) {
@@ -162,7 +164,9 @@ function takenMessage(request) {
 
 function takeOver(transaction, db, request, target, approved, newId, now) {
   const type = request.type;
-  const notice = fields => ({ type, fromUnit: target.unitId, byPurpose: request.purpose, byBookingId: newId, at: now, ...fields });
+  const notice = fields => ({
+    type, fromUnit: target.unitId, byPurpose: request.purpose, byBookingId: newId, forced: request.forceOverride === true, at: now, ...fields
+  });
   const shortened = [];
   const displaced = [];
   for (const holder of target.holders) {

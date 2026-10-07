@@ -69,10 +69,10 @@ test('a shortened reservation is told when it now ends and which unit took its p
   assert.equal(saved.end, '12:00');
   const { at, ...notice } = saved.priorityNotice;
   assert.deepEqual(notice, {
-    type: 'room', fromUnit: 'room-1', byPurpose: 'new-member', byBookingId: taken.id, kind: 'shortened', toUnit: 'room-1', fromEnd: '14:00', toEnd: '12:00'
+    type: 'room', fromUnit: 'room-1', byPurpose: 'new-member', byBookingId: taken.id, forced: false, kind: 'shortened', toUnit: 'room-1', fromEnd: '14:00', toEnd: '12:00'
   });
   const mine = memberView(db.all('bookings'), [SATURDAY], 'device-h').mine[0];
-  assert.deepEqual(mine.notice, { kind: 'shortened', fromUnit: 'room-1', toUnit: 'room-1', fromEnd: '14:00', toEnd: '12:00', byPurpose: 'new-member' });
+  assert.deepEqual(mine.notice, { kind: 'shortened', fromUnit: 'room-1', toUnit: 'room-1', fromEnd: '14:00', toEnd: '12:00', byPurpose: 'new-member', forced: false });
 });
 
 test('holds are never taken, Contact never takes Contact, and Other cannot take anything', async () => {
@@ -149,7 +149,7 @@ test('a moved reservation is told where it went, and loses the notice once cance
   seedBooking(db, 'm', { purpose: 'other', ownerUid: 'device-m', start: '11:30', end: '12:00', assignments: { room: 'room-1' } });
   await actions.submitReservation(db, contact(db, { start: '11:00', end: '12:00' }), 'device-c');
   assert.deepEqual(memberView(db.all('bookings'), [SATURDAY], 'device-m').mine[0].notice,
-    { kind: 'moved', fromUnit: 'room-1', toUnit: 'room-2', fromEnd: null, toEnd: null, byPurpose: 'contact' });
+    { kind: 'moved', fromUnit: 'room-1', toUnit: 'room-2', fromEnd: null, toEnd: null, byPurpose: 'contact', forced: false });
   await actions.cancelReservation(db, 'm', 'device-m');
   assert.equal(memberView(db.all('bookings'), [SATURDAY], 'device-m').mine[0].notice, null);
 });
@@ -162,4 +162,55 @@ test('a cancelled priority reservation does not bring back what it displaced', a
   await actions.cancelReservation(db, taken.id, 'device-p');
   assert.equal(db.read('bookings', 'x').status, 'overridden');
   assert.equal((await settle(actions.cancelReservation(db, 'x', 'device-x'))).code, 'failed-precondition');
+});
+
+// ---------- Force override ----------
+
+// A Force override as the page sends it: the warning confirmed, with the
+// unit the page showed.
+const force = (db, fields = {}) => takeoverRequest(db, { ...fields, forceOverride: true });
+
+test('a Force override takes a Contact reservation, and the holder is told it was forced', async () => {
+  const db = new FakeFirestore();
+  contactsOn(db, ['4']);
+  seedBooking(db, 'c4', { purpose: 'contact', ownerUid: 'device-h', start: '11:00', end: '14:00', assignments: { room: 'room-4' } });
+  await assert.rejects(actions.submitReservation(db, contact(db), 'device-a'), hasCode('already-exists'), 'priority alone cannot take Contact');
+  const result = await actions.submitReservation(db, force(db, { takeoverUnit: 'room-4', start: '12:00', end: '13:00' }), 'device-a');
+  assert.deepEqual(result, { id: result.id, unit: 'room-4', takeover: true });
+  assert.equal(db.read('bookings', result.id).forced, true);
+  const holder = db.read('bookings', 'c4');
+  assert.equal(holder.end, '12:00', 'began earlier, so it is shortened');
+  assert.equal(holder.priorityNotice.forced, true);
+  assert.deepEqual(memberView(db.all('bookings'), [SATURDAY], 'device-h').mine[0].notice,
+    { kind: 'shortened', fromUnit: 'room-4', toUnit: 'room-4', fromEnd: '14:00', toEnd: '12:00', byPurpose: 'contact', forced: true });
+});
+
+test('a Force override takes the lowest priority first and never a hold or a reservation under way', async () => {
+  const db = new FakeFirestore();
+  seedBooking(db, 'hold', { purpose: 'blocked', ownerUid: null, assignments: { room: 'room-1' } });
+  seedBooking(db, 'c2', { purpose: 'contact', assignments: { room: 'room-2' } });
+  seedBooking(db, 'n3', { purpose: 'new-member', assignments: { room: 'room-3' } });
+  seedBooking(db, 'c4', { purpose: 'contact', assignments: { room: 'room-4' } });
+  const first = await actions.submitReservation(db, force(db, { purpose: 'other', reservedFor: 'Study' }), 'device-a');
+  assert.equal(first.unit, 'room-3', 'Other may force a New Member, lowest priority first');
+  assert.equal(db.read('bookings', 'n3').status, 'overridden');
+  await assert.rejects(actions.submitReservation(db, force(db, { takeoverUnit: 'room-1', requestedUnit: 'room-1' }), 'device-b'), hasCode('already-exists'), 'a hold is never taken');
+  setClock(local(SATURDAY, '11:00'));
+  await assert.rejects(actions.submitReservation(db, force(db, { takeoverUnit: 'room-2', start: '11:00', end: '12:00' }), 'device-b'), hasCode('already-exists'));
+  assert.equal(db.read('bookings', 'c2').end, '12:00', 'a reservation that began this very minute is not taken');
+  setClock(local(SATURDAY, '11:10'));
+  const later = await actions.submitReservation(db, force(db, { takeoverUnit: 'room-2', start: '11:30', end: '12:00' }), 'device-b');
+  assert.equal(later.unit, 'room-2');
+  assert.equal(db.read('bookings', 'c2').end, '11:30', 'once under way it is shortened');
+});
+
+test('a Force override may take the unit the member chose even while another is free', async () => {
+  const db = new FakeFirestore();
+  seedBooking(db, 'c1', { purpose: 'contact', assignments: { room: 'room-1' } });
+  const result = await actions.submitReservation(db, force(db, { requestedUnit: 'room-1', takeoverUnit: 'room-1' }), 'device-a');
+  assert.equal(result.unit, 'room-1');
+  assert.equal(db.read('bookings', 'c1').status, 'approved', 'moved, not replaced');
+  assert.equal(db.read('bookings', 'c1').assignments.room, 'room-2');
+  const plain = await actions.submitReservation(db, force(db, { takeoverUnit: 'room-1' }), 'device-b');
+  assert.deepEqual([plain.unit, plain.takeover], ['room-3', false], 'without a chosen unit a free one is used');
 });

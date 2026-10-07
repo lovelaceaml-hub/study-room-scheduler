@@ -116,10 +116,14 @@ function freeUnit(type, candidate, approved, requestedUnit = null) {
 // the unit whose most important holder is least important (a unit held only
 // by Other before one held by any New Member), then the fewest holders, then
 // unit order. When `requestedUnit` is set, only that unit is considered.
+// With `force` (a Force override the member confirmed), any member
+// reservation may be taken whatever its purpose, and a unit the member chose
+// may be taken even while another is free. Holds and reservations under way
+// are still never taken.
 // Returns { unitId, holders } with holders most important first, or null.
-function takeoverTarget(type, candidate, approved, requestedUnit = null, now = new Date()) {
-  if (freeUnit(type, candidate, approved)) return null;
-  const canTake = PURPOSES[candidate.purpose]?.canTake || [];
+function takeoverTarget(type, candidate, approved, requestedUnit = null, now = new Date(), force = false) {
+  if (freeUnit(type, candidate, approved) && !(force && requestedUnit)) return null;
+  const canTake = force ? PURPOSE_ORDER : (PURPOSES[candidate.purpose]?.canTake || []);
   if (!canTake.length) return null;
   const units = unitIds(type).filter(id => requestedUnit == null || id === requestedUnit);
   const options = units.map(unitId => {
@@ -224,7 +228,8 @@ function parseMemberRequest(data, now = new Date()) {
   if (input.requestId != null && !(typeof input.requestId === 'string' && REQUEST_ID.test(input.requestId))) {
     throw new Error('Reload the page and try again.');
   }
-  const allowTakeover = input.allowTakeover === true;
+  const forceOverride = input.forceOverride === true;
+  const allowTakeover = input.allowTakeover === true || forceOverride;
   const takeoverUnit = optionalUnit(input.takeoverUnit, type);
   // A page from before `takeoverUnit` cannot say which unit the member was
   // shown, so its takeover is refused rather than guessed.
@@ -238,6 +243,9 @@ function parseMemberRequest(data, now = new Date()) {
     // was shown that and confirmed it, and then only the unit they were shown.
     allowTakeover,
     takeoverUnit,
+    // A Force override: the member saw whose reservation it replaces and
+    // confirmed the warning. It may take any member reservation.
+    forceOverride,
     // Makes a repeated request (a lost response, a double tap) harmless.
     requestId: input.requestId ?? null,
     name: text(input.name, NAME_MAX, 'Your name', true),

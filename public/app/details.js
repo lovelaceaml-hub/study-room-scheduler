@@ -2,13 +2,15 @@
 // person who made it can also cancel it or end it early from here.
 
 import { escapeHtml as esc, formatRange, formatDay } from '../shared/format.js';
+import { earliestStart } from '../shared/availability.js';
+import { toMinutes } from '../shared/format.js';
 import { cancel, canBook } from './store.js';
 import { createSheet } from './sheet.js';
 import { purposeLabel, detailLabel, placeLabel, reservationActions, HOLD } from './text.js';
 import { ICONS } from './icons.js';
 import { announce } from './announce.js';
 
-export function createDetailsSheet({ getState, onEndEarly }) {
+export function createDetailsSheet({ getState, onEndEarly, onForce }) {
   const dialog = document.getElementById('details-sheet');
   let selected = null; // { id, type }
   let confirming = false;
@@ -69,7 +71,7 @@ export function createDetailsSheet({ getState, onEndEarly }) {
 
   function actionsHtml() {
     const mine = ownReservation();
-    if (!mine) return '';
+    if (!mine) return forceHtml();
     const { ended, earlyEnds, canCancel } = reservationActions(getState().config, mine);
     if (ended) return '<p class="hint">This reservation has finished.</p>';
     const disabled = canBook(getState()) && !busy ? '' : ' disabled';
@@ -83,6 +85,20 @@ export function createDetailsSheet({ getState, onEndEarly }) {
     return `<div class="actions">
       ${earlyEnds.length ? `<button type="button" class="secondary" data-action="end-early" data-key="end-early"${disabled}>End early</button>` : ''}
       ${canCancel ? `<button type="button" class="secondary danger" data-action="cancel" data-key="cancel"${disabled}>Cancel reservation</button>` : ''}
+    </div>`;
+  }
+
+  // Someone else's reservation can be taken with a Force override, for when
+  // the person no longer needs it and left it in place. Not once only its
+  // last half hour is left: a time that has begun cannot be freed.
+  function forceHtml() {
+    const booking = row();
+    const { config } = getState();
+    if (booking.purpose === HOLD || earliestStart(config, booking.date) >= toMinutes(booking.end)) return '';
+    const disabled = canBook(getState()) && !busy ? '' : ' disabled';
+    return `<div class="force-offer">
+      <p class="hint">No longer needed? If you know this reservation is not needed any more, you can take its place.</p>
+      <button type="button" class="secondary danger" data-action="force" data-key="force"${disabled}>Force override</button>
     </div>`;
   }
 
@@ -134,6 +150,10 @@ export function createDetailsSheet({ getState, onEndEarly }) {
       const id = selected.id;
       sheet.close();
       onEndEarly(id);
+    } else if (action === 'force') {
+      const booking = row();
+      sheet.close();
+      onForce(booking);
     } else if (action === 'cancel') {
       confirming = true;
       render({ focus: '[data-action="cancel-confirm"]' });

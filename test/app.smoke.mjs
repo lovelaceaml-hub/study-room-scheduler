@@ -585,6 +585,65 @@ test('takeover: the preview names who is affected, follows the schedule, and sen
   await context.close();
 });
 
+test('Force override: taken times appear only after the button, and the warning step sends forceOverride', async () => {
+  const { page, errors, context, sheet } = await openApp();
+  await page.locator('#reserve').click();
+  await sheet.getByRole('button', { name: 'Other', exact: true }).click();
+  // Other has no priority, so 4 PM is not offered until Force override is on.
+  await sheet.getByRole('button', { name: '1:00 PM', exact: true }).waitFor();
+  assert.equal(await sheet.getByRole('button', { name: /^4:00 PM/ }).count(), 0);
+  await sheet.getByRole('button', { name: 'Force override', exact: true }).click();
+  await sheet.getByRole('button', { name: '4:00 PM, Force override' }).click();
+  await sheet.getByRole('button', { name: /^5:00 PM, 1 hr, Force override$/ }).click();
+  await page.getByLabel('Your name').fill('Sam Sample');
+  await page.getByLabel('Purpose').fill('Practice');
+  await sheet.getByRole('button', { name: 'Continue', exact: true }).click();
+  const note = sheet.locator('.force-note');
+  assert.deepEqual(await note.locator('p').allTextContents(), [
+    'Force override. Room 1 is held by someone else at this time.',
+    'Dana’s reservation there (3:00 PM to 5:00 PM) will end at 4:00 PM.',
+    'They see why in My reservations.'
+  ]);
+  assert.equal(await sheet.getByRole('button', { name: 'Confirm reservation', exact: true }).count(), 0, 'no one-tap confirmation');
+  await sheet.getByRole('button', { name: 'Force override', exact: true }).click();
+  await sheet.getByRole('heading', { name: 'Are you sure?' }).waitFor();
+  await sheet.getByRole('button', { name: 'No, go back', exact: true }).click();
+  await sheet.getByRole('heading', { name: 'Confirm reservation' }).waitFor();
+  await sheet.getByRole('button', { name: 'Force override', exact: true }).click();
+  await sheet.getByRole('button', { name: 'Yes, override and reserve', exact: true }).click();
+  await sheet.getByRole('heading', { name: 'Reservation confirmed' }).waitFor();
+  const { data } = await lastCall(page, 'memberSubmitBooking');
+  assert.deepEqual([data.forceOverride, data.allowTakeover, data.takeoverUnit, data.requestedUnit], [true, true, 'room-1', null]);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+test('Force override from someone’s reservation keeps their unit and start', async () => {
+  const { page, errors, context, sheet } = await openApp();
+  await page.getByRole('button', { name: /^Fay, Contact, Room 3/ }).click();
+  const details = page.locator('#details-sheet');
+  await details.getByRole('button', { name: 'Force override', exact: true }).click();
+  await sheet.getByRole('heading', { name: 'What is it for?' }).waitFor();
+  await sheet.getByRole('button', { name: 'Contact', exact: true }).click();
+  await sheet.getByRole('button', { name: /^5:00 PM, 1 hr, Force override$/ }).click();
+  await page.getByLabel('Your name').fill('Sam Sample');
+  await page.getByLabel('Contact name').fill('Sample Contact');
+  await sheet.getByRole('button', { name: 'Continue', exact: true }).click();
+  await sheet.getByText('Fay’s reservation there will be replaced, because no other study room is free.', { exact: true }).waitFor();
+  await sheet.getByRole('button', { name: 'Force override', exact: true }).click();
+  await sheet.getByRole('button', { name: 'Yes, override and reserve', exact: true }).click();
+  await sheet.getByRole('heading', { name: 'Reservation confirmed' }).waitFor();
+  const { data } = await lastCall(page, 'memberSubmitBooking');
+  assert.deepEqual([data.forceOverride, data.takeoverUnit, data.requestedUnit, data.start], [true, 'room-3', 'room-3', '16:00']);
+  // A hold and your own reservation offer no override.
+  await sheet.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: /^Reserved, Room 4/ }).click();
+  await details.getByRole('heading', { name: 'Room 4' }).waitFor();
+  assert.equal(await details.getByRole('button', { name: 'Force override' }).count(), 0);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 test('Escape goes back a step, a double tap keeps the sheet open, and a stray tap keeps the draft', async () => {
   const { page, errors, context, sheet } = await openApp();
   // A double tap on an open time: the second tap lands outside the new sheet.

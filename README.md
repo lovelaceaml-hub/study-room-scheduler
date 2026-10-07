@@ -21,6 +21,13 @@ Members reserve study rooms, whiteboards and TVs; the lobby TV shows the day's r
   now ends when the priority one starts, so a reservation already in use is never moved;
   otherwise it moves to another free unit, or is replaced if none is free. My reservations
   tells them which. Cancelling the priority reservation later does not bring the other back.
+- Force override is for a reservation the person no longer needs but left in place. Any
+  member can use it on any member reservation, whatever its purpose: the time lists offer
+  taken times after the Force override button, and someone's reservation on the schedule has
+  a Force override button of its own. The member sees exactly who is affected and must
+  confirm a warning step before anything changes. The same rules as a priority takeover
+  then apply (shortened if it began earlier, otherwise moved or replaced), Admin holds are
+  never taken, and the other person is told in My reservations that it was a Force override.
 - Until a reservation ends, its device can cancel it or end it early; End early offers only
   times that have not passed.
 - Each browser signs in anonymously, so My reservations shows what was booked on that device.
