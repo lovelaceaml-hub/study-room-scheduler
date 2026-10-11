@@ -2,12 +2,11 @@
 
 ## Current status
 
-The app is live at https://lvrooms.web.app. This branch improves schedule
-rendering and availability lookups, caches Admin lookups, reduces repeat
-render work, and lowers automatic schedule refresh frequency. A full
-production release has been requested. The PR update removes the unnecessary
-opt-in preview banner; its local unit and browser suites pass, and hosted
-checks must pass before merging. Production has not yet been changed.
+The performance improvements are live at https://lvrooms.web.app. Pull request
+[#19](https://github.com/lovelaceaml-hub/study-room-scheduler/pull/19) was
+merged, and the guarded Firebase Hosting-only release succeeded. Production
+serves the merged `main` version. No Functions or Firestore rules were
+deployed.
 
 ## Decisions
 
@@ -17,18 +16,20 @@ checks must pass before merging. Production has not yet been changed.
   it reloads immediately if the displayed schedule is at least 30 seconds old.
 - The Admin session deadline update already only repaints the deadline; it
   does not fetch schedule or note data.
-- Release mode is a full replacement, Hosting only. No banner or opt-in
-  switch is part of this release.
+- Release mode was a full replacement, Hosting only. No banner or opt-in
+  switch is part of the release.
+- Temporary preview channels created during release preparation were removed.
 
 ## Verification
 
 The performance plan and its `## Build log` are in
-[`PLAN-performance.md`](PLAN-performance.md). The repository contract's
-commands are in [`AGENTS.md`](../AGENTS.md). The full unit and browser suites
-passed locally after removing the temporary preview banner. Independent code
-and documentation reviews found no issues in the performance changes.
+[`PLAN-performance.md`](PLAN-performance.md). The release record is
+[`RETRO-performance-2026-10.md`](RETRO-performance-2026-10.md). The
+repository contract's commands are in [`AGENTS.md`](../AGENTS.md). Local and
+hosted unit, browser, and Firestore rules checks passed. The live homepage
+returned HTTP 200 and matched the merged source.
 
 ## Next work
 
-Merge the PR after its hosted checks pass, then run the documented
-Hosting-only production release workflow on `main`.
+No remaining release steps. The normal backend release process remains
+separate and was not needed for this Hosting-only change.
