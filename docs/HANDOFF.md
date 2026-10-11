@@ -4,8 +4,10 @@
 
 The app is live at https://lvrooms.web.app. This branch improves schedule
 rendering and availability lookups, caches Admin lookups, reduces repeat
-render work, and lowers automatic schedule refresh frequency. Pull request
-checks and the read-only preview are running. Production has not been changed.
+render work, and lowers automatic schedule refresh frequency. The pull
+request's implementation checks passed; its Firebase preview deployed and
+passed a read-only browser smoke check. The final documentation-only update
+has been pushed and its checks are running. Production has not been changed.
 
 ## Decisions
 
@@ -29,5 +31,5 @@ map, and the TV's current and future room cards.
 
 ## Next work
 
-Review the pull request checks and inspect its preview read-only. Production
-release remains separate and requires the documented release process.
+Production release remains separate and requires the documented release
+process.

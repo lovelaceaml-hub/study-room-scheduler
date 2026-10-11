@@ -98,4 +98,6 @@ and day object.
   production traffic or a user's device.
 - Independent code review: no significant issues found.
 - Documentation hygiene review: no findings.
-- Pull request checks and read-only preview are running.
+- Pull request implementation checks passed; the Firebase preview deployed
+  and passed its read-only browser smoke check. Checks are running again after
+  the final documentation-only update.
