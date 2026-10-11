@@ -98,6 +98,9 @@ and day object.
   production traffic or a user's device.
 - Independent code review: no significant issues found.
 - Documentation hygiene review: no findings.
-- Pull request implementation checks passed; the Firebase preview deployed
-  and passed its read-only browser smoke check. Checks are running again after
-  the final documentation-only update.
+- `npm test` and `npm run test:browser` passed again after removing the
+  unnecessary preview banner and handoff link.
+- A temporary opt-in banner caused hosted browser-test clicks to time out; it
+  has been removed. The PR's hosted checks must pass before merge.
+- Release choice: full replacement, Hosting only. Production release has been
+  requested but is not yet complete.

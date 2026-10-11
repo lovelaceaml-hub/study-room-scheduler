@@ -4,10 +4,10 @@
 
 The app is live at https://lvrooms.web.app. This branch improves schedule
 rendering and availability lookups, caches Admin lookups, reduces repeat
-render work, and lowers automatic schedule refresh frequency. The pull
-request's implementation checks passed; its Firebase preview deployed and
-passed a read-only browser smoke check. The final documentation-only update
-has been pushed and its checks are running. Production has not been changed.
+render work, and lowers automatic schedule refresh frequency. A full
+production release has been requested. The PR update removes the unnecessary
+opt-in preview banner; its local unit and browser suites pass, and hosted
+checks must pass before merging. Production has not yet been changed.
 
 ## Decisions
 
@@ -17,19 +17,18 @@ has been pushed and its checks are running. Production has not been changed.
   it reloads immediately if the displayed schedule is at least 30 seconds old.
 - The Admin session deadline update already only repaints the deadline; it
   does not fetch schedule or note data.
-- Feature branch preview deployments use live backend services and are for
-  read-only inspection.
+- Release mode is a full replacement, Hosting only. No banner or opt-in
+  switch is part of this release.
 
 ## Verification
 
 The performance plan and its `## Build log` are in
 [`PLAN-performance.md`](PLAN-performance.md). The repository contract's
 commands are in [`AGENTS.md`](../AGENTS.md). The full unit and browser suites
-passed, and independent code and documentation reviews found no issues. A
-read-only preview walkthrough can confirm member booking, Admin search and
-map, and the TV's current and future room cards.
+passed locally after removing the temporary preview banner. Independent code
+and documentation reviews found no issues in the performance changes.
 
 ## Next work
 
-Production release remains separate and requires the documented release
-process.
+Merge the PR after its hosted checks pass, then run the documented
+Hosting-only production release workflow on `main`.
