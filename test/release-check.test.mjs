@@ -6,16 +6,50 @@ import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { assertLobbySchedule } from '../.github/scripts/lobby-schedule-check.mjs';
+import { extractPreviewUrl } from '../.github/scripts/firebase-preview-url.mjs';
 const require = createRequire(import.meta.url);
 const { lobbyView } = require('../functions/lib/views.js');
 const { lobbyDates } = require('../functions/lib/schedule.js');
 const fresh = (now = new Date()) => structuredClone(lobbyView([], lobbyDates(now), now));
+
+test('preview URL parser selects the expected Hosting site and release channel', () => {
+  const output = JSON.stringify({ status: 'success', result: { url: 'https://lvrooms--release-check-123-abc.web.app' } });
+  assert.equal(extractPreviewUrl(output, 'release-check-123'), 'https://lvrooms--release-check-123-abc.web.app');
+});
+
+for (const [name, output, channel] of [
+  ['wrong Hosting site', '{"result":{"url":"https://other--release-check-123-abc.web.app"}}', 'release-check-123'],
+  ['wrong channel', '{"result":{"url":"https://lvrooms--other-abc.web.app"}}', 'release-check-123'],
+  ['channel with the expected channel as a prefix', '{"result":{"url":"https://lvrooms--release-check-1234-abc.web.app"}}', 'release-check-123'],
+  ['non-HTTPS URL', '{"result":{"url":"http://lvrooms--release-check-123-abc.web.app"}}', 'release-check-123'],
+  ['missing URL', '{"status":"success"}', 'release-check-123'],
+  ['ambiguous URLs', '{"result":[{"url":"https://lvrooms--release-check-123-a.web.app"},{"url":"https://lvrooms--release-check-123-b.web.app"}]}', 'release-check-123'],
+]) test(`preview URL parser rejects ${name}`, () => {
+  assert.throws(() => extractPreviewUrl(output, channel), /exactly one preview URL/);
+});
 
 test('schedule contract accepts closed days, empty bookings, DST and midnight boundaries', () => {
   for (const iso of ['2026-10-05T07:00:00Z', '2026-10-06T06:59:59Z', '2026-03-08T10:00:00Z', '2026-11-01T09:00:00Z']) {
     const now = new Date(iso);
     assertLobbySchedule(fresh(now), now.getTime() + 60000);
   }
+});
+
+test('schedule contract accepts a synthetic public booking from the lobby view', () => {
+  const now = new Date('2026-10-06T18:00:00Z');
+  const dates = lobbyDates(now);
+  const payload = lobbyView([{
+    id: 'synthetic-booking',
+    status: 'approved',
+    date: dates[0],
+    start: '10:00',
+    end: '10:30',
+    name: 'Fixture Member',
+    assignments: { room: 'room-1' },
+  }], dates, now);
+  assertLobbySchedule(payload, now.getTime() + 60000);
+  assert.equal(payload.bookings.length, 1);
+  assert.deepEqual(Object.keys(payload.bookings[0]).sort(), ['date', 'end', 'name', 'room', 'start']);
 });
 
 for (const [name, change] of [

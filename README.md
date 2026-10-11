@@ -2,6 +2,12 @@
 
 Members reserve study rooms, whiteboards and TVs; the lobby TV shows the day's rooms.
 
+## Quick links
+
+- **Website:** [Reservations](https://lvrooms.web.app), [Lobby TV](https://lvrooms.web.app/tv.html), [Admin](https://lvrooms.web.app/admin/).
+- **Status:** Live. PR #15 adds read-only checks of a temporary Hosting preview before production and the live site after release.
+- **Docs:** [Handoff](docs/HANDOFF.md), [Active plan](docs/PLAN-19-hosting-release-preflight.md), [Member guide](docs/USER-MANUAL.md), [All documents](docs/).
+
 - App: https://lvrooms.web.app
 - Lobby TV: https://lvrooms.web.app/tv.html
 - Admin: https://lvrooms.web.app/admin/
@@ -83,7 +89,7 @@ Manager secret `STUDY_ROOM_ADMIN_PIN`.
 
 ```sh
 npm install && npm install --prefix functions
-npx playwright install chromium
+npm_config_cache=/tmp/npm-cache npx playwright install chromium
 npm test               # rules, database actions, endpoints, and browser/server agreement
 npm run test:browser   # app, Admin and TV in a real browser with a fake backend
 npm run test:rules     # browsers cannot read or write the database (Firestore emulator, needs Java)
@@ -132,14 +138,17 @@ a bare `--only functions`:
 
 ```sh
 npm ci --prefix functions
-npx firebase-tools@15 deploy --project lvz-rooms --only functions:memberSchedule,functions:memberSubmitBooking,functions:memberCancelBooking,functions:memberEndBookingEarly,functions:publicLobbySchedule,functions:adminStartSession,functions:adminEndSession,functions:adminSchedule,functions:adminBookingAction,functions:adminNoteAction
+npm_config_cache=/tmp/npm-cache npx firebase-tools@15 deploy --project lvz-rooms --only functions:memberSchedule,functions:memberSubmitBooking,functions:memberCancelBooking,functions:memberEndBookingEarly,functions:publicLobbySchedule,functions:adminStartSession,functions:adminEndSession,functions:adminSchedule,functions:adminBookingAction,functions:adminNoteAction
 ```
 
 The Functions deploy runs the server tests first and stops if one fails. Firestore rules:
-`npx firebase-tools@15 deploy --only firestore:rules --project lvz-rooms`.
+`npm_config_cache=/tmp/npm-cache npx firebase-tools@15 deploy --only firestore:rules --project lvz-rooms`.
 
 Then release the site: run the "Firebase release (production)" workflow on `main` in GitHub
-Actions (Hosting only).
+Actions (Hosting only). Before publishing, the workflow deploys a one-day preview channel and
+runs the same GET/HEAD-only page and lobby-schedule checks against it. A failed preflight stops
+the production deployment. After publishing, it repeats the check against the live URL; the
+temporary preview expires automatically.
 
 To undo: Functions have no one-click rollback (revert on `main`, release again); Firestore
 rules: Firebase console, Firestore, Rules, history.
