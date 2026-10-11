@@ -102,5 +102,13 @@ and day object.
   unnecessary preview banner and handoff link.
 - A temporary opt-in banner caused hosted browser-test clicks to time out; it
   has been removed. The PR's hosted checks must pass before merge.
-- Release choice: full replacement, Hosting only. Production release has been
-  requested but is not yet complete.
+- Release choice: full replacement, Hosting only. Pull request
+  [#19](https://github.com/lovelaceaml-hub/study-room-scheduler/pull/19) was
+  merged as `4d9584a51054fe1458e8dfe11548d31ca4908b31`.
+- The guarded Firebase release workflow completed successfully:
+  [run 38173543197](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/38173543197).
+  It deployed only `hosting:app`; Functions and Firestore rules were unchanged.
+- The production homepage returned HTTP 200 and its HTML matched the merged
+  `main` source. The temporary `next` and branch preview channels created
+  during release preparation were deleted.
+- Release retro: [`RETRO-performance-2026-10.md`](RETRO-performance-2026-10.md).
