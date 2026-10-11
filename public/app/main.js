@@ -2,7 +2,7 @@
 // details and My reservations.
 
 import { escapeHtml as esc, formatTime, formatHour, formatRange, formatDay, inSentence, weekdayName, monthDay, toMinutes } from '../shared/format.js';
-import { unitsOf, slotStarts, serviceAt, occupant, earliestStart } from '../shared/availability.js';
+import { unitsOf, slotStarts, serviceAt, occupancyIndex, occupant, earliestStart } from '../shared/availability.js';
 import { subscribe, refresh, canBook } from './store.js';
 import { createBookingSheet } from './booking.js';
 import { createDetailsSheet } from './details.js';
@@ -17,6 +17,7 @@ redirectOldLinks();
 const $ = selector => document.querySelector(selector);
 const view = { date: null, type: 'room', highlight: null };
 let state = null;
+let lastGrid = null;
 
 const booking = createBookingSheet({
   getState: () => state,
@@ -64,7 +65,12 @@ function render() {
   const day = days.find(item => item.date === view.date);
   $('#day-caption').textContent = day ? formatDay(day.date) : '';
   $('#hint').textContent = !ready || !day ? '' : hasTimeLeft(day) ? 'Choose an open time to reserve it.' : 'No more open times on this day.';
-  paint($('#grid'), gridHtml());
+  if (!lastGrid || lastGrid.config !== config || lastGrid.days !== days || lastGrid.bookings !== state.bookings
+      || lastGrid.date !== view.date || lastGrid.type !== view.type || lastGrid.ready !== ready
+      || lastGrid.highlight !== view.highlight) {
+    paint($('#grid'), gridHtml());
+    lastGrid = { config, days, bookings: state.bookings, date: view.date, type: view.type, ready, highlight: view.highlight };
+  }
   paint($('#legend'), legendHtml());
 }
 
@@ -100,6 +106,7 @@ function gridHtml() {
   const slot = config.slotMinutes;
   const row = minute => (minute - open) / slot + 1;
   const rows = bookings.filter(item => item.type === view.type);
+  const occupancy = occupancyIndex(rows, slot);
   let html = `<div class="time-rail" aria-hidden="true"></div>`;
 
   const slots = slotStarts(config).length;
@@ -111,12 +118,12 @@ function gridHtml() {
   units.forEach((unit, index) => {
     const column = index + 2;
     for (let minute = open; minute < close;) {
-      const held = occupant(rows, day.date, unit.id, minute);
+      const held = occupant(occupancy, day.date, unit.id, minute);
       if (serviceAt(day, minute)) {
         minute += slot;
       } else if (held) {
         let end = minute + slot;
-        while (end < close && !serviceAt(day, end) && occupant(rows, day.date, unit.id, end) === held) end += slot;
+        while (end < close && !serviceAt(day, end) && occupant(occupancy, day.date, unit.id, end) === held) end += slot;
         html += bookingBlock(held, unit, column, row(minute), (end - minute) / slot);
         minute = end;
       } else {

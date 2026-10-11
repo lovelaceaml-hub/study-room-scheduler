@@ -3,7 +3,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { roomStatus, nextOpenMinute } from '../public/tv/status.js';
+import { roomStatus, roomStatusSorted, nextOpenMinute } from '../public/tv/status.js';
 import { DEMO_CONFIG as config } from '../public/shared/demo.js';
 
 const SATURDAY = {
@@ -47,6 +47,15 @@ test('a room in use says who has it and who is next', () => {
     { state: 'In use', detail: 'B John until 12:30 PM. Next: S Grace, 1:00 PM to 2:00 PM', kind: 'busy' });
   assert.deepEqual(status(SATURDAY, bookings, '13:59'), { state: 'In use', detail: 'S Grace until 2:00 PM', kind: 'busy' });
   assert.equal(status(SATURDAY, bookings, '12:30').state, 'Free until 1:00 PM', 'a reservation ending now has ended');
+});
+
+test('pre-sorted room bookings produce the same status without sorting on every render', () => {
+  const bookings = [booking('13:00', '14:00', 'S Grace'), booking('11:00', '12:30', 'B John')];
+  const sorted = bookings.slice().sort((a, b) => at(a.start) - at(b.start));
+  assert.deepEqual(roomStatusSorted(config, SATURDAY, sorted, at('11:30')),
+    roomStatus(config, SATURDAY, bookings, at('11:30')));
+  assert.deepEqual(roomStatusSorted(config, SATURDAY, sorted, null),
+    roomStatus(config, SATURDAY, bookings, null));
 });
 
 test('after closing, or when only a service is left, the room is closed for today', () => {

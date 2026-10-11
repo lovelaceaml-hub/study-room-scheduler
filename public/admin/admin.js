@@ -5,11 +5,11 @@
 
 import { errorMessage } from '../shared/firebase.js';
 import { escapeHtml as esc, formatTime, formatRange, formatDay, formatHour, inSentence, listOf, weekdayName, monthDay, nowIn, toMinutes, toTime, hasText, readStored, writeStored, serverNow, setServerTime } from '../shared/format.js';
-import { unitsOf, unitName, findUnit, slotStarts, serviceAt, validRange, earliestStart, hasEnded, earlyEndChoices } from '../shared/availability.js';
+import { unitsOf, unitName, findUnit, slotStarts, serviceAt, validRange, earliestStart, hasEnded, earlyEndChoices, occupancyIndex, overlappingBooking } from '../shared/availability.js';
 import { paint } from '../shared/dom.js';
 import * as admin from './session.js';
 
-const REFRESH_MS = 15000;
+const REFRESH_MS = 30000;
 const HIDE_CANCELLED_KEY = 'srs-admin-hide-cancelled';
 const STATUS_LABELS = { approved: 'Confirmed', cancelled: 'Cancelled', overridden: 'Replaced', pending: 'Pending', declined: 'Declined' };
 // Used when the server does not send a value (an older server during a deploy).
@@ -22,6 +22,9 @@ const $ = selector => document.querySelector(selector);
 const root = $('#admin');
 
 let schedule = null; // { config, days, bookings } from adminSchedule
+let bookingsById = new Map();
+let bookingsByDate = new Map();
+let occupancy = new Map();
 let notes = {};
 let notesFor = ''; // older servers send notes separately: the ids they were read for
 let rules = null; // the last config's time zone and session length, kept after a lock
@@ -37,6 +40,7 @@ let loadedAt = 0; // when the schedule last loaded, on this device's clock
 let offline = false; // the last load failed
 let confirmingRemove = false;
 const filled = new WeakSet();
+const searchCache = new WeakMap();
 // panel: the open row form, { id, kind: 'end' | 'restore' | 'note' | 'cancel', values },
 // where `values` keeps what the Admin picked or typed across refreshes.
 const view = { date: null, type: 'room', panel: null, search: '' };
@@ -81,8 +85,8 @@ function cutoffText() {
 // ---------- Records ----------
 
 const day = () => schedule.days.find(item => item.date === view.date);
-const bookingsOnDay = () => schedule.bookings.filter(record => record.date === view.date);
-const booking = id => schedule.bookings.find(item => item.id === id);
+const bookingsOnDay = () => bookingsByDate.get(view.date) || [];
+const booking = id => bookingsById.get(id);
 const displayName = record => String(record.name || '').trim() || 'No name';
 const named = record => String(record.name || '').trim();
 const whose = record => (named(record) ? `${named(record)}'s reservation` : 'The reservation');
@@ -123,9 +127,7 @@ function places(record) {
 
 // The confirmed record holding `unitId` during start to end (minutes), if any.
 function holderOf(unitId, date, start, end, excludeId = null) {
-  return schedule.bookings.find(record => record.id !== excludeId && record.status === 'approved' && record.date === date
-    && Object.values(record.assignments || {}).includes(unitId)
-    && toMinutes(record.start) < end && start < toMinutes(record.end)) || null;
+  return overlappingBooking(occupancy, date, unitId, start, end, excludeId);
 }
 
 // What a priority reservation did to this one, in a sentence.
@@ -229,6 +231,9 @@ function lockScreen({ reason = '', keep = false } = {}) {
   clearTimeout(refreshTimer);
   if (schedule?.config) rules = { timeZone: schedule.config.timeZone, sessionMinutes: schedule.config.sessionMinutes };
   schedule = null;
+  bookingsById = new Map();
+  bookingsByDate = new Map();
+  occupancy = new Map();
   notes = {};
   notesFor = '';
   busy = null;
@@ -275,6 +280,11 @@ function refresh() {
   return loading.promise;
 }
 
+function scheduleRefresh(delay = REFRESH_MS) {
+  clearTimeout(refreshTimer);
+  if (!document.hidden && admin.session()) refreshTimer = setTimeout(refresh, delay);
+}
+
 async function load() {
   clearTimeout(refreshTimer);
   const epoch = admin.currentEpoch();
@@ -287,6 +297,14 @@ async function load() {
     const read = await notesOf(result);
     if (epoch !== admin.currentEpoch() || mark !== changeMark) return;
     schedule = result;
+    bookingsById = new Map(result.bookings.map(record => [record.id, record]));
+    bookingsByDate = new Map();
+    for (const record of result.bookings) {
+      if (!bookingsByDate.has(record.date)) bookingsByDate.set(record.date, []);
+      bookingsByDate.get(record.date).push(record);
+    }
+    occupancy = occupancyIndex(result.bookings, result.config.slotMinutes, record =>
+      record.status === 'approved' ? Object.values(record.assignments || {}) : []);
     [notes, notesFor] = read;
     loadedAt = Date.now();
     offline = false;
@@ -302,10 +320,7 @@ async function load() {
     offline = true;
     render();
   } finally {
-    if (epoch === admin.currentEpoch() && admin.session()) {
-      clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(refresh, REFRESH_MS);
-    }
+    if (epoch === admin.currentEpoch()) scheduleRefresh();
   }
 }
 
@@ -492,7 +507,12 @@ const folded = value => String(value || '').normalize('NFKD').replace(/\p{M}/gu,
 
 // What the search looks through: the names, contact or member, purpose and units.
 function searchText(record) {
-  return folded([record.name, record.reservedFor, record.purposeOther, purposeLabel(record.purpose), places(record)].join(' '));
+  const currentConfig = config();
+  const cached = searchCache.get(record);
+  if (cached?.config === currentConfig) return cached.text;
+  const text = folded([record.name, record.reservedFor, record.purposeOther, purposeLabel(record.purpose), places(record)].join(' '));
+  searchCache.set(record, { config: currentConfig, text });
+  return text;
 }
 
 // The record with an open panel always stays, so a filter never loses what
@@ -957,6 +977,21 @@ $('#lock').addEventListener('click', () => {
 
 admin.on('expired', expired);
 admin.on('deadline', showDeadline);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    clearTimeout(refreshTimer);
+    return;
+  }
+  if (!admin.session()) return;
+  const age = loadedAt ? Date.now() - loadedAt : Infinity;
+  if (age >= REFRESH_MS) refresh();
+  else scheduleRefresh(REFRESH_MS - age);
+});
+
+addEventListener('focus', () => {
+  if (admin.session() && (!loadedAt || Date.now() - loadedAt >= REFRESH_MS)) refresh();
+});
 
 // ---------- Start ----------
 

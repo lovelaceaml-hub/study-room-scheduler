@@ -5,7 +5,7 @@
 import { escapeHtml as esc, formatTime, formatHour, formatLongDay, listOf, weekdayName, monthDay, nowIn, toMinutes, readStored, writeStored, serverNow, setServerTime } from '../shared/format.js';
 import { DEMO_CONFIG, demoDay, demoDays, demoRows, demoToday } from '../shared/demo.js';
 import { paint } from '../shared/dom.js';
-import { roomStatus } from './status.js';
+import { roomStatusSorted } from './status.js';
 
 // Served through Hosting so the CDN caches it (firebase.json rewrites it to
 // the publicLobbySchedule function).
@@ -175,18 +175,26 @@ function render() {
   }
   const rooms = schedule.config.resources.room.units;
   const bookings = schedule.bookings.filter(booking => booking.date === day.date);
+  const byRoom = new Map(rooms.map(room => [room.id, []]));
+  for (const booking of bookings) {
+    const roomBookings = byRoom.get(booking.room);
+    if (roomBookings) roomBookings.push(booking);
+  }
+  for (const roomBookings of byRoom.values()) {
+    roomBookings.sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
+  }
   const minute = day.date === now.date ? now.minutes : null;
   // The two parts are kept between redraws, so the timeline keeps its
   // scroll position.
   paint(board, `
     <section class="tv-rooms" aria-label="Rooms ${minute === null ? 'on this day' : 'right now'}"></section>
     <section class="tv-timeline" tabindex="0" aria-label="Room timeline"></section>`);
-  paint(board.querySelector('.tv-rooms'), rooms.map(room => roomCard(room, bookings.filter(booking => booking.room === room.id), day, minute)).join(''));
-  paint(board.querySelector('.tv-timeline'), timeline(rooms, bookings, day, minute));
+  paint(board.querySelector('.tv-rooms'), rooms.map(room => roomCard(room, byRoom.get(room.id), day, minute)).join(''));
+  paint(board.querySelector('.tv-timeline'), timeline(rooms, byRoom, day, minute));
 }
 
 function roomCard(room, bookings, day, minute) {
-  const { state, detail, kind } = roomStatus(schedule.config, day, bookings, minute);
+  const { state, detail, kind } = roomStatusSorted(schedule.config, day, bookings, minute);
   return `<article class="tv-room ${kind}">
     <h2>${esc(room.name)}</h2>
     <p class="tv-room-state">${esc(state)}</p>
@@ -194,7 +202,7 @@ function roomCard(room, bookings, day, minute) {
   </article>`;
 }
 
-function timeline(rooms, bookings, day, now) {
+function timeline(rooms, bookingsByRoom, day, now) {
   const config = schedule.config;
   const open = toMinutes(config.open);
   const span = toMinutes(config.close) - open;
@@ -212,7 +220,7 @@ function timeline(rooms, bookings, day, now) {
     ${rooms.map(room => `
       <div class="tv-row">
         <span class="tv-label">${esc(room.name)}</span>
-        <div class="tv-track">${services}${bookings.filter(booking => booking.room === room.id).map(booking => {
+        <div class="tv-track">${services}${bookingsByRoom.get(room.id).map(booking => {
           const start = toMinutes(booking.start);
           const end = toMinutes(booking.end);
           // Under an hour there is no room for the time; the name gets it all.

@@ -1,4 +1,4 @@
-// The member app's data: the schedule from the server, refreshed every 15
+// The member app's data: the schedule from the server, refreshed every 30
 // seconds, and the three things a member can do (book, cancel, end early).
 // Every change goes through a Cloud Function, then the schedule reloads.
 
@@ -6,7 +6,7 @@ import { connect, errorMessage } from '../shared/firebase.js';
 import { writeStored, setServerTime } from '../shared/format.js';
 import { demoBackend } from './demo-backend.js';
 
-const REFRESH_MS = 15000;
+const REFRESH_MS = 30000;
 // A schedule that has not arrived by then is reported, so the page never
 // spins forever behind a stalled network.
 const LOAD_TIMEOUT_MS = 20000;

@@ -177,6 +177,17 @@ test('the schedule shows public names, holds and my own reservation', async () =
   await context.close();
 });
 
+test('member schedule refreshes at 30 seconds instead of every 15', async () => {
+  const { page, errors, context } = await openApp();
+  const before = (await calls(page, 'memberSchedule')).length;
+  await page.clock.fastForward(15000);
+  assert.equal((await calls(page, 'memberSchedule')).length, before);
+  await page.clock.fastForward(15000);
+  await page.waitForFunction(count => window.__calls.filter(call => call.name === 'memberSchedule').length > count, before);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 test('a phone clock that is wrong is offered start times by the server\'s clock', async () => {
   // The server says 4:10 PM, so 4:30 PM is the first open start either way.
   for (const [deviceTime, serverAhead] of [['16:40', -30 * MINUTE], ['15:40', 30 * MINUTE]]) {
@@ -377,7 +388,7 @@ test('a second Escape while saving closes the sheet cleanly, and the result come
 test('a slow schedule refresh does not hold up the confirmation, and its older answer is ignored', async () => {
   const { page, errors, context, sheet } = await openApp();
   await tapToConfirm(page, sheet, 'Room 2', '1:00 PM');
-  // A refresh starts, like the 15-second one, and its answer is held back.
+  // A refresh starts, like the periodic one, and its answer is held back.
   await page.evaluate(() => {
     window.__hooks.memberSchedule = async () => {
       delete window.__hooks.memberSchedule;
@@ -686,7 +697,7 @@ test('an unknown schedule version asks for a reload, and never reloads by itself
   assert.equal(await page.locator('#status-pill').textContent(), 'Out of date');
   assert.equal(await page.locator('#reserve').isDisabled(), true);
   const loads = (await calls(page, 'memberSchedule')).length;
-  await page.clock.fastForward(16000);
+  await page.clock.fastForward(31000);
   await page.waitForFunction(count => window.__calls.filter(call => call.name === 'memberSchedule').length > count, loads);
   assert.equal(navigations, 0);
   await page.getByRole('button', { name: 'Reload', exact: true }).click();

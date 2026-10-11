@@ -5,6 +5,31 @@
 
 import { toMinutes, toTime, nowIn, serverNow } from './format.js';
 
+const configTimes = new WeakMap();
+const serviceTimes = new WeakMap();
+
+function timesFor(config) {
+  let times = configTimes.get(config);
+  if (!times) {
+    times = { open: toMinutes(config.open), close: toMinutes(config.close) };
+    configTimes.set(config, times);
+  }
+  return times;
+}
+
+function servicesFor(day) {
+  let services = serviceTimes.get(day);
+  if (!services) {
+    services = day.services.map(service => ({
+      ...service,
+      startMinute: toMinutes(service.start),
+      endMinute: toMinutes(service.end)
+    }));
+    serviceTimes.set(day, services);
+  }
+  return services;
+}
+
 export function unitsOf(config, type) {
   return config.resources[type]?.units || [];
 }
@@ -24,34 +49,82 @@ export function unitName(config, id) {
 
 // Every slot start in the day, in minutes.
 export function slotStarts(config) {
+  const { open, close } = timesFor(config);
   const starts = [];
-  for (let time = toMinutes(config.open); time < toMinutes(config.close); time += config.slotMinutes) starts.push(time);
+  for (let time = open; time < close; time += config.slotMinutes) starts.push(time);
   return starts;
 }
 
 export function serviceAt(day, minute) {
-  return day.services.find(service => toMinutes(service.start) <= minute && minute < toMinutes(service.end)) || null;
+  return servicesFor(day).find(service => service.startMinute <= minute && minute < service.endMinute) || null;
 }
 
 function overlaps(row, start, end) {
   return toMinutes(row.start) < end && start < toMinutes(row.end);
 }
 
+// Index occupied booking slots once rather than scanning every booking for
+// each cell in a schedule grid.
+export function occupancyIndex(rows, slotMinutes, unitsFor = row => [row.unit]) {
+  const index = new Map();
+  index.slotMinutes = slotMinutes;
+  for (const row of rows) {
+    const start = toMinutes(row.start);
+    const end = toMinutes(row.end);
+    if (!row.date || !Number.isFinite(start) || !Number.isFinite(end) || start >= end) continue;
+    for (const unitId of unitsFor(row) || []) {
+      if (typeof unitId !== 'string' || !unitId) continue;
+      let byUnit = index.get(row.date);
+      if (!byUnit) index.set(row.date, byUnit = new Map());
+      let bySlot = byUnit.get(unitId);
+      if (!bySlot) byUnit.set(unitId, bySlot = new Map());
+      for (let minute = Math.floor(start / slotMinutes) * slotMinutes; minute < end; minute += slotMinutes) {
+        let occupants = bySlot.get(minute);
+        if (!occupants) bySlot.set(minute, occupants = []);
+        occupants.push(row);
+      }
+    }
+  }
+  return index;
+}
+
 // The row holding `unitId` at `minute`, if any.
-export function occupant(rows, date, unitId, minute) {
-  return rows.find(row => row.date === date && row.unit === unitId && overlaps(row, minute, minute + 1)) || null;
+export function occupant(index, date, unitId, minute) {
+  const slot = Math.floor(minute / index.slotMinutes) * index.slotMinutes;
+  return index.get(date)?.get(unitId)?.get(slot)?.[0] || null;
+}
+
+// The first indexed row overlapping a range, except an optional row being
+// edited by Admin.
+export function overlappingBooking(index, date, unitId, start, end, excludeId = null) {
+  const bySlot = index.get(date)?.get(unitId);
+  for (let minute = Math.floor(start / index.slotMinutes) * index.slotMinutes; minute < end; minute += index.slotMinutes) {
+    const row = bySlot?.get(minute)?.find(item => item.id !== excludeId);
+    if (row) return row;
+  }
+  return null;
 }
 
 function holders(rows, date, unitId, start, end) {
   return rows.filter(row => row.date === date && row.unit === unitId && overlaps(row, start, end));
 }
 
+function holdersInIndex(index, date, unitId, start, end) {
+  const bySlot = index.get(date)?.get(unitId);
+  const found = new Set();
+  for (let minute = Math.floor(start / index.slotMinutes) * index.slotMinutes; minute < end; minute += index.slotMinutes) {
+    for (const row of bySlot?.get(minute) || []) found.add(row);
+  }
+  return [...found];
+}
+
 // On the grid, inside hours, and clear of services.
 export function validRange(config, day, start, end) {
+  const { open, close } = timesFor(config);
   const slot = config.slotMinutes;
   return Number.isInteger(start) && Number.isInteger(end) && start % slot === 0 && end % slot === 0
-    && start >= toMinutes(config.open) && end <= toMinutes(config.close) && start < end
-    && !day.services.some(service => start < toMinutes(service.end) && toMinutes(service.start) < end);
+    && start >= open && end <= close && start < end
+    && !servicesFor(day).some(service => start < service.endMinute && service.startMinute < end);
 }
 
 function candidates(config, type, unitId) {
@@ -70,18 +143,19 @@ function candidates(config, type, unitId) {
 // a range nothing else allows may take any member reservation, and a chosen
 // unit may be taken even while another is free; the result then has
 // `force: true`. Mirrors takeoverTarget in functions/lib/bookings.js.
-export function rangeChoice(config, rows, day, type, start, end, purpose, unitId = null, now = serverNow(), force = false) {
+export function rangeChoice(config, rows, day, type, start, end, purpose, unitId = null, now = serverNow(), force = false, index = null) {
   if (!validRange(config, day, start, end)) return null;
-  const isFree = id => holders(rows, day.date, id, start, end).length === 0;
+  const rowsFor = id => index ? holdersInIndex(index, day.date, id, start, end) : holders(rows, day.date, id, start, end);
+  const isFree = id => rowsFor(id).length === 0;
   const units = candidates(config, type, unitId);
   const free = units.find(isFree);
   if (free) return { unit: free, takeover: false, force: false };
   const otherFree = candidates(config, type, null).some(isFree);
   if (otherFree && !(force && unitId)) return null;
-  const option = otherFree ? null : takeoverOption(config, rows, day, type, start, end, purpose, units, now, false);
+  const option = otherFree ? null : takeoverOption(config, rows, day, type, start, end, purpose, units, now, false, index);
   if (option) return { unit: option.id, takeover: true, force: false };
   if (!force) return null;
-  const forced = takeoverOption(config, rows, day, type, start, end, purpose, units, now, true);
+  const forced = takeoverOption(config, rows, day, type, start, end, purpose, units, now, true, index);
   return forced ? { unit: forced.id, takeover: true, force: true } : null;
 }
 
@@ -90,7 +164,7 @@ function rankOf(config, purpose) {
   return order.includes(purpose) ? order.indexOf(purpose) : order.length;
 }
 
-function takeoverOption(config, rows, day, type, start, end, purpose, units, now, force) {
+function takeoverOption(config, rows, day, type, start, end, purpose, units, now, force, index = null) {
   const canTake = force ? Object.keys(config.purposes) : (config.purposes[purpose]?.canTake || []);
   if (!canTake.length) return null;
   const clock = nowIn(config.timeZone, now);
@@ -99,7 +173,10 @@ function takeoverOption(config, rows, day, type, start, end, purpose, units, now
   // The most important reservation on a unit decides how protected it is.
   const protection = taken => Math.min(...taken.map(row => rankOf(config, row.purpose)));
   const options = units
-    .map(id => ({ id, taken: holders(rows, day.date, id, start, end) }))
+    .map(id => ({
+      id,
+      taken: index ? holdersInIndex(index, day.date, id, start, end) : holders(rows, day.date, id, start, end)
+    }))
     .filter(option => option.taken.length
       && option.taken.every(row => row.purpose !== config.hold && canTake.includes(row.purpose) && !inUse(row)));
   options.sort((a, b) => protection(b.taken) - protection(a.taken)
@@ -144,18 +221,20 @@ export function takeoverEffect(config, rows, day, type, start, end, purpose, uni
 // reservation, and `force` when every end would need a Force override.
 export function startChoices(config, rows, day, type, purpose, unitId = null, earliest = 0, force = false) {
   const choices = [];
+  const index = occupancyIndex(rows, config.slotMinutes);
   for (const start of slotStarts(config)) {
     if (start < earliest || serviceAt(day, start)) continue;
-    const ends = endChoices(config, rows, day, type, start, purpose, unitId, force);
+    const ends = endChoices(config, rows, day, type, start, purpose, unitId, force, index);
     if (ends.length) choices.push({ start, takeover: ends.every(end => end.takeover), force: ends.every(end => end.force) });
   }
   return choices;
 }
 
-export function endChoices(config, rows, day, type, start, purpose, unitId = null, force = false) {
+export function endChoices(config, rows, day, type, start, purpose, unitId = null, force = false, index = null) {
   const choices = [];
-  for (let end = start + config.slotMinutes; end <= toMinutes(config.close); end += config.slotMinutes) {
-    const choice = rangeChoice(config, rows, day, type, start, end, purpose, unitId, undefined, force);
+  index ||= occupancyIndex(rows, config.slotMinutes);
+  for (let end = start + config.slotMinutes; end <= timesFor(config).close; end += config.slotMinutes) {
+    const choice = rangeChoice(config, rows, day, type, start, end, purpose, unitId, undefined, force, index);
     if (choice) choices.push({ end, ...choice });
   }
   return choices;

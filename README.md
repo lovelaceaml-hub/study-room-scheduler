@@ -2,10 +2,25 @@
 
 Members reserve study rooms, whiteboards and TVs; the lobby TV shows the day's rooms.
 
+## Quick links
+
+- **Website:** https://lvrooms.web.app
+- **Status:** Live
+- **Docs:**
+  - [Handoff](docs/HANDOFF.md), current status and next work
+  - [Performance plan](docs/PLAN-performance.md), scope and Build log
+  - [User Manual](docs/USER-MANUAL.md), member and Admin guidance
+  - [All documents](docs/)
+
 - App: https://lvrooms.web.app
 - Lobby TV: https://lvrooms.web.app/tv.html
 - Admin: https://lvrooms.web.app/admin/
 - Demo with made-up data: add `?demo=1` to the app or TV address.
+
+Schedule views refresh every 30 seconds while open. Booking and Admin changes
+refresh immediately. Admin pauses automatic refresh while the page is hidden,
+then catches up when it becomes visible again. The lobby TV refreshes every
+minute.
 
 ## How it works
 
