@@ -98,4 +98,4 @@ and day object.
   production traffic or a user's device.
 - Independent code review: no significant issues found.
 - Documentation hygiene review: no findings.
-- Pull request status: pending.
+- Pull request checks and read-only preview are running.
