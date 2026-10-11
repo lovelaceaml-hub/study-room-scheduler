@@ -236,10 +236,33 @@ async function openAdmin({ state = fixture(), width = 1280, height = 900, now, o
 // Moves the clock to the next automatic refresh and waits for its answer.
 async function refreshNow(page) {
   const before = await answered(page, 'adminSchedule:');
-  await page.clock.fastForward(15000);
+  await page.clock.fastForward(30000);
   await page.waitForFunction(count => window.__answered.filter(item => item === 'adminSchedule:').length > count, before);
   await settle(page);
 }
+
+test('Admin refreshes every 30 seconds and pauses while the page is hidden', async () => {
+  const { page, errors, context } = await openAdmin();
+  const before = await answered(page, 'adminSchedule:');
+  await page.clock.fastForward(15000);
+  assert.equal(await answered(page, 'adminSchedule:'), before);
+  await page.clock.fastForward(15000);
+  await page.waitForFunction(count => window.__answered.filter(item => item === 'adminSchedule:').length > count, before);
+  const afterRefresh = await answered(page, 'adminSchedule:');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.clock.fastForward(60000);
+  assert.equal(await answered(page, 'adminSchedule:'), afterRefresh, 'hidden time does not trigger polling');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForFunction(count => window.__answered.filter(item => item === 'adminSchedule:').length > count, afterRefresh);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
 
 // Waits until the server has worked out an answer to `key` (more than
 // `count` of them), whether or not it is held.
@@ -436,7 +459,7 @@ test('Lock clears names and drafts; a session the server ended keeps the draft',
 
   await page.locator('#add-name').fill('Sister Draft Example');
   await page.evaluate(() => { window.__kill = true; });
-  await page.clock.fastForward(15000);
+  await page.clock.fastForward(30000);
   await page.getByText('Your Admin session ended. Enter the PIN again. What you typed is kept.').waitFor();
   await lockScreenIsClean(page);
   await page.evaluate(() => { window.__kill = false; });
@@ -559,7 +582,7 @@ test('a refresh that started before a cancel never shows the old state', async (
   const { page, errors, context } = await openAdmin();
   await hold(page, 'adminSchedule:');
   const before = await computedCount(page, 'adminSchedule:');
-  await page.clock.fastForward(15000);
+  await page.clock.fastForward(30000);
   await computed(page, 'adminSchedule:', before);
   const john = entry(page, 'Brother John Smith');
   await john.getByRole('button', { name: 'Cancel' }).click();
@@ -579,7 +602,7 @@ test('Lock during a refresh shows a clean lock screen', async () => {
   const { page, errors, context } = await openAdmin();
   await hold(page, 'adminSchedule:');
   const before = await computedCount(page, 'adminSchedule:');
-  await page.clock.fastForward(15000);
+  await page.clock.fastForward(30000);
   await computed(page, 'adminSchedule:', before);
   await page.getByRole('button', { name: 'Lock' }).click();
   await lockScreenIsClean(page);
@@ -597,7 +620,7 @@ test('unlocking again while a refresh from before the Lock is still out loads th
   const { page, errors, context } = await openAdmin();
   await hold(page, 'adminSchedule:');
   const before = await computedCount(page, 'adminSchedule:');
-  await page.clock.fastForward(15000);
+  await page.clock.fastForward(30000);
   await computed(page, 'adminSchedule:', before);
   await page.getByRole('button', { name: 'Lock' }).click();
   await lockScreenIsClean(page);
@@ -882,7 +905,7 @@ test('when a refresh fails, one line says which schedule is showing', async () =
   for (let refresh = 0; refresh < 3; refresh += 1) await refreshNow(page);
   await page.getByText('Not connected. Showing the schedule from 9:00 AM.').waitFor();
   assert.equal(await page.locator('.connection').count(), 1);
-  assert.equal(await page.locator('.message').count(), 0, 'no message every 15 seconds');
+  assert.equal(await page.locator('.message').count(), 0, 'no message every 30 seconds');
   await entry(page, 'Brother John Smith').waitFor();
   await page.evaluate(() => { window.__failSchedule = false; });
   await refreshNow(page);

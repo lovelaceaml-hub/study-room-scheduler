@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import {
   rangeChoice, startChoices, endChoices, earlierEnds, earliestStart, earlyEndChoices, hasEnded, takeoverEffect,
-  validRange, unitName, findUnit
+  validRange, unitName, findUnit, occupancyIndex, occupant, overlappingBooking
 } from '../public/shared/availability.js';
 import { formatTime, formatRange, formatDuration, formatDay, toMinutes, toTime, nowIn, hasText, escapeHtml } from '../public/shared/format.js';
 import { DEMO_CONFIG, demoDays } from '../public/shared/demo.js';
@@ -59,6 +59,47 @@ test('a range must be on the grid, inside hours and clear of services', () => {
   assert.equal(validRange(config, TUESDAY, 600, 660), true);
   assert.equal(validRange(config, SATURDAY, 1350, 1410), false);
   assert.equal(validRange(config, SATURDAY, 675, 720), false);
+});
+
+test('occupancy indexes locate schedule and Admin assignments by time slot', () => {
+  const first = row('room-1', '11:00', '12:00');
+  const nextDay = row('room-1', '11:00', '12:00', 'other', TUESDAY.date);
+  const adminRecord = {
+    ...row('room-2', '12:00', '13:00'),
+    id: 'admin-record',
+    assignments: { room: 'room-2', whiteboard: 'wb-2' }
+  };
+  const index = occupancyIndex([first, nextDay, adminRecord], config.slotMinutes,
+    record => record.assignments ? Object.values(record.assignments) : [record.unit]);
+
+  assert.equal(occupant(index, SATURDAY.date, 'room-1', 660), first);
+  assert.equal(occupant(index, SATURDAY.date, 'room-1', 690), first);
+  assert.equal(occupant(index, SATURDAY.date, 'room-1', 720), null);
+  assert.equal(occupant(index, TUESDAY.date, 'room-1', 660), nextDay);
+  assert.equal(overlappingBooking(index, SATURDAY.date, 'room-2', 750, 780), adminRecord);
+  assert.equal(overlappingBooking(index, SATURDAY.date, 'wb-2', 750, 780), adminRecord);
+  assert.equal(overlappingBooking(index, SATURDAY.date, 'room-2', 750, 780, adminRecord.id), null);
+});
+
+test('indexed availability choices match direct checks for priority and force cases', () => {
+  const rows = [
+    row('room-1', '11:00', '12:00', 'other'),
+    row('room-2', '11:30', '12:30', 'new-member'),
+    row('room-3', '12:00', '13:00', 'blocked'),
+    row('room-4', '13:00', '14:30', 'contact')
+  ];
+  const index = occupancyIndex(rows, config.slotMinutes);
+  for (const purpose of Object.keys(config.purposes)) {
+    for (const force of [false, true]) {
+      for (let start = 660; start < 840; start += config.slotMinutes) {
+        for (let end = start + config.slotMinutes; end <= 900; end += config.slotMinutes) {
+          const direct = rangeChoice(config, rows, SATURDAY, 'room', start, end, purpose, null, saturdayAt('09:00'), force);
+          const indexed = rangeChoice(config, rows, SATURDAY, 'room', start, end, purpose, null, saturdayAt('09:00'), force, index);
+          assert.deepEqual(indexed, direct, `${purpose} ${start}-${end}, force=${force}`);
+        }
+      }
+    }
+  }
 });
 
 test('the browser and the server accept exactly the same ranges', () => {
