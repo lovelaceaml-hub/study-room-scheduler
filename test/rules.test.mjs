@@ -124,15 +124,44 @@ test('End early offers only later slots that have not passed, and nothing once i
 
 test('only Contact and New Member see priority overrides, and the lowest priority goes first', () => {
   const day = [row('room-1', '11:00', '12:00', 'contact'), row('room-2', '11:00', '12:00', 'blocked'), row('room-3', '11:00', '12:00', 'new-member'), row('room-4', '11:00', '12:00', 'other')];
-  assert.deepEqual(rangeChoice(config, day, SATURDAY, 'room', 660, 720, 'contact'), { unit: 'room-4', takeover: true }, 'Other before New Member');
-  assert.deepEqual(rangeChoice(config, day, SATURDAY, 'room', 660, 720, 'new-member'), { unit: 'room-4', takeover: true });
+  assert.deepEqual(rangeChoice(config, day, SATURDAY, 'room', 660, 720, 'contact'), { unit: 'room-4', takeover: true, force: false }, 'Other before New Member');
+  assert.deepEqual(rangeChoice(config, day, SATURDAY, 'room', 660, 720, 'new-member'), { unit: 'room-4', takeover: true, force: false });
   assert.equal(rangeChoice(config, day, SATURDAY, 'room', 660, 720, 'other'), null);
   const starts = startChoices(config, day, SATURDAY, 'room', 'contact');
-  assert.deepEqual(starts.find(choice => choice.start === 660), { start: 660, takeover: true });
+  assert.deepEqual(starts.find(choice => choice.start === 660), { start: 660, takeover: true, force: false });
   // Two Other reservations on one room still come before one New Member.
   const crowded = [row('room-1', '11:00', '12:00', 'contact'), row('room-2', '11:00', '12:00', 'contact'), row('room-3', '11:00', '12:00', 'new-member'),
     row('room-4', '11:00', '11:30', 'other'), { ...row('room-4', '11:30', '12:00', 'other'), id: 'room-4-b' }];
-  assert.deepEqual(rangeChoice(config, crowded, SATURDAY, 'room', 660, 720, 'contact'), { unit: 'room-4', takeover: true });
+  assert.deepEqual(rangeChoice(config, crowded, SATURDAY, 'room', 660, 720, 'contact'), { unit: 'room-4', takeover: true, force: false });
+});
+
+test('Force override offers taken times to anyone, marked force, and agrees with the server', () => {
+  const day = [row('room-1', '11:00', '12:00', 'contact'), row('room-2', '11:00', '12:00', 'blocked'), row('room-3', '11:00', '12:00', 'contact'), row('room-4', '11:00', '12:00', 'contact')];
+  assert.equal(rangeChoice(config, day, SATURDAY, 'room', 660, 720, 'contact'), null, 'Contact cannot take Contact by priority');
+  assert.deepEqual(rangeChoice(config, day, SATURDAY, 'room', 660, 720, 'contact', null, undefined, true), { unit: 'room-1', takeover: true, force: true }, 'unit order among equals');
+  assert.deepEqual(rangeChoice(config, day, SATURDAY, 'room', 660, 720, 'other', null, undefined, true), { unit: 'room-1', takeover: true, force: true }, 'Other may force too');
+  assert.deepEqual(rangeChoice(config, day, SATURDAY, 'room', 660, 720, 'contact', 'room-4', undefined, true), { unit: 'room-4', takeover: true, force: true }, 'a chosen unit');
+  assert.equal(rangeChoice(config, day, SATURDAY, 'room', 660, 720, 'contact', 'room-2', undefined, true), null, 'never a hold');
+  // A priority takeover stays one when force is on; Other forces the lowest priority first.
+  const mixed = [...day.slice(0, 3), row('room-4', '11:00', '12:00', 'other')];
+  assert.deepEqual(rangeChoice(config, mixed, SATURDAY, 'room', 660, 720, 'contact', null, undefined, true), { unit: 'room-4', takeover: true, force: false });
+  assert.deepEqual(rangeChoice(config, mixed, SATURDAY, 'room', 660, 720, 'other', null, undefined, true), { unit: 'room-4', takeover: true, force: true });
+  // With another room free, only a chosen unit may be forced.
+  const oneFree = day.slice(0, 3);
+  assert.deepEqual(rangeChoice(config, oneFree, SATURDAY, 'room', 660, 720, 'contact', null, undefined, true), { unit: 'room-4', takeover: false, force: false });
+  assert.deepEqual(rangeChoice(config, oneFree, SATURDAY, 'room', 660, 720, 'contact', 'room-1', undefined, true), { unit: 'room-1', takeover: true, force: true });
+  assert.deepEqual(startChoices(config, day, SATURDAY, 'room', 'contact', null, 0, true).find(choice => choice.start === 660), { start: 660, takeover: true, force: true });
+  assert.deepEqual(endChoices(config, day, SATURDAY, 'room', 660, 'contact', null, true).map(choice => choice.end).slice(0, 2), [690, 720]);
+  const preview = takeoverEffect(config, day, SATURDAY, 'room', 660, 720, 'contact', null, undefined, true);
+  assert.deepEqual(preview.affected.map(item => [item.row.unit, item.effect]), [['room-1', 'replaced']]);
+  // The server picks the same unit.
+  const records = rows => rows.map(item => ({ ...item, status: 'approved', assignments: { room: item.unit } }));
+  const candidate = { date: SATURDAY.date, start: '11:00', end: '12:00', purpose: 'contact' };
+  assert.equal(serverBookings.takeoverTarget('room', candidate, records(day), null, new Date(), true).unitId, 'room-1');
+  assert.equal(serverBookings.takeoverTarget('room', candidate, records(day), 'room-2', new Date(), true), null);
+  assert.equal(serverBookings.takeoverTarget('room', candidate, records(mixed), null, new Date(), true).unitId, 'room-4');
+  assert.equal(serverBookings.takeoverTarget('room', candidate, records(oneFree), 'room-1', new Date(), true).unitId, 'room-1');
+  assert.equal(serverBookings.takeoverTarget('room', candidate, records(oneFree), null, new Date(), true), null);
 });
 
 test('a reservation already under way is never moved or replaced', () => {
@@ -143,10 +172,10 @@ test('a reservation already under way is never moved or replaced', () => {
     serverBookings.takeoverTarget('room', { date: SATURDAY.date, start, end: toTime(toMinutes(start) + 60), purpose: 'contact' }, records(rows), null, now)?.unitId ?? null
   ];
   const startedAtEleven = [...contacts, row('room-4', '11:00', '12:00')];
-  assert.deepEqual(choose(startedAtEleven, '11:00', saturdayAt('10:59')), [{ unit: 'room-4', takeover: true }, 'room-4'], 'not started yet');
+  assert.deepEqual(choose(startedAtEleven, '11:00', saturdayAt('10:59')), [{ unit: 'room-4', takeover: true, force: false }, 'room-4'], 'not started yet');
   assert.deepEqual(choose(startedAtEleven, '11:00', new Date(saturdayAt('11:00').getTime() + 40000)), [null, null], 'began this very minute');
   const startedEarlier = [...contacts.map(item => ({ ...item, start: '10:30' })), row('room-4', '10:30', '12:00')];
-  assert.deepEqual(choose(startedEarlier, '11:30', saturdayAt('11:10')), [{ unit: 'room-4', takeover: true }, 'room-4'], 'began earlier: shortened, not moved');
+  assert.deepEqual(choose(startedEarlier, '11:30', saturdayAt('11:10')), [{ unit: 'room-4', takeover: true, force: false }, 'room-4'], 'began earlier: shortened, not moved');
   const preview = takeoverEffect(config, startedEarlier, SATURDAY, 'room', 690, 750, 'contact', null, saturdayAt('11:10'));
   assert.deepEqual(preview.affected.map(item => [item.effect, item.toEnd]), [['shortened', '11:30']]);
 });
@@ -226,7 +255,7 @@ test('the browser and the server pick the same unit for every unit type, holds a
     const candidate = { date: SATURDAY.date, start: toTime(start), end: toTime(end), purpose };
     const free = serverBookings.freeUnit(type, candidate, records, requested);
     const takeover = serverBookings.takeoverTarget(type, candidate, records, requested);
-    const expected = free ? { unit: free, takeover: false } : takeover ? { unit: takeover.unitId, takeover: true } : null;
+    const expected = free ? { unit: free, takeover: false, force: false } : takeover ? { unit: takeover.unitId, takeover: true, force: false } : null;
     if (takeover) takeovers += 1;
     assert.deepEqual(rangeChoice(config, rows, SATURDAY, type, start, end, purpose, requested), expected,
       JSON.stringify({ round, records, type, start, end, purpose, requested }));

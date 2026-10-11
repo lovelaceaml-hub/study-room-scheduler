@@ -21,6 +21,13 @@ Members reserve study rooms, whiteboards and TVs; the lobby TV shows the day's r
   now ends when the priority one starts, so a reservation already in use is never moved;
   otherwise it moves to another free unit, or is replaced if none is free. My reservations
   tells them which. Cancelling the priority reservation later does not bring the other back.
+- Force override is for a reservation the person no longer needs but left in place. Any
+  member can use it on any member reservation, whatever its purpose: the time lists offer
+  taken times after the Force override button, and someone's reservation on the schedule has
+  a Force override button of its own. The member sees exactly who is affected and must
+  confirm a warning step before anything changes. The same rules as a priority takeover
+  then apply (shortened if it began earlier, otherwise moved or replaced), Admin holds are
+  never taken, and the other person is told in My reservations that it was a Force override.
 - Until a reservation ends, its device can cancel it or end it early; End early offers only
   times that have not passed.
 - Each browser signs in anonymously, so My reservations shows what was booked on that device.
@@ -101,18 +108,41 @@ three on every pull request ("Tests").
 Pushing a branch other than `main` publishes a 7-day preview (see the Actions run summary).
 Previews use the live database and Functions, so look but do not book.
 
-When `functions/` changed, deploy Functions first, from a Mac signed in to Firebase, with
-Node 22 and `npm install --prefix functions` done (the deploy runs the server tests first and
-stops if one fails):
+When `functions/` or `firestore.rules` changed, release them first with the
+**"Firebase backend release (Functions and rules)"** workflow on `main` (Actions tab, Run
+workflow; only when Anthony says to release):
+
+- `functions`: `NONE`, `ALL`, or names separated by commas, for example
+  `publicLobbySchedule,memberSubmitBooking`. Only names in `.github/functions-pinned.txt`
+  are accepted, and each is deployed by name, so CI never deletes a function.
+- `rules`: tick to also release `firestore.rules`.
+- `confirm`: type `RELEASE`.
+
+It runs `npm test` and the rules emulator tests first, then signs in to Google without a key
+(Workload Identity Federation: Google gives the token only to that workflow file, started by
+hand, on `main`) and deploys through `.github/scripts/deploy-guard.sh`. A first run with
+`functions=NONE` and rules unticked only proves the sign-in. When `publicLobbySchedule`
+changed, release it before the site (the lobby TV path `/api/lobby-schedule` points at it).
+The weekly "Functions drift check" compares the live Functions with `main` (read-only).
+One-time setup: Anthony runs `ops/cloud-shell/backend-deploy-wif.sh` in Google Cloud Shell; it
+creates the keyless identities and prints the repository variables both workflows read.
+
+Without GitHub (for example from Google Cloud Shell), deploy Functions **by name only**, never
+a bare `--only functions`:
 
 ```sh
-firebase deploy --only functions --project lvz-rooms
+npm ci --prefix functions
+npx firebase-tools@15 deploy --project lvz-rooms --only functions:memberSchedule,functions:memberSubmitBooking,functions:memberCancelBooking,functions:memberEndBookingEarly,functions:publicLobbySchedule,functions:adminStartSession,functions:adminEndSession,functions:adminSchedule,functions:adminBookingAction,functions:adminNoteAction
 ```
 
-Then release the site: run the "Firebase release (production)" workflow on `main` in GitHub
-Actions, or `firebase deploy --only hosting:app --project lvz-rooms`. Firestore rules deploy
-with `firebase deploy --only firestore:rules --project lvz-rooms`.
+The Functions deploy runs the server tests first and stops if one fails. Firestore rules:
+`npx firebase-tools@15 deploy --only firestore:rules --project lvz-rooms`.
 
+Then release the site: run the "Firebase release (production)" workflow on `main` in GitHub
+Actions (Hosting only).
+
+To undo: Functions have no one-click rollback (revert on `main`, release again); Firestore
+rules: Firebase console, Firestore, Rules, history.
 To undo a site release, use Rollback in the Firebase console under Hosting, site `lvrooms`.
 The GitHub deploy key (service account `gh-hosting-deploy@lvz-rooms`) should be rotated by
 September 28, 2027.

@@ -65,9 +65,10 @@ function memberRequest(fields = {}) {
 // one. When nothing can be taken now, it names the unit the member was shown
 // earlier, so the server finds the schedule changed.
 function takeoverRequest(db, fields = {}) {
-  const request = memberRequest({ ...fields, allowTakeover: false, takeoverUnit: null });
+  const force = fields.forceOverride === true;
+  const request = memberRequest({ ...fields, allowTakeover: false, forceOverride: false, takeoverUnit: null });
   const approved = db.all('bookings').filter(record => record.status === 'approved' && record.date === request.date);
-  const target = takeoverTarget(request.type, { ...request, assignments: emptyAssignments() }, approved, request.requestedUnit);
+  const target = takeoverTarget(request.type, { ...request, assignments: emptyAssignments() }, approved, request.requestedUnit, new Date(), force);
   const shown = fields.takeoverUnit ?? target?.unitId ?? request.requestedUnit ?? unitIds(request.type)[0];
   return memberRequest({ ...fields, allowTakeover: true, takeoverUnit: shown });
 }

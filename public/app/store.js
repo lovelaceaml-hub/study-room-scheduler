@@ -125,8 +125,9 @@ export function newRequestId() {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_');
 }
 
-// `request`: { date, type, unit, start, end, purpose, name, reservedFor, takeover, takeoverUnit, requestId }.
-// `unit` is null to let the server pick any free unit.
+// `request`: { date, type, unit, start, end, purpose, name, reservedFor, takeover, takeoverUnit, force, requestId }.
+// `unit` is null to let the server pick any free unit. `force` is a Force
+// override the member confirmed.
 export async function book(request) {
   const data = {
     date: request.date,
@@ -141,6 +142,7 @@ export async function book(request) {
     requestId: request.requestId
   };
   if (request.takeover && request.takeoverUnit) data.takeoverUnit = request.takeoverUnit;
+  if (request.force) data.forceOverride = true;
   const result = await send('memberSubmitBooking', data, 'We couldn’t confirm the reservation. Check your connection, then try again.');
   // A practice name in demo mode is never kept for the real app.
   if (!demo) writeStored(NAME_KEY, request.name);

@@ -66,17 +66,23 @@ function candidates(config, type, unitId) {
 // this very minute),
 // and takes from the lowest priorities first: a unit held only by Other comes
 // before one with a New Member reservation, then fewer reservations, then unit
-// order. `unitId` limits the choice to one unit. Mirrors takeoverTarget in
-// functions/lib/bookings.js.
-export function rangeChoice(config, rows, day, type, start, end, purpose, unitId = null, now = serverNow()) {
+// order. `unitId` limits the choice to one unit. With `force` (Force override),
+// a range nothing else allows may take any member reservation, and a chosen
+// unit may be taken even while another is free; the result then has
+// `force: true`. Mirrors takeoverTarget in functions/lib/bookings.js.
+export function rangeChoice(config, rows, day, type, start, end, purpose, unitId = null, now = serverNow(), force = false) {
   if (!validRange(config, day, start, end)) return null;
   const isFree = id => holders(rows, day.date, id, start, end).length === 0;
   const units = candidates(config, type, unitId);
   const free = units.find(isFree);
-  if (free) return { unit: free, takeover: false };
-  if (candidates(config, type, null).some(isFree)) return null;
-  const option = takeoverOption(config, rows, day, type, start, end, purpose, units, now);
-  return option ? { unit: option.id, takeover: true } : null;
+  if (free) return { unit: free, takeover: false, force: false };
+  const otherFree = candidates(config, type, null).some(isFree);
+  if (otherFree && !(force && unitId)) return null;
+  const option = otherFree ? null : takeoverOption(config, rows, day, type, start, end, purpose, units, now, false);
+  if (option) return { unit: option.id, takeover: true, force: false };
+  if (!force) return null;
+  const forced = takeoverOption(config, rows, day, type, start, end, purpose, units, now, true);
+  return forced ? { unit: forced.id, takeover: true, force: true } : null;
 }
 
 function rankOf(config, purpose) {
@@ -84,8 +90,8 @@ function rankOf(config, purpose) {
   return order.includes(purpose) ? order.indexOf(purpose) : order.length;
 }
 
-function takeoverOption(config, rows, day, type, start, end, purpose, units, now) {
-  const canTake = config.purposes[purpose]?.canTake || [];
+function takeoverOption(config, rows, day, type, start, end, purpose, units, now, force) {
+  const canTake = force ? Object.keys(config.purposes) : (config.purposes[purpose]?.canTake || []);
   if (!canTake.length) return null;
   const clock = nowIn(config.timeZone, now);
   const inUse = row => toMinutes(row.start) >= start
@@ -111,8 +117,8 @@ function takeoverOption(config, rows, day, type, start, end, purpose, units, now
 // with a room and a TV keeps the TV). Reservations on one unit never overlap each
 // other, so the order the server places them in cannot change the outcome.
 // Mirrors takeOver in functions/lib/actions.js.
-export function takeoverEffect(config, rows, day, type, start, end, purpose, unitId = null, now = serverNow()) {
-  const choice = rangeChoice(config, rows, day, type, start, end, purpose, unitId, now);
+export function takeoverEffect(config, rows, day, type, start, end, purpose, unitId = null, now = serverNow(), force = false) {
+  const choice = rangeChoice(config, rows, day, type, start, end, purpose, unitId, now, force);
   if (!choice?.takeover) return null;
   const taken = holders(rows, day.date, choice.unit, start, end);
   const pool = rows.filter(row => !taken.includes(row))
@@ -135,21 +141,21 @@ export function takeoverEffect(config, rows, day, type, start, end, purpose, uni
 
 // Start times from `earliest` on with at least one possible end. `takeover`
 // is true when every end from that start would take a lower-priority
-// reservation.
-export function startChoices(config, rows, day, type, purpose, unitId = null, earliest = 0) {
+// reservation, and `force` when every end would need a Force override.
+export function startChoices(config, rows, day, type, purpose, unitId = null, earliest = 0, force = false) {
   const choices = [];
   for (const start of slotStarts(config)) {
     if (start < earliest || serviceAt(day, start)) continue;
-    const ends = endChoices(config, rows, day, type, start, purpose, unitId);
-    if (ends.length) choices.push({ start, takeover: ends.every(end => end.takeover) });
+    const ends = endChoices(config, rows, day, type, start, purpose, unitId, force);
+    if (ends.length) choices.push({ start, takeover: ends.every(end => end.takeover), force: ends.every(end => end.force) });
   }
   return choices;
 }
 
-export function endChoices(config, rows, day, type, start, purpose, unitId = null) {
+export function endChoices(config, rows, day, type, start, purpose, unitId = null, force = false) {
   const choices = [];
   for (let end = start + config.slotMinutes; end <= toMinutes(config.close); end += config.slotMinutes) {
-    const choice = rangeChoice(config, rows, day, type, start, end, purpose, unitId);
+    const choice = rangeChoice(config, rows, day, type, start, end, purpose, unitId, undefined, force);
     if (choice) choices.push({ end, ...choice });
   }
   return choices;

@@ -1,0 +1,14 @@
+# Cloud Functions that "Firebase backend release" may deploy to lvz-rooms, by
+# name. It must match the exports of functions/index.js exactly (the guard
+# checks). Change it only in a reviewed pull request: a name left off here
+# could never be released, and a name on here is never deleted by CI.
+memberSchedule
+memberSubmitBooking
+memberCancelBooking
+memberEndBookingEarly
+publicLobbySchedule
+adminStartSession
+adminEndSession
+adminSchedule
+adminBookingAction
+adminNoteAction
