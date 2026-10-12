@@ -22,10 +22,11 @@ Functions or Firestore rules were deployed, and no booking data was changed.
 
 The release preflight URL was
 https://lvrooms--release-check-38192834347-85g4u1i3.web.app. It is an
-automatically expiring one-day channel. The PR branch preview is
-https://lvrooms--cloud-release-read-only-4b699c-g7bw2j6n.web.app; it expires
-after seven days and uses the live backend. Do not book or edit reservations
-from any preview.
+automatically expiring one-day channel. The seven-day PR review preview was
+deleted after the release. Future user-facing review previews are manual-only
+and require an explicit confirmation that a visible UI change needs review.
+The deleted review preview and the required one-day automated preflight use
+the live backend, so never book or edit reservations from either.
 
 ## Decisions
 
@@ -39,6 +40,9 @@ from any preview.
   is part of the release.
 - The one-day Hosting channel is used only for read-only preflight and expires
   automatically.
+- User-facing review previews are manually launched only for visible UI
+  changes; a non-visual fix goes through the normal production release without
+  publishing a review preview.
 
 ## Verification
 

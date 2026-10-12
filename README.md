@@ -116,8 +116,12 @@ three on every pull request ("Tests").
 
 ## Releasing
 
-Pushing a branch other than `main` publishes a 7-day preview (see the Actions run summary).
-Previews use the live database and Functions, so look but do not book.
+The **Firebase preview** workflow is manual-only. Run it when a visible UI
+change needs a user-facing review. Its preview lasts seven days and uses the
+live database and Functions, so look but do not book. For changes without a
+visible UI change, skip this review preview and use the normal production
+release workflow. Its required one-day read-only preflight still runs before
+the production deploy.
 
 When `functions/` or `firestore.rules` changed, release them first with the
 **"Firebase backend release (Functions and rules)"** workflow on `main` (Actions tab, Run
