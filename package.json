@@ -5,7 +5,8 @@
     "test": "node --test test/rules.test.mjs test/tv.rules.test.mjs test/backend-guard.test.mjs test/functions-drift.test.mjs functions/test/rules.test.js functions/test/actions.test.js functions/test/guard.test.js functions/test/takeover.test.js functions/test/races.test.js functions/test/endpoints.test.js",
     "test:browser": "node --test --test-concurrency=1 --test-timeout=180000 test/app.smoke.mjs test/admin.smoke.mjs test/tv.smoke.mjs",
     "test:rules": "npx -y firebase-tools@15 emulators:exec --only firestore --project demo-study-room-security \"npm --prefix functions run test:rules\"",
-    "reservations": "node scripts/reservations.mjs"
+    "reservations": "node scripts/reservations.mjs",
+    "test:release-check": "node --test test/release-check.test.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
