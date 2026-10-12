@@ -1,17 +1,16 @@
-# Preview: every push to a branch other than main publishes a temporary
-# Firebase Hosting preview channel (expires after 7 days) and prints its link.
+# Preview: manually run this workflow only when a visible UI change needs
+# a user-facing review. Its Firebase Hosting channel expires after 7 days.
 # It never touches the live site, Functions, Firestore rules or indexes.
-# Docs-only pushes and Dependabot branches are skipped.
 name: Firebase preview
 
 on:
-  push:
-    branches-ignore:
-      - main
-      - "dependabot/**"
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
+  workflow_dispatch:
+    inputs:
+      visible_ui_change:
+        description: "Use only when a visible UI change needs user review"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,6 +21,7 @@ concurrency:
 
 jobs:
   preview:
+    if: ${{ inputs.visible_ui_change }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

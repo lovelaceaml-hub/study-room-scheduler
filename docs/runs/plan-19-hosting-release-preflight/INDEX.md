@@ -26,7 +26,7 @@ as `bf0141d0198e3ca94bc14100138b02b94884759e`.
 - The seven-day branch preview succeeded in
   [run 38192558281](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/38192558281).
   Its member, lobby TV, and Admin pages returned HTTP 200 in the read-only
-  headless check.
+  headless check. It was deleted after release.
 - The production release passed in
   [run 38192834347](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/38192834347).
   The real one-day preflight URL was
@@ -49,5 +49,8 @@ behavior changes.
 
 Production is https://lvrooms.web.app. The production workflow deploys only
 `hosting:app`; backend releases remain separate. The seven-day branch preview
-and one-day release preflight both use the live backend, so only read-only
-checks were run. Both channels expire automatically.
+was deleted after release. The review preview and one-day release preflight
+use the live backend, so only read-only checks were run. The production
+preflight expires automatically. Future user-facing review previews require
+manual dispatch and an explicit visible-UI-change confirmation; the production
+preflight remains required.

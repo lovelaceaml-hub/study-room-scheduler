@@ -23,9 +23,11 @@ production reservations.
 ## Traps and boundaries
 
 - Production is `https://lvrooms.web.app`, Firebase project `lvz-rooms`.
-- Work on a feature branch, never `main`. A push to a non-main branch publishes
-  a seven-day Hosting preview. Previews use the live database and Functions;
-  use them only for read-only inspection, never to book or change records.
+- Work on a feature branch, never `main`. The Firebase preview workflow is
+  manual-only; use it only when a visible UI change needs a user-facing review.
+  Previews use the live database and Functions; use them only for read-only
+  inspection, never to book or change records. The production workflow's
+  one-day automated read-only preflight is separate and remains required.
 - Production Hosting releases run only through the manually started GitHub
   workflow on `main`, scoped to `hosting:app`. Do not run a bare Firebase
   deploy. Functions and Firestore rules have separate, narrower release

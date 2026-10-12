@@ -54,5 +54,9 @@ page checker, and the deploy guard. Document boundaries and release evidence.
   succeeded. The workflow deployed `hosting:app` only. Its read-only browser
   guard blocked an anonymous sign-up POST before it was sent; no booking data
   or backend resources were changed.
-- The branch preview expires after seven days; the release preflight channel
-  expires after one day. No release steps remain.
+- **2026-10-11:** The seven-day user-facing branch review preview created for
+  this release was deleted after release. The branch preview workflow now
+  requires manual dispatch and an explicit visible-UI-change confirmation.
+  Non-visual changes do not publish a branch review preview. The required
+  automated one-day production preflight remains unchanged. No release steps
+  remain.
