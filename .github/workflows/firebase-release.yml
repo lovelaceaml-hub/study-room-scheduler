@@ -109,6 +109,9 @@ jobs:
       - name: "Pre-release checks: browser tests (fictional data, fake Firebase)"
         run: npm run test:browser
 
+      - name: Read-only release checker against loopback fixtures
+        run: npm run test:release-check
+
       - name: Check the deploy guard refuses forbidden targets
         run: bash .github/scripts/deploy-guard.sh --self-test
 
@@ -123,6 +126,22 @@ jobs:
           umask 077
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy a temporary Hosting preview for read-only preflight
+        id: preview
+        env:
+          CHANNEL_ID: release-check-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          ARGS=(hosting:channel:deploy "$CHANNEL_ID" --only app --project lvz-rooms --expires 1d --json)
+          bash .github/scripts/deploy-guard.sh "${ARGS[@]}"
+          npm_config_cache=/tmp/npm-cache npx -y firebase-tools@15 "${ARGS[@]}" > "$RUNNER_TEMP/release-preview.json"
+          node .github/scripts/firebase-preview-url.mjs "$RUNNER_TEMP/release-preview.json" "$CHANNEL_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Pre-release read-only page and schedule check
+        env:
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+        run: node .github/scripts/preview-page-check.mjs "$PREVIEW_URL" / /admin/ /tv.html --require-lobby-schedule
 
       - name: Deploy the pinned Hosting scope to production
         run: |
@@ -144,6 +163,9 @@ jobs:
                 echo "> **Note:** this run could not check whether Functions or rules files changed (see the top of this summary). Only Hosting was deployed." ;;
             esac
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post-release read-only page and schedule check
+        run: node .github/scripts/preview-page-check.mjs https://lvrooms.web.app / /admin/ /tv.html --require-lobby-schedule
 
       - name: Remove the deploy credential
         if: always()

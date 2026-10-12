@@ -38,6 +38,9 @@ jobs:
       - name: App, Admin and TV in a real browser (fictional data, fake Firebase)
         run: npm run test:browser
 
+      - name: Read-only release checker against loopback fixtures
+        run: npm run test:release-check
+
   firestore-rules:
     runs-on: ubuntu-latest
     timeout-minutes: 15
