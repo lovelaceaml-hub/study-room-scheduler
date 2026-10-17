@@ -2,7 +2,7 @@
 # Automatic runs retain focused checks; a generic release request is not full-suite approval.
 # Backend release: deploys main's Cloud Functions to lvz-rooms BY NAME, and
 # Firestore rules when ticked. It runs only when started from the Actions tab
-# ("Run workflow") on main, only after the repository's own tests pass, and
+# ("Run workflow") on main, only after focused checks pass (full suites need separate approval), and
 # only through .github/scripts/deploy-guard.sh (which hands these modes to
 # backend-guard.sh). Run it only when Anthony says to release.
 #
