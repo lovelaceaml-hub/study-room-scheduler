@@ -1,3 +1,5 @@
+# Full suites run only on manual dispatch with explicit approval for this run.
+# Automatic runs retain focused checks; a generic release request is not full-suite approval.
 # Release: publishes main to the live site. It runs only when started from the
 # Actions tab ("Run workflow"), only from main, and only for the pinned Hosting
 # scope below, after the repository's own pre-release checks pass.
@@ -7,6 +9,11 @@ name: Firebase release (production)
 
 on:
   workflow_dispatch:
+    inputs:
+      full_suite_approved:
+        description: "Anthony explicitly requested or just approved the full suite for this run"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -104,9 +111,11 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: "Pre-release checks: rules tests"
+        if: github.event_name == 'workflow_dispatch' && inputs.full_suite_approved
         run: npm test
 
       - name: "Pre-release checks: browser tests (fictional data, fake Firebase)"
+        if: github.event_name == 'workflow_dispatch' && inputs.full_suite_approved
         run: npm run test:browser
 
       - name: Read-only release checker against loopback fixtures

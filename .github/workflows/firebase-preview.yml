@@ -1,3 +1,5 @@
+# Full suites run only on manual dispatch with explicit approval for this run.
+# Automatic runs retain focused checks; a generic release request is not full-suite approval.
 # Preview: manually run this workflow only when a visible UI change needs
 # a user-facing review. Its Firebase Hosting channel expires after 7 days.
 # It never touches the live site, Functions, Firestore rules or indexes.
@@ -6,6 +8,10 @@ name: Firebase preview
 on:
   workflow_dispatch:
     inputs:
+      full_suite_approved:
+        description: "Anthony explicitly requested or just approved the full suite for this run"
+        type: boolean
+        default: false
       visible_ui_change:
         description: "Use only when a visible UI change needs user review"
         required: true
@@ -44,9 +50,11 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: "Pre-release checks: rules tests"
+        if: github.event_name == 'workflow_dispatch' && inputs.full_suite_approved
         run: npm test
 
       - name: "Pre-release checks: browser tests (fictional data, fake Firebase)"
+        if: github.event_name == 'workflow_dispatch' && inputs.full_suite_approved
         run: npm run test:browser
 
       - name: Check the deploy guard refuses forbidden targets

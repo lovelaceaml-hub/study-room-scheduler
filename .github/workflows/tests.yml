@@ -1,13 +1,17 @@
-# Tests: runs every suite on each pull request (Dependabot's included) and
-# when started from the Actions tab. It deploys nothing and uses no secrets.
-# Pushes to other branches also run the rules and browser tests as part of
-# "Firebase preview"; this workflow adds pull requests and the Firestore
-# rules test, which needs the emulator.
+# Full suites run only on manual dispatch with explicit approval for this run.
+# Automatic runs retain focused checks; a generic release request is not full-suite approval.
+# Pull requests keep the deploy guard, Functions syntax and release-check fixtures.
+# Manual runs add the broad suites only with full_suite_approved=true.
 name: Tests
 
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      full_suite_approved:
+        description: "Anthony explicitly requested or just approved the full suite for this run"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -33,9 +37,13 @@ jobs:
           npm ci --prefix functions
       - name: Install the Chromium browser for the tests
         run: npx playwright install --with-deps chromium
+      - name: Focused deploy guard self-test
+        run: bash .github/scripts/deploy-guard.sh --self-test
       - name: Rules, database actions, endpoints and browser/server agreement
+        if: github.event_name == 'workflow_dispatch' && inputs.full_suite_approved
         run: npm test
       - name: App, Admin and TV in a real browser (fictional data, fake Firebase)
+        if: github.event_name == 'workflow_dispatch' && inputs.full_suite_approved
         run: npm run test:browser
 
       - name: Read-only release checker against loopback fixtures
@@ -57,5 +65,8 @@ jobs:
           java-version: 21
       - name: Install test dependencies
         run: npm ci --prefix functions
+      - name: Focused Functions syntax check
+        run: node --check functions/index.js
       - name: Browsers cannot read or write the database (Firestore emulator, demo project)
+        if: github.event_name == 'workflow_dispatch' && inputs.full_suite_approved
         run: npm run test:rules

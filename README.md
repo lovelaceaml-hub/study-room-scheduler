@@ -104,8 +104,9 @@ The tests never reach the live project. Database tests use an in-memory Firestor
 transactions one at a time (Firestore's transactions behave as if they did), so they also
 check that two people can never get the same unit. Tests that depend on the date run on a
 fixed clock (the browser tests on Saturday, October 3, 2026, 9:00 AM in Los Angeles; the
-server tests on the Thursday before), so they pass on any day and at any hour. GitHub runs all
-three on every pull request ("Tests").
+server tests on the Thursday before), so they pass on any day and at any hour. GitHub keeps focused checks on pull requests. Full suites run only when Anthony
+explicitly requests or immediately approves them for a manual run ("Tests",
+`full_suite_approved=true`). A generic preview or release request is not approval.
 
 ## Looking at live data
 
@@ -133,7 +134,9 @@ workflow; only when Anthony says to release):
 - `rules`: tick to also release `firestore.rules`.
 - `confirm`: type `RELEASE`.
 
-It runs `npm test` and the rules emulator tests first, then signs in to Google without a key
+It retains the deploy guard. Broad test suites run only with
+`full_suite_approved=true` after Anthony explicitly requests or immediately approves
+them for that run; then it signs in to Google without a key
 (Workload Identity Federation: Google gives the token only to that workflow file, started by
 hand, on `main`) and deploys through `.github/scripts/deploy-guard.sh`. A first run with
 `functions=NONE` and rules unticked only proves the sign-in. When `publicLobbySchedule`
@@ -150,7 +153,8 @@ npm ci --prefix functions
 npm_config_cache=/tmp/npm-cache npx firebase-tools@15 deploy --project lvz-rooms --only functions:memberSchedule,functions:memberSubmitBooking,functions:memberCancelBooking,functions:memberEndBookingEarly,functions:publicLobbySchedule,functions:adminStartSession,functions:adminEndSession,functions:adminSchedule,functions:adminBookingAction,functions:adminNoteAction
 ```
 
-The Functions deploy runs the server tests first and stops if one fails. Firestore rules:
+The Functions predeploy hook checks JavaScript syntax. Full server tests require
+Anthony's explicit request or immediate approval for that run. Firestore rules:
 `npm_config_cache=/tmp/npm-cache npx firebase-tools@15 deploy --only firestore:rules --project lvz-rooms`.
 
 Then release the site: run the "Firebase release (production)" workflow on `main` in GitHub
