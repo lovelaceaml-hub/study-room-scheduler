@@ -13,9 +13,7 @@ The completion record is `docs/runs/plan-19-hosting-release-preflight/INDEX.md`.
 - `npm run test:browser`
 - With Temurin installed at `$HOME/tools/jdk`: set
   `JAVA_HOME="$HOME/tools/jdk/Contents/Home"` and put `$JAVA_HOME/bin` on `PATH`,
-  then run `npm_config_cache=/tmp/npm-cache npm run test:rules`. In a cloud
-  session without Java, leave this one to the "Tests" workflow on the pull
-  request and say so.
+  then run `npm_config_cache=/tmp/npm-cache npm run test:rules`.
 - `npm run test:release-check`
 - `bash .github/scripts/deploy-guard.sh --self-test`
 
