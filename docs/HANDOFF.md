@@ -33,10 +33,25 @@ tidy-up in `functions/lib/actions.js`.
   reported all 10 Functions "same". Signed-in member and Admin actions were not
   exercised.
 
-**Still open: Hosting.** `public/app/mine.js` and `public/app/details.js` changed
-after the last Hosting release, and the live `mine.js` does not match `main`. The
-My reservations fix reaches members only after a run of "Firebase release
-(production)".
+**Hosting release, same day.** `main` (`02e04a9`) went live with `hosting:app` only
+in [run 41904705581](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/41904705581),
+which includes the My reservations fix. Tests passed: `npm test` 141 of 141,
+`test:browser` 77 of 77, `test:release-check` 28 of 28. The preview and live page
+checks passed, and the live `mine.js` and `details.js` now match `main`. Anthony
+approved both Hosting runs and their tests.
+
+The first attempt, [run 41901214042](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/41901214042),
+stopped at the preview step with nothing published. `firebase-tools` 15.34.1
+(2026-10-22) added a check that the Hosting API is on, and the deploy account
+`gh-hosting-deploy@lvz-rooms` had only `roles/firebasehosting.admin`, which does
+not allow it. Adding `roles/serviceusage.serviceUsageConsumer` was the only change
+before the rerun passed. The step sends the tool's error to a file, so the actual
+message was never seen; the cause is inferred from the tool's source and that
+result.
+
+**Same gap in the other apps:** `gh-hosting-deploy` in `lv-zion-duties` and
+`lv-wm-prayer` lacks this permission too, and both repositories use
+`firebase-tools@15`. Their next Hosting releases may stop the same way.
 
 **Keyless setup is finished.** `ops/cloud-shell/backend-deploy-wif.sh` was run on
 2026-11-04 and this repository has its four variables, so the weekly drift check
