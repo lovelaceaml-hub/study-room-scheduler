@@ -45,7 +45,7 @@
   ],
   "functions": {
     "source": "functions",
-    "predeploy": ["npm --prefix \"$RESOURCE_DIR\" test"]
+    "predeploy": ["node --check \"$RESOURCE_DIR/index.js\""]
   },
   "firestore": {
     "rules": "firestore.rules",

@@ -1,8 +1,10 @@
 # Backend release: deploys main's Cloud Functions to lvz-rooms BY NAME, and
 # Firestore rules when ticked. It runs only when started from the Actions tab
-# ("Run workflow") on main, only after the repository's own tests pass, and
-# only through .github/scripts/deploy-guard.sh (which hands these modes to
-# backend-guard.sh). Run it only when Anthony says to release.
+# ("Run workflow") on main and only through .github/scripts/deploy-guard.sh
+# (which hands these modes to backend-guard.sh). Run it only when Anthony says
+# to release. The full test suites run only when full_suite_approved is ticked;
+# a request to release does not by itself approve them. When they run, they must
+# pass before anything deploys.
 #
 # No key is stored in GitHub. Google itself (Workload Identity Federation)
 # hands out a short-lived token only to this exact workflow file, started by
@@ -30,6 +32,10 @@ on:
         description: Type RELEASE to confirm
         type: string
         required: true
+      full_suite_approved:
+        description: "Run the full test suites too. Tick only when Anthony approved them for this run"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -79,6 +85,7 @@ jobs:
           node-version: 22
 
       - name: Set up Java (Firestore emulator for the rules tests)
+        if: inputs.full_suite_approved
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -136,10 +143,27 @@ jobs:
           npm ci
           npm ci --prefix functions
 
+      - name: Say whether the full test suites run
+        env:
+          FULL_SUITE_APPROVED: ${{ inputs.full_suite_approved }}
+        run: |
+          if [ "$FULL_SUITE_APPROVED" = "true" ]; then
+            echo "### Full test suites: approved for this run, and they must pass first" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=Full test suites NOT RUN::This release was not checked by the booking, database, endpoint or Firestore rules tests. Passing here does not mean those tests pass."
+            {
+              echo "### Full test suites: NOT RUN"
+              echo ""
+              echo "This release was not checked by the booking, database, endpoint or Firestore rules tests. Passing here does not mean those tests pass."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: "Pre-release checks: rules, database actions, endpoints, guard"
+        if: inputs.full_suite_approved
         run: npm test
 
       - name: "Pre-release checks: Firestore rules on the emulator (demo project)"
+        if: inputs.full_suite_approved
         run: npm run test:rules
 
       - name: Sign in to Google without a key (Workload Identity Federation)

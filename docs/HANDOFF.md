@@ -47,10 +47,17 @@ It also changed the image cleanup in `lv-zion-duties` from 3 days to 1 day. The
 identities for `worship-duty-app` and `morning-prayer-app` exist, but those
 repositories do not have their variables yet, so nothing can use them.
 
-**Known gaps against Anthony's full-suite rule:** the backend release workflow runs
-`npm test` and `test:rules` but has no `full_suite_approved` input. The "Tests"
-workflow starts every suite on every pull request, even a docs-only one; the rule
-says full suites must not start automatically on pull-request updates.
+## Full test suites need approval (2026-11-04)
+
+No full test suite starts by itself any more. "Tests", both release workflows and
+"Firebase preview" run them only when `full_suite_approved` is ticked, and it is
+off by default. The Functions deploy hook in `firebase.json`, which used to run the
+server tests on every deploy, is now a syntax check. Pull requests get only "Focused
+checks": the guard self-test, the backend guard test and a JavaScript syntax check.
+
+So a change can reach `main`, and go live, with no booking, page or database test
+having run. Ask Anthony to approve the suites before a backend release in
+particular; `README.md` "Releasing" says what an unticked release gives up.
 
 ## Live surfaces
 

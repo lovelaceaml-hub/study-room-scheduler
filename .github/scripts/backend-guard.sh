@@ -36,9 +36,10 @@ FIREBASE_TOOLS="firebase-tools@15"
 ALLOWED_SECRETS=(STUDY_ROOM_ADMIN_PIN)
 # Functions this repository must never deploy or delete, whatever the list says.
 REFUSED_FUNCTIONS=()
-# The one reviewed functions.predeploy hook in firebase.json (runs the server
-# tests before every Functions deploy). Empty means "no hook allowed".
-FUNCTIONS_PREDEPLOY='npm --prefix "$RESOURCE_DIR" test'
+# The one reviewed functions.predeploy hook in firebase.json (a syntax check; it
+# must never start a full test suite, which needs Anthony's approval for the
+# run). Empty means "no hook allowed".
+FUNCTIONS_PREDEPLOY='node --check "$RESOURCE_DIR/index.js"'
 # --------------------------------------------------------------------------
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
