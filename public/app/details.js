@@ -1,9 +1,8 @@
 // The sheet that opens when someone taps a reservation on the schedule. The
 // person who made it can also cancel it or end it early from here.
 
-import { escapeHtml as esc, formatRange, formatDay } from '../shared/format.js';
+import { escapeHtml as esc, formatRange, formatDay, toMinutes } from '../shared/format.js';
 import { earliestStart } from '../shared/availability.js';
-import { toMinutes } from '../shared/format.js';
 import { cancel, canBook } from './store.js';
 import { createSheet } from './sheet.js';
 import { purposeLabel, detailLabel, placeLabel, reservationActions, HOLD } from './text.js';
