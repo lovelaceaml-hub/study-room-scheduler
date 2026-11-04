@@ -98,6 +98,8 @@ npm_config_cache=/tmp/npm-cache npx playwright install chromium
 npm test               # rules, database actions, endpoints, and browser/server agreement
 npm run test:browser   # app, Admin and TV in a real browser with a fake backend
 npm run test:rules     # browsers cannot read or write the database (Firestore emulator, needs Java)
+npm run test:release-check                  # the read-only release checker, against local fixtures
+bash .github/scripts/deploy-guard.sh --self-test   # the deploy guard refuses forbidden targets
 ```
 
 The tests never reach the live project. Database tests use an in-memory Firestore that runs
@@ -105,7 +107,8 @@ transactions one at a time (Firestore's transactions behave as if they did), so 
 check that two people can never get the same unit. Tests that depend on the date run on a
 fixed clock (the browser tests on Saturday, October 3, 2026, 9:00 AM in Los Angeles; the
 server tests on the Thursday before), so they pass on any day and at any hour. GitHub runs all
-three on every pull request ("Tests").
+of them except the deploy-guard self-test on every pull request ("Tests"); the release workflows
+run the guard self-test before they deploy.
 
 ## Looking at live data
 
