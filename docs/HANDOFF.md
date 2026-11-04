@@ -46,7 +46,7 @@ the live backend, so never book or edit reservations from either.
 
 ## Verification
 
-The active plan and its `## Build log` are in
+The latest plan (complete; no plan is active now) and its `## Build log` are in
 [`PLAN-19-hosting-release-preflight.md`](PLAN-19-hosting-release-preflight.md).
 The completion record is
 [`runs/plan-19-hosting-release-preflight/INDEX.md`](runs/plan-19-hosting-release-preflight/INDEX.md).
@@ -62,3 +62,10 @@ member, Admin, and TV pages also returned HTTP 200 after release.
 
 No release steps remain. The backend release process is separate and was not
 needed.
+
+## Review 2026-11-03
+
+A whole-repo review is in [`reviews/2026-11-03-review.md`](reviews/2026-11-03-review.md):
+ranked refactor ideas, dependency status, and decisions left for Anthony. Its
+pull request updates dependencies; the Functions part only reaches the live
+site after a backend release.

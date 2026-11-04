@@ -1,8 +1,8 @@
 # Tests: runs every suite on each pull request (Dependabot's included) and
 # when started from the Actions tab. It deploys nothing and uses no secrets.
-# Pushes to other branches also run the rules and browser tests as part of
-# "Firebase preview"; this workflow adds pull requests and the Firestore
-# rules test, which needs the emulator.
+# This is the only automatic test run: "Firebase preview" is manual-only, and
+# the release workflows repeat the tests before they deploy. The Firestore
+# rules test needs the emulator, so it runs in its own job.
 name: Tests
 
 on:

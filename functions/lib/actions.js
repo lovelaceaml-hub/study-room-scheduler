@@ -15,7 +15,8 @@ const { removeExpired } = require('./guard');
 
 const BOOKINGS = 'bookings';
 const NOTES = 'privateBookingNotes';
-// Far more than the units can hold in a few days, so nothing is cut off.
+// Far more than the units can hold in a few days.
+// Records past this limit would not be shown.
 const RECORD_LIMIT = 2000;
 // One batch holds 500 writes: each old booking and its note.
 const REMOVE_LIMIT = 250;
@@ -134,15 +135,17 @@ async function submitReservation(db, request, uid) {
 
     const free = freeUnit(request.type, candidate, approved, request.requestedUnit);
     if (free) {
-      transaction.create(ref, record(free, false));
-      return submitResult(ref.id, record(free, false));
+      const created = record(free, false);
+      transaction.create(ref, created);
+      return submitResult(ref.id, created);
     }
 
     const target = confirmedTarget(request, candidate, approved);
     if (!target) throw new HttpsError('already-exists', takenMessage(request));
     takeOver(transaction, db, request, target, approved, ref.id, now);
-    transaction.create(ref, record(target.unitId, true));
-    return submitResult(ref.id, record(target.unitId, true));
+    const created = record(target.unitId, true);
+    transaction.create(ref, created);
+    return submitResult(ref.id, created);
   });
 }
 
