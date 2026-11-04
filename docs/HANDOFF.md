@@ -62,3 +62,10 @@ member, Admin, and TV pages also returned HTTP 200 after release.
 
 No release steps remain. The backend release process is separate and was not
 needed.
+
+## Review 2026-11-03
+
+A whole-repo review is in [`reviews/2026-11-03-review.md`](reviews/2026-11-03-review.md):
+ranked refactor ideas, dependency status, and decisions left for Anthony. Its
+pull request updates dependencies; the Functions part only reaches the live
+site after a backend release.
