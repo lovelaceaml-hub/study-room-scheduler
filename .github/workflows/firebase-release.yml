@@ -159,7 +159,14 @@ jobs:
           set -euo pipefail
           ARGS=(hosting:channel:deploy "$CHANNEL_ID" --only app --project lvz-rooms --expires 1d --json)
           bash .github/scripts/deploy-guard.sh "${ARGS[@]}"
-          npm_config_cache=/tmp/npm-cache npx -y firebase-tools@15 "${ARGS[@]}" > "$RUNNER_TEMP/release-preview.json"
+          rc=0
+          npm_config_cache=/tmp/npm-cache npx -y firebase-tools@15 "${ARGS[@]}" > "$RUNNER_TEMP/release-preview.json" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            # Only the error message, never the whole output file.
+            msg=$(jq -r '.error | if type == "object" then .message else . end | select(type == "string")' "$RUNNER_TEMP/release-preview.json" 2>/dev/null | tr '\r\n' '  ' || true)
+            echo "::error::firebase-tools exited with code $rc: ${msg:-its output had no error message}"
+            exit "$rc"
+          fi
           node .github/scripts/firebase-preview-url.mjs "$RUNNER_TEMP/release-preview.json" "$CHANNEL_ID" >> "$GITHUB_OUTPUT"
 
       - name: Pre-release read-only page and schedule check

@@ -104,15 +104,16 @@ jobs:
           rc=0
           npx -y firebase-tools@15 "${ARGS[@]}" > "$RUNNER_TEMP/channel.json" || rc=$?
           if [ "$rc" -ne 0 ]; then
-            echo "::error::firebase-tools exited with code $rc."
-            jq -r '.error // .' "$RUNNER_TEMP/channel.json" 2>/dev/null || true
+            # Only the error message, never the whole output file.
+            msg=$(jq -r '.error | if type == "object" then .message else . end | select(type == "string")' "$RUNNER_TEMP/channel.json" 2>/dev/null | tr '\r\n' '  ' || true)
+            echo "::error::firebase-tools exited with code $rc: ${msg:-its output had no error message}"
             exit "$rc"
           fi
           url=$(jq -r '[.result[] | .url] | first // empty' "$RUNNER_TEMP/channel.json")
           expires=$(jq -r '[.result[] | .expireTime] | first // empty' "$RUNNER_TEMP/channel.json")
           if [ -z "$url" ]; then
-            echo "::error::Firebase did not return a preview URL."
-            jq -r '.status, (.error // empty)' "$RUNNER_TEMP/channel.json" || true
+            msg=$(jq -r '.error | if type == "object" then .message else . end | select(type == "string")' "$RUNNER_TEMP/channel.json" 2>/dev/null | tr '\r\n' '  ' || true)
+            echo "::error::Firebase did not return a preview URL: ${msg:-its output had no error message}"
             exit 1
           fi
           echo "Preview URL: $url"
