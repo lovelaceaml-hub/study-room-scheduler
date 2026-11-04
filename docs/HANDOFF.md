@@ -46,7 +46,7 @@ the live backend, so never book or edit reservations from either.
 
 ## Verification
 
-The active plan and its `## Build log` are in
+The latest plan (complete; no plan is active now) and its `## Build log` are in
 [`PLAN-19-hosting-release-preflight.md`](PLAN-19-hosting-release-preflight.md).
 The completion record is
 [`runs/plan-19-hosting-release-preflight/INDEX.md`](runs/plan-19-hosting-release-preflight/INDEX.md).
