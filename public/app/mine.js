@@ -262,9 +262,11 @@ export function createMineSheet({ getState, onReserve }) {
       render({ focus: 'h2' });
     } else if (action === 'cancel-confirm') {
       const item = find(screen.id);
+      if (!item) { screen = { view: 'list' }; render({ focus: 'h2' }); return; }
       run(() => cancel(item.id), 'Reservation cancelled. Its time is open for others.');
     } else if (action === 'end-confirm') {
       const item = find(screen.id);
+      if (!item) { screen = { view: 'list' }; render({ focus: 'h2' }); return; }
       run(() => endEarly(item.id, screen.end), `Reservation now ends at ${formatTime(screen.end)}.`);
     }
   });
