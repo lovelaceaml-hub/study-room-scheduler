@@ -106,9 +106,16 @@ The tests never reach the live project. Database tests use an in-memory Firestor
 transactions one at a time (Firestore's transactions behave as if they did), so they also
 check that two people can never get the same unit. Tests that depend on the date run on a
 fixed clock (the browser tests on Saturday, October 3, 2026, 9:00 AM in Los Angeles; the
-server tests on the Thursday before), so they pass on any day and at any hour. GitHub runs all
-of them except the deploy-guard self-test on every pull request ("Tests"); the release workflows
-run the guard self-test before they deploy.
+server tests on the Thursday before), so they pass on any day and at any hour.
+
+Full test suites run only with Anthony's approval for that exact run. On GitHub they are the
+**Tests** workflow: Actions tab, Run workflow, tick `full_suite_approved`. Left unticked, it
+stops with "Nothing was tested". Nothing starts them by itself.
+
+The only automatic check is **Focused checks**, on pull requests that change more than documents:
+the deploy-guard self-test, the backend guard test and a syntax check of every JavaScript file.
+It does not test booking, the pages or the database, so a pull request can pass it and still
+have a bug in those.
 
 ## Looking at live data
 
@@ -118,6 +125,23 @@ run the guard self-test before they deploy.
 (no key file).
 
 ## Releasing
+
+All three workflows below have a `full_suite_approved` box, off by default. Tick it only when
+Anthony approved the full suites for that run; a request to release is not that approval. When
+ticked, the suites must pass before anything is published. When unticked, they are skipped, and
+the run's summary says "Full test suites: NOT RUN".
+
+What an unticked release gives up:
+
+- **Site release:** nothing checks the booking rules or tests the app, Admin and TV pages by
+  using them. Still checked: the deploy guard, the release checker, and a read-only look at the
+  one-day preview before publishing and at the live site after. A bad release can be rolled back
+  in the Firebase console.
+- **Backend release:** nothing checks the booking rules, double-booking protection, the database
+  actions or the endpoints, and a rules release gets no check that browsers stay locked out of the
+  database. Still checked: the deploy guard, and the deploy tool loading the code before it uploads. There is no preview
+  and no one-click undo, so a bad Function reaches members at once. This is the riskier one to
+  leave unticked.
 
 The **Firebase preview** workflow is manual-only. Run it when a visible UI
 change needs a user-facing review. Its preview lasts seven days and uses the
@@ -135,8 +159,10 @@ workflow; only when Anthony says to release):
   are accepted, and each is deployed by name, so CI never deletes a function.
 - `rules`: tick to also release `firestore.rules`.
 - `confirm`: type `RELEASE`.
+- `full_suite_approved`: tick only when Anthony approved the tests for this run.
 
-It runs `npm test` and the rules emulator tests first, then signs in to Google without a key
+When ticked, it runs `npm test` and the rules emulator tests first. Either way it then signs in
+to Google without a key
 (Workload Identity Federation: Google gives the token only to that workflow file, started by
 hand, on `main`) and deploys through `.github/scripts/deploy-guard.sh`. A first run with
 `functions=NONE` and rules unticked only proves the sign-in. When `publicLobbySchedule`
@@ -153,11 +179,13 @@ npm ci --prefix functions
 npm_config_cache=/tmp/npm-cache npx firebase-tools@15 deploy --project lvz-rooms --only functions:memberSchedule,functions:memberSubmitBooking,functions:memberCancelBooking,functions:memberEndBookingEarly,functions:publicLobbySchedule,functions:adminStartSession,functions:adminEndSession,functions:adminSchedule,functions:adminBookingAction,functions:adminNoteAction
 ```
 
-The Functions deploy runs the server tests first and stops if one fails. Firestore rules:
+A Functions deploy only checks that `functions/index.js` parses; it does not run the tests. With
+Anthony's approval for that run, use `npm --prefix functions test` first. Firestore rules:
 `npm_config_cache=/tmp/npm-cache npx firebase-tools@15 deploy --only firestore:rules --project lvz-rooms`.
 
 Then release the site: run the "Firebase release (production)" workflow on `main` in GitHub
-Actions (Hosting only). Before publishing, the workflow deploys a one-day preview channel and
+Actions (Hosting only; `full_suite_approved` as above). Before publishing, the workflow deploys a
+one-day preview channel and
 runs the same GET/HEAD-only page and lobby-schedule checks against it. A failed preflight stops
 the production deployment. After publishing, it repeats the check against the live URL; the
 temporary preview expires automatically.

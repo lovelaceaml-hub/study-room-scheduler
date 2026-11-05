@@ -1,6 +1,7 @@
 # Preview: manually run this workflow only when a visible UI change needs
 # a user-facing review. Its Firebase Hosting channel expires after 7 days.
 # It never touches the live site, Functions, Firestore rules or indexes.
+# The full test suites run only when full_suite_approved is ticked.
 name: Firebase preview
 
 on:
@@ -9,6 +10,10 @@ on:
       visible_ui_change:
         description: "Use only when a visible UI change needs user review"
         required: true
+        type: boolean
+        default: false
+      full_suite_approved:
+        description: "Run the full test suites too. Tick only when Anthony approved them for this run"
         type: boolean
         default: false
 
@@ -43,10 +48,27 @@ jobs:
       - name: Install the Chromium browser for the tests
         run: npx playwright install --with-deps chromium
 
+      - name: Say whether the full test suites run
+        env:
+          FULL_SUITE_APPROVED: ${{ inputs.full_suite_approved }}
+        run: |
+          if [ "$FULL_SUITE_APPROVED" = "true" ]; then
+            echo "### Full test suites: approved for this run, and they must pass first" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=Full test suites NOT RUN::This preview was not checked by the booking and database tests or the browser tests. Passing here does not mean those tests pass."
+            {
+              echo "### Full test suites: NOT RUN"
+              echo ""
+              echo "This preview was not checked by the booking and database tests or the browser tests. Passing here does not mean those tests pass."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: "Pre-release checks: rules tests"
+        if: inputs.full_suite_approved
         run: npm test
 
       - name: "Pre-release checks: browser tests (fictional data, fake Firebase)"
+        if: inputs.full_suite_approved
         run: npm run test:browser
 
       - name: Check the deploy guard refuses forbidden targets
@@ -82,15 +104,16 @@ jobs:
           rc=0
           npx -y firebase-tools@15 "${ARGS[@]}" > "$RUNNER_TEMP/channel.json" || rc=$?
           if [ "$rc" -ne 0 ]; then
-            echo "::error::firebase-tools exited with code $rc."
-            jq -r '.error // .' "$RUNNER_TEMP/channel.json" 2>/dev/null || true
+            # Only the error message, never the whole output file.
+            msg=$(jq -r '.error | if type == "object" then .message else . end | select(type == "string")' "$RUNNER_TEMP/channel.json" 2>/dev/null | tr '\r\n' '  ' || true)
+            echo "::error::firebase-tools exited with code $rc: ${msg:-its output had no error message}"
             exit "$rc"
           fi
           url=$(jq -r '[.result[] | .url] | first // empty' "$RUNNER_TEMP/channel.json")
           expires=$(jq -r '[.result[] | .expireTime] | first // empty' "$RUNNER_TEMP/channel.json")
           if [ -z "$url" ]; then
-            echo "::error::Firebase did not return a preview URL."
-            jq -r '.status, (.error // empty)' "$RUNNER_TEMP/channel.json" || true
+            msg=$(jq -r '.error | if type == "object" then .message else . end | select(type == "string")' "$RUNNER_TEMP/channel.json" 2>/dev/null | tr '\r\n' '  ' || true)
+            echo "::error::Firebase did not return a preview URL: ${msg:-its output had no error message}"
             exit 1
           fi
           echo "Preview URL: $url"

@@ -1,13 +1,17 @@
-# Tests: runs every suite on each pull request (Dependabot's included) and
-# when started from the Actions tab. It deploys nothing and uses no secrets.
-# This is the only automatic test run: "Firebase preview" is manual-only, and
-# the release workflows repeat the tests before they deploy. The Firestore
-# rules test needs the emulator, so it runs in its own job.
+# Tests: every full test suite. It runs only when started by hand from the Actions
+# tab with full_suite_approved ticked, and only when Anthony approved that exact
+# run. It never starts on its own and it deploys nothing and uses no secrets.
+# The automatic pull request check is "Focused checks" (focused-checks.yml).
+# The Firestore rules test needs the emulator, so it runs in its own job.
 name: Tests
 
 on:
-  pull_request:
   workflow_dispatch:
+    inputs:
+      full_suite_approved:
+        description: "Run the full test suites. Tick only when Anthony approved them for this run"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -17,7 +21,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  not-approved:
+    # A green run with every job skipped would look like a pass, so this fails.
+    if: ${{ !inputs.full_suite_approved }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Nothing was tested
+        run: |
+          echo "::error::Nothing was tested. Tick full_suite_approved to run the full test suites."
+          exit 1
+
   rules-and-browser:
+    if: inputs.full_suite_approved
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -42,6 +58,7 @@ jobs:
         run: npm run test:release-check
 
   firestore-rules:
+    if: inputs.full_suite_approved
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

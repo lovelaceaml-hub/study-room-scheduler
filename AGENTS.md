@@ -9,6 +9,10 @@ The completion record is `docs/runs/plan-19-hosting-release-preflight/INDEX.md`.
 
 ## Verification
 
+Full suites need Anthony's explicit approval for that exact run, wherever they run,
+including the `full_suite_approved` box on the GitHub workflows. A request to release
+is not that approval. Without it, use single test files tied to the change.
+
 - `npm test`
 - `npm run test:browser`
 - With Temurin installed at `$HOME/tools/jdk`: set

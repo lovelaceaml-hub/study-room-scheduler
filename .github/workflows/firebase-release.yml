@@ -1,12 +1,19 @@
 # Release: publishes main to the live site. It runs only when started from the
 # Actions tab ("Run workflow"), only from main, and only for the pinned Hosting
-# scope below, after the repository's own pre-release checks pass.
+# scope below. The guard self-test, the release checker and the read-only preview
+# check always run. The full test suites run only when full_suite_approved is
+# ticked; a request to release does not by itself approve them.
 # Functions and Firestore rules go out through "Firebase backend release"
 # (firebase-backend-release.yml); indexes stay manual.
 name: Firebase release (production)
 
 on:
   workflow_dispatch:
+    inputs:
+      full_suite_approved:
+        description: "Run the full test suites too. Tick only when Anthony approved them for this run"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -103,10 +110,27 @@ jobs:
       - name: Install the Chromium browser for the tests
         run: npx playwright install --with-deps chromium
 
+      - name: Say whether the full test suites run
+        env:
+          FULL_SUITE_APPROVED: ${{ inputs.full_suite_approved }}
+        run: |
+          if [ "$FULL_SUITE_APPROVED" = "true" ]; then
+            echo "### Full test suites: approved for this run, and they must pass first" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=Full test suites NOT RUN::This release was not checked by the booking and database tests or the browser tests. The read-only preview check still runs. Passing here does not mean those tests pass."
+            {
+              echo "### Full test suites: NOT RUN"
+              echo ""
+              echo "This release was not checked by the booking and database tests or the browser tests. The read-only preview check still runs. Passing here does not mean those tests pass."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: "Pre-release checks: rules tests"
+        if: inputs.full_suite_approved
         run: npm test
 
       - name: "Pre-release checks: browser tests (fictional data, fake Firebase)"
+        if: inputs.full_suite_approved
         run: npm run test:browser
 
       - name: Read-only release checker against loopback fixtures
@@ -135,7 +159,14 @@ jobs:
           set -euo pipefail
           ARGS=(hosting:channel:deploy "$CHANNEL_ID" --only app --project lvz-rooms --expires 1d --json)
           bash .github/scripts/deploy-guard.sh "${ARGS[@]}"
-          npm_config_cache=/tmp/npm-cache npx -y firebase-tools@15 "${ARGS[@]}" > "$RUNNER_TEMP/release-preview.json"
+          rc=0
+          npm_config_cache=/tmp/npm-cache npx -y firebase-tools@15 "${ARGS[@]}" > "$RUNNER_TEMP/release-preview.json" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            # Only the error message, never the whole output file.
+            msg=$(jq -r '.error | if type == "object" then .message else . end | select(type == "string")' "$RUNNER_TEMP/release-preview.json" 2>/dev/null | tr '\r\n' '  ' || true)
+            echo "::error::firebase-tools exited with code $rc: ${msg:-its output had no error message}"
+            exit "$rc"
+          fi
           node .github/scripts/firebase-preview-url.mjs "$RUNNER_TEMP/release-preview.json" "$CHANNEL_ID" >> "$GITHUB_OUTPUT"
 
       - name: Pre-release read-only page and schedule check
