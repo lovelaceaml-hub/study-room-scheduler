@@ -62,10 +62,18 @@ It also changed the image cleanup in `lv-zion-duties` from 3 days to 1 day. The
 identities for `worship-duty-app` and `morning-prayer-app` exist, but those
 repositories do not have their variables yet, so nothing can use them.
 
-## Improvements 2026-11-10 (not live yet)
+## Improvements 2026-11-10 (live since 2026-11-11)
 
-Branch `improve/review-2026-11-10` holds these changes. They reach the live site
-only through a Hosting release; nothing here needs a backend release.
+Merged as pull request #29 (`0e6d092`) and released with `hosting:app` only in
+[run 43076646406](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/43076646406)
+on 2026-11-11. No Functions or Firestore rules were deployed and no booking data
+was changed. The full test suites were not ticked for this run; the release
+checker, the guard self-test and the read-only page checks before and after
+publishing all passed. Checked afterwards, read-only: the member page, `/admin/`,
+`/tv.html` and `/api/lobby-schedule` returned 200, the live files match `main`
+(including the Firebase 13.2.0 line and the new split files), and the new
+headers are served (the member page refuses framing, the TV page does not).
+Signed-in member and Admin actions were not exercised on the live site.
 
 - **User manual:** new "Priority and Force override" section.
 - **Screen-reader labels:** schedule blocks and time buttons now read out the
