@@ -91,9 +91,10 @@ only through a Hosting release; nothing here needs a backend release.
 
 **Checked:** every file parses, `test/rules.test.mjs` 19 of 19, and a demo-mode
 walk through booking, My reservations and the Admin lock screen in a browser
-with no page errors. **Not run:** the browser suite (`npm run test:browser`),
-which covers the label and split changes and the newer accessibility checker.
-It needs Anthony's approval before the Hosting release.
+with no page errors. **Browser suite:** Anthony approved one run of `npm run test:browser` on
+2026-11-10. On commit `abfa8ca` it passed 76 of 77; the one failure was a test
+still expecting the old label wording. That test was corrected and passed when
+rerun by itself. The whole suite has not been run again since that fix.
 
 ## Full test suites need approval (2026-11-04)
 

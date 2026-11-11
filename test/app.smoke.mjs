@@ -885,7 +885,7 @@ test('demo mode follows the server rules: short names, takeovers and no daily li
   await book('Room 1', '4:00 PM', '6:00 PM', 'Sister Pat Sample');
   await book('Room 2', '5:00 PM', '6:00 PM', 'Bro. Sam Lee');
   await book('Room 3', '5:00 PM', '6:00 PM', 'Sis. Pat Lee');
-  for (const name of [/^S Pat S, Other, Room 1/, /^B Sam, Other, Room 2/, /^S Pat L, Other, Room 3/]) {
+  for (const name of [/^S Pat S, yours, Other, Room 1/, /^B Sam, yours, Other, Room 2/, /^S Pat L, yours, Other, Room 3/]) {
     await page.getByRole('button', { name }).waitFor();
   }
   // A Contact reservation takes Room 1; the practice one there began earlier, so it is shortened.
@@ -901,7 +901,7 @@ test('demo mode follows the server rules: short names, takeovers and no daily li
   await sheet.getByRole('heading', { name: 'Reservation confirmed' }).waitFor();
   await sheet.getByRole('button', { name: 'Close' }).click();
   await page.getByRole('button', { name: /^S Pat S, yours, Other, Room 1, 4:00 PM to 5:30 PM$/ }).waitFor();
-  await page.getByRole('button', { name: /^Quinn, Contact, Room 1, 5:30 PM to 6:00 PM/ }).waitFor();
+  await page.getByRole('button', { name: /^Quinn, yours, Contact, Room 1, 5:30 PM to 6:00 PM/ }).waitFor();
   // A device may make a fifth reservation on the same day.
   await book('Room 2', '9:00 PM', '9:30 PM', 'Bro. Sam Lee');
   await book('Room 3', '9:00 PM', '9:30 PM', 'Bro. Sam Lee');
