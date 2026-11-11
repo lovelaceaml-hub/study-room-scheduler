@@ -3,11 +3,11 @@
 // never cached; it needs a live connection anyway. Neither is /api/: the TV
 // keeps its own copy of the schedule and must know when it is offline.
 
-const CACHE = 'srs-v20-lobby-api';
+const CACHE = 'srs-v21-shared-parts';
 const FILES = [
   '/', '/index.html', '/manifest.json', '/icon.svg', '/icon-192.png', '/apple-touch-icon.png',
-  '/shared/base.css', '/shared/format.js', '/shared/availability.js', '/shared/firebase.js', '/shared/dom.js', '/shared/demo.js',
-  '/app/app.css', '/app/main.js', '/app/store.js', '/app/demo-backend.js', '/app/sheet.js', '/app/booking.js',
+  '/shared/base.css', '/shared/format.js', '/shared/availability.js', '/shared/firebase.js', '/shared/dom.js', '/shared/demo.js', '/shared/labels.js',
+  '/app/app.css', '/app/main.js', '/app/store.js', '/app/demo-backend.js', '/app/sheet.js', '/app/parts.js', '/app/booking.js', '/app/booking-steps.js',
   '/app/details.js', '/app/mine.js', '/app/text.js', '/app/icons.js', '/app/announce.js',
   '/tv.html', '/tv/tv.js', '/tv/status.js', '/tv/tv.css'
 ];

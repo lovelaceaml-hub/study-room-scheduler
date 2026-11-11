@@ -66,8 +66,11 @@ config.js itself makes sense (real dates, services on the grid, and so on).
 ```
 public/            the website (Firebase Hosting)
   index.html       member app
-  app/             member app: main.js (schedule), booking.js, details.js, mine.js, store.js (data)
-  admin/           Admin page: admin.js, session.js (PIN, lock and session timing)
+  app/             member app: main.js (schedule), booking.js and booking-steps.js (the booking
+                   sheet and what each step shows), details.js, mine.js, parts.js (markup the
+                   sheets share), store.js (data)
+  admin/           Admin page: admin.js, records.js (what it reads from each reservation),
+                   session.js (PIN, lock and session timing)
   tv.html, tv/     lobby TV: tv.js, status.js (each room's "In use", "Free until" line)
   shared/          code and styles all three pages use, including availability.js (the
                    browser's copy of the booking rules)

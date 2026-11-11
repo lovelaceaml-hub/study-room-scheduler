@@ -145,13 +145,16 @@ function gridHtml() {
 
 function bookingBlock(held, unit, column, row, span) {
   const purpose = purposeLabel(state.config, held.purpose);
-  const label = `${held.name}, ${held.purpose === HOLD ? '' : `${purpose}, `}${unitLabel(state.config, unit.id)}, ${formatRange(held.start, held.end)}${held.mine ? ', your reservation' : ''}`;
+  // The label starts with the words shown, in the order shown, so voice
+  // control and screen readers match what is on screen. "Yours" comes before
+  // the purpose because small blocks hide the purpose.
+  const label = `${held.name}, ${held.mine ? 'yours, ' : ''}${held.purpose === HOLD ? '' : `${purpose}, `}${unitLabel(state.config, unit.id)}, ${formatRange(held.start, held.end)}`;
   const classes = ['booking', `purpose-${held.purpose}`, span === 1 ? 'short' : '', held.mine ? 'mine' : '', held.id === view.highlight ? 'highlight' : ''];
   return `<button type="button" class="${classes.filter(Boolean).join(' ')}" data-booking="${esc(held.id)}" data-type="${held.type}" data-key="booking-${esc(held.id)}-${held.type}"
     style="grid-column:${column};grid-row:${row} / span ${span}" aria-label="${esc(label)}">
     <span class="booking-name">${esc(held.name)}</span>
-    ${held.purpose === HOLD ? '' : `<span class="booking-purpose">${esc(purpose)}</span>`}
     ${held.mine ? '<span class="booking-mine">Yours</span>' : ''}
+    ${held.purpose === HOLD ? '' : `<span class="booking-purpose">${esc(purpose)}</span>`}
   </button>`;
 }
 

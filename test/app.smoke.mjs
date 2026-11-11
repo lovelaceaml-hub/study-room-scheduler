@@ -163,7 +163,7 @@ test('the schedule shows public names, holds and my own reservation', async () =
   const firstService = daysAt(TEST_NOW).find(day => day.date === DAY).services[0].label;
   assert.equal(await page.locator('.service').first().textContent().then(text => text.includes(firstService)), true);
   await page.locator('.type-button[data-type="whiteboard"]').click();
-  await page.getByRole('button', { name: 'Sam, Other, Board 2 (Large), 5:00 PM to 6:30 PM, your reservation', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Sam, yours, Other, Board 2 (Large), 5:00 PM to 6:30 PM', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', slot('Board 4 (Vertical)', '1:00 PM')).count(), 1, 'the unit note is read out');
   // On a phone your own block says so in words, in place of the purpose.
   assert.equal(await page.locator('.booking.mine .booking-mine').isVisible(), true);
@@ -434,7 +434,7 @@ test('a finished reservation shows Finished and offers nothing', async () => {
   await mine.getByRole('button', { name: 'Close' }).click();
   await mine.waitFor({ state: 'hidden' });
   await page.locator(`[data-date="${TODAY}"]`).click();
-  await page.getByRole('button', { name: /your reservation/ }).click();
+  await page.getByRole('button', { name: /, yours, / }).click();
   const details = page.locator('#details-sheet');
   await details.getByText('This reservation has finished.').waitFor();
   assert.equal(await details.locator('.actions button').count(), 0);
@@ -453,7 +453,7 @@ test('a reservation under way offers only ends still to come, the first one as t
     await mine.getByRole('heading', { name: 'End early' }).waitFor();
     assert.deepEqual(await mine.locator('[data-end]').evaluateAll(buttons => buttons.map(button => button.dataset.end)), ['16:30', '17:00', '17:30'], `oldServer: ${oldServer}`);
     assert.deepEqual(await mine.locator('.time.now').evaluateAll(buttons => buttons.map(button => button.dataset.end)), ['16:30']);
-    assert.equal(await mine.getByRole('button', { name: /^End at 4:30 PM, the soonest, frees 1 hr 30 min$/ }).count(), 1);
+    assert.equal(await mine.getByRole('button', { name: /^Soonest, 4:30 PM, frees 1 hr 30 min$/ }).count(), 1);
     assert.deepEqual(errors, []);
     await context.close();
   }
@@ -494,7 +494,7 @@ test('My reservations ends a reservation early and the address follows the sheet
   assert.deepEqual(await sheet.locator('.group-title').allTextContents(), ['Active', 'Cancelled or replaced']);
   for (const status of ['Confirmed', 'Cancelled', 'Replaced']) assert.equal(await sheet.locator('.badge', { hasText: status }).count(), 1, status);
   await sheet.getByRole('button', { name: 'End early' }).click();
-  await sheet.getByRole('button', { name: /^End at 6:00 PM/ }).click();
+  await sheet.getByRole('button', { name: /^6:00 PM, frees / }).click();
   await sheet.getByRole('heading', { name: 'End at 6:00 PM?' }).waitFor();
   await sheet.getByRole('button', { name: 'End early' }).click();
   await sheet.getByText('Ended early. It was booked until 6:30 PM.').waitFor();
@@ -524,7 +524,7 @@ test('tapping a reservation shows its details, with actions only on your own', a
   await page.keyboard.press('Escape');
   await details.waitFor({ state: 'hidden' });
   await page.locator('.type-button[data-type="whiteboard"]').click();
-  await page.getByRole('button', { name: /your reservation/ }).click();
+  await page.getByRole('button', { name: /, yours, / }).click();
   await details.getByRole('heading', { name: 'Board 2 (Large)' }).waitFor();
   await details.getByRole('button', { name: 'Cancel reservation' }).click();
   await details.getByRole('button', { name: 'Yes, cancel it' }).click();
@@ -546,7 +546,7 @@ test('a cancel that fails after the reservation vanished closes the details and 
     };
   });
   await page.locator('.type-button[data-type="whiteboard"]').click();
-  await page.getByRole('button', { name: /your reservation/ }).click();
+  await page.getByRole('button', { name: /, yours, / }).click();
   const details = page.locator('#details-sheet');
   await details.getByRole('button', { name: 'Cancel reservation' }).click();
   await details.getByRole('button', { name: 'Yes, cancel it' }).click();
@@ -840,7 +840,7 @@ test('every sheet step passes an accessibility check', async () => {
   await check('details');
   await page.locator('#details-sheet').getByRole('button', { name: 'Close' }).click();
   await page.locator('.type-button[data-type="whiteboard"]').click();
-  await page.getByRole('button', { name: /your reservation/ }).click();
+  await page.getByRole('button', { name: /, yours, / }).click();
   await page.locator('#details-sheet').getByRole('button', { name: 'Cancel reservation' }).click();
   await check('details, cancel');
   await page.locator('#details-sheet').getByRole('button', { name: 'Close' }).click();
@@ -851,7 +851,7 @@ test('every sheet step passes an accessibility check', async () => {
   await check('My reservations');
   await mine.locator('[data-key="end-mine-1"]').click();
   await check('end early');
-  await mine.getByRole('button', { name: /^End at 6:00 PM/ }).click();
+  await mine.getByRole('button', { name: /^6:00 PM, frees / }).click();
   await check('end early, confirm');
   await mine.getByRole('button', { name: 'Back', exact: true }).first().click();
   await mine.getByRole('button', { name: 'Back', exact: true }).first().click();
@@ -885,7 +885,7 @@ test('demo mode follows the server rules: short names, takeovers and no daily li
   await book('Room 1', '4:00 PM', '6:00 PM', 'Sister Pat Sample');
   await book('Room 2', '5:00 PM', '6:00 PM', 'Bro. Sam Lee');
   await book('Room 3', '5:00 PM', '6:00 PM', 'Sis. Pat Lee');
-  for (const name of [/^S Pat S, Other, Room 1/, /^B Sam, Other, Room 2/, /^S Pat L, Other, Room 3/]) {
+  for (const name of [/^S Pat S, yours, Other, Room 1/, /^B Sam, yours, Other, Room 2/, /^S Pat L, yours, Other, Room 3/]) {
     await page.getByRole('button', { name }).waitFor();
   }
   // A Contact reservation takes Room 1; the practice one there began earlier, so it is shortened.
@@ -900,8 +900,8 @@ test('demo mode follows the server rules: short names, takeovers and no daily li
   await sheet.getByRole('button', { name: 'Confirm reservation', exact: true }).click();
   await sheet.getByRole('heading', { name: 'Reservation confirmed' }).waitFor();
   await sheet.getByRole('button', { name: 'Close' }).click();
-  await page.getByRole('button', { name: /^S Pat S, Other, Room 1, 4:00 PM to 5:30 PM, your reservation$/ }).waitFor();
-  await page.getByRole('button', { name: /^Quinn, Contact, Room 1, 5:30 PM to 6:00 PM/ }).waitFor();
+  await page.getByRole('button', { name: /^S Pat S, yours, Other, Room 1, 4:00 PM to 5:30 PM$/ }).waitFor();
+  await page.getByRole('button', { name: /^Quinn, yours, Contact, Room 1, 5:30 PM to 6:00 PM/ }).waitFor();
   // A device may make a fifth reservation on the same day.
   await book('Room 2', '9:00 PM', '9:30 PM', 'Bro. Sam Lee');
   await book('Room 3', '9:00 PM', '9:30 PM', 'Bro. Sam Lee');

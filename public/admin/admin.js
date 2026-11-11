@@ -2,16 +2,18 @@
 // days, add reservations or holds, cancel, end early, restore, keep private
 // notes, and remove old records. Every change goes through a Cloud Function.
 // The session (PIN, token, when the page locks) lives in session.js.
+// What it reads from each record (labels, what can still be done) is in records.js.
 
 import { errorMessage } from '../shared/firebase.js';
 import { escapeHtml as esc, formatTime, formatRange, formatDay, formatHour, inSentence, listOf, weekdayName, monthDay, nowIn, toMinutes, toTime, hasText, readStored, writeStored, serverNow, setServerTime } from '../shared/format.js';
-import { unitsOf, unitName, findUnit, slotStarts, serviceAt, validRange, earliestStart, hasEnded, earlyEndChoices, occupancyIndex, overlappingBooking } from '../shared/availability.js';
+import { unitsOf, unitName, slotStarts, serviceAt, validRange, earliestStart, occupancyIndex, overlappingBooking } from '../shared/availability.js';
 import { paint } from '../shared/dom.js';
+import { statusLabel } from '../shared/labels.js';
+import { recordHelpers, folded, named, displayName, whose, byMember, shortenedFrom } from './records.js';
 import * as admin from './session.js';
 
 const REFRESH_MS = 30000;
 const HIDE_CANCELLED_KEY = 'srs-admin-hide-cancelled';
-const STATUS_LABELS = { approved: 'Confirmed', cancelled: 'Cancelled', overridden: 'Replaced', pending: 'Pending', declined: 'Declined' };
 // Used when the server does not send a value (an older server during a deploy).
 const DEFAULTS = {
   hold: 'blocked', nameMax: 120, detailMax: 240, holdReasonMax: 240, noteMax: 1000, keepDays: 56,
@@ -56,8 +58,9 @@ const setting = name => {
 };
 const holdId = () => setting('hold');
 const timeZone = () => setting('timeZone');
-const types = () => Object.keys(config().resources);
-const isUnit = (type, id) => unitsOf(config(), type).some(unit => unit.id === id);
+const {
+  types, neededTypes, missingOf, restorable, purposeLabel, detailLabel, places, noticeText, endChoices
+} = recordHelpers({ config, holdId });
 
 function detailMax(purpose) {
   if (purpose === holdId()) return setting('holdReasonMax');
@@ -87,69 +90,10 @@ function cutoffText() {
 const day = () => schedule.days.find(item => item.date === view.date);
 const bookingsOnDay = () => bookingsByDate.get(view.date) || [];
 const booking = id => bookingsById.get(id);
-const displayName = record => String(record.name || '').trim() || 'No name';
-const named = record => String(record.name || '').trim();
-const whose = record => (named(record) ? `${named(record)}'s reservation` : 'The reservation');
-
-// The types a record needs. Older records may lack `needs`.
-function neededTypes(record) {
-  return types().filter(type => record.needs?.[type] || isUnit(type, record.assignments?.[type]));
-}
-
-// Needed types with no unit; the server sends this as `missing`.
-function missingOf(record) {
-  if (Array.isArray(record.missing)) return types().filter(type => record.missing.includes(type));
-  if (record.status !== 'approved') return [];
-  return neededTypes(record).filter(type => !isUnit(type, record.assignments?.[type]));
-}
-
-function restorable(record) {
-  if (typeof record.restorable === 'boolean') return record.restorable;
-  return record.status !== 'approved' || missingOf(record).length > 0;
-}
-
-const byMember = record => (typeof record.byMember === 'boolean' ? record.byMember : Boolean(record.ownerUid));
-
-function purposeLabel(purpose) {
-  if (purpose === holdId()) return 'Hold';
-  return config().purposes[purpose]?.label || 'Other';
-}
-
-function detailLabel(purpose) {
-  return purpose === holdId() ? 'Reason (private)' : config().purposes[purpose]?.detailLabel || 'Details';
-}
-
-function places(record) {
-  return neededTypes(record)
-    .map(type => unitName(config(), record.assignments?.[type]) || `No ${inSentence(config().resources[type].label)}`)
-    .join(', ');
-}
 
 // The confirmed record holding `unitId` during start to end (minutes), if any.
 function holderOf(unitId, date, start, end, excludeId = null) {
   return overlappingBooking(occupancy, date, unitId, start, end, excludeId);
-}
-
-// What a priority reservation did to this one, in a sentence.
-function noticeText(record) {
-  const notice = record.notice;
-  if (!notice || record.status === 'cancelled') return '';
-  const by = config().purposes[notice.byPurpose]?.label || 'priority';
-  const type = findUnit(config(), notice.fromUnit)?.type;
-  const noun = type ? inSentence(config().resources[type].label) : 'unit';
-  if (notice.kind === 'moved') return `Moved from ${unitName(config(), notice.fromUnit) || `another ${noun}`} for a ${by} reservation.`;
-  if (notice.kind === 'shortened') {
-    const was = shortenedFrom(record);
-    return `Shortened for a ${by} reservation${was ? `; it was booked until ${formatTime(was)}` : ''}.`;
-  }
-  if (notice.kind === 'released') return `Replaced by a ${by} reservation; no other ${noun} was free.`;
-  return '';
-}
-
-// The end a priority reservation cut short. Ending early later is a
-// separate line, so the two times are never mixed up.
-function shortenedFrom(record) {
-  return record.notice?.kind === 'shortened' ? record.notice.fromEnd || null : null;
 }
 
 // ---------- Lock screen ----------
@@ -502,9 +446,6 @@ function showBusy() {
 
 // ---------- Reservation list ----------
 
-// Lowercase, without accents, so "jose" finds "José".
-const folded = value => String(value || '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
-
 // What the search looks through: the names, contact or member, purpose and units.
 function searchText(record) {
   const currentConfig = config();
@@ -567,19 +508,6 @@ function renderList() {
   for (const item of rows.values()) item.remove();
 }
 
-// The ends End early may offer. The server sends them (`earlyEnds`, already
-// without passed ends) and says when a reservation has `ended`; an older
-// server does not, so the page works them out on its own clock.
-function endChoices(record) {
-  if (record.status !== 'approved') return [];
-  const ended = typeof record.ended === 'boolean' ? record.ended : hasEnded(config(), record.date, record.end);
-  if (ended) return [];
-  if (Array.isArray(record.earlyEnds)) {
-    return record.earlyEnds.filter(end => toMinutes(record.start) < toMinutes(end) && toMinutes(end) < toMinutes(record.end));
-  }
-  return earlyEndChoices(config(), record.date, record.start, record.end);
-}
-
 function entryHtml(record) {
   const active = record.status === 'approved';
   const open = view.panel?.id === record.id ? view.panel.kind : null;
@@ -599,7 +527,7 @@ function entryHtml(record) {
   const notice = noticeText(record);
   const endedEarly = record.endedEarlyFrom && record.endedEarlyFrom !== shortenedFrom(record) ? record.endedEarlyFrom : null;
   return `<p class="entry-time">${esc(formatRange(record.start, record.end))}</p>
-    <p class="entry-name"><b>${esc(displayName(record))}</b> <span class="badge status-${esc(record.status)}">${esc(STATUS_LABELS[record.status] || record.status || 'Unknown')}</span></p>
+    <p class="entry-name"><b>${esc(displayName(record))}</b> <span class="badge status-${esc(record.status)}">${esc(statusLabel(record.status) || record.status || 'Unknown')}</span></p>
     <p class="entry-meta">${meta.filter(Boolean).map(esc).join(' · ')}</p>
     ${notice ? `<p class="entry-meta entry-notice">${esc(notice)}</p>` : ''}
     ${endedEarly ? `<p class="entry-meta">Ended early; it was booked until ${esc(formatTime(endedEarly))}.</p>` : ''}

@@ -2,22 +2,19 @@
 // already chosen, so the steps are: what for, start, end, names, confirm
 // (with "Reserve something else", what comes first). From a tapped open time
 // the unit and start are chosen too, so it skips to what for, end, names,
-// confirm.
+// confirm. What each step shows is in booking-steps.js.
 
-import {
-  escapeHtml as esc, formatTime, formatRange, formatDuration, formatDay, hasText, inSentence, readStored, toTime
-} from '../shared/format.js';
-import { rangeChoice, startChoices, endChoices, earliestStart, takeoverEffect } from '../shared/availability.js';
+import { escapeHtml as esc, formatTime, formatDay, hasText, inSentence, readStored, toTime } from '../shared/format.js';
+import { rangeChoice, earliestStart } from '../shared/availability.js';
 import { book, canBook, refresh, newRequestId, NAME_KEY } from './store.js';
 import { createSheet } from './sheet.js';
-import { purposeLabel, detailLabel, placeLabel, unitLabel, connectionText } from './text.js';
+import { createSteps, PASSED, INLINE_ERROR_STEPS } from './booking-steps.js';
+import { connectionBanner } from './parts.js';
+import { detailLabel, placeLabel } from './text.js';
 import { ICONS } from './icons.js';
 import { announce } from './announce.js';
 
-const TAKEOVER_LABEL = 'Priority override';
-const FORCE_LABEL = 'Force override';
 const NOT_OPEN = 'This time is no longer open. Go back and choose another time.';
-const PASSED = 'This start time has passed. Close this and choose a later time.';
 const CHANGED = 'The schedule changed while you were deciding. Check the details and confirm again.';
 
 export function createBookingSheet({ getState, onShow, onOpenMine }) {
@@ -53,6 +50,13 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
   const steps = () => (draft.fixed ? ['purpose', 'end', 'names', 'confirm']
     : draft.typeGiven ? ['purpose', 'start', 'end', 'names', 'confirm']
     : ['type', 'purpose', 'start', 'end', 'names', 'confirm']).concat(draft.forced ? ['force'] : []);
+  const markup = createSteps({
+    state, config, day, rows, currentError, startPassed,
+    get draft() { return draft; },
+    get saving() { return saving; },
+    get saved() { return saved; },
+    get errorField() { return errorField; }
+  });
 
   // `preset`: { date, type } from the Reserve button, { date } from "Reserve
   // something else", { date, type, unit, start } from a tapped time, or the
@@ -178,19 +182,12 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
       </div>
       ${chips.length ? `<p class="chips">${chips.map(chip => `<span>${esc(chip)}</span>`).join('')}</p>` : ''}
       ${step === 'done' ? '' : bannerHtml()}
-      <section class="step">${STEPS[step]()}</section>
-      ${INLINE_ERROR_STEPS.includes(step) ? '' : errorLine()}
+      <section class="step">${markup.html(step)}</section>
+      ${INLINE_ERROR_STEPS.includes(step) ? '' : markup.errorLine()}
     `, { focus });
   }
 
-  function bannerHtml() {
-    if (canBook(state())) return '';
-    const problem = connectionText(state().status);
-    if (problem?.action === 'reload') {
-      return `<div class="sheet-status" role="status"><span>${esc(problem.text)}</span> <button type="button" class="text-button" data-action="reload" data-key="reload">Reload</button></div>`;
-    }
-    return '<div class="sheet-status" role="status"><span>The schedule is reconnecting. Your choices are kept.</span> <button type="button" class="text-button" data-action="retry" data-key="retry">Try again</button></div>';
-  }
+  const bannerHtml = () => connectionBanner(state(), 'The schedule is reconnecting. Your choices are kept.');
 
   // The message under the current step: a start that has passed or a time
   // that is no longer open outranks the last error.
@@ -199,149 +196,6 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
     if (startPassed()) return PASSED;
     if (step !== 'names' && day() && !currentChoice()) return NOT_OPEN;
     return error;
-  }
-
-  // These steps show the error just above their main button.
-  const INLINE_ERROR_STEPS = ['names', 'confirm', 'force'];
-  const errorLine = () => {
-    const message = currentError();
-    return message ? `<p class="form-error" id="booking-error" role="alert">${esc(message)}</p>` : '';
-  };
-  const invalid = field => errorField === field ? ' aria-invalid="true" aria-describedby="booking-error"' : '';
-  const heading = (text, hint = '') => `<h2 id="booking-title" tabindex="-1">${text}</h2>${hint ? `<p class="hint">${hint}</p>` : ''}`;
-  const disabled = () => canBook(state()) && !saving ? '' : ' disabled';
-
-  const STEPS = {
-    type: () => heading('What do you need?') + `<div class="choices">${Object.entries(config().resources).map(([type, resource]) => `
-      <button type="button" class="choice" data-type="${type}" data-key="type-${type}"${disabled()}>
-        <span class="choice-icon">${ICONS[type] || ''}</span><b>${esc(resource.label)}</b><span class="choice-arrow" aria-hidden="true">›</span>
-      </button>`).join('')}</div>`,
-
-    purpose: () => heading('What is it for?', 'Contact and New Member reservations have priority.') + `<div class="choices">${Object.entries(config().purposes).map(([id, purpose]) => `
-      <button type="button" class="choice" data-purpose="${id}" data-key="purpose-${id}"${disabled()}>
-        <span class="dot purpose-${id}" aria-hidden="true"></span><b>${esc(purpose.label)}</b><span class="choice-arrow" aria-hidden="true">›</span>
-      </button>`).join('')}</div>`,
-
-    start: () => {
-      const choices = day() ? startChoices(config(), rows(), day(), draft.type, draft.purpose, null, earliestStart(config(), draft.date), draft.force) : [];
-      if (!choices.length) {
-        return heading('Start time', draft.force
-          ? 'No times on this day, even with Force override. Close this and choose another day, or go back and choose something else.'
-          : 'No open times on this day. Close this and choose another day, or go back and choose something else.') + forceOffer();
-      }
-      return heading('Start time', draft.force ? 'Times marked Force override are held by someone else.' : 'Only open times are shown.')
-        + `<div class="times">${choices.map(choice => timeButton('start', choice.start, choice)).join('')}</div>` + forceOffer();
-    },
-
-    end: () => {
-      if (startPassed()) return heading('End time', PASSED);
-      const choices = day() ? endChoices(config(), rows(), day(), draft.type, draft.start, draft.purpose, draft.fixed ? draft.unit : null, draft.force) : [];
-      if (!choices.length) {
-        return heading('End time', draft.fixed
-          ? 'This time is no longer open. Close this and choose another time.'
-          : 'This start time is no longer open. Go back and choose another.') + forceOffer();
-      }
-      return heading('End time', `Starting at ${formatTime(draft.start)}.${draft.force ? ' Times marked Force override are held by someone else.' : ''}`)
-        + `<div class="times">${choices.map(choice => timeButton('end', choice.end, choice, formatDuration(choice.end - draft.start))).join('')}</div>` + forceOffer();
-    },
-
-    names: () => {
-      const label = detailLabel(config(), draft.purpose);
-      const max = config().purposes[draft.purpose].detailMax;
-      const long = max > 120;
-      return heading('Your details', `Others see a short form of your name (like “B John”) and the ${inSentence(label)} on the schedule.`) + `
-        <form class="form" data-form="names" novalidate>
-          <label for="booking-name">Your name</label>
-          <input id="booking-name" name="name" data-key="name" maxlength="${config().nameMax ?? 120}" autocomplete="name" value="${esc(draft.name)}" required${invalid('name')}>
-          <label for="booking-detail">${esc(label)}</label>
-          ${long
-            ? `<textarea id="booking-detail" name="reservedFor" data-key="detail" maxlength="${max}" rows="3" required${invalid('detail')}>${esc(draft.reservedFor)}</textarea>`
-            : `<input id="booking-detail" name="reservedFor" data-key="detail" maxlength="${max}" autocomplete="off" value="${esc(draft.reservedFor)}" required${invalid('detail')}>`}
-          ${errorLine()}
-          <button type="submit" class="primary" data-key="continue"${disabled()}>Continue</button>
-        </form>`;
-    },
-
-    confirm: () => heading('Confirm reservation') + summary(draft.unit) + (draft.forced ? forceNote() : draft.takeover ? takeoverNote() : '')
-      + (state().demo ? '<p class="hint">Demo mode: this practice reservation disappears when you close the page.</p>' : '') + errorLine()
-      + (draft.forced
-        ? `<button type="button" class="primary danger" data-action="force-step" data-key="force-step"${disabled()}>${FORCE_LABEL}</button>`
-        : `<button type="button" class="primary" data-action="confirm" data-key="confirm"${disabled()} aria-busy="${saving}">${saving ? '<span class="spinner" aria-hidden="true"></span>Reserving…' : 'Confirm reservation'}</button>`),
-
-    // The warning a Force override must get past. It names who loses what.
-    force: () => heading('Are you sure?', 'This replaces another person’s reservation. Only do this if you know they no longer need it.')
-      + forceNote() + errorLine() + `
-      <div class="actions">
-        <button type="button" class="primary danger" data-action="confirm" data-key="confirm"${disabled()} aria-busy="${saving}">${saving ? '<span class="spinner" aria-hidden="true"></span>Reserving…' : 'Yes, override and reserve'}</button>
-        <button type="button" class="text-button" data-action="back" data-key="force-back"${saving ? ' disabled' : ''}>No, go back</button>
-      </div>`,
-
-    done: () => `<div class="done-mark" aria-hidden="true">${ICONS.check}</div>` + heading('Reservation confirmed', 'To cancel or end early, open My reservations.') + summary(saved.unit) + `
-      <button type="button" class="primary" data-action="show" data-key="show">See it on the schedule</button>
-      <button type="button" class="text-button" data-action="mine" data-key="mine">My reservations</button>
-      <button type="button" class="text-button" data-action="again" data-key="again">Reserve something else</button>`
-  };
-
-  // Who the takeover affects and what happens to each, as the server will do it.
-  function effectLines() {
-    const kind = inSentence(config().resources[draft.type].label);
-    const preview = day() ? takeoverEffect(config(), rows(), day(), draft.type, draft.start, draft.end, draft.purpose, draft.unit, undefined, draft.force) : null;
-    const affected = preview?.affected || [];
-    const lines = affected.map(({ row, effect, toEnd }) => {
-      const whose = row.mine ? 'Your reservation there' : `${row.name}’s reservation there`;
-      if (effect === 'shortened') return `${whose} (${formatRange(row.start, row.end)}) will end at ${formatTime(toEnd)}.`;
-      if (effect === 'moved') return `${whose} will move to another ${kind}.`;
-      if (effect === 'released') return `${whose} will lose this ${kind}, because no other ${kind} is free.`;
-      return `${whose} will be replaced, because no other ${kind} is free.`;
-    });
-    if (affected.some(item => !item.row.mine)) lines.push('They see why in My reservations.');
-    return lines;
-  }
-
-  function takeoverNote() {
-    const kind = inSentence(config().resources[draft.type].label);
-    const place = unitLabel(config(), draft.unit) || `a ${kind}`;
-    return `<div class="takeover-note" role="note">
-      <p><strong>${TAKEOVER_LABEL}.</strong> Every ${esc(kind)} is taken at this time, so you get ${esc(place)}.</p>
-      ${effectLines().map(line => `<p>${esc(line)}</p>`).join('')}
-    </div>`;
-  }
-
-  function forceNote() {
-    const place = unitLabel(config(), draft.unit) || `This ${inSentence(config().resources[draft.type].label)}`;
-    return `<div class="takeover-note force-note" role="alert">
-      <p><strong>${FORCE_LABEL}.</strong> ${esc(place)} is held by someone else at this time.</p>
-      ${effectLines().map(line => `<p>${esc(line)}</p>`).join('')}
-    </div>`;
-  }
-
-  // The button that turns Force override on for the time lists.
-  function forceOffer() {
-    if (draft.force) return '';
-    return `<div class="force-offer">
-      <p class="hint">Is the time you need taken? If you know that reservation is no longer needed, you can take its place.</p>
-      <button type="button" class="secondary danger" data-action="force" data-key="force"${disabled()}>${FORCE_LABEL}</button>
-    </div>`;
-  }
-
-  function timeButton(kind, minutes, { takeover, force }, detail = '') {
-    const mark = force ? FORCE_LABEL : takeover ? TAKEOVER_LABEL : '';
-    const label = `${formatTime(minutes)}${detail ? `, ${detail}` : ''}${mark ? `, ${mark}` : ''}`;
-    return `<button type="button" class="time${force ? ' force' : takeover ? ' takeover' : ''}" data-${kind}="${minutes}" data-key="${kind}-${minutes}" aria-label="${esc(label)}"${disabled()}>
-      ${formatTime(minutes)}${detail ? `<small>${esc(detail)}</small>` : ''}${mark ? `<small class="takeover-label">${mark}</small>` : ''}
-    </button>`;
-  }
-
-  function summary(unit) {
-    const items = [
-      ['Day', formatDay(draft.date)],
-      ['Time', formatRange(draft.start, draft.end)],
-      ['Where', placeLabel(config(), draft.type, unit)],
-      ['For', purposeLabel(config(), draft.purpose)],
-      ['Your name', draft.name],
-      [detailLabel(config(), draft.purpose), draft.reservedFor]
-    ];
-    return `<dl class="summary">${items.map(([term, value]) => `<div><dt>${esc(term)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>`;
   }
 
   // ---------- Actions ----------
