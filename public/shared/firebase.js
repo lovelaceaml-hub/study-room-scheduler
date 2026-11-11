@@ -10,7 +10,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '681798360480',
   appId: '1:681798360480:web:8356fe0c56650fbca398c5'
 };
-const SDK = 'https://www.gstatic.com/firebasejs/10.12.2';
+const SDK = 'https://www.gstatic.com/firebasejs/13.2.0';
 const REGION = 'us-west1';
 
 let connecting = null;

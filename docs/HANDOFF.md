@@ -62,6 +62,39 @@ It also changed the image cleanup in `lv-zion-duties` from 3 days to 1 day. The
 identities for `worship-duty-app` and `morning-prayer-app` exist, but those
 repositories do not have their variables yet, so nothing can use them.
 
+## Improvements 2026-11-10 (not live yet)
+
+Branch `improve/review-2026-11-10` holds these changes. They reach the live site
+only through a Hosting release; nothing here needs a backend release.
+
+- **User manual:** new "Priority and Force override" section.
+- **Screen-reader labels:** schedule blocks and time buttons now read out the
+  words they show, in the same order ("B John, yours, Other, Room 1, ..."). The
+  accessibility checker hold is lifted (`@axe-core/playwright` `^4.14.0`).
+- **Security headers:** every file is sent with `X-Content-Type-Options` and
+  `Referrer-Policy`; the member page can no longer be shown inside another site,
+  like Admin. The lobby TV page is left embeddable on purpose, in case a
+  signage tool shows it in a frame.
+- **Firebase browser library:** 10.12.2 to 13.2.0 (`public/shared/firebase.js`).
+  Checked on a local copy against the live schedule, read-only: the page loaded
+  "Live" and the device kept the same anonymous identity across the change, so
+  My reservations stays tied to each device.
+- **Shared code:** status words are in `public/shared/labels.js`; the summary
+  list, the connection banner and the "disabled" rule the sheets repeated are
+  in `public/app/parts.js`.
+- **Split files:** the booking sheet's markup moved to
+  `public/app/booking-steps.js`; the Admin page's record helpers moved to
+  `public/admin/records.js`. `admin.js` is still about 925 lines: the rest
+  shares page state, and splitting it further should come with a full browser
+  test run.
+- **Pull requests:** #24 (preconnect) merged; draft #23 closed, replaced by #28.
+
+**Checked:** every file parses, `test/rules.test.mjs` 19 of 19, and a demo-mode
+walk through booking, My reservations and the Admin lock screen in a browser
+with no page errors. **Not run:** the browser suite (`npm run test:browser`),
+which covers the label and split changes and the newer accessibility checker.
+It needs Anthony's approval before the Hosting release.
+
 ## Full test suites need approval (2026-11-04)
 
 No full test suite starts by itself any more. "Tests", both release workflows and

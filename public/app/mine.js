@@ -3,9 +3,10 @@
 // so the link can be shared and the browser's Back button closes it.
 
 import { escapeHtml as esc, formatTime, formatRange, formatDay, formatDuration, nowIn, toMinutes } from '../shared/format.js';
-import { cancel, endEarly, canBook, refresh } from './store.js';
+import { cancel, endEarly, refresh } from './store.js';
 import { createSheet } from './sheet.js';
-import { statusLabel, purposeLabel, placeLabel, noticeText, reservationActions, connectionText } from './text.js';
+import { statusLabel, purposeLabel, placeLabel, noticeText, reservationActions } from './text.js';
+import { summaryHtml as summaryList, disabledAttr, connectionBanner } from './parts.js';
 import { ICONS } from './icons.js';
 import { announce } from './announce.js';
 
@@ -63,6 +64,13 @@ export function createMineSheet({ getState, onReserve }) {
     render({ focus: screen.view === 'list' ? `[data-key="${from.view === 'cancel' ? 'cancel' : 'end'}-${CSS.escape(from.id)}"]` : 'h2' });
   }
 
+  // The reservation on screen is gone (cancelled on another device, say).
+  function showList() {
+    error = '';
+    screen = { view: 'list' };
+    render({ focus: 'h2' });
+  }
+
   // A Cancel or End early screen only stays while that action is still
   // possible: a reservation that was cancelled, replaced or has finished
   // meanwhile goes back to the list.
@@ -106,17 +114,13 @@ export function createMineSheet({ getState, onReserve }) {
   }
 
   const heading = (text, hint = '') => `<h2 id="mine-title" tabindex="-1">${text}</h2>${hint ? `<p class="hint">${hint}</p>` : ''}`;
-  const disabled = () => canBook(getState()) && !busy ? '' : ' disabled';
+  const disabled = () => disabledAttr(getState(), busy);
 
   function connectionHtml() {
     const { status } = getState();
-    if (canBook(getState()) || status === 'connecting') return '';
-    const problem = connectionText(status);
-    if (problem?.action === 'reload') {
-      return `<div class="sheet-status" role="status"><span>${esc(problem.text)}</span> <button type="button" class="text-button" data-action="reload" data-key="reload">Reload</button></div>`;
-    }
+    if (status === 'connecting') return '';
     const text = status === 'offline' ? 'You’re offline.' : 'The schedule is not connected.';
-    return `<div class="sheet-status" role="status"><span>${text} Cancel and End early come back when it reconnects.</span> <button type="button" class="text-button" data-action="retry" data-key="retry">Try again</button></div>`;
+    return connectionBanner(getState(), `${text} Cancel and End early come back when it reconnects.`);
   }
 
   function loadingHtml() {
@@ -165,13 +169,12 @@ export function createMineSheet({ getState, onReserve }) {
   }
 
   function summaryHtml(item) {
-    const items = [
+    return summaryList([
       ['Day', formatDay(item.date)],
       ['Time', formatRange(item.start, item.end)],
       ['Where', placeLabel(config(), item.type, item.unit)],
       ['For', purposeLabel(config(), item.purpose)]
-    ];
-    return `<dl class="summary">${items.map(([term, value]) => `<div><dt>${esc(term)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>`;
+    ]);
   }
 
   function cancelHtml(item) {
@@ -193,8 +196,8 @@ export function createMineSheet({ getState, onReserve }) {
     return heading('End early', 'Choose the new end time. The time after it opens for others.') + `
       <div class="times">${earlyEnds.map(end => `
         <button type="button" class="time${end === soonest ? ' now' : ''}" data-action="end-pick" data-end="${esc(end)}" data-key="end-${esc(end)}"${disabled()}
-          aria-label="${esc(`End at ${formatTime(end)}${end === soonest ? ', the soonest' : ''}, frees ${formatDuration(toMinutes(item.end) - toMinutes(end))}`)}">
-          ${end === soonest ? '<small class="now-label">Soonest</small>' : ''}${formatTime(end)}<small>Frees ${formatDuration(toMinutes(item.end) - toMinutes(end))}</small>
+          aria-label="${esc(`${end === soonest ? 'Soonest, ' : ''}${formatTime(end)}, frees ${formatDuration(toMinutes(item.end) - toMinutes(end))}`)}">
+          ${end === soonest ? '<small class="now-label">Soonest</small> ' : ''}${formatTime(end)} <small>Frees ${formatDuration(toMinutes(item.end) - toMinutes(end))}</small>
         </button>`).join('')}</div>`;
   }
 
@@ -262,11 +265,11 @@ export function createMineSheet({ getState, onReserve }) {
       render({ focus: 'h2' });
     } else if (action === 'cancel-confirm') {
       const item = find(screen.id);
-      if (!item) { screen = { view: 'list' }; render({ focus: 'h2' }); return; }
+      if (!item) return showList();
       run(() => cancel(item.id), 'Reservation cancelled. Its time is open for others.');
     } else if (action === 'end-confirm') {
       const item = find(screen.id);
-      if (!item) { screen = { view: 'list' }; render({ focus: 'h2' }); return; }
+      if (!item) return showList();
       run(() => endEarly(item.id, screen.end), `Reservation now ends at ${formatTime(screen.end)}.`);
     }
   });

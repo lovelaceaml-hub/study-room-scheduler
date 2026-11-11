@@ -3,9 +3,10 @@
 
 import { escapeHtml as esc, formatRange, formatDay, toMinutes } from '../shared/format.js';
 import { earliestStart } from '../shared/availability.js';
-import { cancel, canBook } from './store.js';
+import { cancel } from './store.js';
 import { createSheet } from './sheet.js';
 import { purposeLabel, detailLabel, placeLabel, reservationActions, HOLD } from './text.js';
+import { summaryHtml, disabledAttr } from './parts.js';
 import { ICONS } from './icons.js';
 import { announce } from './announce.js';
 
@@ -62,7 +63,7 @@ export function createDetailsSheet({ getState, onEndEarly, onForce }) {
         <button type="button" class="icon-button" data-action="close" data-key="close" aria-label="Close"${busy ? ' disabled' : ''}>${ICONS.close}</button>
       </div>
       <h2 id="details-title" tabindex="-1">${esc(placeLabel(config, booking.type, booking.unit))}</h2>
-      <dl class="summary">${items.map(([term, value]) => `<div><dt>${esc(term)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>
+      ${summaryHtml(items)}
       ${actionsHtml()}
       ${error ? `<p class="form-error" role="alert">${esc(error)}</p>` : ''}
     `, { focus });
@@ -73,7 +74,7 @@ export function createDetailsSheet({ getState, onEndEarly, onForce }) {
     if (!mine) return forceHtml();
     const { ended, earlyEnds, canCancel } = reservationActions(getState().config, mine);
     if (ended) return '<p class="hint">This reservation has finished.</p>';
-    const disabled = canBook(getState()) && !busy ? '' : ' disabled';
+    const disabled = disabledAttr(getState(), busy);
     if (confirming) {
       return `<p class="hint">Cancel this reservation? Its time opens for others right away.</p>
         <div class="actions">
@@ -94,7 +95,7 @@ export function createDetailsSheet({ getState, onEndEarly, onForce }) {
     const booking = row();
     const { config } = getState();
     if (booking.purpose === HOLD || earliestStart(config, booking.date) >= toMinutes(booking.end)) return '';
-    const disabled = canBook(getState()) && !busy ? '' : ' disabled';
+    const disabled = disabledAttr(getState(), busy);
     return `<div class="force-offer">
       <p class="hint">No longer needed? If you know this reservation is not needed any more, you can take its place.</p>
       <button type="button" class="secondary danger" data-action="force" data-key="force"${disabled}>Force override</button>

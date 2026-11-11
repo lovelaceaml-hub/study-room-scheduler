@@ -5,18 +5,8 @@ import { formatTime, inSentence } from '../shared/format.js';
 
 export const HOLD = 'blocked';
 
-const STATUS_LABELS = {
-  approved: 'Confirmed',
-  cancelled: 'Cancelled',
-  overridden: 'Replaced',
-  pending: 'Pending',
-  declined: 'Declined'
-};
-
-export function statusLabel(status, ended = false) {
-  if (status === 'approved' && ended) return 'Finished';
-  return STATUS_LABELS[status] || '';
-}
+// The member app's sheets import this from here with the other labels.
+export { statusLabel } from '../shared/labels.js';
 
 export function purposeLabel(config, purpose) {
   if (purpose === HOLD) return 'Reserved';
