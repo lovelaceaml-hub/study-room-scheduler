@@ -1,7 +1,7 @@
 // Member app: the day schedule, plus the sheets for booking, reservation
 // details and My reservations.
 
-import { escapeHtml as esc, formatTime, formatHour, formatRange, formatDay, inSentence, weekdayName, monthDay, toMinutes, nowIn } from '../shared/format.js';
+import { escapeHtml as esc, formatTime, formatHour, formatRange, formatDay, inSentence, weekdayName, toMinutes, nowIn } from '../shared/format.js';
 import { unitsOf, slotStarts, serviceAt, occupancyIndex, occupant, earliestStart } from '../shared/availability.js';
 import { subscribe, refresh, canBook } from './store.js';
 import { createBookingSheet } from './booking.js';
@@ -78,16 +78,14 @@ function render() {
   updateDaySteps();
 }
 
-// One day in the day picker: weekday, date and month (or "Today"), with a dot
-// when one of your reservations is on it.
+// One day in the day picker: the date, with "Today" or the weekday beneath,
+// and a dot when one of your reservations is on it.
 function dateCard(date, today) {
   const mine = state.bookings.some(item => item.mine && item.date === date);
-  const month = monthDay(date).split(' ')[0];
   return `<button type="button" class="date-button" data-date="${date}" data-key="date-${date}" aria-pressed="${date === view.date}">
     ${mine ? '<i class="date-dot" aria-hidden="true"></i><span class="visually-hidden">Has your reservation,</span>' : ''}
-    <span class="date-week">${esc(weekdayName(date).slice(0, 3))}</span>
     <b class="date-number">${Number(date.slice(8))}</b>
-    <span class="date-month">${date === today ? 'Today' : esc(month)}</span></button>`;
+    <span class="date-week">${date === today ? 'Today' : esc(weekdayName(date).slice(0, 3))}</span></button>`;
 }
 
 // The round My reservations button: your initials from your latest
