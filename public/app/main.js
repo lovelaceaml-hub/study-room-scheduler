@@ -51,10 +51,11 @@ function render() {
   $('#status-pill').textContent = { connecting: 'Connecting', live: 'Live', demo: 'Demo', offline: 'Offline', error: 'Not connected', slow: 'Not connected', outdated: 'Out of date' }[state.status];
   $('#reserve').disabled = !ready || !days.length;
   paint($('#notice'), noticeHtml());
+  paint($('#mine-link'), avatarHtml());
   if (!config) return;
 
-  paint($('#dates'), days.map(day => `<button type="button" class="date-button" data-date="${day.date}" data-key="date-${day.date}" aria-pressed="${day.date === view.date}">
-    <b>${esc(weekdayName(day.date))}</b><span>${esc(monthDay(day.date))}</span></button>`).join(''));
+  const today = nowIn(config.timeZone).date;
+  paint($('#dates'), days.map(day => dateCard(day.date, today)).join(''));
   paint($('#types'), Object.entries(config.resources).map(([type, resource]) => `<button type="button" class="type-button" data-type="${type}" data-key="type-${type}" aria-pressed="${type === view.type}">
     ${ICONS[type] || ''}<span>${esc(resource.plural)}</span></button>`).join(''));
 
@@ -73,6 +74,56 @@ function render() {
   }
   placeNowLine();
   paint($('#legend'), legendHtml());
+  showChosenDay();
+  updateDaySteps();
+}
+
+// One day in the day picker: weekday, date and month (or "Today"), with a dot
+// when one of your reservations is on it.
+function dateCard(date, today) {
+  const mine = state.bookings.some(item => item.mine && item.date === date);
+  const month = monthDay(date).split(' ')[0];
+  return `<button type="button" class="date-button" data-date="${date}" data-key="date-${date}" aria-pressed="${date === view.date}">
+    ${mine ? '<i class="date-dot" aria-hidden="true"></i><span class="visually-hidden">Has your reservation,</span>' : ''}
+    <span class="date-week">${esc(weekdayName(date).slice(0, 3))}</span>
+    <b class="date-number">${Number(date.slice(8))}</b>
+    <span class="date-month">${date === today ? 'Today' : esc(month)}</span></button>`;
+}
+
+// The round My reservations button: your initials from your latest
+// reservation on this device, or a person icon before you have one.
+function avatarHtml() {
+  const latest = [...state.mine].filter(item => item.name).sort((a, b) => `${b.date}${b.start}`.localeCompare(`${a.date}${a.start}`))[0];
+  const initials = latest ? latest.name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase() : '';
+  return `<span class="visually-hidden">My reservations</span>${initials ? `<span aria-hidden="true">${esc(initials)}</span>` : ICONS.person}`;
+}
+
+// The arrows beside the days scroll the row; each is off when there is
+// nothing more that way.
+function updateDaySteps() {
+  const row = $('#dates');
+  const max = row.scrollWidth - row.clientWidth;
+  $('#days-back').disabled = row.scrollLeft <= 2;
+  $('#days-next').disabled = row.scrollLeft >= max - 2;
+}
+
+// Keeps the chosen day in view in the day row, without scrolling the page.
+let shownDay = null;
+function showChosenDay() {
+  if (shownDay === view.date) return;
+  const row = $('#dates');
+  const card = row.querySelector('[aria-pressed="true"]');
+  if (!card || !row.clientWidth) return;
+  shownDay = view.date;
+  const box = row.getBoundingClientRect();
+  const place = card.getBoundingClientRect();
+  if (place.left < box.left) row.scrollLeft -= box.left - place.left + 8;
+  else if (place.right > box.right) row.scrollLeft += place.right - box.right + 8;
+}
+
+function stepDays(direction) {
+  const row = $('#dates');
+  row.scrollBy({ left: direction * row.clientWidth * 0.8, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
 
 function noticeHtml() {
@@ -189,6 +240,11 @@ $('#dates').addEventListener('click', event => {
   render();
   announce(`Showing ${formatDay(view.date)}.`);
 });
+
+$('#days-back').addEventListener('click', () => stepDays(-1));
+$('#days-next').addEventListener('click', () => stepDays(1));
+$('#dates').addEventListener('scroll', updateDaySteps, { passive: true });
+addEventListener('resize', updateDaySteps);
 
 $('#types').addEventListener('click', event => {
   const button = event.target.closest('[data-type]');
