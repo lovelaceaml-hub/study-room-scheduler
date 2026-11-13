@@ -14,6 +14,24 @@ production, and stops if any check fails. It repeats those read-only checks
 after publishing. The production release deployed `hosting:app` only; no
 Functions or Firestore rules were deployed, and no booking data was changed.
 
+## Still page and scrolling time slots 2026-11-13
+
+The member page no longer scrolls; it fills the screen and only the time slot
+box scrolls, with the color key and room names pinned at its top. The Study
+rooms / Whiteboards / TVs switch hangs from the header's bottom line with thin
+lines between the choices. Time slots are 40px instead of 58px and reservation
+text is centered. The date above the schedule is gone (the chosen day card
+shows it; screen readers hear it in the schedule's name), the color key
+replaced the "Choose an open time" hint, and the Admin link sits at the bottom
+of the time slot box. On phones the Reserve button sits below the box instead
+of floating over it. Merged as pull request #36 (`ff30de1`) and released with
+`hosting:app` only in
+[run 43479328758](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/43479328758).
+`test/app.smoke.mjs` passed 35 of 35 (two tests now scroll the time slot box
+instead of the page); the pull request check and the run's checks before and
+after publishing passed. Afterwards the live files matched `main`, and at phone
+size the live page did not scroll while the time slot box did, read-only.
+
 ## Thinner top 2026-11-13
 
 Later the same day the top was made thinner so the schedule starts about 80px
