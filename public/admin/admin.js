@@ -6,7 +6,7 @@
 
 import { errorMessage } from '../shared/firebase.js';
 import { escapeHtml as esc, formatTime, formatRange, formatDay, formatHour, inSentence, listOf, weekdayName, monthDay, nowIn, toMinutes, toTime, hasText, readStored, writeStored, serverNow, setServerTime } from '../shared/format.js';
-import { unitsOf, unitName, slotStarts, serviceAt, validRange, earliestStart, occupancyIndex, overlappingBooking } from '../shared/availability.js';
+import { unitsOf, unitName, slotStarts, serviceAt, validRange, earliestBookableStart, occupancyIndex, overlappingBooking } from '../shared/availability.js';
 import { paint } from '../shared/dom.js';
 import { statusLabel } from '../shared/labels.js';
 import { recordHelpers, folded, named, displayName, whose, byMember, shortenedFrom } from './records.js';
@@ -650,7 +650,7 @@ function blankForm() {
 
 function formStarts() {
   const current = day();
-  const earliest = earliestStart(config(), current.date);
+  const earliest = earliestBookableStart(config(), current.date);
   return slotStarts(config()).filter(minute => minute >= earliest && !serviceAt(current, minute)
     && validRange(config(), current, minute, minute + config().slotMinutes));
 }

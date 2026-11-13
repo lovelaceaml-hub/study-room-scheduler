@@ -75,8 +75,6 @@ body { overflow: hidden; }
 
 .sidebar { display: grid; align-content: start; gap: 20px; }
 
-.links { display: flex; justify-content: center; gap: 4px 18px; margin-top: 12px; }
-.links a { display: flex; align-items: center; min-height: 36px; color: var(--muted); font-size: 12px; text-underline-offset: 4px; }
 
 .reserve-button { justify-content: space-between; min-height: 56px; border-radius: 18px; font-size: 15px; box-shadow: 0 7px 15px #3a564414; }
 
@@ -216,7 +214,7 @@ body { overflow: hidden; }
 }
 .hour.last { align-self: end; transform: translateY(50%); }
 
-/* The current time: a red line across the rooms, with a dot on the time rail. */
+/* The current time: a red line across the rooms, with the time on the time column. */
 .now-line {
   position: absolute;
   grid-column: 2 / -1;
@@ -230,15 +228,21 @@ body { overflow: hidden; }
   background: #d93025;
   pointer-events: none;
 }
-.now-line::before {
-  content: "";
+.now-time {
   position: absolute;
-  left: -6px;
-  top: -4px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  right: 100%;
+  top: 50%;
+  margin-right: -2px;
+  padding: 2px 5px;
+  transform: translateY(-50%);
+  border-radius: 7px;
   background: #d93025;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .now-line[hidden] { display: none; }
 

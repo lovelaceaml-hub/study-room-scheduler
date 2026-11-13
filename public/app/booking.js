@@ -5,7 +5,7 @@
 // confirm. What each step shows is in booking-steps.js.
 
 import { escapeHtml as esc, formatTime, formatDay, hasText, inSentence, readStored, toTime } from '../shared/format.js';
-import { rangeChoice, earliestStart } from '../shared/availability.js';
+import { rangeChoice, earliestBookableStart } from '../shared/availability.js';
 import { book, canBook, refresh, newRequestId, NAME_KEY } from './store.js';
 import { createSheet } from './sheet.js';
 import { createSteps, PASSED, INLINE_ERROR_STEPS } from './booking-steps.js';
@@ -123,7 +123,7 @@ export function createBookingSheet({ getState, onShow, onOpenMine }) {
 
   // A time that has begun cannot be reserved.
   function startPassed() {
-    return draft.start != null && draft.start < earliestStart(config(), draft.date);
+    return draft.start != null && draft.start < earliestBookableStart(config(), draft.date);
   }
 
   // Called on every schedule refresh. Only the steps that list open times

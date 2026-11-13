@@ -167,6 +167,8 @@ function rankOf(config, purpose) {
 function takeoverOption(config, rows, day, type, start, end, purpose, units, now, force, index = null) {
   const canTake = force ? Object.keys(config.purposes) : (config.purposes[purpose]?.canTake || []);
   if (!canTake.length) return null;
+  // The grace after a slot begins is only for free units. Mirrors takeoverTarget.
+  if (start < earliestStart(config, day.date, now)) return null;
   const clock = nowIn(config.timeZone, now);
   const inUse = row => toMinutes(row.start) >= start
     && (day.date < clock.date || (day.date === clock.date && toMinutes(row.start) <= clock.minutes));
@@ -248,6 +250,20 @@ export function earliestStart(config, date, now = serverNow()) {
   const clock = nowIn(config.timeZone, now);
   if (date !== clock.date) return date < clock.date ? Infinity : 0;
   return Math.ceil(clock.minutes / config.slotMinutes) * config.slotMinutes;
+}
+
+// How long after a free slot begins it can still be reserved. Mirrors
+// START_GRACE_MINUTES in functions/lib/schedule.js.
+export const START_GRACE_MINUTES = 20;
+
+// The first start that can still be reserved in a free unit: a slot stays
+// open until START_GRACE_MINUTES after it begins (at 10:14 the 10:00 slot,
+// at 10:20 the 10:30 slot); on any later day, 0. Mirrors startClosed in
+// functions/lib/schedule.js. Takeovers go by earliestStart instead.
+export function earliestBookableStart(config, date, now = serverNow()) {
+  const clock = nowIn(config.timeZone, now);
+  if (date !== clock.date) return date < clock.date ? Infinity : 0;
+  return Math.max(0, Math.ceil((clock.minutes - START_GRACE_MINUTES + 1) / config.slotMinutes) * config.slotMinutes);
 }
 
 // True once a reservation ending at `end` on `date` is over.

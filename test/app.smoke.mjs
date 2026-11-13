@@ -190,10 +190,11 @@ test('member schedule refreshes at 30 seconds instead of every 15', async () => 
 });
 
 test('a phone clock that is wrong is offered start times by the server\'s clock', async () => {
-  // The server says 4:10 PM, so 4:30 PM is the first open start either way.
-  for (const [deviceTime, serverAhead] of [['16:40', -30 * MINUTE], ['15:40', 30 * MINUTE]]) {
+  // The server says 4:25 PM, so 4:30 PM is the first open start either way
+  // (4:00 PM closed at 4:20).
+  for (const [deviceTime, serverAhead] of [['16:55', -30 * MINUTE], ['15:55', 30 * MINUTE]]) {
     const now = saturdayAt(deviceTime);
-    const { page, errors, context, sheet } = await openApp('', { now, serverAhead, fixture: schedule({ now: saturdayAt('16:10'), bookings: [], mine: [] }), day: null });
+    const { page, errors, context, sheet } = await openApp('', { now, serverAhead, fixture: schedule({ now: saturdayAt('16:25'), bookings: [], mine: [] }), day: null });
     await page.locator(`[data-date="${TODAY}"][aria-pressed="true"]`).waitFor();
     assert.equal(await page.locator('.open-slot[data-unit="room-1"]').first().getAttribute('data-start'), String(16 * 60 + 30), deviceTime);
     await page.locator('#reserve').click();
@@ -214,16 +215,24 @@ test('the page opens on the first day with time left, which on Saturday morning 
   await context.close();
 });
 
-test('at 4:10 PM the first open start today is 4:30 PM', async () => {
+test('a free slot stays open until 20 minutes after it begins: 4:00 PM at 4:10, 4:30 PM at 4:20', async () => {
   const now = saturdayAt('16:10');
   const { page, errors, context, sheet } = await openApp('', { now, fixture: schedule({ now, bookings: [], mine: [] }), day: null });
   await page.locator(`[data-date="${TODAY}"][aria-pressed="true"]`).waitFor();
-  assert.equal(await page.locator('.open-slot[data-unit="room-1"]').first().getAttribute('data-start'), String(16 * 60 + 30));
-  assert.equal(await page.getByRole('button', slot('Room 1', '4:00 PM', TODAY)).count(), 0);
+  assert.equal(await page.locator('.open-slot[data-unit="room-1"]').first().getAttribute('data-start'), String(16 * 60));
+  assert.equal(await page.getByRole('button', slot('Room 1', '3:30 PM', TODAY)).count(), 0);
   await page.locator('#reserve').click();
   await sheet.getByRole('button', { name: 'Other', exact: true }).click();
   await sheet.getByRole('heading', { name: 'Start time' }).waitFor();
-  assert.equal(await sheet.locator('[data-start]').first().textContent().then(text => text.trim()), '4:30 PM');
+  assert.equal(await sheet.locator('[data-start]').first().textContent().then(text => text.trim()), '4:00 PM');
+  await sheet.getByRole('button', { name: 'Close' }).click();
+  await sheet.waitFor({ state: 'hidden' });
+  await page.clock.fastForward('10:00');
+  await page.locator('[data-date="2026-10-04"]').click();
+  await page.locator(`[data-date="${TODAY}"]`).click();
+  await page.waitForFunction(() => document.querySelector('.open-slot[data-unit="room-1"]')?.dataset.start === String(16 * 60 + 30));
+  // The red line shows the time on the time column.
+  assert.equal(await page.locator('.now-time').textContent(), '4:20');
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -435,7 +444,8 @@ test('a start that passes while the sheet is open is caught before sending', asy
   const now = saturdayAt('16:20');
   const { page, errors, context, sheet } = await openApp('', { now, fixture: schedule({ now, bookings: [], mine: [] }), day: TODAY });
   await tapToConfirm(page, sheet, 'Room 1', '4:30 PM', { date: TODAY });
-  await page.clock.fastForward('11:00');
+  // 4:30 PM stays open until 4:50 PM.
+  await page.clock.fastForward('31:00');
   await sheet.getByRole('button', { name: 'Confirm reservation', exact: true }).click();
   await sheet.getByText('This start time has passed. Close this and choose a later time.').waitFor();
   assert.equal((await calls(page, 'memberSubmitBooking')).length, 0, 'nothing is sent');

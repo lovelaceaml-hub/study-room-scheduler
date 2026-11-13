@@ -113,11 +113,22 @@ test('nothing that has already started can be reserved, to the minute', () => {
   assert.equal(schedule.hasPassed(SATURDAY, '11:00', at('11:01')), true);
   assert.equal(schedule.hasPassed(SATURDAY, '22:30', local('2026-10-04', '00:10')), true, 'a past date');
   assert.equal(schedule.hasPassed(TUESDAY, '10:00', at('22:00')), false, 'a later date');
-  assert.throws(() => bookings.parseMemberRequest({
-    date: SATURDAY, start: '11:00', end: '12:00', resourceType: 'room', purpose: 'other', name: 'Jordan', reservedFor: 'Study'
-  }, at('11:10')), /already passed/);
+});
+
+test('a free slot can still be reserved until 20 minutes after it begins', () => {
+  const at = time => local(SATURDAY, time);
+  assert.equal(schedule.startClosed(SATURDAY, '11:00', at('11:14')), false, 'at 11:14, 11:00 is still open');
+  assert.equal(schedule.startClosed(SATURDAY, '11:00', at('11:19:59')), false);
+  assert.equal(schedule.startClosed(SATURDAY, '11:00', at('11:20')), true, 'at 11:20, 11:00 has closed');
+  assert.equal(schedule.startClosed(SATURDAY, '22:30', local('2026-10-04', '00:10')), true, 'a past date');
+  assert.equal(schedule.startClosed(TUESDAY, '10:00', at('22:00')), false, 'a later date');
+  const request = start => () => bookings.parseMemberRequest({
+    date: SATURDAY, start, end: '12:00', resourceType: 'room', purpose: 'other', name: 'Jordan', reservedFor: 'Study'
+  }, at('11:20'));
+  assert.throws(request('11:00'), /already passed/);
+  assert.doesNotThrow(request('11:30'));
   assert.doesNotThrow(() => bookings.parseMemberRequest({
-    date: SATURDAY, start: '11:30', end: '12:00', resourceType: 'room', purpose: 'other', name: 'Jordan', reservedFor: 'Study'
+    date: SATURDAY, start: '11:00', end: '12:00', resourceType: 'room', purpose: 'other', name: 'Jordan', reservedFor: 'Study'
   }, at('11:10')));
 });
 
@@ -298,7 +309,7 @@ test('Admin limits: hold reason 240, notes 1000, names 120', () => {
 });
 
 test('Admin adds under the same date rules as members', () => {
-  assert.throws(parseAdmin({}, local(SATURDAY, '11:10')), /already passed/);
+  assert.throws(parseAdmin({}, local(SATURDAY, '11:20')), /already passed/);
   assert.throws(parseAdmin({ date: TUESDAY }), /not open/, 'outside the window');
   assert.doesNotThrow(parseAdmin({ date: TUESDAY }, SATURDAY_MORNING));
   delete config.WEEKLY_DAYS[1];

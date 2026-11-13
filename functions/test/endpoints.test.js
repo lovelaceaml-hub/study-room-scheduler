@@ -107,7 +107,7 @@ test('a member books, ends early and cancels through the endpoints', async () =>
 test('a retry whose first answer was lost gets that answer, even after the start time', async () => {
   setClock(local(SATURDAY, '10:59:30'));
   const first = await run('memberSubmitBooking', 'device-a', { ...member, requestId: 'lost-answer-0123456789' });
-  setClock(local(SATURDAY, '11:01:05'));
+  setClock(local(SATURDAY, '11:20:05'));
   assert.deepEqual(await run('memberSubmitBooking', 'device-a', { ...member, requestId: 'lost-answer-0123456789' }), { ...first, repeated: true });
   await assert.rejects(run('memberSubmitBooking', 'device-a', { ...member, requestId: 'a-new-request-0123456789' }),
     { code: 'invalid-argument', message: 'That start time has already passed. Choose a later time.' });

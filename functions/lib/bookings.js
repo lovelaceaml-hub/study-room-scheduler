@@ -23,7 +23,7 @@
 // have no `needs`, and then the types they hold stand in for it.
 
 const { RESOURCES, PURPOSES, HOLD, NAME_MAX, NOTE_MAX, HOLD_REASON_MAX } = require('./config');
-const { toMinutes, timeError, hasPassed, clockAt } = require('./schedule');
+const { toMinutes, timeError, hasPassed, startClosed, clockAt } = require('./schedule');
 
 const TYPES = Object.keys(RESOURCES);
 const PURPOSE_ORDER = Object.keys(PURPOSES);
@@ -123,6 +123,9 @@ function freeUnit(type, candidate, approved, requestedUnit = null) {
 // Returns { unitId, holders } with holders most important first, or null.
 function takeoverTarget(type, candidate, approved, requestedUnit = null, now = new Date(), force = false) {
   if (freeUnit(type, candidate, approved) && !(force && requestedUnit)) return null;
+  // The grace after a slot begins is only for free units: nobody already in
+  // a room is shortened to a time that has passed.
+  if (hasPassed(candidate.date, candidate.start, now)) return null;
   const canTake = force ? PURPOSE_ORDER : (PURPOSES[candidate.purpose]?.canTake || []);
   if (!canTake.length) return null;
   const units = unitIds(type).filter(id => requestedUnit == null || id === requestedUnit);
@@ -207,7 +210,7 @@ function parseWhen(input, now) {
   const date = typeof input.date === 'string' ? input.date : '';
   const problem = timeError(date, input.start, input.end, now);
   if (problem) throw new Error(problem);
-  if (hasPassed(date, input.start, now)) throw new Error('That start time has already passed. Choose a later time.');
+  if (startClosed(date, input.start, now)) throw new Error('That start time has already passed. Choose a later time.');
   return { date, start: input.start, end: input.end };
 }
 

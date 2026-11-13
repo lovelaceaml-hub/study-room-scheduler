@@ -102,6 +102,16 @@ test('the least important reservations are taken first', async () => {
   assert.equal(db.read('bookings', 'n3').status, 'approved');
 });
 
+test('the 20-minute grace never shortens someone to a time that has passed', async () => {
+  const db = new FakeFirestore();
+  ['1', '2', '3', '4'].forEach(unit => seedBooking(db, `e${unit}`, { purpose: 'other', start: '10:30', end: '12:00', assignments: { room: `room-${unit}` } }));
+  setClock(local(SATURDAY, '11:10'));
+  await assert.rejects(actions.submitReservation(db, contact(db, { start: '11:00', end: '12:00' }), 'device-c'), hasCode('already-exists'));
+  assert.deepEqual(['1', '2', '3', '4'].map(unit => db.read('bookings', `e${unit}`).end), ['12:00', '12:00', '12:00', '12:00']);
+  const later = await actions.submitReservation(db, contact(db, { start: '11:30', end: '12:00' }), 'device-c');
+  assert.equal(db.read('bookings', `e${later.unit.slice(-1)}`).end, '11:30', 'from the next slot it is shortened as before');
+});
+
 test('a requested unit is the only one a takeover considers', async () => {
   const db = new FakeFirestore();
   ['1', '2', '3', '4'].forEach(unit => seedBooking(db, `o${unit}`, { purpose: 'other', assignments: { room: `room-${unit}` } }));
@@ -111,12 +121,14 @@ test('a requested unit is the only one a takeover considers', async () => {
 });
 
 test('a reservation already under way is shortened, never moved or released', async () => {
-  // At 11:10 the earliest start is 11:30, so a holder from 11:00 began earlier.
+  // At 11:10 a free 11:00 slot is still open, but taking someone's unit never
+  // starts in the past, so a holder from 11:00 keeps it; from 11:30 it is shortened.
   let db = new FakeFirestore();
   contactsOn(db, ['4']);
   seedBooking(db, 'now', { purpose: 'other', ownerUid: 'device-h', start: '11:00', end: '12:00', assignments: { room: 'room-4' } });
   setClock(local(SATURDAY, '11:10'));
-  await assert.rejects(Promise.resolve().then(() => contact(db, { start: '11:00', end: '12:00' })), /already passed/);
+  await assert.rejects(actions.submitReservation(db, contact(db, { start: '11:00', end: '12:00' }), 'device-c'), hasCode('already-exists'));
+  assert.deepEqual([db.read('bookings', 'now').status, db.read('bookings', 'now').end], ['approved', '12:00'], 'not cut back to 11:00');
   await actions.submitReservation(db, contact(db, { start: '11:30', end: '12:30' }), 'device-c');
   let saved = db.read('bookings', 'now');
   assert.deepEqual([saved.status, saved.assignments.room, saved.end], ['approved', 'room-4', '11:30']);
