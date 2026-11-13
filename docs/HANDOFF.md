@@ -14,6 +14,18 @@ production, and stops if any check fails. It repeats those read-only checks
 after publishing. The production release deployed `hosting:app` only; no
 Functions or Firestore rules were deployed, and no booking data was changed.
 
+## Current-time line 2026-11-13
+
+The member schedule shows a red line with a dot at the current time on today's
+schedule while the rooms are open; it moves every 20 seconds by the church's
+clock and is hidden on other days. Merged as pull request #31 (`34a980d`) and
+released with `hosting:app` only in
+[run 43456983451](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/43456983451).
+No Functions, Firestore rules or booking data changed. Full suites were not
+ticked; `test/app.smoke.mjs` passed 34 of 34 locally and the run's release
+checker, guard self-test and read-only checks before and after publishing
+passed. Afterwards the live `main.js` and `app.css` matched `main`.
+
 ## Backend release 2026-11-04
 
 All 10 Functions on `main` (`02e04a9`) were released to `lvz-rooms` by the
