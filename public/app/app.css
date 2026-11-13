@@ -14,11 +14,11 @@ html { scroll-padding-top: 160px; }
 .page {
   display: grid;
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-  gap: 28px 56px;
+  gap: 18px 56px;
   align-items: start;
   max-width: 1220px;
   margin: 0 auto;
-  padding: 28px 40px 48px;
+  padding: 16px 40px 48px;
 }
 
 /* Top bar: the app's name on the left, connection and My reservations on the right. */
@@ -26,31 +26,31 @@ html { scroll-padding-top: 160px; }
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding-bottom: 18px;
+  gap: 10px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--line-strong);
 }
-.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.brand h1 { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
-.brand h1 span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand h1 { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
+.brand h1 span { display: block; margin-top: 1px; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 .brand-mark {
   display: flex;
   flex: none;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  width: 48px;
-  height: 48px;
-  border-radius: 15px;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
   background: var(--primary);
-  box-shadow: 0 6px 14px #3a564426;
+  box-shadow: 0 3px 8px #3a564426;
 }
-.brand-mark i { width: 6px; height: 19px; border: 1.5px solid var(--on-primary); border-radius: 8px 8px 0 0; transform: rotate(-20deg); }
-.brand-mark i:nth-child(2) { height: 24px; transform: none; }
+.brand-mark i { width: 5px; height: 14px; border: 1.5px solid var(--on-primary); border-radius: 8px 8px 0 0; transform: rotate(-20deg); }
+.brand-mark i:nth-child(2) { height: 18px; transform: none; }
 .brand-mark i:nth-child(3) { transform: rotate(20deg); }
 .status-pill {
   margin-left: auto;
-  padding: 6px 11px;
+  padding: 3px 10px;
   border: 1px solid var(--line-strong);
   border-radius: 30px;
   font-size: 11px;
@@ -61,21 +61,21 @@ html { scroll-padding-top: 160px; }
   display: grid;
   flex: none;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 36px;
+  height: 36px;
   border: 2px solid var(--surface);
   border-radius: 50%;
   background: var(--primary);
-  box-shadow: 0 4px 12px #3a564433;
+  box-shadow: 0 3px 8px #3a564433;
   color: var(--on-primary);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   text-decoration: none;
 }
-.avatar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.avatar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 .avatar:hover { background: var(--primary-dark); }
 
-.sidebar { position: sticky; top: 28px; display: grid; gap: 20px; }
+.sidebar { position: sticky; top: 16px; display: grid; gap: 20px; }
 
 .links { display: flex; justify-content: center; gap: 4px 18px; margin-top: 14px; }
 .links a { display: flex; align-items: center; min-height: 44px; color: var(--muted); font-size: 12px; text-underline-offset: 4px; }
@@ -87,42 +87,42 @@ html { scroll-padding-top: 160px; }
 .schedule { min-width: 0; }
 
 /* Kind of thing: a full-width switch, the chosen one filled. */
-.types { display: flex; gap: 4px; margin-bottom: 18px; padding: 5px; border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); }
+.types { display: flex; gap: 3px; margin-bottom: 10px; padding: 3px; border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
 .type-button {
   display: flex;
   flex: 1;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 6px;
   min-width: 0;
-  min-height: 48px;
-  padding: 8px 6px;
+  min-height: 34px;
+  padding: 4px 6px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 13px;
   background: transparent;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
-.type-button svg { width: 17px; height: 17px; }
+.type-button svg { width: 15px; height: 15px; }
 .type-button:hover:not([aria-pressed="true"]) { background: var(--surface-soft); }
-.type-button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); box-shadow: 0 5px 12px #3a564433; }
+.type-button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); box-shadow: 0 3px 8px #3a564433; }
 
 /* Days: a row of cards that scrolls sideways, with arrows at each end. */
-.day-picker { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.day-picker { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .day-step {
   display: grid;
   flex: none;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   border: 0;
   border-radius: 50%;
   background: var(--surface);
   box-shadow: 0 3px 10px #545e4514;
   color: var(--primary-dark);
 }
-.day-step svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.day-step svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .day-step:disabled { opacity: 0.4; box-shadow: none; }
 .dates {
   display: flex;
@@ -131,8 +131,8 @@ html { scroll-padding-top: 160px; }
   min-width: 0;
   overflow-x: auto;
   /* Room for the cards' shadows, which the scrolling row would clip. */
-  margin: -8px -12px -16px;
-  padding: 8px 12px 18px;
+  margin: -6px -12px -12px;
+  padding: 6px 12px 12px;
   scroll-snap-type: x proximity;
   scroll-padding-inline: 12px;
   scrollbar-width: none;
@@ -147,22 +147,21 @@ html { scroll-padding-top: 160px; }
   justify-content: center;
   gap: 0;
   min-width: 76px;
-  min-height: 68px;
-  padding: 7px 6px;
+  min-height: 44px;
+  padding: 4px 6px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 13px;
   background: var(--surface);
-  box-shadow: 0 4px 12px #545e4512;
+  box-shadow: 0 2px 8px #545e4512;
   color: var(--ink);
   scroll-snap-align: start;
 }
 .date-button:hover:not([aria-pressed="true"]) { background: var(--surface-soft); }
-.date-week, .date-month { color: var(--muted); font-size: 12px; line-height: 1.15; }
-.date-number { font: 700 21px/1.1 var(--serif); }
-.date-dot { position: absolute; top: 5px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--primary); }
-.date-button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); box-shadow: 0 5px 10px #3a56442e; }
-.date-button[aria-pressed="true"] .date-week, .date-button[aria-pressed="true"] .date-month { color: var(--on-primary); }
-.date-button[aria-pressed="true"] .date-month { font-weight: 600; }
+.date-week { color: var(--muted); font-size: 11px; line-height: 1.15; }
+.date-number { font: 700 17px/1.15 var(--serif); }
+.date-dot { position: absolute; top: 5px; left: auto; right: 7px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--primary); }
+.date-button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); box-shadow: 0 3px 8px #3a56442e; }
+.date-button[aria-pressed="true"] .date-week { color: var(--on-primary); font-weight: 600; }
 .date-button[aria-pressed="true"] .date-dot { background: var(--on-primary); }
 
 .board { position: relative; padding: 0 16px 20px; border-radius: 30px; background: var(--surface); box-shadow: var(--shadow); }
@@ -470,14 +469,13 @@ body.sheet-open { overflow: hidden; }
 @media (max-width: 650px) {
   :root { --rail: 40px; }
   html { scroll-padding: 150px 0 calc(100px + env(safe-area-inset-bottom)); }
-  .page { display: block; max-width: 560px; padding: 16px 10px 120px; }
-  .topbar { margin: 0 4px 16px; padding: 0 4px 14px; }
-  .brand { gap: 12px; }
-  .brand h1 { font-size: 18px; }
-  .brand-mark { width: 44px; height: 44px; border-radius: 14px; }
-  .brand-mark i { height: 17px; }
-  .brand-mark i:nth-child(2) { height: 21px; }
-  .avatar { width: 42px; height: 42px; font-size: 13px; }
+  .page { display: block; max-width: 560px; padding: 10px 10px 120px; }
+  .topbar { margin: 0 4px 10px; padding: 0 4px 8px; }
+  .brand h1 { font-size: 16px; }
+  .brand-mark { width: 32px; height: 32px; border-radius: 10px; }
+  .brand-mark i { width: 4px; height: 12px; }
+  .brand-mark i:nth-child(2) { height: 16px; }
+  .avatar { width: 32px; height: 32px; }
   .sidebar { position: static; display: block; }
   .reserve-bar {
     position: fixed;
@@ -495,14 +493,14 @@ body.sheet-open { overflow: hidden; }
   }
   .reserve-button { justify-content: center; }
   .reserve-button svg { position: absolute; right: 30px; }
-  .types { margin: 0 4px 14px; border-radius: 20px; }
-  .type-button { min-height: 44px; border-radius: 16px; }
-  .day-picker { gap: 10px; margin: 0 0 16px; }
-  .day-step { width: 34px; height: 34px; }
-  .dates { gap: 8px; }
-  .date-button { flex-basis: calc((100% - 24px) / 4); min-width: 58px; min-height: 64px; border-radius: 16px; }
-  .date-number { font-size: 19px; }
-  .date-week, .date-month { font-size: 11px; }
+  .types { margin: 0 4px 8px; border-radius: 14px; }
+  .type-button { min-height: 32px; border-radius: 11px; }
+  .day-picker { gap: 6px; margin: 0 0 10px; }
+  .day-step { width: 28px; height: 28px; }
+  .dates { gap: 6px; }
+  .date-button { flex-basis: calc((100% - 18px) / 4); min-width: 58px; min-height: 42px; border-radius: 12px; }
+  .date-number { font-size: 16px; }
+  .date-week { font-size: 10px; }
   .board { padding: 0 8px 18px; border-radius: 25px; }
   .board-top { padding-top: 4px; border-radius: 25px 25px 0 0; }
   .type-button { font-size: 12px; gap: 5px; }
