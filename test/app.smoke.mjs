@@ -231,7 +231,7 @@ test('on a narrow phone the day arrows scroll the days, and today says Today', a
   const { page, errors, context } = await openApp('', { width: 300, day: null });
   const back = page.locator('#days-back');
   const next = page.locator('#days-next');
-  await page.locator(`[data-date="${TODAY}"] .date-month`, { hasText: 'Today' }).waitFor();
+  await page.locator(`[data-date="${TODAY}"] .date-week`, { hasText: 'Today' }).waitFor();
   assert.equal(await back.isDisabled(), true);
   assert.equal(await next.isDisabled(), false);
   await next.click();
