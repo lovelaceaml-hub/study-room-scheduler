@@ -85,8 +85,8 @@ function dateCard(date, today) {
   const month = monthDay(date).split(' ')[0];
   return `<button type="button" class="date-button" data-date="${date}" data-key="date-${date}" aria-pressed="${date === view.date}">
     ${mine ? '<i class="date-dot" aria-hidden="true"></i><span class="visually-hidden">Has your reservation,</span>' : ''}
-    <span class="date-week">${esc(weekdayName(date).slice(0, 3))}</span>
-    <b class="date-number">${Number(date.slice(8))}</b>
+    <span class="date-top"><span class="date-week">${esc(weekdayName(date).slice(0, 3))}</span>
+    <b class="date-number">${Number(date.slice(8))}</b></span>
     <span class="date-month">${date === today ? 'Today' : esc(month)}</span></button>`;
 }
 
