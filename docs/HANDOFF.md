@@ -14,6 +14,34 @@ production, and stops if any check fails. It repeats those read-only checks
 after publishing. The production release deployed `hosting:app` only; no
 Functions or Firestore rules were deployed, and no booking data was changed.
 
+## Thinner top 2026-11-13
+
+Later the same day the top was made thinner so the schedule starts about 80px
+higher on a phone: a smaller top bar, a shorter kind switch, and day cards that
+show only the date with "Today" or the weekday beneath (no month). Merged as
+pull request #35 (`9df090f`) and released with `hosting:app` only in
+[run 43463711439](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/43463711439).
+`test/app.smoke.mjs` passed 35 of 35; the pull request's focused check and the
+run's checks before and after publishing passed. Afterwards the live page files
+matched `main` and the live page showed "13 Today, 14 Sat, 15 Sun, 16 Mon" with
+"Live" status, read-only.
+
+## New top layout 2026-11-13
+
+The top of the member page follows Anthony's sketch, in the same colors and
+fonts: a top bar (app icon, "Study Rooms" over "LV ZION", connection label, and
+a round My reservations button showing your initials from your latest
+reservation on that device), a full-width Study rooms / Whiteboards / TVs
+switch, and slim day cards (weekday, date, month or "Today", a dot on days with
+your reservation) in a row with arrows that scroll when the days do not fit.
+The "Schedule" heading is gone and the Admin link sits below the schedule.
+Merged as pull request #33 (`dbd8fce`) and released with `hosting:app` only in
+[run 43460915584](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/43460915584).
+No Functions, rules or booking data changed. Full suites were not ticked;
+`test/app.smoke.mjs` passed 35 of 35 (a new test covers the day arrows) and
+`test:release-check` 28 of 28. Afterwards the live page files matched `main`
+and the live page showed the new top with "Live" status, read-only.
+
 ## Current-time line 2026-11-13
 
 The member schedule shows a red line with a dot at the current time on today's
