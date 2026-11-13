@@ -922,7 +922,7 @@ test('times that have begun are never offered, and End early goes once a reserva
   const first = await openAdmin({ state, now: new Date('2026-10-03T11:10:00-07:00'), day: TODAY });
   const { page } = first;
   const startTimes = () => page.locator('#add-start option').allTextContents();
-  assert.equal((await startTimes())[1], '11:30 AM', 'at 11:10 the first start is 11:30');
+  assert.equal((await startTimes())[1], '11:00 AM', 'at 11:10 the 11:00 slot is still open for 20 minutes');
   const today = entry(page, 'Today Example');
   await today.getByRole('button', { name: 'End early' }).click();
   assert.deepEqual(await today.getByLabel('New end time').locator('option').allTextContents(), ['11:30 AM', '12:00 PM', '12:30 PM']);
@@ -937,7 +937,8 @@ test('times that have begun are never offered, and End early goes once a reserva
   await page.getByText('Note saved.').waitFor();
   await page.clock.fastForward(6 * MINUTE);
   await refreshNow(page);
-  await page.waitForFunction(() => document.querySelector('#add-start option:nth-child(2)')?.textContent === '12:00 PM');
+  // At 11:31 the 11:30 slot is still open (until 11:50); End early is not.
+  await page.waitForFunction(() => document.querySelector('#add-start option:nth-child(2)')?.textContent === '11:30 AM');
   await today.getByRole('button', { name: 'End early' }).click();
   assert.deepEqual(await today.getByLabel('New end time').locator('option').allTextContents(), ['12:00 PM', '12:30 PM']);
   assert.equal(await entry(page, 'Other Example').getByRole('button', { name: 'End early' }).count(), 0, '11:30 has passed');
@@ -948,7 +949,7 @@ test('times that have begun are never offered, and End early goes once a reserva
   const ended = entry(later.page, 'Today Example');
   await ended.getByRole('button', { name: 'Cancel' }).waitFor();
   assert.equal(await ended.getByRole('button', { name: 'End early' }).count(), 0, 'it has ended');
-  assert.equal((await later.page.locator('#add-start option').allTextContents())[1], '1:30 PM');
+  assert.equal((await later.page.locator('#add-start option').allTextContents())[1], '1:00 PM', 'at 1:05 PM the 1:00 PM slot is still open');
   assert.deepEqual(later.errors, []);
   await later.context.close();
 });

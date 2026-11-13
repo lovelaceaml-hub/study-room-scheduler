@@ -2,7 +2,7 @@
 // details and My reservations.
 
 import { escapeHtml as esc, formatTime, formatHour, formatRange, formatDay, inSentence, weekdayName, toMinutes, nowIn } from '../shared/format.js';
-import { unitsOf, slotStarts, serviceAt, occupancyIndex, occupant, earliestStart } from '../shared/availability.js';
+import { unitsOf, slotStarts, serviceAt, occupancyIndex, occupant, earliestStart, earliestBookableStart } from '../shared/availability.js';
 import { subscribe, refresh, canBook } from './store.js';
 import { createBookingSheet } from './booking.js';
 import { createDetailsSheet } from './details.js';
@@ -135,7 +135,7 @@ function noticeHtml() {
 
 // True while `day` still has a start time that has not begun.
 function hasTimeLeft(day) {
-  const earliest = earliestStart(state.config, day.date);
+  const earliest = earliestBookableStart(state.config, day.date);
   return slotStarts(state.config).some(minute => minute >= earliest && !serviceAt(day, minute));
 }
 
@@ -151,14 +151,14 @@ function gridHtml() {
   const day = days.find(item => item.date === view.date);
   if (!day) return '';
   const ready = canBook(state);
-  const earliest = earliestStart(config, day.date);
+  const earliest = earliestBookableStart(config, day.date);
   const units = unitsOf(config, view.type);
   const open = toMinutes(config.open);
   const slot = config.slotMinutes;
   const row = minute => (minute - open) / slot + 1;
   const rows = bookings.filter(item => item.type === view.type);
   const occupancy = occupancyIndex(rows, slot);
-  let html = `<div class="time-rail" aria-hidden="true"></div><div class="now-line" aria-hidden="true" hidden></div>`;
+  let html = `<div class="time-rail" aria-hidden="true"></div><div class="now-line" aria-hidden="true" hidden><span class="now-time"></span></div>`;
 
   const slots = slotStarts(config).length;
   for (let minute = open; minute <= toMinutes(config.close); minute += 60) {
@@ -194,8 +194,9 @@ function gridHtml() {
   return html;
 }
 
-// The red line across the schedule at the current time, shown only on today
-// while the building is open. It moves on its own, without redrawing the grid.
+// The red line across the schedule at the current time, with that time on
+// the time column. Shown only on today while the building is open. It moves
+// on its own, without redrawing the grid.
 function placeNowLine() {
   const line = document.querySelector('#grid .now-line');
   if (!line || !state?.config) return;
@@ -205,7 +206,10 @@ function placeNowLine() {
   const close = toMinutes(config.close);
   const shown = view.date === clock.date && clock.minutes >= open && clock.minutes <= close;
   line.hidden = !shown;
-  if (shown) line.style.setProperty('--now', (clock.minutes - open) / config.slotMinutes);
+  if (!shown) return;
+  line.style.setProperty('--now', (clock.minutes - open) / config.slotMinutes);
+  // The time without AM or PM, so it fits the time column: "10:14".
+  line.firstElementChild.textContent = formatTime(clock.minutes).replace(/ [AP]M$/, '');
 }
 
 setInterval(placeNowLine, 20000);

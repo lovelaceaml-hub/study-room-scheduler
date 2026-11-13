@@ -68,6 +68,18 @@ function hasPassed(date, start, now = new Date()) {
   return sinceNow(date, start, now) < 0;
 }
 
+// How long after a free slot begins it can still be reserved.
+const START_GRACE_MINUTES = 20;
+
+// True once `start` on `date` can no longer be reserved: a free slot stays
+// open until START_GRACE_MINUTES after it begins (at 10:14 the 10:00 slot is
+// open until 10:20). A takeover never uses this grace; see takeoverTarget.
+function startClosed(date, start, now = new Date()) {
+  const clock = clockAt(now);
+  if (date !== clock.date) return date < clock.date;
+  return toMinutes(start) - clock.minutes <= -START_GRACE_MINUTES;
+}
+
 // True once a reservation ending at `end` on `date` is over.
 function hasEnded(date, end, now = new Date()) {
   return sinceNow(date, end, now) <= 0;
@@ -162,6 +174,8 @@ module.exports = {
   addDays,
   todayAt,
   hasPassed,
+  startClosed,
+  START_GRACE_MINUTES,
   hasEnded,
   servicesOn,
   bookableDates,

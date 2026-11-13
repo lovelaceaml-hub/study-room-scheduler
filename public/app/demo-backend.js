@@ -4,7 +4,7 @@
 
 import { DEMO_CONFIG, demoDays, demoRows } from '../shared/demo.js';
 import {
-  rangeChoice, takeoverEffect, earliestStart, earlierEnds, earlyEndChoices, hasEnded, unitsOf, validRange
+  rangeChoice, takeoverEffect, earliestBookableStart, earlierEnds, earlyEndChoices, hasEnded, unitsOf, validRange
 } from '../shared/availability.js';
 import { hasText, toMinutes, toTime, inSentence } from '../shared/format.js';
 
@@ -150,7 +150,7 @@ export function demoBackend() {
       const start = toMinutes(data.start);
       const end = toMinutes(data.end);
       if (!day || !validRange(config, day, start, end)) throw refusal('invalid-argument', 'That day is not open for reservations.');
-      if (start < earliestStart(config, data.date)) throw refusal('invalid-argument', 'That start time has already passed. Choose a later time.');
+      if (start < earliestBookableStart(config, data.date)) throw refusal('invalid-argument', 'That start time has already passed. Choose a later time.');
       if (!Object.hasOwn(config.resources, type ?? '')) throw refusal('invalid-argument', 'Choose a study room, whiteboard or TV.');
       if (!purpose) throw refusal('invalid-argument', 'Choose what the reservation is for.');
       if (!hasText(data.name)) throw refusal('invalid-argument', 'Your name is required.');

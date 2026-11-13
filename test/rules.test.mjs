@@ -5,7 +5,7 @@ import test, { before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import {
-  rangeChoice, startChoices, endChoices, earlierEnds, earliestStart, earlyEndChoices, hasEnded, takeoverEffect,
+  rangeChoice, startChoices, endChoices, earlierEnds, earliestStart, earliestBookableStart, earlyEndChoices, hasEnded, takeoverEffect,
   validRange, unitName, findUnit, occupancyIndex, occupant, overlappingBooking
 } from '../public/shared/availability.js';
 import { formatTime, formatRange, formatDuration, formatDay, toMinutes, toTime, nowIn, hasText, escapeHtml } from '../public/shared/format.js';
@@ -129,6 +129,19 @@ test('an end time never crosses a service and a tapped unit is never swapped', (
   assert.deepEqual(ends.map(toTime), ['11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30']);
   const exact = endChoices(config, [row('room-1', '12:00', '13:00')], SATURDAY, 'room', 660, 'other', 'room-1');
   assert.deepEqual(exact.map(choice => toTime(choice.end)), ['11:30', '12:00']);
+});
+
+test('a free slot can still be reserved until 20 minutes after it begins', () => {
+  assert.equal(earliestBookableStart(config, SATURDAY.date, saturdayAt('11:14')), 660, '11:00 at 11:14');
+  assert.equal(earliestBookableStart(config, SATURDAY.date, saturdayAt('11:19')), 660, '11:00 at 11:19');
+  assert.equal(earliestBookableStart(config, SATURDAY.date, saturdayAt('11:20')), 690, '11:30 at 11:20');
+  assert.equal(earliestBookableStart(config, SATURDAY.date, saturdayAt('11:00')), 660);
+  assert.equal(earliestBookableStart(config, TUESDAY.date, saturdayAt('22:59')), 0, 'a later day starts at opening');
+  assert.equal(earliestBookableStart(config, '2026-10-02', saturdayAt('09:00')), Infinity, 'an earlier day has nothing left');
+  // Taking someone's unit never starts in the past: a full room at 11:10 offers no 11:00 takeover.
+  const full = ['room-1', 'room-2', 'room-3', 'room-4'].map(unit => row(unit, '10:30', '12:00'));
+  assert.equal(rangeChoice(config, full, SATURDAY, 'room', 660, 720, 'contact', null, saturdayAt('11:10')), null);
+  assert.equal(rangeChoice(config, full, SATURDAY, 'room', 690, 720, 'contact', null, saturdayAt('11:10'))?.takeover, true);
 });
 
 test('a time that has already begun cannot be reserved', () => {

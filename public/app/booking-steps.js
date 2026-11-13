@@ -2,7 +2,7 @@
 // decides which step is on screen; this file only turns them into markup.
 
 import { escapeHtml as esc, formatTime, formatRange, formatDuration, formatDay, inSentence } from '../shared/format.js';
-import { startChoices, endChoices, earliestStart, takeoverEffect } from '../shared/availability.js';
+import { startChoices, endChoices, earliestBookableStart, takeoverEffect } from '../shared/availability.js';
 import { purposeLabel, detailLabel, placeLabel, unitLabel } from './text.js';
 import { summaryHtml, disabledAttr } from './parts.js';
 import { ICONS } from './icons.js';
@@ -39,7 +39,7 @@ export function createSteps(ctx) {
       </button>`).join('')}</div>`,
 
     start: () => {
-      const choices = day() ? startChoices(config(), rows(), day(), ctx.draft.type, ctx.draft.purpose, null, earliestStart(config(), ctx.draft.date), ctx.draft.force) : [];
+      const choices = day() ? startChoices(config(), rows(), day(), ctx.draft.type, ctx.draft.purpose, null, earliestBookableStart(config(), ctx.draft.date), ctx.draft.force) : [];
       if (!choices.length) {
         return heading('Start time', ctx.draft.force
           ? 'No times on this day, even with Force override. Close this and choose another day, or go back and choose something else.'
