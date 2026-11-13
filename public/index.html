@@ -17,12 +17,15 @@
 <body>
   <div class="page">
     <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        <h1>Study Rooms <span>LV Zion</span></h1>
+      <div class="topbar-row">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <h1>Study Rooms <span>LV Zion</span></h1>
+        </div>
+        <span class="status-pill" id="status-pill">Connecting</span>
+        <a href="?view=mine" class="avatar" id="mine-link" title="My reservations"></a>
       </div>
-      <span class="status-pill" id="status-pill">Connecting</span>
-      <a href="?view=mine" class="avatar" id="mine-link" title="My reservations"></a>
+      <div class="types" id="types" role="group" aria-label="Show"></div>
     </header>
 
     <aside class="sidebar">
@@ -36,7 +39,6 @@
 
     <main class="schedule">
       <h2 class="visually-hidden">Schedule</h2>
-      <div class="types" id="types" role="group" aria-label="Show"></div>
       <div class="day-picker">
         <button type="button" class="day-step" id="days-back" aria-label="Earlier days" disabled>
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m14 6-6 6 6 6"/></svg>
@@ -54,10 +56,10 @@
         <div class="notice" id="notice" role="status"></div>
         <div class="grid" id="grid"></div>
         <p class="legend" id="legend"></p>
+        <nav class="links" aria-label="Pages">
+          <a href="/admin/">Admin</a>
+        </nav>
       </section>
-      <nav class="links" aria-label="Pages">
-        <a href="/admin/">Admin</a>
-      </nav>
     </main>
   </div>
 

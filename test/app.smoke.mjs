@@ -389,8 +389,11 @@ test('a second Escape while saving closes the sheet cleanly, and the result come
   await page.keyboard.press('Escape');
   await sheet.waitFor({ state: 'hidden' });
   await page.waitForFunction(() => !document.body.classList.contains('sheet-open'));
+  // The time slots scroll again once the sheet is gone.
+  const board = await page.locator('.board').boundingBox();
+  await page.mouse.move(board.x + board.width / 2, board.y + board.height / 2);
   await page.mouse.wheel(0, 600);
-  await page.waitForFunction(() => scrollY > 0, null, { timeout: 2000 });
+  await page.waitForFunction(() => document.querySelector('.board').scrollTop > 0, null, { timeout: 2000 });
   await page.waitForFunction(() => window.__finishSave);
   await page.evaluate(() => window.__finishSave());
   await sheet.getByRole('heading', { name: 'Reservation confirmed' }).waitFor();
@@ -676,7 +679,7 @@ test('Escape goes back a step, a double tap keeps the sheet open, and a stray ta
   const { page, errors, context, sheet } = await openApp();
   // A double tap on an open time: the second tap lands outside the new sheet.
   const open = page.getByRole('button', slot('Room 3', '1:00 PM'));
-  await open.evaluate(element => scrollBy(0, element.getBoundingClientRect().top - 200));
+  await open.evaluate(element => element.closest('.board').scrollBy(0, element.getBoundingClientRect().top - 300));
   const box = await open.boundingBox();
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
