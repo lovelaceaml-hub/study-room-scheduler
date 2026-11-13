@@ -64,8 +64,9 @@ function render() {
   $('.board').style.setProperty('--slots', slotStarts(config).length);
   paint($('#unit-headings'), `<span>Time</span>${units.map(unit => `<span>${esc(unit.name)}${unit.note ? `<small>${esc(unit.note)}</small>` : ''}</span>`).join('')}`);
   const day = days.find(item => item.date === view.date);
-  $('#day-caption').textContent = day ? formatDay(day.date) : '';
-  $('#hint').textContent = !ready || !day ? '' : hasTimeLeft(day) ? 'Choose an open time to reserve it.' : 'No more open times on this day.';
+  // The day is shown by the chosen day card; screen readers hear it with the schedule.
+  $('.board').setAttribute('aria-label', day ? `Schedule for ${formatDay(day.date)}` : 'Day schedule');
+  $('#hint').textContent = ready && day && !hasTimeLeft(day) ? 'No more open times on this day.' : '';
   if (!lastGrid || lastGrid.config !== config || lastGrid.days !== days || lastGrid.bookings !== state.bookings
       || lastGrid.date !== view.date || lastGrid.type !== view.type || lastGrid.ready !== ready
       || lastGrid.highlight !== view.highlight) {
