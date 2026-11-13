@@ -8,5 +8,6 @@ export const ICONS = {
   tv: svg('<rect x="3" y="4" width="18" height="14" rx="3"/><path d="M8 22h8m-4-4v4"/>'),
   back: svg('<path d="m14 6-6 6 6 6"/>'),
   close: svg('<path d="m6 6 12 12M6 18 18 6"/>'),
+  person: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'),
   check: svg('<path d="m5 12 5 5 9-10"/>')
 };

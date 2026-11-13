@@ -227,6 +227,23 @@ test('at 4:10 PM the first open start today is 4:30 PM', async () => {
   await context.close();
 });
 
+test('on a narrow phone the day arrows scroll the days, and today says Today', async () => {
+  const { page, errors, context } = await openApp('', { width: 300, day: null });
+  const back = page.locator('#days-back');
+  const next = page.locator('#days-next');
+  await page.locator(`[data-date="${TODAY}"] .date-month`, { hasText: 'Today' }).waitFor();
+  assert.equal(await back.isDisabled(), true);
+  assert.equal(await next.isDisabled(), false);
+  await next.click();
+  await page.waitForFunction(() => document.querySelector('#days-next').disabled);
+  assert.equal(await back.isDisabled(), false);
+  await page.locator('[data-date="2026-10-06"]').click();
+  await page.locator('[data-date="2026-10-06"][aria-pressed="true"]').waitFor();
+  assert.equal(await fitsWidth(page), true);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 test('late on Saturday the page opens on Sunday, and Saturday says it has no times left', async () => {
   const now = saturdayAt('23:10');
   const { page, errors, context } = await openApp('', { now, fixture: schedule({ now, bookings: [], mine: [] }), day: null });
