@@ -5,7 +5,7 @@ Members reserve study rooms, whiteboards and TVs; the lobby TV shows the day's r
 ## Quick links
 
 - **Website:** [Reservations](https://lvrooms.web.app), [Lobby TV](https://lvrooms.web.app/tv.html), [Admin](https://lvrooms.web.app/admin/).
-- **Status:** Live. The Hosting release workflow now checks a temporary one-day preview before production and checks production after release. Latest release: [run 43479328758](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/43479328758) (2026-11-13, still page with scrolling time slots).
+- **Status:** Live. The Hosting release workflow now checks a temporary one-day preview before production and checks production after release. Latest release: Functions [run 43482232299](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/43482232299) and Hosting [run 43482741615](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/43482741615) (2026-11-13, 20-minute grace for free slots, time on the red line).
 - **Docs:** [Handoff](docs/HANDOFF.md), [Latest plan (complete)](docs/PLAN-19-hosting-release-preflight.md), [Review 2026-11-03](docs/reviews/2026-11-03-review.md), [Member guide](docs/USER-MANUAL.md), [All documents](docs/).
 
 - App: https://lvrooms.web.app

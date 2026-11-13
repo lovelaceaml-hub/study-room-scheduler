@@ -14,6 +14,29 @@ production, and stops if any check fails. It repeats those read-only checks
 after publishing. The production release deployed `hosting:app` only; no
 Functions or Firestore rules were deployed, and no booking data was changed.
 
+## 20-minute grace and time on the red line 2026-11-13
+
+A free slot can be reserved until 20 minutes after it begins (at 10:14 the
+10:00 slot is open until 10:20). The server enforces it (`startClosed` in
+`functions/lib/schedule.js`) and the member page, Admin form and demo follow it
+(`earliestBookableStart` in `public/shared/availability.js`). Takeovers and
+Force overrides do not get the grace, so nobody already in a room is cut back
+to a time that has passed; End early is unchanged. The red line now shows the
+current time on the time column, and the Admin link is gone from the member
+page (Admin is still at `/admin/`).
+
+Merged as pull request #38 (`b49f9aa`). Released Functions first, all 10, rules
+untouched, in
+[run 43482232299](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/43482232299),
+then `hosting:app` in
+[run 43482741615](https://github.com/lovelaceaml-hub/study-room-scheduler/actions/runs/43482741615).
+Full suites were not ticked. Focused tests: `test/rules.test.mjs` plus
+`functions/test/rules.test.js`, `takeover.test.js` and `endpoints.test.js` 88 of
+88 (a new test shows the grace never shortens someone in a room),
+`test/app.smoke.mjs` 35 of 35, `test/admin.smoke.mjs` 27 of 27. Afterwards,
+read-only on the live page at 10:31 AM: "Live", the line read "10:31" and Room 1
+offered 10:30 AM. No booking data was changed.
+
 ## Still page and scrolling time slots 2026-11-13
 
 The member page no longer scrolls; it fills the screen and only the time slot
