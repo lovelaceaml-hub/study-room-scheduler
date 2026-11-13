@@ -159,7 +159,8 @@ test('the schedule shows public names, holds and my own reservation', async () =
   await page.getByRole('button', { name: /^B John, Contact, Room 1/ }).waitFor();
   assert.equal(await page.getByRole('button', { name: /^Reserved, Room 2, 12:00 PM/ }).count(), 1);
   assert.equal(await page.getByRole('button', slot('Room 3', '1:00 PM')).count(), 1, 'an open time says what it is first');
-  assert.equal(await page.locator('#hint').textContent(), 'Choose an open time to reserve it.');
+  assert.equal(await page.locator('#hint').textContent(), '');
+  assert.equal(await page.locator('.board-caption .legend').textContent().then(text => text.includes('New Member')), true, 'the color key is in the caption');
   const firstService = daysAt(TEST_NOW).find(day => day.date === DAY).services[0].label;
   assert.equal(await page.locator('.service').first().textContent().then(text => text.includes(firstService)), true);
   await page.locator('.type-button[data-type="whiteboard"]').click();

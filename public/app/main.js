@@ -1,7 +1,7 @@
 // Member app: the day schedule, plus the sheets for booking, reservation
 // details and My reservations.
 
-import { escapeHtml as esc, formatTime, formatHour, formatRange, formatDay, inSentence, weekdayName, toMinutes, nowIn } from '../shared/format.js';
+import { escapeHtml as esc, formatTime, formatHour, formatRange, formatDay, inSentence, weekdayName, monthDay, toMinutes, nowIn } from '../shared/format.js';
 import { unitsOf, slotStarts, serviceAt, occupancyIndex, occupant, earliestStart } from '../shared/availability.js';
 import { subscribe, refresh, canBook } from './store.js';
 import { createBookingSheet } from './booking.js';
@@ -64,8 +64,9 @@ function render() {
   $('.board').style.setProperty('--slots', slotStarts(config).length);
   paint($('#unit-headings'), `<span>Time</span>${units.map(unit => `<span>${esc(unit.name)}${unit.note ? `<small>${esc(unit.note)}</small>` : ''}</span>`).join('')}`);
   const day = days.find(item => item.date === view.date);
-  $('#day-caption').textContent = day ? formatDay(day.date) : '';
-  $('#hint').textContent = !ready || !day ? '' : hasTimeLeft(day) ? 'Choose an open time to reserve it.' : 'No more open times on this day.';
+  // A phone shows the short form so the color key fits beside it.
+  paint($('#day-caption'), day ? `<span class="long-date">${esc(formatDay(day.date))}</span><span class="short-date" aria-hidden="true">${esc(weekdayName(day.date).slice(0, 3))}, ${esc(monthDay(day.date))}</span>` : '');
+  $('#hint').textContent = ready && day && !hasTimeLeft(day) ? 'No more open times on this day.' : '';
   if (!lastGrid || lastGrid.config !== config || lastGrid.days !== days || lastGrid.bookings !== state.bookings
       || lastGrid.date !== view.date || lastGrid.type !== view.type || lastGrid.ready !== ready
       || lastGrid.highlight !== view.highlight) {
