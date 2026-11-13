@@ -133,6 +133,32 @@ html { scroll-padding-top: 160px; }
 }
 .hour.last { align-self: end; transform: translateY(50%); }
 
+/* The current time: a red line across the rooms, with a dot on the time rail. */
+.now-line {
+  position: absolute;
+  grid-column: 2 / -1;
+  grid-row: 1 / -1;
+  z-index: 3;
+  top: calc(var(--now, 0) * var(--row));
+  left: 0;
+  right: 3px;
+  height: 2px;
+  margin-top: -1px;
+  background: #d93025;
+  pointer-events: none;
+}
+.now-line::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d93025;
+}
+.now-line[hidden] { display: none; }
+
 .open-slot, .closed-slot, .booking { min-width: 0; margin: 3px; border-radius: 12px; }
 .open-slot {
   border: 0;
